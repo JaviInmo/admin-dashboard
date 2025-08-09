@@ -10,15 +10,15 @@ export default function ClientPage() {
   // Datos de propiedades por cliente (incluye gastos)
   const propertiesData: Record<number, any[]> = {
     1: [
-      { id: 1, name: "Oficina Central", price: 200, hours: 160, fuelCost: 50, expenses: 160 },
-      { id: 2, name: "Sucursal Norte", price: 180, hours: 140, fuelCost: 40, expenses: 150 },
+      { id: 1, name: "Oficina Central", price: 500, hours: 160, fuelCost: 50, expenses: 160 },
+      { id: 2, name: "Sucursal Norte", price: 300, hours: 140, fuelCost: 40, expenses: 150 },
     ],
     2: [
-      { id: 3, name: "Bodega Sur", price: 150, hours: 120, fuelCost: 35, expenses: 120 },
-      { id: 4, name: "Sucursal Este", price: 170, hours: 130, fuelCost: 45, expenses: 140 },
+      { id: 3, name: "Bodega Sur", price: 460, hours: 120, fuelCost: 35, expenses: 120 },
+      { id: 4, name: "Sucursal Este", price: 525, hours: 130, fuelCost: 45, expenses: 140 },
     ],
     3: [
-      { id: 5, name: "Planta Industrial", price: 300, hours: 200, fuelCost: 80, expenses: 250 },
+      { id: 5, name: "Planta Industrial", price: 364, hours: 200, fuelCost: 80, expenses: 250 },
     ],
   }
 
