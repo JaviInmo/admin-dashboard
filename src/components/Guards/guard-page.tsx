@@ -4,41 +4,92 @@ import * as React from "react"
 import GuardsTable from "./GuardsTable"
 import GuardShiftsTable from "./GuardShiftsTable"
 
+type Shift = {
+  id: number
+  status: "pendiente" | "hecho" | "cancelado"
+  hours: number
+  date: string // ISO o mostrar-friendly
+  location: string
+  pricePerHour: number
+}
+
+// Ajusta este máximo según la normativa/empresa
+const MAX_WEEKLY_HOURS = 48
+
 export default function UsersContent() {
   const [selectedGuardId, setSelectedGuardId] = React.useState<number | null>(null)
 
-  // Datos de ejemplo
-  const guards = [
- { id: 1, name: "Carlos López", price: 15, hours: 40 },
-  { id: 2, name: "María Pérez", price: 18, hours: 35 },
-  { id: 3, name: "José Ramírez", price: 20, hours: 42 },
-  { id: 4, name: "Ana Torres", price: 16, hours: 38 },
-  { id: 5, name: "Pedro González", price: 17, hours: 45 },
+  // Guardias base (sin cálculos)
+  const baseGuards = [
+    { id: 1, name: "Carlos López" },
+    { id: 2, name: "María Pérez" },
+    { id: 3, name: "José Ramírez" },
+    { id: 4, name: "Ana Torres" },
+    { id: 5, name: "Pedro González" },
   ]
 
-  const shiftsData: Record<number, any[]> = {
+  // Shift data estática por guardia (incluye horas y pricePerHour)
+  const shiftsData: Record<number, Shift[]> = {
     1: [
-      { id: 1, status: "pendiente", location: "Oficina Central", date: "2025-08-10" },
-      { id: 2, status: "hecho", location: "Almacén Norte", date: "2025-08-05" },
+      { id: 11, status: "pendiente", hours: 8, date: "2025-08-10", location: "Oficina Central", pricePerHour: 15 },
+      { id: 12, status: "hecho", hours: 6, date: "2025-08-05", location: "Almacén Norte", pricePerHour: 12 },
+      { id: 13, status: "hecho", hours: 10, date: "2025-08-07", location: "Centro Comercial", pricePerHour: 16 },
     ],
     2: [
-      { id: 3, status: "cancelado", location: "Planta Sur", date: "2025-08-02" },
+      { id: 21, status: "cancelado", hours: 5, date: "2025-08-02", location: "Planta Sur", pricePerHour: 18 },
+      { id: 22, status: "hecho", hours: 7, date: "2025-08-06", location: "Edificio A", pricePerHour: 17 },
+    ],
+    3: [
+      { id: 31, status: "hecho", hours: 12, date: "2025-08-03", location: "Hospital General", pricePerHour: 20 },
+      { id: 32, status: "pendiente", hours: 15, date: "2025-08-09", location: "Centro Logístico", pricePerHour: 14 },
+    ],
+    4: [
+      // Sin turnos -> demostración de guardia con 0 horas
+    ],
+    5: [
+      { id: 51, status: "hecho", hours: 20, date: "2025-08-01", location: "Plaza Oeste", pricePerHour: 17 },
+      { id: 52, status: "hecho", hours: 26, date: "2025-08-04", location: "Residencial Norte", pricePerHour: 17 },
+      // Ejemplo excedente (46 horas totales) para probar límite
     ],
   }
 
-  const selectedGuard = guards.find((g) => g.id === selectedGuardId)
+  // Agregamos totalHours y totalSalary para la tabla de guardias
+  const guards = baseGuards.map((g) => {
+    const shifts = shiftsData[g.id] ?? []
+    const totalHours = shifts.reduce((acc, s) => acc + s.hours, 0)
+    const totalSalary = shifts.reduce((acc, s) => acc + s.hours * s.pricePerHour, 0)
+    // Si quieres forzar un máximo, aquí podrías truncar/capear totalHours o marcarlo.
+    if (totalHours > MAX_WEEKLY_HOURS) {
+      console.warn(`Guardia ${g.name} (${g.id}) supera el máximo semanal de horas: ${totalHours} > ${MAX_WEEKLY_HOURS}`)
+    }
+    return {
+      id: g.id,
+      name: g.name,
+      totalHours,
+      totalSalary: Number(totalSalary.toFixed(2)),
+    }
+  })
+
+  const selectedGuardShifts = (selectedGuardId && shiftsData[selectedGuardId]) ? shiftsData[selectedGuardId] : []
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
       <h2 className="text-2xl font-bold">Gestión de Guardias</h2>
+      <p className="text-sm text-muted-foreground">
+        Nota: los totales se calculan sumando los turnos (hours × pricePerHour). Máx. semanal configurado a {MAX_WEEKLY_HOURS}h.
+      </p>
 
       <GuardsTable guards={guards} onSelectGuard={setSelectedGuardId} />
 
-      {selectedGuard && (
+      {selectedGuardId ? (
         <GuardShiftsTable
-          shifts={shiftsData[selectedGuard.id] || []}
-          guardName={selectedGuard.name}
+          shifts={selectedGuardShifts}
+          guardName={guards.find((g) => g.id === selectedGuardId)?.name ?? "—"}
         />
+      ) : (
+        <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+          <p className="text-sm text-muted-foreground">Selecciona un guardia para ver sus turnos.</p>
+        </div>
       )}
     </div>
   )

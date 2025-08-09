@@ -18,6 +18,8 @@ interface Client {
   name: string
   propertyCount: number
   totalPrice: number
+  totalFuel: number
+  totalExpenses: number
 }
 
 interface ClientsTableProps {
@@ -47,6 +49,8 @@ export default function ClientsTable({ clients, onSelectClient }: ClientsTablePr
             <TableHead>Nombre</TableHead>
             <TableHead className="text-center"># Propiedades</TableHead>
             <TableHead className="text-center">Precio Total ($)</TableHead>
+            <TableHead className="text-center">Gastos ($)</TableHead>
+            <TableHead className="text-center">Gasolina ($)</TableHead>
             <TableHead className="w-[100px] text-center">Acciones</TableHead>
           </TableRow>
         </TableHeader>
@@ -63,6 +67,8 @@ export default function ClientsTable({ clients, onSelectClient }: ClientsTablePr
               </TableCell>
               <TableCell className="text-center">{client.propertyCount}</TableCell>
               <TableCell className="text-center">{client.totalPrice.toFixed(2)}</TableCell>
+              <TableCell className="text-center">{client.totalExpenses.toFixed(2)}</TableCell>
+              <TableCell className="text-center">{client.totalFuel.toFixed(2)}</TableCell>
               <TableCell className="flex gap-2 justify-center">
                 <Button size="icon" variant="ghost" onClick={() => alert(`Editar ${client.name}`)}>
                   <Pencil className="h-4 w-4" />

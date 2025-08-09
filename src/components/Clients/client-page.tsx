@@ -7,18 +7,18 @@ import ClientPropertiesTable from "./client-properties-table"
 export default function ClientPage() {
   const [selectedClientId, setSelectedClientId] = React.useState<number | null>(null)
 
-  // Datos de propiedades por cliente (ejemplo lógico)
+  // Datos de propiedades por cliente (incluye gastos)
   const propertiesData: Record<number, any[]> = {
     1: [
-      { id: 1, name: "Oficina Central", price: 200, hours: 160, fuelCost: 50 },
-      { id: 2, name: "Sucursal Norte", price: 180, hours: 140, fuelCost: 40 },
+      { id: 1, name: "Oficina Central", price: 200, hours: 160, fuelCost: 50, expenses: 160 },
+      { id: 2, name: "Sucursal Norte", price: 180, hours: 140, fuelCost: 40, expenses: 150 },
     ],
     2: [
-      { id: 3, name: "Bodega Sur", price: 150, hours: 120, fuelCost: 35 },
-      { id: 4, name: "Sucursal Este", price: 170, hours: 130, fuelCost: 45 },
+      { id: 3, name: "Bodega Sur", price: 150, hours: 120, fuelCost: 35, expenses: 120 },
+      { id: 4, name: "Sucursal Este", price: 170, hours: 130, fuelCost: 45, expenses: 140 },
     ],
     3: [
-      { id: 5, name: "Planta Industrial", price: 300, hours: 200, fuelCost: 80 },
+      { id: 5, name: "Planta Industrial", price: 300, hours: 200, fuelCost: 80, expenses: 250 },
     ],
   }
 
@@ -30,10 +30,14 @@ export default function ClientPage() {
   ].map(client => {
     const props = propertiesData[client.id] || []
     const totalPrice = props.reduce((sum, p) => sum + p.price, 0)
+    const totalFuel = props.reduce((sum, p) => sum + p.fuelCost, 0)
+    const totalExpenses = props.reduce((sum, p) => sum + p.expenses, 0)
     return {
       ...client,
       propertyCount: props.length,
       totalPrice,
+      totalFuel,
+      totalExpenses,
     }
   })
 

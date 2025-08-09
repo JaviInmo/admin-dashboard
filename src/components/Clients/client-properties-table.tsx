@@ -4,6 +4,14 @@ import React from "react"
 import { Pencil, Trash } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
 
 interface Property {
   id: number
@@ -11,6 +19,7 @@ interface Property {
   price: number
   hours: number
   fuelCost: number
+  expenses: number
 }
 
 interface ClientPropertiesTableProps {
@@ -19,26 +28,37 @@ interface ClientPropertiesTableProps {
 }
 
 export default function ClientPropertiesTable({ properties, clientName }: ClientPropertiesTableProps) {
+  const [page, setPage] = React.useState(1)
+  const itemsPerPage = 5
+  const totalPages = Math.max(1, Math.ceil(properties.length / itemsPerPage))
+  const startIndex = (page - 1) * itemsPerPage
+  const paginatedProperties = properties.slice(startIndex, startIndex + itemsPerPage)
+
+  const goToPage = (p: number) => setPage(Math.max(1, Math.min(totalPages, p)))
+
   return (
     <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm space-y-4">
       <h3 className="text-lg font-semibold">Propiedades de {clientName}</h3>
+
       <Table>
         <TableHeader>
           <TableRow>
             <TableHead>Nombre</TableHead>
             <TableHead className="text-center">Precio ($)</TableHead>
+            <TableHead className="text-center">Gastos ($)</TableHead>
             <TableHead className="text-center">Horas/Mes</TableHead>
             <TableHead className="text-center">Gasolina ($)</TableHead>
             <TableHead className="w-[100px] text-center">Acciones</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {properties.map((property) => (
+          {paginatedProperties.map((property) => (
             <TableRow key={property.id}>
               <TableCell>{property.name}</TableCell>
-              <TableCell className="text-center">{property.price}</TableCell>
+              <TableCell className="text-center">{property.price.toFixed(2)}</TableCell>
+              <TableCell className="text-center">{property.expenses.toFixed(2)}</TableCell>
               <TableCell className="text-center">{property.hours}</TableCell>
-              <TableCell className="text-center">{property.fuelCost}</TableCell>
+              <TableCell className="text-center">{property.fuelCost.toFixed(2)}</TableCell>
               <TableCell className="flex gap-2 justify-center">
                 <Button size="icon" variant="ghost" onClick={() => alert(`Editar ${property.name}`)}>
                   <Pencil className="h-4 w-4" />
@@ -51,6 +71,36 @@ export default function ClientPropertiesTable({ properties, clientName }: Client
           ))}
         </TableBody>
       </Table>
+
+      {/* Paginación */}
+      <div className="flex justify-end">
+        <Pagination>
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious
+                onClick={() => goToPage(page - 1)}
+                className={page === 1 ? "opacity-50 pointer-events-none" : ""}
+              />
+            </PaginationItem>
+            {Array.from({ length: totalPages }, (_, i) => (
+              <PaginationItem key={i}>
+                <PaginationLink
+                  isActive={page === i + 1}
+                  onClick={() => goToPage(i + 1)}
+                >
+                  {i + 1}
+                </PaginationLink>
+              </PaginationItem>
+            ))}
+            <PaginationItem>
+              <PaginationNext
+                onClick={() => goToPage(page + 1)}
+                className={page === totalPages ? "opacity-50 pointer-events-none" : ""}
+              />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
+      </div>
     </div>
   )
 }
