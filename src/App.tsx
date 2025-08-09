@@ -1,13 +1,9 @@
+// src/App.tsx
+import { useState } from 'react'
+import DashboardLayout from './components/dashboard-layout'
+import LoginPage from './components/login-page'
 
-import './App.css'
-
-"use client" // Asegúrate de que esta línea esté al principio del archivo
-
-import { useState } from 'react' // Importa useState
-import DashboardLayout from "../src/components/Dashboard/dashboard-content"
-import LoginPage from "../src/components/login-page"
-
-export default function Page() {
+function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
 
   const handleLoginSuccess = () => {
@@ -15,7 +11,7 @@ export default function Page() {
   }
 
   return (
-    <div>
+    <div className="app">
       {isLoggedIn ? (
         <DashboardLayout />
       ) : (
@@ -24,3 +20,5 @@ export default function Page() {
     </div>
   )
 }
+
+export default App
