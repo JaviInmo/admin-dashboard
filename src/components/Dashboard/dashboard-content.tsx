@@ -3,6 +3,7 @@
 import { DashboardKPISection } from "./DashboardKPISection"
 import { DashboardChart } from "./DashboardChart"
 import { DashboardTable } from "./DashboardTable"
+import { DashboardGroupedChart } from "./DashboardGroupedChart"
 
 export default function DashboardPage() {
   return (
@@ -10,6 +11,7 @@ export default function DashboardPage() {
       <h2 className="text-2xl font-bold">Dashboard Overview</h2>
       <DashboardKPISection />
       <DashboardChart />
+      <DashboardGroupedChart />
       <DashboardTable />
     </div>
   )
