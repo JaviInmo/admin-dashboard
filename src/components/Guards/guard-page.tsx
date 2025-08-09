@@ -1,20 +1,19 @@
 "use client"
 
 import * as React from "react"
-import GuardsTable from "./guardstable"
-import GuardShiftsTable from "./guardshiftstable"
+import GuardsTable from "./GuardsTable"
+import GuardShiftsTable from "./GuardShiftsTable"
 
 export default function UsersContent() {
   const [selectedGuardId, setSelectedGuardId] = React.useState<number | null>(null)
 
   // Datos de ejemplo
   const guards = [
-    { id: 1, name: "Juan Pérez", price: 10 },
-    { id: 2, name: "Pedro Gómez", price: 12 },
-    { id: 3, name: "Luis Ramírez", price: 9 },
-    { id: 4, name: "Carlos López", price: 11 },
-    { id: 5, name: "Andrés Torres", price: 13 },
-    { id: 6, name: "Mario Ruiz", price: 8 },
+ { id: 1, name: "Carlos López", price: 15, hours: 40 },
+  { id: 2, name: "María Pérez", price: 18, hours: 35 },
+  { id: 3, name: "José Ramírez", price: 20, hours: 42 },
+  { id: 4, name: "Ana Torres", price: 16, hours: 38 },
+  { id: 5, name: "Pedro González", price: 17, hours: 45 },
   ]
 
   const shiftsData: Record<number, any[]> = {

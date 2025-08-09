@@ -36,8 +36,8 @@ import {
 
 // Importa los nuevos componentes de contenido
 import DashboardContent from "@/components/Dashboard/dashboard-content"
-import SalesRegistrationContent from "@/components/Clients/sales-registration-content"
-import UsersContent from "@/components/Guards/users-content"
+import SalesRegistrationContent from "@/components/Clients/client-page"
+import UsersContent from "@/components/Guards/guard-page"
 
 export default function DashboardLayout() {
   const [activeMenuItem, setActiveMenuItem] = useState('Dashboard');
