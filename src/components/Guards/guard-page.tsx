@@ -16,7 +16,7 @@ type Shift = {
 // Ajusta este máximo según la normativa/empresa
 const MAX_WEEKLY_HOURS = 48
 
-export default function UsersContent() {
+export default function GuardsContent() {
   const [selectedGuardId, setSelectedGuardId] = React.useState<number | null>(null)
 
   // Guardias base (sin cálculos)
