@@ -4,6 +4,7 @@ export interface User {
   id: number
   name: string
   email: string
+  permissions: Permissions
 }
 
 export type PermissionAction = "create" | "edit" | "read" | "delete"
