@@ -1,10 +1,11 @@
 "use client" // Asegúrate de que esta línea esté al principio del archivo
 
-import { useState } from 'react' // Importa useState
+import { useState, type FormEvent } from 'react' // Importa useState y tipos
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { login as authLogin } from '@/lib/services/auth'
 
 // Define las props para el componente LoginPage
 interface LoginPageProps {
@@ -13,22 +14,38 @@ interface LoginPageProps {
 
 // Actualiza la definición del componente para aceptar las props
 export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
-  const [email, setEmail] = useState('')
+  const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const handleLogin = (event: React.FormEvent) => {
+  const handleLogin = async (event: FormEvent) => {
     event.preventDefault() // Previene el comportamiento por defecto del formulario
     setLoading(true)
+    setError(null)
 
-    // Lógica de verificación simple (puedes cambiar estas credenciales)
-    if (email === "user@gmail.com" && password === "123456") {
-      alert("Inicio de sesión exitoso!")
-      onLoginSuccess() // Llama a la función de éxito de login
-    } else {
-      alert("Credenciales incorrectas. Intenta de nuevo.")
+    try {
+      // El backend requiere `username`.
+      await authLogin({ username, password })
+      onLoginSuccess()
+    } catch (e) {
+      // Intenta mostrar el mensaje del servidor si existe
+      let message = 'Credenciales incorrectas. Intenta de nuevo.'
+      try {
+        const anyErr = e as any
+        const data = anyErr?.response?.data
+        if (data) {
+          if (typeof data === 'string') message = data
+          else if (typeof data.detail === 'string') message = data.detail
+          else if (Array.isArray(data.non_field_errors) && data.non_field_errors[0]) message = data.non_field_errors[0]
+          else if (Array.isArray(data.username) && data.username[0]) message = data.username[0]
+          else if (Array.isArray(data.password) && data.password[0]) message = data.password[0]
+        }
+      } catch {}
+      setError(message)
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   return (
@@ -36,19 +53,23 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
       <Card className="w-full max-w-sm">
         <CardHeader className="space-y-1 text-center">
           <CardTitle className="text-2xl font-bold">Login</CardTitle>
-          <CardDescription>Enter your email and password to access your account.</CardDescription>
+          <CardDescription>Enter your username and password to access your account.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
           <form onSubmit={handleLogin}> {/* Envuelve los inputs en un formulario y añade onSubmit */}
             <div className="grid gap-2 mb-4"> {/* Añade un margen inferior para separar */}
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="username">Usuario</Label>
               <Input
-                id="email"
-                type="email"
-                placeholder="m@example.com"
+                id="username"
+                type="text"
+                placeholder="usuario"
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                disabled={loading}
+                autoCapitalize="none"
+                autoComplete="username"
+                autoCorrect="off"
               />
             </div>
             <div className="grid gap-2">
@@ -59,12 +80,17 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
+                autoComplete="current-password"
               />
             </div>
             {/* El botón ahora está dentro del formulario */}
             <Button type="submit" className="w-full mt-6" disabled={loading}> {/* Añade mt-6 para el margen superior */}
               {loading ? "Iniciando..." : "Sign in"}
             </Button>
+            {error ? (
+              <p className="text-sm text-red-600 mt-2" role="alert">{error}</p>
+            ) : null}
           </form>
         </CardContent>
       </Card>
