@@ -14,12 +14,15 @@ import DeleteUserDialog from "./Delete/Delete"
 interface UsersTableProps {
   users: (User & { permissions?: Permissions })[]
   onSelectUser: (id: number) => void
+  onRefresh?: () => Promise<void>
 }
 
-export default function UsersTable({ users, onSelectUser }: UsersTableProps) {
+const sectionsOrder: Array<keyof Permissions> = ["cliente", "guardia", "ubicacion", "dashboard"]
+
+export default function UsersTable({ users, onSelectUser, onRefresh }: UsersTableProps) {
   const [page, setPage] = React.useState(1)
   const [search, setSearch] = React.useState("")
-  const [sortField, setSortField] = React.useState<keyof User>("name")
+  const [sortField, setSortField] = React.useState<keyof User>("username")
   const [sortOrder, setSortOrder] = React.useState<"asc" | "desc">("asc")
 
   const [createOpen, setCreateOpen] = React.useState(false)
@@ -28,11 +31,26 @@ export default function UsersTable({ users, onSelectUser }: UsersTableProps) {
 
   const itemsPerPage = 5
 
-  const filteredUsers = users
-    .filter((u) => u.name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase()))
+  const normalizedUsers = users.map(u => ({
+    ...u,
+    firstName: u.firstName ?? (u.name ? u.name.split(" ").slice(0, -1).join(" ") || u.name : ""),
+    lastName: u.lastName ?? (u.name ? u.name.split(" ").slice(-1).join("") : ""),
+  } as User))
+
+  const filteredUsers = normalizedUsers
+    .filter((u) => {
+      const q = search.toLowerCase()
+      return (
+        (u.username ?? "").toLowerCase().includes(q) ||
+        (u.firstName ?? "").toLowerCase().includes(q) ||
+        (u.lastName ?? "").toLowerCase().includes(q) ||
+        (u.email ?? "").toLowerCase().includes(q) ||
+        (u.name ?? "").toLowerCase().includes(q)
+      )
+    })
     .sort((a, b) => {
-      const valA = a[sortField] ?? ""
-      const valB = b[sortField] ?? ""
+      const valA = (a[sortField] ?? "") as unknown as string
+      const valB = (b[sortField] ?? "") as unknown as string
       return sortOrder === "asc"
         ? String(valA).localeCompare(String(valB))
         : String(valB).localeCompare(String(valA))
@@ -66,6 +84,37 @@ export default function UsersTable({ users, onSelectUser }: UsersTableProps) {
     )
   }
 
+  const renderPermissions = (p?: Permissions) => {
+    if (!p) {
+      return <span className="text-sm text-muted-foreground">Sin permisos</span>
+    }
+
+    const actionAbbr: Record<string, string> = { create: "C", edit: "E", read: "R", delete: "D" }
+
+    return (
+      <div className="flex gap-2 flex-wrap">
+        {sectionsOrder.map((section) => {
+          const sectionPerms = p[section]
+          if (!sectionPerms) return null
+          const letters = (Object.keys(sectionPerms) as Array<keyof typeof sectionPerms>)
+            .filter((act) => !!sectionPerms[act])
+            .map((act) => actionAbbr[act] ?? act[0].toUpperCase())
+            .join("")
+          return (
+            <span
+              key={section}
+              className="px-2 py-0.5 rounded-md bg-slate-100 text-xs text-slate-800 border"
+              title={`${section}: ${letters || "—"}`}
+            >
+              <strong className="capitalize mr-1">{section}:</strong>
+              <span>{letters || "—"}</span>
+            </span>
+          )
+        })}
+      </div>
+    )
+  }
+
   return (
     <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm space-y-4">
       <div className="flex justify-between items-center">
@@ -75,7 +124,7 @@ export default function UsersTable({ users, onSelectUser }: UsersTableProps) {
             placeholder="Buscar..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-48"
+            className="w-64"
           />
           <Button onClick={() => setCreateOpen(true)}>Agregar</Button>
         </div>
@@ -84,18 +133,19 @@ export default function UsersTable({ users, onSelectUser }: UsersTableProps) {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead
-              onClick={() => toggleSort("name")}
-              className="cursor-pointer select-none"
-            >
-              Nombre {renderSortIcon("name")}
+            <TableHead onClick={() => toggleSort("username")} className="cursor-pointer select-none">
+              Username {renderSortIcon("username")}
             </TableHead>
-            <TableHead
-              onClick={() => toggleSort("email")}
-              className="cursor-pointer select-none"
-            >
+            <TableHead onClick={() => toggleSort("firstName")} className="cursor-pointer select-none">
+              Nombre {renderSortIcon("firstName")}
+            </TableHead>
+            <TableHead onClick={() => toggleSort("lastName")} className="cursor-pointer select-none">
+              Apellido {renderSortIcon("lastName")}
+            </TableHead>
+            <TableHead onClick={() => toggleSort("email")} className="cursor-pointer select-none">
               Correo {renderSortIcon("email")}
             </TableHead>
+            <TableHead className="w-[260px]">Permisos</TableHead>
             <TableHead className="w-[100px] text-center">Acciones</TableHead>
           </TableRow>
         </TableHeader>
@@ -107,10 +157,13 @@ export default function UsersTable({ users, onSelectUser }: UsersTableProps) {
                   onClick={() => onSelectUser(user.id)}
                   className="text-blue-600 hover:underline"
                 >
-                  {user.name}
+                  {user.username}
                 </button>
               </TableCell>
+              <TableCell>{user.firstName}</TableCell>
+              <TableCell>{user.lastName}</TableCell>
               <TableCell>{user.email}</TableCell>
+              <TableCell>{renderPermissions(user.permissions)}</TableCell>
               <TableCell className="flex gap-2 justify-center">
                 <Button size="icon" variant="ghost" onClick={() => setEditUser(user)}>
                   <Pencil className="h-4 w-4" />
@@ -144,9 +197,9 @@ export default function UsersTable({ users, onSelectUser }: UsersTableProps) {
         </Pagination>
       </div>
 
-      <CreateUserDialog open={createOpen} onClose={() => setCreateOpen(false)} />
-      {editUser && <EditUserDialog user={editUser} onClose={() => setEditUser(null)} />}
-      {deleteUser && <DeleteUserDialog user={deleteUser} onClose={() => setDeleteUser(null)} />}
+      <CreateUserDialog open={createOpen} onClose={() => setCreateOpen(false)} onCreated={onRefresh} />
+      {editUser && <EditUserDialog user={editUser} onClose={() => setEditUser(null)} onUpdated={onRefresh} />}
+      {deleteUser && <DeleteUserDialog user={deleteUser} onClose={() => setDeleteUser(null)} onDeleted={onRefresh} />}
     </div>
   )
 }
