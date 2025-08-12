@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/pagination"
 import { UI_TEXT } from "@/config/ui-text"
 import { TABLE_CONFIG } from "@/config/ui-table"
+import { toast } from 'sonner'
 
 interface Property {
   id: number
@@ -62,10 +63,18 @@ export default function ClientPropertiesTable({ properties, clientName }: Client
               <TableCell className="text-center">{property.hours}</TableCell>
               <TableCell className="text-center">{property.fuelCost.toFixed(2)}</TableCell>
               <TableCell className="flex gap-2 justify-center">
-                <Button size="icon" variant="ghost" onClick={() => alert(UI_TEXT.clients.properties.actionEdit.replace("{name}", property.name))}>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => toast.info(UI_TEXT.clients.properties.actionEdit.replace("{name}", property.name))}
+                >
                   <Pencil className="h-4 w-4" />
                 </Button>
-                <Button size="icon" variant="ghost" onClick={() => alert(UI_TEXT.clients.properties.actionDelete.replace("{name}", property.name))}>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => toast.warning(UI_TEXT.clients.properties.actionDelete.replace("{name}", property.name))}
+                >
                   <Trash className="h-4 w-4 text-red-500" />
                 </Button>
               </TableCell>

@@ -4,6 +4,7 @@ import DashboardLayout from './components/dashboard-layout'
 import LoginPage from './components/login-page'
 import { getAccessToken, getRefreshToken, getUser } from '@/lib/auth-storage'
 import { refreshAccessToken } from '@/lib/services/auth'
+import { Toaster } from 'sonner'
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
@@ -51,6 +52,7 @@ function App() {
       ) : (
         <LoginPage onLoginSuccess={handleLoginSuccess} />
       )}
+      <Toaster richColors position="top-right" closeButton />
     </div>
   )
 }

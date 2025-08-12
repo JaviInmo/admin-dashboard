@@ -19,6 +19,7 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination"
 import { Pencil, Trash } from "lucide-react"
+import { toast } from 'sonner'
 
 interface Guard {
   id: number
@@ -50,7 +51,7 @@ export default function GuardsTable({ guards, onSelectGuard }: GuardsTableProps)
     <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm space-y-4">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold">Lista de Guardias</h3>
-        <Button onClick={() => alert("Agregar nuevo guardia")}>Agregar</Button>
+        <Button onClick={() => toast.info("Agregar nuevo guardia")}>Agregar</Button>
       </div>
 
       <Table>
@@ -76,10 +77,21 @@ export default function GuardsTable({ guards, onSelectGuard }: GuardsTableProps)
               <TableCell className="text-center">{guard.totalHours}</TableCell>
               <TableCell className="text-center">{guard.totalSalary.toFixed(2)}</TableCell>
               <TableCell className="flex gap-2 justify-center">
-                <Button size="icon" variant="ghost" onClick={() => alert(`Editar guardia ${guard.name}`)}>
+                <Button size="icon" variant="ghost" onClick={() => toast.info(`Editar guardia ${guard.name}`)}>
                   <Pencil className="h-4 w-4" />
                 </Button>
-                <Button size="icon" variant="ghost" onClick={() => confirm(`¿Eliminar guardia ${guard.name}?`) && alert(`Eliminar guardia ${guard.name}`)}>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() =>
+                    toast.warning(`¿Eliminar guardia ${guard.name}?`, {
+                      action: {
+                        label: 'Confirmar',
+                        onClick: () => toast.success(`Guardia ${guard.name} eliminado`),
+                      },
+                    })
+                  }
+                >
                   <Trash className="h-4 w-4 text-red-500" />
                 </Button>
               </TableCell>

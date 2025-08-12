@@ -6,6 +6,7 @@ import { useState, type CSSProperties } from 'react'
 import { logout as authLogout } from '@/lib/services/auth'
 import { getUser } from '@/lib/auth-storage'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { toast } from 'sonner'
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -190,8 +191,8 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
                     setConfirmOpen(false)
                     try {
                       await authLogout()
-                      // Simple toast via alert
-                      alert(UI_TEXT.logoutDialog.successToast)
+                      // Toast notification
+                      toast.success(UI_TEXT.logoutDialog.successToast)
                     } finally {
                       onLogout()
                     }

@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/pagination"
 import { UI_TEXT } from "@/config/ui-text"
 import { TABLE_CONFIG } from "@/config/ui-table"
+import { toast } from 'sonner'
 
 interface Client {
   id: number
@@ -42,7 +43,7 @@ export default function ClientsTable({ clients, onSelectClient }: ClientsTablePr
     <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm space-y-4">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold">{UI_TEXT.clients.table.title}</h3>
-        <Button onClick={() => alert(UI_TEXT.clients.table.add)}>{UI_TEXT.clients.table.add}</Button>
+        <Button onClick={() => toast.info(UI_TEXT.clients.table.add)}>{UI_TEXT.clients.table.add}</Button>
       </div>
 
       <Table>
@@ -72,10 +73,10 @@ export default function ClientsTable({ clients, onSelectClient }: ClientsTablePr
               <TableCell className="text-center">{client.totalExpenses.toFixed(2)}</TableCell>
               <TableCell className="text-center">{client.totalFuel.toFixed(2)}</TableCell>
               <TableCell className="flex gap-2 justify-center">
-                <Button size="icon" variant="ghost" onClick={() => alert(UI_TEXT.clients.table.actionEdit.replace("{name}", client.name))}>
+                <Button size="icon" variant="ghost" onClick={() => toast.info(UI_TEXT.clients.table.actionEdit.replace("{name}", client.name))}>
                   <Pencil className="h-4 w-4" />
                 </Button>
-                <Button size="icon" variant="ghost" onClick={() => alert(UI_TEXT.clients.table.actionDelete.replace("{name}", client.name))}>
+                <Button size="icon" variant="ghost" onClick={() => toast.warning(UI_TEXT.clients.table.actionDelete.replace("{name}", client.name))}>
                   <Trash className="h-4 w-4 text-red-500" />
                 </Button>
               </TableCell>

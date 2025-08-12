@@ -6,6 +6,7 @@ import type { Permissions, AppSection, PermissionAction } from "./types"
 
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
+import { toast } from 'sonner'
 
 interface UserPermissionsTableProps {
   permissions: Permissions
@@ -31,7 +32,7 @@ export default function UserPermissionsTable({ permissions, onChange }: UserPerm
     <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm space-y-4">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold">Permisos del Usuario</h3>
-        <Button onClick={() => alert("Guardar permisos")}>Guardar</Button>
+        <Button onClick={() => toast.success("Permisos guardados")}>Guardar</Button>
       </div>
 
       <Table>

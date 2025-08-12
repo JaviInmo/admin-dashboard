@@ -20,6 +20,7 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination"
 import { Pencil, Trash } from "lucide-react"
+import { toast } from 'sonner'
 
 interface Shift {
   id: number
@@ -58,7 +59,7 @@ export default function GuardShiftsTable({ shifts, guardName }: GuardShiftsTable
     <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm space-y-4">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold">Turnos de {guardName}</h3>
-        <Button onClick={() => alert(`Agregar turno para ${guardName}`)}>Agregar</Button>
+        <Button onClick={() => toast.info(`Agregar turno para ${guardName}`)}>Agregar</Button>
       </div>
 
       <Table>
@@ -94,10 +95,21 @@ export default function GuardShiftsTable({ shifts, guardName }: GuardShiftsTable
                 <TableCell className="text-center">{shift.pricePerHour.toFixed(2)}</TableCell>
                 <TableCell className="text-center">{(shift.pricePerHour * shift.hours).toFixed(2)}</TableCell>
                 <TableCell className="flex gap-2 justify-center">
-                  <Button size="icon" variant="ghost" onClick={() => alert(`Editar turno ${shift.id}`)}>
+                  <Button size="icon" variant="ghost" onClick={() => toast.info(`Editar turno ${shift.id}`)}>
                     <Pencil className="h-4 w-4" />
                   </Button>
-                  <Button size="icon" variant="ghost" onClick={() => confirm(`¿Eliminar turno ${shift.id}?`) && alert(`Eliminar turno ${shift.id}`)}>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() =>
+                      toast.warning(`¿Eliminar turno ${shift.id}?`, {
+                        action: {
+                          label: 'Confirmar',
+                          onClick: () => toast.success(`Turno ${shift.id} eliminado`),
+                        },
+                      })
+                    }
+                  >
                     <Trash className="h-4 w-4 text-red-500" />
                   </Button>
                 </TableCell>
