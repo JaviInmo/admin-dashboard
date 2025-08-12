@@ -1,23 +1,18 @@
 "use client"
 
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from "recharts"
-
-const data = [
-  { name: "Ene", precio: 1000, gasolina: 450, salario: 500 },
-  { name: "Feb", precio: 1200, gasolina: 480, salario: 520 },
-  { name: "Mar", precio: 900, gasolina: 400, salario: 480 },
-  { name: "Abr", precio: 1100, gasolina: 470, salario: 510 },
-]
+import { UI_TEXT } from "@/config/ui-text"
+import { DASHBOARD_CONFIG } from "@/config/ui-dashboard"
 
 export function DashboardGroupedChart() {
   return (
     <div className="rounded-lg border bg-card p-6 shadow-sm">
-      <h3 className="mb-4 text-lg font-semibold">Costos por mes</h3>
-      <ResponsiveContainer width="100%" height={300}>
-        <BarChart data={data} barSize={30}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-          <XAxis dataKey="name" tick={{ fontSize: 14 }} axisLine={false} tickLine={false} />
-          <YAxis tick={{ fontSize: 14 }} axisLine={false} tickLine={false} />
+      <h3 className="mb-4 text-lg font-semibold">{UI_TEXT.dashboard.chartCostsTitle}</h3>
+      <ResponsiveContainer width="100%" height={DASHBOARD_CONFIG.costsChart.height}>
+        <BarChart data={[...DASHBOARD_CONFIG.costsChart.data]} barSize={DASHBOARD_CONFIG.costsChart.barSize}>
+          <CartesianGrid strokeDasharray="3 3" stroke={DASHBOARD_CONFIG.costsChart.gridStroke} />
+          <XAxis dataKey="name" tick={{ fontSize: DASHBOARD_CONFIG.costsChart.tickFontSize }} axisLine={false} tickLine={false} />
+          <YAxis tick={{ fontSize: DASHBOARD_CONFIG.costsChart.tickFontSize }} axisLine={false} tickLine={false} />
           <Tooltip
             contentStyle={{
               backgroundColor: "white",
@@ -31,28 +26,28 @@ export function DashboardGroupedChart() {
           {/* Precio Total */}
           <Bar
             dataKey="precio"
-            name="Precio Total"
-            fill="#3b82f6"
+            name={UI_TEXT.dashboard.series.priceTotal}
+            fill={DASHBOARD_CONFIG.costsChart.fills.precio}
             radius={[4, 4, 0, 0]}
-            animationDuration={800}
+            animationDuration={DASHBOARD_CONFIG.costsChart.animationDuration}
           />
 
           {/* Costo Gasolina */}
           <Bar
             dataKey="gasolina"
-            name="Costo Gasolina"
-            fill="#f59e0b"
+            name={UI_TEXT.dashboard.series.fuelCost}
+            fill={DASHBOARD_CONFIG.costsChart.fills.gasolina}
             radius={[4, 4, 0, 0]}
-            animationDuration={800}
+            animationDuration={DASHBOARD_CONFIG.costsChart.animationDuration}
           />
 
           {/* Salarios Guardia */}
           <Bar
             dataKey="salario"
-            name="Salario Guardia"
-            fill="#10b981"
+            name={UI_TEXT.dashboard.series.guardSalary}
+            fill={DASHBOARD_CONFIG.costsChart.fills.salario}
             radius={[4, 4, 0, 0]}
-            animationDuration={800}
+            animationDuration={DASHBOARD_CONFIG.costsChart.animationDuration}
           />
         </BarChart>
       </ResponsiveContainer>

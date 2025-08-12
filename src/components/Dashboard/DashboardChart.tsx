@@ -1,29 +1,24 @@
 "use client"
 
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from "recharts"
-
-const data = [
-  { name: "Ene", horas: 120 },
-  { name: "Feb", horas: 140 },
-  { name: "Mar", horas: 110 },
-  { name: "Abr", horas: 150 },
-]
+import { UI_TEXT } from "@/config/ui-text"
+import { DASHBOARD_CONFIG } from "@/config/ui-dashboard"
 
 export function DashboardChart() {
   return (
     <div className="rounded-lg border bg-card p-6 shadow-sm">
-      <h3 className="mb-4 text-lg font-semibold">Horas trabajadas por mes</h3>
-      <ResponsiveContainer width="100%" height={300}>
-        <BarChart data={data} barSize={50}>
+      <h3 className="mb-4 text-lg font-semibold">{UI_TEXT.dashboard.chartHoursTitle}</h3>
+      <ResponsiveContainer width="100%" height={DASHBOARD_CONFIG.hoursChart.height}>
+        <BarChart data={[...DASHBOARD_CONFIG.hoursChart.data]} barSize={DASHBOARD_CONFIG.hoursChart.barSize}>
           <defs>
-            <linearGradient id="colorHoras" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.9} />
-              <stop offset="100%" stopColor="#60a5fa" stopOpacity={0.7} />
+            <linearGradient id={DASHBOARD_CONFIG.hoursChart.gradient.id} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={DASHBOARD_CONFIG.hoursChart.gradient.start} stopOpacity={DASHBOARD_CONFIG.hoursChart.gradient.startOpacity} />
+              <stop offset="100%" stopColor={DASHBOARD_CONFIG.hoursChart.gradient.end} stopOpacity={DASHBOARD_CONFIG.hoursChart.gradient.endOpacity} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-          <XAxis dataKey="name" tick={{ fontSize: 14 }} axisLine={false} tickLine={false} />
-          <YAxis tick={{ fontSize: 14 }} axisLine={false} tickLine={false} />
+          <CartesianGrid strokeDasharray="3 3" stroke={DASHBOARD_CONFIG.hoursChart.gridStroke} />
+          <XAxis dataKey="name" tick={{ fontSize: DASHBOARD_CONFIG.hoursChart.tickFontSize }} axisLine={false} tickLine={false} />
+          <YAxis tick={{ fontSize: DASHBOARD_CONFIG.hoursChart.tickFontSize }} axisLine={false} tickLine={false} />
           <Tooltip
             contentStyle={{
               backgroundColor: "white",
@@ -35,9 +30,9 @@ export function DashboardChart() {
           <Legend />
           <Bar
             dataKey="horas"
-            fill="url(#colorHoras)"
+            fill={`url(#${DASHBOARD_CONFIG.hoursChart.gradient.id})`}
             radius={[8, 8, 0, 0]}
-            animationDuration={800}
+            animationDuration={DASHBOARD_CONFIG.hoursChart.animationDuration}
           />
         </BarChart>
       </ResponsiveContainer>

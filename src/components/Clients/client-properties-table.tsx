@@ -12,6 +12,8 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
+import { UI_TEXT } from "@/config/ui-text"
+import { TABLE_CONFIG } from "@/config/ui-table"
 
 interface Property {
   id: number
@@ -29,7 +31,7 @@ interface ClientPropertiesTableProps {
 
 export default function ClientPropertiesTable({ properties, clientName }: ClientPropertiesTableProps) {
   const [page, setPage] = React.useState(1)
-  const itemsPerPage = 5
+  const itemsPerPage = TABLE_CONFIG.itemsPerPage
   const totalPages = Math.max(1, Math.ceil(properties.length / itemsPerPage))
   const startIndex = (page - 1) * itemsPerPage
   const paginatedProperties = properties.slice(startIndex, startIndex + itemsPerPage)
@@ -38,17 +40,17 @@ export default function ClientPropertiesTable({ properties, clientName }: Client
 
   return (
     <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm space-y-4">
-      <h3 className="text-lg font-semibold">Propiedades de {clientName}</h3>
+      <h3 className="text-lg font-semibold">{UI_TEXT.clients.properties.title.replace("{clientName}", clientName)}</h3>
 
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Nombre</TableHead>
-            <TableHead className="text-center">Precio ($)</TableHead>
-            <TableHead className="text-center">Gastos ($)</TableHead>
-            <TableHead className="text-center">Horas/Mes</TableHead>
-            <TableHead className="text-center">Gasolina ($)</TableHead>
-            <TableHead className="w-[100px] text-center">Acciones</TableHead>
+            <TableHead>{UI_TEXT.clients.properties.headers.name}</TableHead>
+            <TableHead className="text-center">{UI_TEXT.clients.properties.headers.price}</TableHead>
+            <TableHead className="text-center">{UI_TEXT.clients.properties.headers.expenses}</TableHead>
+            <TableHead className="text-center">{UI_TEXT.clients.properties.headers.hours}</TableHead>
+            <TableHead className="text-center">{UI_TEXT.clients.properties.headers.fuel}</TableHead>
+            <TableHead className="w-[100px] text-center">{UI_TEXT.clients.properties.headers.actions}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -60,10 +62,10 @@ export default function ClientPropertiesTable({ properties, clientName }: Client
               <TableCell className="text-center">{property.hours}</TableCell>
               <TableCell className="text-center">{property.fuelCost.toFixed(2)}</TableCell>
               <TableCell className="flex gap-2 justify-center">
-                <Button size="icon" variant="ghost" onClick={() => alert(`Editar ${property.name}`)}>
+                <Button size="icon" variant="ghost" onClick={() => alert(UI_TEXT.clients.properties.actionEdit.replace("{name}", property.name))}>
                   <Pencil className="h-4 w-4" />
                 </Button>
-                <Button size="icon" variant="ghost" onClick={() => alert(`Eliminar ${property.name}`)}>
+                <Button size="icon" variant="ghost" onClick={() => alert(UI_TEXT.clients.properties.actionDelete.replace("{name}", property.name))}>
                   <Trash className="h-4 w-4 text-red-500" />
                 </Button>
               </TableCell>

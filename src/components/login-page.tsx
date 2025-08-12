@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { login as authLogin } from '@/lib/services/auth'
+import { UI_TEXT } from '@/config/ui-text'
 
 // Define las props para el componente LoginPage
 interface LoginPageProps {
@@ -30,7 +31,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
       onLoginSuccess()
     } catch (e) {
       // Intenta mostrar el mensaje del servidor si existe
-      let message = 'Credenciales incorrectas. Intenta de nuevo.'
+      let message: string = UI_TEXT.login.errorDefault as string
       try {
         const anyErr = e as any
         const data = anyErr?.response?.data
@@ -52,17 +53,17 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
     <div className="flex min-h-screen items-center justify-center bg-gray-100 dark:bg-gray-950 p-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="space-y-1 text-center">
-          <CardTitle className="text-2xl font-bold">Login</CardTitle>
-          <CardDescription>Enter your username and password to access your account.</CardDescription>
+          <CardTitle className="text-2xl font-bold">{UI_TEXT.login.title}</CardTitle>
+          <CardDescription>{UI_TEXT.login.description}</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
           <form onSubmit={handleLogin}> {/* Envuelve los inputs en un formulario y añade onSubmit */}
             <div className="grid gap-2 mb-4"> {/* Añade un margen inferior para separar */}
-              <Label htmlFor="username">Usuario</Label>
+              <Label htmlFor="username">{UI_TEXT.login.usernameLabel}</Label>
               <Input
                 id="username"
                 type="text"
-                placeholder="usuario"
+                placeholder={UI_TEXT.login.usernamePlaceholder}
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
@@ -73,7 +74,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{UI_TEXT.login.passwordLabel}</Label>
               <Input
                 id="password"
                 type="password"
@@ -86,7 +87,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
             </div>
             {/* El botón ahora está dentro del formulario */}
             <Button type="submit" className="w-full mt-6" disabled={loading}> {/* Añade mt-6 para el margen superior */}
-              {loading ? "Iniciando..." : "Sign in"}
+              {loading ? UI_TEXT.login.submitting : UI_TEXT.login.submit}
             </Button>
             {error ? (
               <p className="text-sm text-red-600 mt-2" role="alert">{error}</p>

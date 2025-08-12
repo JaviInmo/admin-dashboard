@@ -3,6 +3,8 @@
 import * as React from "react"
 import GuardsTable from "./GuardsTable"
 import GuardShiftsTable from "./GuardShiftsTable"
+import { UI_TEXT } from "@/config/ui-text"
+import { MAX_WEEKLY_HOURS } from "@/config/business-rules"
 
 type Shift = {
   id: number
@@ -13,8 +15,7 @@ type Shift = {
   pricePerHour: number
 }
 
-// Ajusta este máximo según la normativa/empresa
-const MAX_WEEKLY_HOURS = 48
+// Máximo semanal definido por reglas de negocio
 
 export default function GuardsContent() {
   const [selectedGuardId, setSelectedGuardId] = React.useState<number | null>(null)
@@ -74,9 +75,9 @@ export default function GuardsContent() {
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
-      <h2 className="text-2xl font-bold">Gestión de Guardias</h2>
+      <h2 className="text-2xl font-bold">{UI_TEXT.guards.title}</h2>
       <p className="text-sm text-muted-foreground">
-        Nota: los totales se calculan sumando los turnos (hours × pricePerHour). Máx. semanal configurado a {MAX_WEEKLY_HOURS}h.
+        {UI_TEXT.guards.weeklyMaxNote.replace("{hours}", String(MAX_WEEKLY_HOURS))}
       </p>
 
       <GuardsTable guards={guards} onSelectGuard={setSelectedGuardId} />
@@ -88,7 +89,7 @@ export default function GuardsContent() {
         />
       ) : (
         <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
-          <p className="text-sm text-muted-foreground">Selecciona un guardia para ver sus turnos.</p>
+          <p className="text-sm text-muted-foreground">{UI_TEXT.guards.selectPrompt}</p>
         </div>
       )}
     </div>

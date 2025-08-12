@@ -3,6 +3,7 @@
 import React from "react"
 import ClientsTable from "./clients-table"
 import ClientPropertiesTable from "./client-properties-table"
+import { UI_TEXT } from "@/config/ui-text"
 
 export default function ClientPage() {
   const [selectedClientId, setSelectedClientId] = React.useState<number | null>(null)
@@ -45,7 +46,7 @@ export default function ClientPage() {
 
   return (
     <div className="flex flex-col gap-6 p-6">
-      <h2 className="text-2xl font-bold">Gestión de Clientes</h2>
+      <h2 className="text-2xl font-bold">{UI_TEXT.clients.title}</h2>
 
       <ClientsTable
         clients={clients}

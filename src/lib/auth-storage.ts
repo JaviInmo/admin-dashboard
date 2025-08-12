@@ -3,6 +3,7 @@
 
 const ACCESS_TOKEN_KEY = 'access_token'
 const REFRESH_TOKEN_KEY = 'refresh_token'
+const USER_DATA_KEY = 'auth_user'
 
 export function getAccessToken(): string | null {
   try {
@@ -53,3 +54,27 @@ export const tokenKeys = {
   access: ACCESS_TOKEN_KEY,
   refresh: REFRESH_TOKEN_KEY,
 }
+
+// Store and retrieve the authenticated user payload (e.g., decoded JWT claims or merged user info)
+export function getUser(): any | null {
+  try {
+    const raw = localStorage.getItem(USER_DATA_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
+export function setUser(user: any) {
+  try {
+    localStorage.setItem(USER_DATA_KEY, JSON.stringify(user))
+  } catch {}
+}
+
+export function clearUser() {
+  try {
+    localStorage.removeItem(USER_DATA_KEY)
+  } catch {}
+}
+
+export const userKey = USER_DATA_KEY
