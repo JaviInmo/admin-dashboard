@@ -1,7 +1,7 @@
 "use client"
 
 import { Link } from "react-router-dom"
-import { Bell, LogOut, Package2, LayoutDashboard, Users, Briefcase, UserRoundCheck, Check } from 'lucide-react'
+import { Bell, LogOut, Package2, LayoutDashboard, Users, Briefcase, UserRoundCheck } from 'lucide-react'
 import { useState, type CSSProperties } from 'react'
 import { logout as authLogout } from '@/lib/services/auth'
 import { getUser } from '@/lib/auth-storage'
@@ -16,7 +16,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
@@ -145,6 +144,28 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
               <span className="sr-only">{TEXT.header.notificationsAria}</span>
             </Button>
 
+            {/* Language segmented toggle: | EN* | ES | */}
+            <div className="mx-2">
+              <div role="group" aria-label={TEXT.accountMenu.language} className="inline-flex items-stretch rounded-md border overflow-hidden bg-background">
+                <button
+                  type="button"
+                  onClick={() => setLang('en')}
+                  aria-pressed={lang === 'en'}
+                  className={`px-3 py-1 text-xs font-medium transition-colors border-r ${lang === 'en' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}
+                >
+                  {lang === 'en' ? 'EN' : 'EN'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLang('es')}
+                  aria-pressed={lang === 'es'}
+                  className={`px-3 py-1 text-xs font-medium transition-colors ${lang === 'es' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}
+                >
+                  {lang === 'es' ? 'ES' : 'ES'}
+                </button>
+              </div>
+            </div>
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="rounded-full">
@@ -155,20 +176,7 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuLabel>{TEXT.accountMenu.language}</DropdownMenuLabel>
-                <DropdownMenuItem
-                  onSelect={(e) => { e.preventDefault(); setLang('en') }}
-                >
-                  <Check className={`mr-2 h-4 w-4 ${lang === 'en' ? 'opacity-100' : 'opacity-0'}`} />
-                  <span>{TEXT.accountMenu.english}</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onSelect={(e) => { e.preventDefault(); setLang('es') }}
-                >
-                  <Check className={`mr-2 h-4 w-4 ${lang === 'es' ? 'opacity-100' : 'opacity-0'}`} />
-                  <span>{TEXT.accountMenu.spanish}</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
+                {/* Language options moved to header segmented toggle */}
                 <DropdownMenuItem>{TEXT.accountMenu.settings}</DropdownMenuItem>
                 <DropdownMenuItem>{TEXT.accountMenu.support}</DropdownMenuItem>
                 <DropdownMenuSeparator />
