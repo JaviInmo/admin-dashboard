@@ -34,6 +34,7 @@ export default function UserPermissionsTable({ userId, onUpdated }: Props) {
   const [loading, setLoading] = React.useState(false)
   const [loadingOptions, setLoadingOptions] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+  const [userName, setUserName] = React.useState<string | null>(null)
 
   const [availableActions, setAvailableActions] = React.useState<Record<string, string[]>>({})
   const [resourceLabels, setResourceLabels] = React.useState<Record<string, string>>({})
@@ -216,6 +217,9 @@ export default function UserPermissionsTable({ userId, onUpdated }: Props) {
 
         buildFromAvailableOptions(optsVal, (userVal as any)?.permissions ?? (userVal as any))
 
+        // nombre de usuario para cabecera (first+last || username) con fallback al id
+        setUserName((userVal as any)?.name ?? (userVal as any)?.username ?? null)
+
         // properties
         const items = Array.isArray(propsVal) ? propsVal : (propsVal?.results ?? [])
         const simple = items.map((p: any) => ({ id: p.id, address: p.address ?? p.name ?? String(p.id) }))
@@ -340,7 +344,7 @@ export default function UserPermissionsTable({ userId, onUpdated }: Props) {
   return (
     <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm space-y-4">
       <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold">Permisos del usuario #{userId}</h3>
+        <h3 className="text-lg font-semibold">Permisos del usuario {userName ? userName : `#${userId}`}</h3>
         <div className="flex gap-2">
           <Button
             onClick={async () => {
