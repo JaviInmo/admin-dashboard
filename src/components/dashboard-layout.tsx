@@ -1,7 +1,7 @@
 "use client"
 
 import { Link } from "react-router-dom"
-import { Bell, LogOut, Package2, LayoutDashboard, Users, ShoppingCart, UserRoundCheck } from 'lucide-react'
+import { Bell, LogOut, Package2, LayoutDashboard, Users, Briefcase, UserRoundCheck } from 'lucide-react'
 import { useState, type CSSProperties } from 'react'
 import { logout as authLogout } from '@/lib/services/auth'
 import { getUser } from '@/lib/auth-storage'
@@ -82,7 +82,7 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
 
   const menuItems = [
     { key: "Dashboard", label: UI_TEXT.menu.dashboard, icon: LayoutDashboard, component: <DashboardContent /> },
-    { key: "Sales Registration", label: UI_TEXT.menu.clients, icon: ShoppingCart, component: <SalesRegistrationContent /> },
+    { key: "Sales Registration", label: UI_TEXT.menu.clients, icon: Briefcase, component: <SalesRegistrationContent /> },
     { key: "Guards", label: UI_TEXT.menu.guards, icon: Users, component: <GuardsContent /> },
     { key: "Users", label: UI_TEXT.menu.users, icon: UserRoundCheck, component: <UserPage /> },
   ]
