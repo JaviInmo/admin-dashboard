@@ -5,6 +5,7 @@ import LoginPage from './components/login-page'
 import { getAccessToken, getRefreshToken, getUser } from '@/lib/auth-storage'
 import { refreshAccessToken } from '@/lib/services/auth'
 import { Toaster } from 'sonner'
+import { getGeneralSettings } from '@/lib/services/common'
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
@@ -32,6 +33,33 @@ function App() {
     } else {
       setHydrated(true)
     }
+  }, [])
+
+  // Load general settings (app_name, app_description) to set document title and meta description
+  useEffect(() => {
+    let mounted = true
+    ;(async () => {
+      try {
+        const { app_name, app_description } = await getGeneralSettings()
+        if (!mounted) return
+        if (app_name) {
+          document.title = app_name
+        }
+        if (app_description) {
+          let meta = document.querySelector('meta[name="description"]') as HTMLMetaElement | null
+          if (!meta) {
+            meta = document.createElement('meta')
+            meta.setAttribute('name', 'description')
+            document.head.appendChild(meta)
+          }
+          meta.setAttribute('content', app_description)
+        }
+      } catch (err) {
+        // Non-blocking; ignore errors loading settings
+        // console.warn('Failed to load general settings', err)
+      }
+    })()
+    return () => { mounted = false }
   }, [])
 
   const handleLoginSuccess = () => {

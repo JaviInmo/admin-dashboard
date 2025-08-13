@@ -14,6 +14,10 @@ export const endpoints = {
   clients: 'api/clients/',
   guards: 'api/guards/',
   permissions: 'api/v1/permissions/admin',
+  common: {
+    // Returns { app_name, app_description }
+    generalSettings: 'api/common/general-settings/',
+  },
 }
 
 export type Endpoints = typeof endpoints
