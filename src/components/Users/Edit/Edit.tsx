@@ -152,12 +152,6 @@ export default function EditUserDialog({ user, onClose, onUpdated }: Props) {
     return { av, resLabels, actLabels }
   }
 
-  const initialPropertyIdsFromUser = (): number[] => {
-    const maybe = (user as any).properties ?? (user as any).property_access ?? (user as any).accessible_properties ?? (user as any).property_ids
-    if (Array.isArray(maybe)) return maybe.map((v: any) => Number(v)).filter(Boolean)
-    return []
-  }
-
   const getCodenamesFromPermissions = (ui: UiPermissions) => {
     const out: string[] = []
     for (const [res, actions] of Object.entries(ui)) {

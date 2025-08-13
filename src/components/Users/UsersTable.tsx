@@ -17,8 +17,6 @@ export interface UsersTableProps {
   onRefresh?: () => Promise<void>
 }
 
-const sectionsOrder: Array<keyof Permissions> = ["cliente", "guardia", "ubicacion", "dashboard"]
-
 export default function UsersTable({ users, onSelectUser, onRefresh }: UsersTableProps) {
   const [page, setPage] = React.useState(1)
   const [search, setSearch] = React.useState("")
@@ -81,37 +79,6 @@ export default function UsersTable({ users, onSelectUser, onRefresh }: UsersTabl
       <ArrowUp className="ml-1 h-3 w-3 inline" />
     ) : (
       <ArrowDown className="ml-1 h-3 w-3 inline" />
-    )
-  }
-
-  const renderPermissions = (p?: Permissions) => {
-    if (!p) {
-      return <span className="text-sm text-muted-foreground">Sin permisos</span>
-    }
-
-    const actionAbbr: Record<string, string> = { create: "C", edit: "E", read: "R", delete: "D" }
-
-    return (
-      <div className="flex gap-2 flex-wrap">
-        {sectionsOrder.map((section) => {
-          const sectionPerms = p[section]
-          if (!sectionPerms) return null
-          const letters = (Object.keys(sectionPerms) as Array<keyof typeof sectionPerms>)
-            .filter((act) => !!sectionPerms[act])
-            .map((act) => actionAbbr[act] ?? act[0].toUpperCase())
-            .join("")
-          return (
-            <span
-              key={section}
-              className="px-2 py-0.5 rounded-md bg-slate-100 text-xs text-slate-800 border"
-              title={`${section}: ${letters || "—"}`}
-            >
-              <strong className="capitalize mr-1">{section}:</strong>
-              <span>{letters || "—"}</span>
-            </span>
-          )
-        })}
-      </div>
     )
   }
 

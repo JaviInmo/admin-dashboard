@@ -3,7 +3,7 @@
 import * as React from "react"
 import UsersTable from "./UsersTable"
 import UserPermissionsTable from "./UserPermissionsTable"
-import type { User, Permissions, AppSection, PermissionAction } from "./types"
+import type { User } from "./types"
 import { listUsers, getUser } from "@/lib/services/users"
 
 export default function UsersPage() {
@@ -60,23 +60,6 @@ export default function UsersPage() {
     void load()
     return () => { mounted = false }
   }, [selectedUserId, users])
-
-  const [permissions, setPermissions] = React.useState<Permissions>({
-    cliente: { create: false, edit: false, read: false, delete: false },
-    guardia: { create: false, edit: false, read: false, delete: false },
-    ubicacion: { create: false, edit: false, read: false, delete: false },
-    dashboard: { create: false, edit: false, read: false, delete: false },
-  })
-
-  const handlePermissionChange = (section: AppSection, action: PermissionAction, value: boolean) => {
-    setPermissions((prev) => ({
-      ...prev,
-      [section]: {
-        ...prev[section],
-        [action]: value,
-      },
-    }))
-  }
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">

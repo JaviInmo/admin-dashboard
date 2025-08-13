@@ -25,7 +25,6 @@ export default function UserPermissionsTable({ userId, userLabel, onUpdated }: U
   const [loading, setLoading] = React.useState(false)
   const [loadingOptions, setLoadingOptions] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
-  const [userName, setUserName] = React.useState<string | null>(null)
 
   const [availableActions, setAvailableActions] = React.useState<Record<string, string[]>>({})
   const [resourceLabels, setResourceLabels] = React.useState<Record<string, string>>({})
