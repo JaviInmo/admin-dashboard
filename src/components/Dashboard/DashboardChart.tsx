@@ -1,13 +1,14 @@
 "use client"
 
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from "recharts"
-import { UI_TEXT } from "@/config/ui-text"
+import { useI18n } from "@/i18n"
 import { DASHBOARD_CONFIG } from "@/config/ui-dashboard"
 
 export function DashboardChart() {
+  const { TEXT } = useI18n()
   return (
     <div className="rounded-lg border bg-card p-6 shadow-sm">
-      <h3 className="mb-4 text-lg font-semibold">{UI_TEXT.dashboard.chartHoursTitle}</h3>
+      <h3 className="mb-4 text-lg font-semibold">{TEXT.dashboard.chartHoursTitle}</h3>
       <ResponsiveContainer width="100%" height={DASHBOARD_CONFIG.hoursChart.height}>
         <BarChart data={[...DASHBOARD_CONFIG.hoursChart.data]} barSize={DASHBOARD_CONFIG.hoursChart.barSize}>
           <defs>

@@ -4,13 +4,14 @@
 import * as React from "react"
 import ClientsTable from "./clients-table"
 import ClientPropertiesTable from "./client-properties-table"
-import { UI_TEXT } from "@/config/ui-text"
+import { useI18n } from "@/i18n"
 import type { AppClient } from "@/lib/services/clients"
 import { listClients, getClientProperties, getClient } from "@/lib/services/clients"
 import { api } from "@/lib/http"
 import { endpoints } from "@/lib/endpoints"
 
 export default function ClientPage() {
+  const { TEXT } = useI18n()
   const [selectedClientId, setSelectedClientId] = React.useState<number | null>(null)
 
   const [clients, setClients] = React.useState<AppClient[]>([])
@@ -22,8 +23,8 @@ export default function ClientPage() {
   const [pageSize, setPageSize] = React.useState<number>(5) // fallback; updated based on results
   const totalPages = count ? Math.max(1, Math.ceil(count / pageSize)) : 1
 
-  const [search, setSearch] = React.useState<string>("")
-  // use browser-friendly timeout type
+  const [search] = React.useState<string>("")
+  // Use the same global setTimeout type and calls to avoid DOM/Node mismatch
   const searchRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const [selectedClientLabel, setSelectedClientLabel] = React.useState<string | null>(null)
@@ -49,26 +50,26 @@ export default function ClientPage() {
       if (data && typeof data !== "string") {
         setError(data.detail ?? JSON.stringify(data))
       } else {
-        setError(String(data ?? "Error loading clients"))
+        setError(String(data ?? TEXT.clients.errorLoading))
       }
       console.error("fetchClients error:", err)
     } finally {
       setLoading(false)
     }
-  }, [pageSize])
+  }, [pageSize, TEXT])
 
   // debounce search: call fetchClients 400ms after last keystroke
   React.useEffect(() => {
     if (searchRef.current) {
-      window.clearTimeout(searchRef.current)
+      clearTimeout(searchRef.current)
       searchRef.current = null
     }
-    searchRef.current = window.setTimeout(() => {
+    searchRef.current = setTimeout(() => {
       void fetchClients(1, search)
     }, 400)
     return () => {
       if (searchRef.current) {
-        window.clearTimeout(searchRef.current)
+        clearTimeout(searchRef.current)
         searchRef.current = null
       }
     }
@@ -100,13 +101,13 @@ export default function ClientPage() {
       if (data && typeof data !== "string") {
         setPropsError(data.detail ?? JSON.stringify(data))
       } else {
-        setPropsError(String(data ?? "Error loading properties"))
+        setPropsError(String(data ?? TEXT.clients.propertiesError))
       }
       console.error("fetchClientProperties error:", err)
     } finally {
       setPropsLoading(false)
     }
-  }, [])
+  }, [TEXT])
 
   // update selected client label & properties when selection changes
   React.useEffect(() => {
@@ -144,7 +145,7 @@ export default function ClientPage() {
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
-      <h2 className="text-2xl font-bold">{UI_TEXT?.clients?.title ?? "Clients"}</h2>
+      <h2 className="text-2xl font-bold">{TEXT.clients.title}</h2>
 
       {error && <div className="rounded-lg border bg-card p-4 text-red-600">{error}</div>}
 
@@ -162,14 +163,14 @@ export default function ClientPage() {
 
       {loading ? (
         <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
-          <p>Loading clients...</p>
+          <p>{TEXT.clients.loading}</p>
         </div>
       ) : selectedClientId ? (
         <div>
           {propsError && <div className="rounded-lg border bg-card p-4 text-red-600">{propsError}</div>}
           {propsLoading ? (
             <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
-              <p>Loading properties...</p>
+              <p>{TEXT.clients.propertiesLoading}</p>
             </div>
           ) : (
             <ClientPropertiesTable
@@ -180,7 +181,7 @@ export default function ClientPage() {
         </div>
       ) : (
         <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
-          <p className="text-sm text-muted-foreground">Select a client to view its properties.</p>
+          <p className="text-sm text-muted-foreground">{TEXT.clients.selectPrompt}</p>
         </div>
       )}
     </div>

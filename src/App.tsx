@@ -6,10 +6,12 @@ import { getAccessToken, getRefreshToken, getUser } from '@/lib/auth-storage'
 import { refreshAccessToken } from '@/lib/services/auth'
 import { Toaster } from 'sonner'
 import { getGeneralSettings } from '@/lib/services/common'
+import { useI18n } from '@/i18n'
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [hydrated, setHydrated] = useState(false)
+  const { lang } = useI18n()
 
   // Rehydrate auth state on app load. If we have an access token or user in storage,
   // consider the user logged in. If only a refresh token exists, try a silent refresh.
@@ -36,6 +38,7 @@ function App() {
   }, [])
 
   // Load general settings (app_name, app_description) to set document title and meta description
+  // Re-run when language changes so metadata reflects the selected locale
   useEffect(() => {
     let mounted = true
     ;(async () => {
@@ -60,7 +63,7 @@ function App() {
       }
     })()
     return () => { mounted = false }
-  }, [])
+  }, [lang])
 
   const handleLoginSuccess = () => {
     setIsLoggedIn(true)

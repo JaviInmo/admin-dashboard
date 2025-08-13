@@ -1,7 +1,7 @@
 "use client"
 
 import { Link } from "react-router-dom"
-import { Bell, LogOut, Package2, LayoutDashboard, Users, Briefcase, UserRoundCheck } from 'lucide-react'
+import { Bell, LogOut, Package2, LayoutDashboard, Users, Briefcase, UserRoundCheck, Check } from 'lucide-react'
 import { useState, type CSSProperties } from 'react'
 import { logout as authLogout } from '@/lib/services/auth'
 import { getUser } from '@/lib/auth-storage'
@@ -10,7 +10,7 @@ import { toast } from 'sonner'
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import { UI_TEXT } from '@/config/ui-text'
+import { useI18n } from '@/i18n'
 import { AVATAR_CONFIG } from '@/config/ui-avatar'
 import {
   DropdownMenu,
@@ -46,6 +46,7 @@ type DashboardLayoutProps = { onLogout: () => void }
 export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
   const [activeMenuItem, setActiveMenuItem] = useState("Dashboard")
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const { TEXT, lang, setLang } = useI18n()
 
   // Derive cool initials and a unique gradient from saved user claims
   const claims = getUser()
@@ -81,18 +82,18 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
   const avatarClass = `${AVATAR_CONFIG.sizeClass} ${AVATAR_CONFIG.ringClass}`
 
   const menuItems = [
-    { key: "Dashboard", label: UI_TEXT.menu.dashboard, icon: LayoutDashboard, component: <DashboardContent /> },
-    { key: "Sales Registration", label: UI_TEXT.menu.clients, icon: Briefcase, component: <SalesRegistrationContent /> },
-    { key: "Guards", label: UI_TEXT.menu.guards, icon: Users, component: <GuardsContent /> },
-    { key: "Users", label: UI_TEXT.menu.users, icon: UserRoundCheck, component: <UserPage /> },
+    { key: "Dashboard", label: TEXT.menu.dashboard, icon: LayoutDashboard, component: <DashboardContent /> },
+    { key: "Sales Registration", label: TEXT.menu.clients, icon: Briefcase, component: <SalesRegistrationContent /> },
+    { key: "Guards", label: TEXT.menu.guards, icon: Users, component: <GuardsContent /> },
+    { key: "Users", label: TEXT.menu.users, icon: UserRoundCheck, component: <UserPage /> },
   ]
 
   const renderMainContent = () => {
     const selected = menuItems.find(item => item.key === activeMenuItem)
     return selected ? selected.component : (
       <div className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-6">
-        <h2 className="text-2xl font-bold">{UI_TEXT.common.notFoundTitle}</h2>
-        <p className="text-muted-foreground">{UI_TEXT.common.notFoundDescription}</p>
+        <h2 className="text-2xl font-bold">{TEXT.common.notFoundTitle}</h2>
+        <p className="text-muted-foreground">{TEXT.common.notFoundDescription}</p>
       </div>
     )
   }
@@ -105,13 +106,13 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
           <SidebarHeader className="p-2">
             <Link to="#" className="flex items-center gap-2 font-semibold p-2">
               <Package2 className="h-6 w-6" />
-              <span className="group-data-[state=collapsed]:hidden">{UI_TEXT.appName}</span>
+              <span className="group-data-[state=collapsed]:hidden">{TEXT.appName}</span>
             </Link>
           </SidebarHeader>
 
           <SidebarContent>
             <SidebarGroup>
-              <SidebarGroupLabel className="group-data-[collapsible=icon]:hidden">{UI_TEXT.sidebar.navigationLabel}</SidebarGroupLabel>
+              <SidebarGroupLabel className="group-data-[collapsible=icon]:hidden">{TEXT.sidebar.navigationLabel}</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
                   {menuItems.map(({ key, label, icon: Icon }) => (
@@ -141,7 +142,7 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
 
             <Button variant="ghost" size="icon" className="rounded-full">
               <Bell className="h-5 w-5" />
-              <span className="sr-only">{UI_TEXT.header.notificationsAria}</span>
+              <span className="sr-only">{TEXT.header.notificationsAria}</span>
             </Button>
 
             <DropdownMenu>
@@ -150,14 +151,26 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
                   <Avatar className={avatarClass}>
                     <AvatarFallback style={avatarStyle}>{initials}</AvatarFallback>
                   </Avatar>
-                  <span className="sr-only">{UI_TEXT.header.userMenuAria}</span>
+                  <span className="sr-only">{TEXT.header.userMenuAria}</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuLabel>{UI_TEXT.accountMenu.title}</DropdownMenuLabel>
+                <DropdownMenuLabel>{TEXT.accountMenu.language}</DropdownMenuLabel>
+                <DropdownMenuItem
+                  onSelect={(e) => { e.preventDefault(); setLang('en') }}
+                >
+                  <Check className={`mr-2 h-4 w-4 ${lang === 'en' ? 'opacity-100' : 'opacity-0'}`} />
+                  <span>{TEXT.accountMenu.english}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={(e) => { e.preventDefault(); setLang('es') }}
+                >
+                  <Check className={`mr-2 h-4 w-4 ${lang === 'es' ? 'opacity-100' : 'opacity-0'}`} />
+                  <span>{TEXT.accountMenu.spanish}</span>
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>{UI_TEXT.accountMenu.settings}</DropdownMenuItem>
-                <DropdownMenuItem>{UI_TEXT.accountMenu.support}</DropdownMenuItem>
+                <DropdownMenuItem>{TEXT.accountMenu.settings}</DropdownMenuItem>
+                <DropdownMenuItem>{TEXT.accountMenu.support}</DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onSelect={(e) => {
@@ -166,7 +179,7 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
                   }}
                 >
                   <LogOut className="mr-2 h-4 w-4" />
-                  <span>{UI_TEXT.accountMenu.logout}</span>
+                  <span>{TEXT.accountMenu.logout}</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -178,13 +191,13 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
           <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>{UI_TEXT.logoutDialog.title}</DialogTitle>
+                <DialogTitle>{TEXT.logoutDialog.title}</DialogTitle>
                 <DialogDescription>
-                  {UI_TEXT.logoutDialog.description}
+                  {TEXT.logoutDialog.description}
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setConfirmOpen(false)}>{UI_TEXT.logoutDialog.cancel}</Button>
+                <Button variant="outline" onClick={() => setConfirmOpen(false)}>{TEXT.logoutDialog.cancel}</Button>
                 <Button
                   variant="destructive"
                   onClick={async () => {
@@ -192,13 +205,13 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
                     try {
                       await authLogout()
                       // Toast notification
-                      toast.success(UI_TEXT.logoutDialog.successToast)
+                      toast.success(TEXT.logoutDialog.successToast)
                     } finally {
                       onLogout()
                     }
                   }}
                 >
-                  {UI_TEXT.logoutDialog.confirm}
+                  {TEXT.logoutDialog.confirm}
                 </Button>
               </DialogFooter>
             </DialogContent>

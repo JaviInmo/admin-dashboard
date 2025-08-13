@@ -3,7 +3,7 @@
 import * as React from "react"
 import GuardsTable from "./GuardsTable"
 import GuardShiftsTable from "./GuardShiftsTable"
-import { UI_TEXT } from "@/config/ui-text"
+import { useI18n } from "@/i18n"
 import { MAX_WEEKLY_HOURS } from "@/config/business-rules"
 
 type Shift = {
@@ -19,6 +19,7 @@ type Shift = {
 
 export default function GuardsContent() {
   const [selectedGuardId, setSelectedGuardId] = React.useState<number | null>(null)
+  const { TEXT } = useI18n()
 
   // Guardias base (sin cálculos)
   const baseGuards = [
@@ -75,9 +76,9 @@ export default function GuardsContent() {
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
-      <h2 className="text-2xl font-bold">{UI_TEXT.guards.title}</h2>
+      <h2 className="text-2xl font-bold">{TEXT.guards.title}</h2>
       <p className="text-sm text-muted-foreground">
-        {UI_TEXT.guards.weeklyMaxNote.replace("{hours}", String(MAX_WEEKLY_HOURS))}
+        {TEXT.guards.weeklyMaxNote.replace("{hours}", String(MAX_WEEKLY_HOURS))}
       </p>
 
       <GuardsTable guards={guards} onSelectGuard={setSelectedGuardId} />
@@ -89,7 +90,7 @@ export default function GuardsContent() {
         />
       ) : (
         <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
-          <p className="text-sm text-muted-foreground">{UI_TEXT.guards.selectPrompt}</p>
+          <p className="text-sm text-muted-foreground">{TEXT.guards.selectPrompt}</p>
         </div>
       )}
     </div>

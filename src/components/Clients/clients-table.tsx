@@ -11,6 +11,7 @@ import type { AppClient } from "@/lib/services/clients"
 import CreateClientDialog from "./Create/Create"
 import EditClientDialog from "./Edit/Edit"
 import DeleteClientDialog from "./Delete/Delete"
+import { useI18n } from "@/i18n"
 
 export interface ClientsTableProps {
   clients: AppClient[]
@@ -35,6 +36,7 @@ export default function ClientsTable({
   onPageChange,
   pageSize = 5,
 }: ClientsTableProps) {
+  const { TEXT } = useI18n()
   const [page, setPage] = React.useState(1)
   const [search, setSearch] = React.useState("")
   // default sort by first name (we treat "Client Name" as firstName + lastName)
@@ -142,16 +144,6 @@ export default function ClientsTable({
     )
   }
 
-  const formatDate = (iso?: string) => {
-    if (!iso) return "-"
-    try {
-      const d = new Date(iso)
-      return d.toLocaleDateString() + " " + d.toLocaleTimeString()
-    } catch {
-      return iso
-    }
-  }
-
   // Render pagination control (works for serverSide or local)
   const renderPagination = () => {
     const pages = effectiveTotalPages
@@ -211,24 +203,24 @@ export default function ClientsTable({
 
       {/* Header row: Title | Search | Add button */}
       <div className="flex flex-col md:flex-row items-center gap-3 justify-between">
-        <h3 className="text-lg font-semibold md:mr-4">Clients List</h3>
+        <h3 className="text-lg font-semibold md:mr-4">{TEXT.clients.list.title}</h3>
 
         {/* Search sits to the right of title and to the left of the Add button */}
         <div className="flex-1 md:mx-4 w-full max-w-3xl">
           <div className={`${highlightSearch ? "search-highlight search-pulse" : ""}`} style={{ minWidth: 280 }}>
             <Input
               ref={searchRef}
-              placeholder="Search clients..."
+              placeholder={TEXT.clients.list.searchPlaceholder}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full"
-              aria-label="Search clients"
+              aria-label={TEXT.clients.list.searchPlaceholder}
             />
           </div>
         </div>
 
         <div className="flex-none">
-          <Button onClick={() => setCreateOpen(true)}>Add Client</Button>
+          <Button onClick={() => setCreateOpen(true)}>{TEXT.clients.list.addClient}</Button>
         </div>
       </div>
 
@@ -236,19 +228,19 @@ export default function ClientsTable({
         <TableHeader>
           <TableRow>
             <TableHead onClick={() => toggleSort("firstName")} className="cursor-pointer select-none">
-              Client Name {renderSortIcon("firstName")}
+              {TEXT.clients.list.headers.clientName} {renderSortIcon("firstName")}
             </TableHead>
             <TableHead onClick={() => toggleSort("email")} className="cursor-pointer select-none">
-              Email {renderSortIcon("email")}
+              {TEXT.clients.list.headers.email} {renderSortIcon("email")}
             </TableHead>
             <TableHead onClick={() => toggleSort("phone")} className="cursor-pointer select-none">
-              Phone {renderSortIcon("phone")}
+              {TEXT.clients.list.headers.phone} {renderSortIcon("phone")}
             </TableHead>
             <TableHead onClick={() => toggleSort("balance")} className="cursor-pointer select-none">
-              Balance {renderSortIcon("balance")}
+              {TEXT.clients.list.headers.balance} {renderSortIcon("balance")}
             </TableHead>
-            <TableHead className="w-[120px]">Status</TableHead>
-            <TableHead className="w-[100px] text-center">Actions</TableHead>
+            <TableHead className="w-[120px]">{TEXT.clients.list.headers.status}</TableHead>
+            <TableHead className="w-[100px] text-center">{TEXT.clients.list.headers.actions}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -267,7 +259,7 @@ export default function ClientsTable({
                 <TableCell>{client.email ?? "-"}</TableCell>
                 <TableCell>{client.phone ?? "-"}</TableCell>
                 <TableCell>{client.balance ?? "-"}</TableCell>
-                <TableCell>{(client.isActive ?? true) ? "Active" : "Inactive"}</TableCell>
+                <TableCell>{(client.isActive ?? true) ? TEXT.clients.list.statusActive : TEXT.clients.list.statusInactive}</TableCell>
                 <TableCell className="flex gap-2 justify-center">
                   <Button size="icon" variant="ghost" onClick={() => setEditClient(client)}>
                     <Pencil className="h-4 w-4" />

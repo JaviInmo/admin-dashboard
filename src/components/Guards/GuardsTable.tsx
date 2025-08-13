@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/pagination"
 import { Pencil, Trash } from "lucide-react"
 import { toast } from 'sonner'
+import { useI18n } from "@/i18n"
 
 interface Guard {
   id: number
@@ -34,6 +35,7 @@ interface GuardsTableProps {
 }
 
 export default function GuardsTable({ guards, onSelectGuard }: GuardsTableProps) {
+  const { TEXT } = useI18n()
   const [page, setPage] = React.useState(1)
   const itemsPerPage = 5
   const totalPages = Math.max(1, Math.ceil(guards.length / itemsPerPage))
@@ -50,17 +52,17 @@ export default function GuardsTable({ guards, onSelectGuard }: GuardsTableProps)
   return (
     <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm space-y-4">
       <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold">Lista de Guardias</h3>
-        <Button onClick={() => toast.info("Agregar nuevo guardia")}>Agregar</Button>
+        <h3 className="text-lg font-semibold">{TEXT.guards.table.title}</h3>
+        <Button onClick={() => toast.info(TEXT.guards.table.add)}>{TEXT.guards.table.add}</Button>
       </div>
 
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Nombre</TableHead>
-            <TableHead className="text-center">Horas Totales</TableHead>
-            <TableHead className="text-center">Salario Total ($)</TableHead>
-            <TableHead className="w-[100px] text-center">Acciones</TableHead>
+            <TableHead>{TEXT.guards.table.headers.name}</TableHead>
+            <TableHead className="text-center">{TEXT.guards.table.headers.totalHours}</TableHead>
+            <TableHead className="text-center">{TEXT.guards.table.headers.totalSalary}</TableHead>
+            <TableHead className="w-[100px] text-center">{TEXT.guards.table.headers.actions}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -77,19 +79,22 @@ export default function GuardsTable({ guards, onSelectGuard }: GuardsTableProps)
               <TableCell className="text-center">{guard.totalHours}</TableCell>
               <TableCell className="text-center">{guard.totalSalary.toFixed(2)}</TableCell>
               <TableCell className="flex gap-2 justify-center">
-                <Button size="icon" variant="ghost" onClick={() => toast.info(`Editar guardia ${guard.name}`)}>
+                <Button size="icon" variant="ghost" onClick={() => toast.info(TEXT.guards.table.actionEdit.replace("{name}", guard.name))}>
                   <Pencil className="h-4 w-4" />
                 </Button>
                 <Button
                   size="icon"
                   variant="ghost"
                   onClick={() =>
-                    toast.warning(`¿Eliminar guardia ${guard.name}?`, {
-                      action: {
-                        label: 'Confirmar',
-                        onClick: () => toast.success(`Guardia ${guard.name} eliminado`),
-                      },
-                    })
+                    toast.warning(
+                      TEXT.guards.table.actionDeleteConfirm.replace("{name}", guard.name),
+                      {
+                        action: {
+                          label: TEXT.guards.table.confirmLabel,
+                          onClick: () => toast.success(TEXT.guards.table.deleteSuccess.replace("{name}", guard.name)),
+                        },
+                      }
+                    )
                   }
                 >
                   <Trash className="h-4 w-4 text-red-500" />

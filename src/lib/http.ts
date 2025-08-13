@@ -2,7 +2,7 @@
 // Axios instance with base URL and auth interceptors.
 
 import axios, {AxiosError, type InternalAxiosRequestConfig} from 'axios'
-import { API_BASE_URL, WITH_CREDENTIALS } from './constants'
+import { API_BASE_URL, WITH_CREDENTIALS, API_BASE_ROOT, DEFAULT_LANG } from './constants'
 import { getAccessToken, clearAllTokens, getRefreshToken, setAccessToken, setUser, clearUser } from './auth-storage'
 import { endpoints } from './endpoints'
 import { decodeJWT } from './jwt'
@@ -15,6 +15,15 @@ export const api = axios.create({
   // Set to true if your backend uses cookie-based auth and same-site policies
   withCredentials: WITH_CREDENTIALS,
 })
+
+// Initialize baseURL with persisted language (before any requests)
+try {
+  if (typeof window !== 'undefined') {
+    const saved = window.localStorage.getItem('app.lang')
+    const lang = saved === 'en' || saved === 'es' ? saved : DEFAULT_LANG
+    api.defaults.baseURL = `${API_BASE_ROOT}${lang}/`
+  }
+} catch {}
 
 // Track refresh state to avoid multiple parallel refresh calls
 let isRefreshing = false
