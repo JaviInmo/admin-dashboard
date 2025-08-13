@@ -19,13 +19,11 @@ export default function ClientPage() {
   const [error, setError] = React.useState<string | null>(null)
 
   const [page, setPage] = React.useState<number>(1)
-  const [count, setCount] = React.useState<number | undefined>(undefined)
-  const [pageSize, setPageSize] = React.useState<number>(5) // fallback; updated based on results
-  const totalPages = count ? Math.max(1, Math.ceil(count / pageSize)) : 1
+  const [count, setCount] = React.useState<number>(0)
+  const [pageSize] = React.useState<number>(10) // DRF page_size
+  const totalPages = Math.max(1, Math.ceil((count ?? 0) / pageSize))
 
-  const [search] = React.useState<string>("")
-  // Use the same global setTimeout type and calls to avoid DOM/Node mismatch
-  const searchRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [search, setSearch] = React.useState<string>("")
 
   const [selectedClientLabel, setSelectedClientLabel] = React.useState<string | null>(null)
 
@@ -38,12 +36,9 @@ export default function ClientPage() {
     setLoading(true)
     setError(null)
     try {
-      const res = await listClients(p, q)
+      const res = await listClients(p, q, pageSize)
       setClients(res.items)
-      setCount(res.count)
-      // infer pageSize from returned items length when possible
-      const inferredPageSize = res.items.length > 0 ? res.items.length : pageSize
-      setPageSize(inferredPageSize)
+      setCount(res.count ?? 0)
       setPage(p)
     } catch (err: any) {
       const data = err?.response?.data
@@ -58,26 +53,14 @@ export default function ClientPage() {
     }
   }, [pageSize, TEXT])
 
-  // debounce search: call fetchClients 400ms after last keystroke
-  React.useEffect(() => {
-    if (searchRef.current) {
-      clearTimeout(searchRef.current)
-      searchRef.current = null
-    }
-    searchRef.current = setTimeout(() => {
-      void fetchClients(1, search)
-    }, 400)
-    return () => {
-      if (searchRef.current) {
-        clearTimeout(searchRef.current)
-        searchRef.current = null
-      }
-    }
-  }, [search, fetchClients])
-
   // initial load
   React.useEffect(() => {
     void fetchClients(1)
+  }, [fetchClients])
+
+  const handleSearch = React.useCallback((term: string) => {
+    setSearch(term)
+    void fetchClients(1, term)
   }, [fetchClients])
 
   // fetch properties for a client id
@@ -159,6 +142,7 @@ export default function ClientPage() {
         totalPages={totalPages ?? 1}
         onPageChange={(p: number) => void fetchClients(p, search)}
         pageSize={pageSize}
+        onSearch={handleSearch}
       />
 
       {loading ? (

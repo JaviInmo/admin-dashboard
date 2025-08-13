@@ -24,6 +24,7 @@ export interface ClientsTableProps {
   totalPages?: number
   onPageChange?: (page: number) => void
   pageSize?: number
+  onSearch?: (term: string) => void
 }
 
 export default function ClientsTable({
@@ -35,6 +36,7 @@ export default function ClientsTable({
   totalPages = 1,
   onPageChange,
   pageSize = 5,
+  onSearch,
 }: ClientsTableProps) {
   const { TEXT } = useI18n()
   const [page, setPage] = React.useState(1)
@@ -67,7 +69,7 @@ export default function ClientsTable({
     } as AppClient & { clientName: string }
   })
 
-  const filteredClients = normalizedClients
+  const localFilteredAndSorted = normalizedClients
     .filter((c) => {
       const q = (search ?? "").toLowerCase()
       if (!q) return true
@@ -89,15 +91,18 @@ export default function ClientsTable({
         : String(valB).localeCompare(String(valA))
     })
 
+  // When serverSide is true, do not filter/sort locally; rely on backend
+  const effectiveList = serverSide ? normalizedClients : localFilteredAndSorted
+
   // Determine pagination values depending on mode
-  const localTotalPages = Math.max(1, Math.ceil(filteredClients.length / itemsPerPage))
+  const localTotalPages = Math.max(1, Math.ceil(localFilteredAndSorted.length / itemsPerPage))
   const effectiveTotalPages = serverSide ? Math.max(1, totalPages ?? 1) : localTotalPages
   const effectivePage = serverSide ? Math.max(1, Math.min(currentPage, effectiveTotalPages)) : page
 
   const startIndex = (effectivePage - 1) * itemsPerPage
   const paginatedClients = serverSide
-    ? filteredClients // parent is responsible for returning the page contents
-    : filteredClients.slice(startIndex, startIndex + itemsPerPage)
+    ? effectiveList // parent supplies already-paginated contents
+    : effectiveList.slice(startIndex, startIndex + itemsPerPage)
 
   React.useEffect(() => {
     // when source clients change or search changes, reset local page if not serverSide
@@ -105,6 +110,26 @@ export default function ClientsTable({
       setPage(1)
     }
   }, [clients.length, search, serverSide])
+
+  // Debounce server-side search by 350ms
+  const searchTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  React.useEffect(() => {
+    if (!serverSide) return
+    if (!onSearch) return
+    if (searchTimerRef.current) {
+      clearTimeout(searchTimerRef.current)
+      searchTimerRef.current = null
+    }
+    searchTimerRef.current = setTimeout(() => {
+      onSearch(search)
+    }, 350)
+    return () => {
+      if (searchTimerRef.current) {
+        clearTimeout(searchTimerRef.current)
+        searchTimerRef.current = null
+      }
+    }
+  }, [search, serverSide, onSearch])
 
   React.useEffect(() => {
     // Focus the search input and keep the highlight for ~3.5s when component mounts

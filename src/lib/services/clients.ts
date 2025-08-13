@@ -1,6 +1,7 @@
 // src/lib/services/clients.ts
 import { api } from '@/lib/http'
 import { endpoints } from '@/lib/endpoints'
+import { drfList, type PaginatedResult } from '@/lib/pagination'
 
 /**
  * Server (DRF) shape (snake_case)
@@ -82,30 +83,18 @@ function mapServerClient(client: ServerClient): AppClient {
    ---------------------------------------------------------------- */
 export async function listClients(
   page?: number,
-  search?: string
-): Promise<{ items: AppClient[]; count?: number; next: string | null; previous: string | null }> {
-  const params: Record<string, unknown> = {}
-  if (typeof page === 'number') params.page = page
-  if (search && String(search).trim() !== '') params.search = String(search).trim()
-
-  const { data } = await api.get<any>(endpoints.clients, { params })
-
-  // If backend returns an array (no pagination)
-  if (Array.isArray(data)) {
-    const items = data.map((d: ServerClient) => mapServerClient(d))
-    return { items, count: items.length, next: null, previous: null }
-  }
-
-  // DRF-style paginated response { count, next, previous, results }
-  const rawItems: ServerClient[] = data.results ?? []
-  const items = rawItems.map(mapServerClient)
-
-  return {
-    items,
-    count: typeof data.count === 'number' ? data.count : items.length,
-    next: data.next ?? null,
-    previous: data.previous ?? null,
-  }
+  search?: string,
+  pageSize: number = 10
+): Promise<PaginatedResult<AppClient>> {
+  return drfList<ServerClient, AppClient>(
+    endpoints.clients,
+    {
+      page,
+      page_size: pageSize,
+      search: search && String(search).trim() !== '' ? String(search).trim() : undefined,
+    },
+    mapServerClient
+  )
 }
 
 /* ---------------------------

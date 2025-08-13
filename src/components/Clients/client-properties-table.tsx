@@ -19,10 +19,13 @@ import { toast } from 'sonner'
 interface Property {
   id: number
   name: string
-  price: number
-  hours: number
-  fuelCost: number
-  expenses: number
+  address?: string | null
+  types_of_service?: { id: number; name: string }[] | null
+  monthly_rate?: number | string | null
+  contract_start_date?: string | null
+  total_hours?: number | string | null
+  owner?: number
+  owner_details?: Record<string, unknown> | null
 }
 
 interface ClientPropertiesTableProps {
@@ -40,6 +43,18 @@ export default function ClientPropertiesTable({ properties, clientName }: Client
 
   const goToPage = (p: number) => setPage(Math.max(1, Math.min(totalPages, p)))
 
+  const fmtMoney = (v: unknown): string => {
+    const n = Number(v)
+    return Number.isFinite(n) ? n.toFixed(2) : "-"
+  }
+
+  const fmtNumber = (v: unknown): string => {
+    const n = Number(v)
+    return Number.isFinite(n) ? String(n) : "-"
+  }
+
+  const H = (TEXT as any)?.clients?.properties?.headers ?? {}
+
   return (
     <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm space-y-4">
       <h3 className="text-lg font-semibold">{TEXT.clients.properties.title.replace("{clientName}", clientName)}</h3>
@@ -48,10 +63,11 @@ export default function ClientPropertiesTable({ properties, clientName }: Client
         <TableHeader>
           <TableRow>
             <TableHead>{TEXT.clients.properties.headers.name}</TableHead>
-            <TableHead className="text-center">{TEXT.clients.properties.headers.price}</TableHead>
-            <TableHead className="text-center">{TEXT.clients.properties.headers.expenses}</TableHead>
-            <TableHead className="text-center">{TEXT.clients.properties.headers.hours}</TableHead>
-            <TableHead className="text-center">{TEXT.clients.properties.headers.fuel}</TableHead>
+            <TableHead>{H.address ?? 'Address'}</TableHead>
+            <TableHead>{H.serviceTypes ?? 'Service Types'}</TableHead>
+            <TableHead className="text-center">{H.monthlyRate ?? 'Monthly Rate'}</TableHead>
+            <TableHead className="text-center">{H.totalHours ?? 'Total Hours'}</TableHead>
+            <TableHead>{H.startDate ?? 'Start Date'}</TableHead>
             <TableHead className="w-[100px] text-center">{TEXT.clients.properties.headers.actions}</TableHead>
           </TableRow>
         </TableHeader>
@@ -59,10 +75,11 @@ export default function ClientPropertiesTable({ properties, clientName }: Client
           {paginatedProperties.map((property) => (
             <TableRow key={property.id}>
               <TableCell>{property.name}</TableCell>
-              <TableCell className="text-center">{property.price.toFixed(2)}</TableCell>
-              <TableCell className="text-center">{property.expenses.toFixed(2)}</TableCell>
-              <TableCell className="text-center">{property.hours}</TableCell>
-              <TableCell className="text-center">{property.fuelCost.toFixed(2)}</TableCell>
+              <TableCell>{property.address ?? '-'}</TableCell>
+              <TableCell>{(property.types_of_service ?? [])?.map((t) => t?.name).filter(Boolean).join(', ') || '-'}</TableCell>
+              <TableCell className="text-center">{fmtMoney(property.monthly_rate)}</TableCell>
+              <TableCell className="text-center">{fmtNumber(property.total_hours)}</TableCell>
+              <TableCell>{property.contract_start_date ?? '-'}</TableCell>
               <TableCell className="flex gap-2 justify-center">
                 <Button
                   size="icon"

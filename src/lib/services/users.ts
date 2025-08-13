@@ -1,6 +1,7 @@
 // src/lib/services/users.ts
 import { api } from '@/lib/http'
 import { endpoints } from '@/lib/endpoints'
+import { drfList, type PaginatedResult } from '@/lib/pagination'
 
 /**
  * Server shapes (según swagger)
@@ -82,16 +83,20 @@ function mapServerUser(u: ServerUser): AppUser {
  * listUsers: soporta tanto respuesta plana (Array<User>) como paginada ({ results: [...] })
  * Devuelve siempre AppUser[]
  */
-export async function listUsers(page?: number): Promise<AppUser[]> {
-  const params: Record<string, unknown> = {}
-  if (typeof page === 'number') params.page = page
-
-  const { data } = await api.get<any>(endpoints.users, { params })
-
-  // DRF-style paginated response: { results: [...], count, next, previous }
-  const items: ServerUser[] = Array.isArray(data) ? data : data?.results ?? []
-
-  return items.map(mapServerUser)
+export async function listUsers(
+  page?: number,
+  search?: string,
+  pageSize: number = 10
+): Promise<PaginatedResult<AppUser>> {
+  return drfList<ServerUser, AppUser>(
+    endpoints.users,
+    {
+      page,
+      page_size: pageSize,
+      search: search && String(search).trim() !== '' ? String(search).trim() : undefined,
+    },
+    mapServerUser
+  )
 }
 
 export async function getUser(id: number): Promise<AppUser> {

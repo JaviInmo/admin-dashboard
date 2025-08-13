@@ -12,14 +12,22 @@ export default function UsersPage() {
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
 
+  const [page, setPage] = React.useState<number>(1)
+  const [count, setCount] = React.useState<number>(0)
+  const [pageSize] = React.useState<number>(10)
+  const [search, setSearch] = React.useState<string>("")
+  const totalPages = Math.max(1, Math.ceil((count ?? 0) / pageSize))
+
   const [selectedUserLabel, setSelectedUserLabel] = React.useState<string | null>(null)
 
-  const fetchUsers = React.useCallback(async () => {
+  const fetchUsers = React.useCallback(async (p = 1, q?: string) => {
     setLoading(true)
     setError(null)
     try {
-      const data = await listUsers()
-      setUsers(data as unknown as User[])
+      const res = await listUsers(p, q, pageSize)
+      setUsers(res.items as unknown as User[])
+      setCount(res.count ?? 0)
+      setPage(p)
     } catch (err: any) {
       const data = err?.response?.data
       if (data && typeof data !== "string") {
@@ -31,10 +39,10 @@ export default function UsersPage() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [pageSize])
 
   React.useEffect(() => {
-    void fetchUsers()
+    void fetchUsers(1)
   }, [fetchUsers])
 
   React.useEffect(() => {
@@ -70,7 +78,13 @@ export default function UsersPage() {
       <UsersTable
         users={users}
         onSelectUser={(id) => setSelectedUserId(id)}
-        onRefresh={fetchUsers}
+        onRefresh={() => fetchUsers(page, search)}
+        serverSide={true}
+        currentPage={page}
+        totalPages={totalPages}
+        onPageChange={(p) => void fetchUsers(p, search)}
+        pageSize={pageSize}
+        onSearch={(term) => { setSearch(term); void fetchUsers(1, term) }}
       />
 
       {loading ? (

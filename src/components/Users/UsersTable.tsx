@@ -15,9 +15,16 @@ export interface UsersTableProps {
   users: (User & { permissions?: Permissions })[]
   onSelectUser: (id: number) => void
   onRefresh?: () => Promise<void>
+  // server-side pagination (optional)
+  serverSide?: boolean
+  currentPage?: number
+  totalPages?: number
+  onPageChange?: (page: number) => void
+  pageSize?: number
+  onSearch?: (term: string) => void
 }
 
-export default function UsersTable({ users, onSelectUser, onRefresh }: UsersTableProps) {
+export default function UsersTable({ users, onSelectUser, onRefresh, serverSide = false, currentPage = 1, totalPages = 1, onPageChange, pageSize = 5, onSearch }: UsersTableProps) {
   const [page, setPage] = React.useState(1)
   const [search, setSearch] = React.useState("")
   const [sortField, setSortField] = React.useState<keyof User>("username")
@@ -27,7 +34,7 @@ export default function UsersTable({ users, onSelectUser, onRefresh }: UsersTabl
   const [editUser, setEditUser] = React.useState<User & { permissions?: Permissions } | null>(null)
   const [deleteUser, setDeleteUser] = React.useState<User | null>(null)
 
-  const itemsPerPage = 5
+  const itemsPerPage = pageSize ?? 5
 
   const normalizedUsers = users.map(u => ({
     ...u,
@@ -35,7 +42,7 @@ export default function UsersTable({ users, onSelectUser, onRefresh }: UsersTabl
     lastName: u.lastName ?? (u.name ? u.name.split(" ").slice(-1).join("") : ""),
   } as User))
 
-  const filteredUsers = normalizedUsers
+  const localFilteredAndSorted = normalizedUsers
     .filter((u) => {
       const q = search.toLowerCase()
       return (
@@ -54,15 +61,50 @@ export default function UsersTable({ users, onSelectUser, onRefresh }: UsersTabl
         : String(valB).localeCompare(String(valA))
     })
 
-  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / itemsPerPage))
-  const startIndex = (page - 1) * itemsPerPage
-  const paginatedUsers = filteredUsers.slice(startIndex, startIndex + itemsPerPage)
+  // When serverSide is true, do not filter/sort locally; rely on backend
+  const effectiveList = serverSide ? normalizedUsers : localFilteredAndSorted
+
+  const localTotalPages = Math.max(1, Math.ceil(localFilteredAndSorted.length / itemsPerPage))
+  const effectiveTotalPages = serverSide ? Math.max(1, totalPages ?? 1) : localTotalPages
+  const effectivePage = serverSide ? Math.max(1, Math.min(currentPage, effectiveTotalPages)) : page
+
+  const startIndex = (effectivePage - 1) * itemsPerPage
+  const paginatedUsers = serverSide ? effectiveList : effectiveList.slice(startIndex, startIndex + itemsPerPage)
 
   React.useEffect(() => {
-    setPage(1)
-  }, [users.length, search])
+    if (!serverSide) {
+      setPage(1)
+    }
+  }, [users.length, search, serverSide])
 
-  const goToPage = (p: number) => setPage(Math.max(1, Math.min(totalPages, p)))
+  // Debounce server-side search by 350ms
+  const searchTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  React.useEffect(() => {
+    if (!serverSide) return
+    if (!onSearch) return
+    if (searchTimerRef.current) {
+      clearTimeout(searchTimerRef.current)
+      searchTimerRef.current = null
+    }
+    searchTimerRef.current = setTimeout(() => {
+      onSearch(search)
+    }, 350)
+    return () => {
+      if (searchTimerRef.current) {
+        clearTimeout(searchTimerRef.current)
+        searchTimerRef.current = null
+      }
+    }
+  }, [search, serverSide, onSearch])
+
+  const goToPage = (p: number) => {
+    const newP = Math.max(1, Math.min(effectiveTotalPages, p))
+    if (serverSide) {
+      onPageChange?.(newP)
+    } else {
+      setPage(newP)
+    }
+  }
 
   const toggleSort = (field: keyof User) => {
     if (sortField === field) {
@@ -156,17 +198,17 @@ export default function UsersTable({ users, onSelectUser, onRefresh }: UsersTabl
         <Pagination>
           <PaginationContent>
             <PaginationItem>
-              <PaginationPrevious onClick={() => goToPage(page - 1)} className={page === 1 ? "pointer-events-none opacity-50" : ""}/>
+              <PaginationPrevious onClick={() => goToPage(effectivePage - 1)} className={effectivePage === 1 ? "pointer-events-none opacity-50" : ""}/>
             </PaginationItem>
-            {Array.from({ length: totalPages }, (_, i) => (
+            {Array.from({ length: effectiveTotalPages }, (_, i) => (
               <PaginationItem key={i}>
-                <PaginationLink isActive={page === i + 1} onClick={() => goToPage(i + 1)}>
+                <PaginationLink isActive={effectivePage === i + 1} onClick={() => goToPage(i + 1)}>
                   {i + 1}
                 </PaginationLink>
               </PaginationItem>
             ))}
             <PaginationItem>
-              <PaginationNext onClick={() => goToPage(page + 1)} className={page === totalPages ? "pointer-events-none opacity-50" : ""}/>
+              <PaginationNext onClick={() => goToPage(effectivePage + 1)} className={effectivePage === effectiveTotalPages ? "pointer-events-none opacity-50" : ""}/>
             </PaginationItem>
           </PaginationContent>
         </Pagination>
