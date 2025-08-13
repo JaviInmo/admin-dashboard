@@ -11,7 +11,7 @@ import CreateUserDialog from "./Create/Create"
 import EditUserDialog from "./Edit/Edit"
 import DeleteUserDialog from "./Delete/Delete"
 
-interface UsersTableProps {
+export interface UsersTableProps {
   users: (User & { permissions?: Permissions })[]
   onSelectUser: (id: number) => void
   onRefresh?: () => Promise<void>
@@ -115,6 +115,12 @@ export default function UsersTable({ users, onSelectUser, onRefresh }: UsersTabl
     )
   }
 
+  const renderRoleText = (u: User) => {
+    if ((u as any).is_superuser || u.isSuperuser) return "Superuser"
+    if ((u as any).is_staff || u.isStaff) return "Staff"
+    return "Usuario"
+  }
+
   return (
     <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm space-y-4">
       <div className="flex justify-between items-center">
@@ -145,7 +151,8 @@ export default function UsersTable({ users, onSelectUser, onRefresh }: UsersTabl
             <TableHead onClick={() => toggleSort("email")} className="cursor-pointer select-none">
               Correo {renderSortIcon("email")}
             </TableHead>
-            <TableHead className="w-[260px]">Permisos</TableHead>
+            <TableHead className="w-[120px]">Estado</TableHead>
+            <TableHead className="w-[120px]">Rol</TableHead>
             <TableHead className="w-[100px] text-center">Acciones</TableHead>
           </TableRow>
         </TableHeader>
@@ -163,7 +170,8 @@ export default function UsersTable({ users, onSelectUser, onRefresh }: UsersTabl
               <TableCell>{user.firstName}</TableCell>
               <TableCell>{user.lastName}</TableCell>
               <TableCell>{user.email}</TableCell>
-              <TableCell>{renderPermissions(user.permissions)}</TableCell>
+              <TableCell>{(user as any).is_active ?? (user.isActive ?? true) ? "Activo" : "Inactivo"}</TableCell>
+              <TableCell>{renderRoleText(user)}</TableCell>
               <TableCell className="flex gap-2 justify-center">
                 <Button size="icon" variant="ghost" onClick={() => setEditUser(user)}>
                   <Pencil className="h-4 w-4" />

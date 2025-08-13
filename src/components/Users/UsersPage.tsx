@@ -12,6 +12,8 @@ export default function UsersPage() {
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
 
+  const [selectedUserLabel, setSelectedUserLabel] = React.useState<string | null>(null)
+
   const fetchUsers = React.useCallback(async () => {
     setLoading(true)
     setError(null)
@@ -34,6 +36,30 @@ export default function UsersPage() {
   React.useEffect(() => {
     void fetchUsers()
   }, [fetchUsers])
+
+  React.useEffect(() => {
+    if (selectedUserId == null) {
+      setSelectedUserLabel(null)
+      return
+    }
+    const found = users.find((u) => Number(u.id) === Number(selectedUserId))
+    if (found) {
+      setSelectedUserLabel(found.username ?? found.name ?? `#${selectedUserId}`)
+      return
+    }
+    let mounted = true
+    const load = async () => {
+      try {
+        const u = await getUser(selectedUserId!)
+        if (!mounted) return
+        setSelectedUserLabel(u.username ?? u.name ?? `#${selectedUserId}`)
+      } catch {
+        if (mounted) setSelectedUserLabel(`#${selectedUserId}`)
+      }
+    }
+    void load()
+    return () => { mounted = false }
+  }, [selectedUserId, users])
 
   const [permissions, setPermissions] = React.useState<Permissions>({
     cliente: { create: false, edit: false, read: false, delete: false },
@@ -58,15 +84,22 @@ export default function UsersPage() {
 
       {error && <div className="rounded-lg border bg-card p-4 text-red-600">{error}</div>}
 
-      <UsersTable users={users} onSelectUser={setSelectedUserId} onRefresh={fetchUsers} />
+      <UsersTable
+        users={users}
+        onSelectUser={(id) => setSelectedUserId(id)}
+        onRefresh={fetchUsers}
+      />
 
       {loading ? (
         <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
           <p>Cargando usuarios...</p>
         </div>
       ) : selectedUserId ? (
-        // Aquí pasamos selectedUserId para que el panel cargue y permita editar permisos del usuario
-        <UserPermissionsTable userId={selectedUserId} onUpdated={fetchUsers} />
+        <UserPermissionsTable
+          userId={selectedUserId}
+          userLabel={selectedUserLabel ?? `#${selectedUserId}`}
+          onUpdated={fetchUsers}
+        />
       ) : (
         <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
           <p className="text-sm text-muted-foreground">Selecciona un usuario para ver y editar sus permisos.</p>

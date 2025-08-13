@@ -1,3 +1,4 @@
+// src/components/Users/Create/Create.tsx
 'use client'
 
 import * as React from 'react'
@@ -45,10 +46,6 @@ export default function CreateUserDialog({ open, onClose, onCreated }: Props) {
   const [properties, setProperties] = React.useState<Array<{ id: number; address?: string }>>([])
   const [selectedProperties, setSelectedProperties] = React.useState<Record<number, boolean>>({})
 
-  // raw debug
-  const [rawAvailableOptions, setRawAvailableOptions] = React.useState<any>(null)
-  const [rawProperties, setRawProperties] = React.useState<any>(null)
-
   // loading / errors
   const [loading, setLoading] = React.useState<boolean>(false)
   const [loadingPermissions, setIsLoadingPermissions] = React.useState<boolean>(false)
@@ -64,7 +61,6 @@ export default function CreateUserDialog({ open, onClose, onCreated }: Props) {
       setPermissions({})
       setUserRoles([]); setSelectedRole(null)
       setProperties([]); setSelectedProperties({})
-      setRawAvailableOptions(null); setRawProperties(null)
       setError(null)
     }
   }, [open])
@@ -116,18 +112,16 @@ export default function CreateUserDialog({ open, onClose, onCreated }: Props) {
       try {
         const opts = await listAdminAvailableOptions()
         if (!mounted) return
-        setRawAvailableOptions(opts)
         buildFromAvailableOptions(opts)
 
         const props = await listProperties({ page_size: 200 })
         if (!mounted) return
-        setRawProperties(props)
         const items = Array.isArray(props) ? props : (props?.results ?? [])
         const simple = items.map((p: any) => ({ id: p.id, address: p.address ?? p.name ?? String(p.id) }))
         setProperties(simple)
         setSelectedProperties({})
-      } catch (err: unknown) {
-        console.error('[CreateUserDialog] load options error', err)
+      } catch {
+        // silencioso: si falla la carga de opciones/properties, dejamos fallbacks vacíos
       } finally {
         if (mounted) setIsLoadingPermissions(false)
       }
@@ -183,14 +177,14 @@ export default function CreateUserDialog({ open, onClose, onCreated }: Props) {
       const codenames = uiPermissionsToCodenames(permissions)
       if (codenames.length > 0) {
         try { await assignUserPermissions(created.id, codenames) }
-        catch (errAssign: unknown) { console.error('Error asignando permisos:', errAssign) }
+        catch { /* ignorar fallo de asignación de permisos aquí */ }
       }
 
       const selectedIds = Object.entries(selectedProperties).filter(([_, v]) => v).map(([k]) => Number(k))
       if (selectedIds.length > 0) {
         for (const pid of selectedIds) {
           try { await grantPropertyAccess(created.id, pid) }
-          catch (errGrant: unknown) { console.error('Error grant property', pid, errGrant) }
+          catch { /* ignorar fallo de grant property aquí */ }
         }
       }
 
@@ -208,7 +202,6 @@ export default function CreateUserDialog({ open, onClose, onCreated }: Props) {
       } else {
         setError('Error creando usuario')
       }
-      console.error(err)
     } finally {
       setLoading(false)
     }
@@ -217,7 +210,7 @@ export default function CreateUserDialog({ open, onClose, onCreated }: Props) {
   return (
     <Dialog open={open} onOpenChange={onClose}>
       {/* DialogContent: max size + ocultar overflow de página */}
-      <DialogContent className="w-full max-w-3xl max-h-[80vh] overflow-hidden">
+     <DialogContent className="w-full max-w-6xl max-h-[90vh] overflow-hidden">
         <DialogHeader><DialogTitle>Crear Usuario</DialogTitle></DialogHeader>
 
         {/* Contenedor scrollable principal (vertical) */}
@@ -311,20 +304,6 @@ export default function CreateUserDialog({ open, onClose, onCreated }: Props) {
           </div>
 
           {error && <p className="text-sm text-red-600">{error}</p>}
-
-          {/* debug raw: evitar overflow usando wrap */}
-          {rawAvailableOptions && (
-            <div className="mt-2 border rounded p-2 bg-gray-50">
-              <p className="font-medium">Raw available_options (debug)</p>
-              <pre className="text-xs max-h-40 overflow-auto whitespace-pre-wrap break-words">{JSON.stringify(rawAvailableOptions, null, 2)}</pre>
-            </div>
-          )}
-          {rawProperties && (
-            <div className="mt-2 border rounded p-2 bg-gray-50">
-              <p className="font-medium">Raw properties (debug)</p>
-              <pre className="text-xs max-h-40 overflow-auto whitespace-pre-wrap break-words">{JSON.stringify(rawProperties, null, 2)}</pre>
-            </div>
-          )}
 
           {/* acciones */}
           <div className="flex justify-end pt-2">
