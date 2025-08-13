@@ -4,7 +4,7 @@ import * as React from "react"
 import UsersTable from "./UsersTable"
 import UserPermissionsTable from "./UserPermissionsTable"
 import type { User, Permissions, AppSection, PermissionAction } from "./types"
-import { listUsers } from "@/lib/services/users"
+import { listUsers, getUser } from "@/lib/services/users"
 
 export default function UsersPage() {
   const [selectedUserId, setSelectedUserId] = React.useState<number | null>(null)
@@ -17,7 +17,6 @@ export default function UsersPage() {
     setError(null)
     try {
       const data = await listUsers()
-      // map/compatibility: listUsers devuelve objetos con { id, name, email, ... }
       setUsers(data as unknown as User[])
     } catch (err: any) {
       const data = err?.response?.data
@@ -66,7 +65,8 @@ export default function UsersPage() {
           <p>Cargando usuarios...</p>
         </div>
       ) : selectedUserId ? (
-        <UserPermissionsTable permissions={permissions} onChange={handlePermissionChange} />
+        // Aquí pasamos selectedUserId para que el panel cargue y permita editar permisos del usuario
+        <UserPermissionsTable userId={selectedUserId} onUpdated={fetchUsers} />
       ) : (
         <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
           <p className="text-sm text-muted-foreground">Selecciona un usuario para ver y editar sus permisos.</p>

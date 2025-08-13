@@ -13,6 +13,7 @@ export const endpoints = {
   users: 'api/users/',
   clients: 'api/clients/',
   guards: 'api/guards/',
+  permissions: 'api/v1/permissions/admin',
 }
 
 export type Endpoints = typeof endpoints
