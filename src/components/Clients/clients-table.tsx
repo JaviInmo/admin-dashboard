@@ -1,3 +1,4 @@
+// src/components/Clients/ClientsTable.tsx
 "use client"
 
 import * as React from "react"
@@ -15,9 +16,25 @@ export interface ClientsTableProps {
   clients: AppClient[]
   onSelectClient: (id: number) => void
   onRefresh?: () => Promise<void>
+
+  // server-side pagination (optional)
+  serverSide?: boolean
+  currentPage?: number
+  totalPages?: number
+  onPageChange?: (page: number) => void
+  pageSize?: number
 }
 
-export default function ClientsTable({ clients, onSelectClient, onRefresh }: ClientsTableProps) {
+export default function ClientsTable({
+  clients,
+  onSelectClient,
+  onRefresh,
+  serverSide = false,
+  currentPage = 1,
+  totalPages = 1,
+  onPageChange,
+  pageSize = 5,
+}: ClientsTableProps) {
   const [page, setPage] = React.useState(1)
   const [search, setSearch] = React.useState("")
   // default sort by first name (we treat "Client Name" as firstName + lastName)
@@ -28,7 +45,8 @@ export default function ClientsTable({ clients, onSelectClient, onRefresh }: Cli
   const [editClient, setEditClient] = React.useState<AppClient | null>(null)
   const [deleteClient, setDeleteClient] = React.useState<AppClient | null>(null)
 
-  const itemsPerPage = 5
+  // local page size (used only when not serverSide)
+  const itemsPerPage = pageSize ?? 5
 
   // highlight flag for initial blink/pulse
   const [highlightSearch, setHighlightSearch] = React.useState(true)
@@ -49,7 +67,8 @@ export default function ClientsTable({ clients, onSelectClient, onRefresh }: Cli
 
   const filteredClients = normalizedClients
     .filter((c) => {
-      const q = search.toLowerCase()
+      const q = (search ?? "").toLowerCase()
+      if (!q) return true
       const clientName = (c as any).clientName ?? ""
       return (
         clientName.toLowerCase().includes(q) ||
@@ -68,13 +87,22 @@ export default function ClientsTable({ clients, onSelectClient, onRefresh }: Cli
         : String(valB).localeCompare(String(valA))
     })
 
-  const totalPages = Math.max(1, Math.ceil(filteredClients.length / itemsPerPage))
-  const startIndex = (page - 1) * itemsPerPage
-  const paginatedClients = filteredClients.slice(startIndex, startIndex + itemsPerPage)
+  // Determine pagination values depending on mode
+  const localTotalPages = Math.max(1, Math.ceil(filteredClients.length / itemsPerPage))
+  const effectiveTotalPages = serverSide ? Math.max(1, totalPages ?? 1) : localTotalPages
+  const effectivePage = serverSide ? Math.max(1, Math.min(currentPage, effectiveTotalPages)) : page
+
+  const startIndex = (effectivePage - 1) * itemsPerPage
+  const paginatedClients = serverSide
+    ? filteredClients // parent is responsible for returning the page contents
+    : filteredClients.slice(startIndex, startIndex + itemsPerPage)
 
   React.useEffect(() => {
-    setPage(1)
-  }, [clients.length, search])
+    // when source clients change or search changes, reset local page if not serverSide
+    if (!serverSide) {
+      setPage(1)
+    }
+  }, [clients.length, search, serverSide])
 
   React.useEffect(() => {
     // Focus the search input and keep the highlight for ~3.5s when component mounts
@@ -87,7 +115,14 @@ export default function ClientsTable({ clients, onSelectClient, onRefresh }: Cli
     return () => clearTimeout(t)
   }, [])
 
-  const goToPage = (p: number) => setPage(Math.max(1, Math.min(totalPages, p)))
+  const goToPage = (p: number) => {
+    const newP = Math.max(1, Math.min(effectiveTotalPages, p))
+    if (serverSide) {
+      onPageChange?.(newP)
+    } else {
+      setPage(newP)
+    }
+  }
 
   const toggleSort = (field: keyof AppClient) => {
     if (sortField === field) {
@@ -115,6 +150,37 @@ export default function ClientsTable({ clients, onSelectClient, onRefresh }: Cli
     } catch {
       return iso
     }
+  }
+
+  // Render pagination control (works for serverSide or local)
+  const renderPagination = () => {
+    const pages = effectiveTotalPages
+    const active = effectivePage
+
+    return (
+      <Pagination>
+        <PaginationContent>
+          <PaginationItem>
+            <PaginationPrevious onClick={() => goToPage(active - 1)} className={active === 1 ? "pointer-events-none opacity-50" : ""}/>
+          </PaginationItem>
+
+          {Array.from({ length: pages }, (_, i) => (
+            <PaginationItem key={i}>
+              <PaginationLink
+                isActive={active === i + 1}
+                onClick={() => goToPage(i + 1)}
+              >
+                {i + 1}
+              </PaginationLink>
+            </PaginationItem>
+          ))}
+
+          <PaginationItem>
+            <PaginationNext onClick={() => goToPage(active + 1)} className={active === pages ? "pointer-events-none opacity-50" : ""}/>
+          </PaginationItem>
+        </PaginationContent>
+      </Pagination>
+    )
   }
 
   return (
@@ -201,7 +267,7 @@ export default function ClientsTable({ clients, onSelectClient, onRefresh }: Cli
                 <TableCell>{client.email ?? "-"}</TableCell>
                 <TableCell>{client.phone ?? "-"}</TableCell>
                 <TableCell>{client.balance ?? "-"}</TableCell>
-                <TableCell>{client.isActive ?? true ? "Active" : "Inactive"}</TableCell>
+                <TableCell>{(client.isActive ?? true) ? "Active" : "Inactive"}</TableCell>
                 <TableCell className="flex gap-2 justify-center">
                   <Button size="icon" variant="ghost" onClick={() => setEditClient(client)}>
                     <Pencil className="h-4 w-4" />
@@ -217,23 +283,7 @@ export default function ClientsTable({ clients, onSelectClient, onRefresh }: Cli
       </Table>
 
       <div className="flex justify-end">
-        <Pagination>
-          <PaginationContent>
-            <PaginationItem>
-              <PaginationPrevious onClick={() => goToPage(page - 1)} className={page === 1 ? "pointer-events-none opacity-50" : ""}/>
-            </PaginationItem>
-            {Array.from({ length: totalPages }, (_, i) => (
-              <PaginationItem key={i}>
-                <PaginationLink isActive={page === i + 1} onClick={() => goToPage(i + 1)}>
-                  {i + 1}
-                </PaginationLink>
-              </PaginationItem>
-            ))}
-            <PaginationItem>
-              <PaginationNext onClick={() => goToPage(page + 1)} className={page === totalPages ? "pointer-events-none opacity-50" : ""}/>
-            </PaginationItem>
-          </PaginationContent>
-        </Pagination>
+        {renderPagination()}
       </div>
 
       <CreateClientDialog open={createOpen} onClose={() => setCreateOpen(false)} onCreated={onRefresh} />

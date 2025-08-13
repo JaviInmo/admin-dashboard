@@ -2,10 +2,13 @@
 import { api } from '@/lib/http'
 import { endpoints } from '@/lib/endpoints'
 
-// Tipo que devuelve el server (snake_case)
+/**
+ * Server (DRF) shape (snake_case)
+ */
 type ServerClient = {
   id: number
-  username: string
+  username?: string
+  user?: number
   first_name?: string
   last_name?: string
   email?: string
@@ -16,10 +19,12 @@ type ServerClient = {
   is_active?: boolean
 }
 
-// Tipo que usa la app (camelCase)
+/**
+ * App shape (camelCase)
+ */
 export type AppClient = {
   id: number
-  username: string
+  username?: string
   firstName?: string
   lastName?: string
   email?: string
@@ -30,19 +35,20 @@ export type AppClient = {
   isActive?: boolean
 }
 
-// Payload para crear cliente: usa campos que el backend espera (snake_case)
-// Ajusta si tu backend quiere otros campos (p.ej. password)
+/**
+ * Payloads for create / update
+ * Use snake_case for fields sent to the backend (DRF)
+ */
 export type CreateClientPayload = {
+  username?: string
   first_name?: string
   last_name?: string
   email?: string
   phone?: string
-  // si tu backend necesita balance o password, añádelos aquí explicitamente
   balance?: string
-  // password?: string
+  // add other fields if your backend requires them
 }
 
-// Payload para actualizar (PATCH) — snake_case
 export type UpdateClientPayload = {
   first_name?: string
   last_name?: string
@@ -52,11 +58,13 @@ export type UpdateClientPayload = {
   is_active?: boolean
 }
 
-// Mapea del server (snake_case) a AppClient (camelCase)
+/* ---------------------------
+   Helper: map server -> app
+   --------------------------- */
 function mapServerClient(client: ServerClient): AppClient {
   return {
     id: client.id,
-    username: client.username,
+    username: client.username ?? undefined,
     firstName: client.first_name,
     lastName: client.last_name,
     email: client.email,
@@ -68,40 +76,76 @@ function mapServerClient(client: ServerClient): AppClient {
   }
 }
 
-/**
- * Lista clientes.
- * Si el endpoint devuelve paginación, se usa data.results; si devuelve array, lo soporta también.
- */
-export async function listClients(page?: number): Promise<AppClient[]> {
+/* ----------------------------------------------------------------
+   listClients: supports DRF-style pagination responses and plain array
+   returns: { items, count, next, previous }
+   ---------------------------------------------------------------- */
+export async function listClients(
+  page?: number,
+  search?: string
+): Promise<{ items: AppClient[]; count?: number; next: string | null; previous: string | null }> {
   const params: Record<string, unknown> = {}
   if (typeof page === 'number') params.page = page
+  if (search && String(search).trim() !== '') params.search = String(search).trim()
 
   const { data } = await api.get<any>(endpoints.clients, { params })
 
-  const items: ServerClient[] = Array.isArray(data) ? data : data?.results ?? []
-  return items.map(mapServerClient)
+  // If backend returns an array (no pagination)
+  if (Array.isArray(data)) {
+    const items = data.map((d: ServerClient) => mapServerClient(d))
+    return { items, count: items.length, next: null, previous: null }
+  }
+
+  // DRF-style paginated response { count, next, previous, results }
+  const rawItems: ServerClient[] = data.results ?? []
+  const items = rawItems.map(mapServerClient)
+
+  return {
+    items,
+    count: typeof data.count === 'number' ? data.count : items.length,
+    next: data.next ?? null,
+    previous: data.previous ?? null,
+  }
 }
 
-/** Obtener cliente por id */
+/* ---------------------------
+   getClient (detail)
+   --------------------------- */
 export async function getClient(id: number): Promise<AppClient> {
   const { data } = await api.get<ServerClient>(`${endpoints.clients}${id}/`)
   return mapServerClient(data)
 }
 
-/** Crear cliente */
+/* ---------------------------
+   createClient
+   --------------------------- */
 export async function createClient(payload: CreateClientPayload): Promise<AppClient> {
-  // Asegurarse de enviar al backend los campos que espera (snake_case)
   const { data } = await api.post<ServerClient>(endpoints.clients, payload)
   return mapServerClient(data)
 }
 
-/** Actualizar parcialmente */
+/* ---------------------------
+   updateClient (PATCH)
+   --------------------------- */
 export async function updateClient(id: number, payload: UpdateClientPayload): Promise<AppClient> {
   const { data } = await api.patch<ServerClient>(`${endpoints.clients}${id}/`, payload)
   return mapServerClient(data)
 }
 
-/** Borrar cliente */
+/* ---------------------------
+   deleteClient
+   --------------------------- */
 export async function deleteClient(id: number): Promise<void> {
   await api.delete(`${endpoints.clients}${id}/`)
+}
+
+/* ---------------------------
+   getClientProperties
+   convenience helper for GET /clients/{id}/properties/
+   normalizes results to array
+   --------------------------- */
+export async function getClientProperties(id: number): Promise<any[]> {
+  const url = `${endpoints.clients}${id}/properties/`
+  const { data } = await api.get<any>(url)
+  return Array.isArray(data) ? data : data?.results ?? []
 }
