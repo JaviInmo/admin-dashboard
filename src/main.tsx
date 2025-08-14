@@ -5,12 +5,15 @@ import App from './App'
 import './index.css'
 import { BrowserRouter } from 'react-router-dom'
 import { LanguageProvider } from './i18n'
+import { Providers } from './providers'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <LanguageProvider>
       <BrowserRouter>
-        <App />
+        <Providers>
+          <App />
+        </Providers>
       </BrowserRouter>
     </LanguageProvider>
   </React.StrictMode>
