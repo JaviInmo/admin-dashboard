@@ -84,7 +84,7 @@ function UserPermisions({
 		enabled: selectedUserId != null,
 	});
 
-	if (!data || selectedUserId == null) {
+	if (!data) {
 		return (
 			<div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
 				<p className="text-sm text-muted-foreground">
@@ -94,11 +94,11 @@ function UserPermisions({
 		);
 	}
 
-	const userLabel = data.username ?? data.name ?? `#${selectedUserId}`;
+	const userLabel = data.username ?? data.name ?? `#${data.id}`;
 
 	return (
 		<UserPermissionsTable
-			userId={selectedUserId}
+			userId={data.id}
 			userLabel={userLabel}
 			onUpdated={() => queryClient.invalidateQueries({ queryKey: [USER_KEY] })}
 		/>
