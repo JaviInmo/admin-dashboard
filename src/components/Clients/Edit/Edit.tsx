@@ -2,8 +2,10 @@
 
 import React from "react"
 import { updateClient, type AppClient, type UpdateClientPayload } from "@/lib/services/clients"
+
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+
 
 type Props = {
   client: AppClient
@@ -43,7 +45,7 @@ export default function EditClientDialog({ client, onClose, onUpdated }: Props) 
         last_name: lastName || undefined,
         email: email || undefined,
         phone: phone || undefined,
-        balance: balance || undefined,
+       balance: (balance ?? "").toString().trim() !== "" ? String(balance) : undefined,
       }
       await updateClient(client.id, payload)
       await (onUpdated ? onUpdated() : undefined)

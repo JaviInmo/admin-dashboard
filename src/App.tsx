@@ -7,6 +7,7 @@ import { refreshAccessToken } from '@/lib/services/auth'
 import { Toaster } from 'sonner'
 import { getGeneralSettings } from '@/lib/services/common'
 import { useI18n } from '@/i18n'
+import { HashRouter as Router , Routes, Route } from 'react-router-dom'
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)

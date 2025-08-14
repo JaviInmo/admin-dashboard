@@ -15,7 +15,6 @@ export interface UsersTableProps {
   users: (User & { permissions?: Permissions })[]
   onSelectUser: (id: number) => void
   onRefresh?: () => Promise<void>
-  // server-side pagination (optional)
   serverSide?: boolean
   currentPage?: number
   totalPages?: number
@@ -24,7 +23,17 @@ export interface UsersTableProps {
   onSearch?: (term: string) => void
 }
 
-export default function UsersTable({ users, onSelectUser, onRefresh, serverSide = false, currentPage = 1, totalPages = 1, onPageChange, pageSize = 5, onSearch }: UsersTableProps) {
+export default function UsersTable({
+  users,
+  onSelectUser,
+  onRefresh,
+  serverSide = false,
+  currentPage = 1,
+  totalPages = 1,
+  onPageChange,
+  pageSize = 5,
+  onSearch
+}: UsersTableProps) {
   const [page, setPage] = React.useState(1)
   const [search, setSearch] = React.useState("")
   const [sortField, setSortField] = React.useState<keyof User>("username")
@@ -35,6 +44,18 @@ export default function UsersTable({ users, onSelectUser, onRefresh, serverSide 
   const [deleteUser, setDeleteUser] = React.useState<User | null>(null)
 
   const itemsPerPage = pageSize ?? 5
+
+  // estilos y animación del search
+  const [highlightSearch, setHighlightSearch] = React.useState(true)
+  const searchRef = React.useRef<HTMLInputElement | null>(null)
+
+  React.useEffect(() => {
+    if (searchRef.current) {
+      try { searchRef.current.focus() } catch {}
+    }
+    const t = setTimeout(() => setHighlightSearch(false), 3500)
+    return () => clearTimeout(t)
+  }, [])
 
   const normalizedUsers = users.map(u => ({
     ...u,
@@ -61,23 +82,17 @@ export default function UsersTable({ users, onSelectUser, onRefresh, serverSide 
         : String(valB).localeCompare(String(valA))
     })
 
-  // When serverSide is true, do not filter/sort locally; rely on backend
   const effectiveList = serverSide ? normalizedUsers : localFilteredAndSorted
-
   const localTotalPages = Math.max(1, Math.ceil(localFilteredAndSorted.length / itemsPerPage))
   const effectiveTotalPages = serverSide ? Math.max(1, totalPages ?? 1) : localTotalPages
   const effectivePage = serverSide ? Math.max(1, Math.min(currentPage, effectiveTotalPages)) : page
-
   const startIndex = (effectivePage - 1) * itemsPerPage
   const paginatedUsers = serverSide ? effectiveList : effectiveList.slice(startIndex, startIndex + itemsPerPage)
 
   React.useEffect(() => {
-    if (!serverSide) {
-      setPage(1)
-    }
+    if (!serverSide) setPage(1)
   }, [users.length, search, serverSide])
 
-  // Debounce server-side search by 350ms
   const searchTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
   React.useEffect(() => {
     if (!serverSide) return
@@ -99,11 +114,8 @@ export default function UsersTable({ users, onSelectUser, onRefresh, serverSide 
 
   const goToPage = (p: number) => {
     const newP = Math.max(1, Math.min(effectiveTotalPages, p))
-    if (serverSide) {
-      onPageChange?.(newP)
-    } else {
-      setPage(newP)
-    }
+    if (serverSide) onPageChange?.(newP)
+    else setPage(newP)
   }
 
   const toggleSort = (field: keyof User) => {
@@ -132,15 +144,24 @@ export default function UsersTable({ users, onSelectUser, onRefresh, serverSide 
 
   return (
     <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm space-y-4">
-      <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold">Lista de Usuarios</h3>
-        <div className="flex items-center gap-2">
-          <Input
-            placeholder="Buscar..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-64"
-          />
+      {/* estilos inline para animación del search */}
+    
+
+      <div className="flex flex-col md:flex-row items-center gap-3 justify-between">
+        <h3 className="text-lg font-semibold md:mr-4">Lista de Usuarios</h3>
+        <div className="flex-1 md:mx-4 w-full max-w-3xl">
+          <div className={`${highlightSearch ? "search-highlight search-pulse" : ""}`} style={{ minWidth: 280 }}>
+            <Input
+              ref={searchRef}
+              placeholder="Buscar..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full"
+              aria-label="Buscar usuarios"
+            />
+          </div>
+        </div>
+        <div className="flex-none">
           <Button onClick={() => setCreateOpen(true)}>Agregar</Button>
         </div>
       </div>

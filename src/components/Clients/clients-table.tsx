@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination"
 import { Pencil, Trash, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react"
-import type { AppClient } from "@/lib/services/clients"
+import type { Client as AppClient } from "./types"
 import CreateClientDialog from "./Create/Create"
 import EditClientDialog from "./Edit/Edit"
 import DeleteClientDialog from "./Delete/Delete"
@@ -25,6 +25,9 @@ export interface ClientsTableProps {
   onPageChange?: (page: number) => void
   pageSize?: number
   onSearch?: (term: string) => void
+
+  // ocultar columna balance (por defecto: oculto)
+  hideBalance?: boolean
 }
 
 export default function ClientsTable({
@@ -37,6 +40,7 @@ export default function ClientsTable({
   onPageChange,
   pageSize = 5,
   onSearch,
+  hideBalance = true, // <- ocultamos por defecto según tu petición
 }: ClientsTableProps) {
   const { TEXT } = useI18n()
   const [page, setPage] = React.useState(1)
@@ -203,28 +207,7 @@ export default function ClientsTable({
   return (
     <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm space-y-4">
       {/* Inline styles for the blink/pulse to ensure it works regardless of global CSS */}
-      <style>{`
-        @keyframes search-blink {
-          0% { box-shadow: 0 0 0 rgba(59,130,246,0); transform: scale(1); }
-          25% { box-shadow: 0 0 18px rgba(59,130,246,0.28); transform: scale(1.01); }
-          50% { box-shadow: 0 0 0 rgba(59,130,246,0); transform: scale(1); }
-          75% { box-shadow: 0 0 18px rgba(59,130,246,0.28); transform: scale(1.01); }
-          100% { box-shadow: 0 0 0 rgba(59,130,246,0); transform: scale(1); }
-        }
-        .search-highlight {
-          animation: search-blink 0.8s ease-in-out 4;
-          border-radius: 8px;
-        }
-        /* small subtle pulse while still highlighted */
-        @keyframes search-pulse {
-          0% { box-shadow: 0 0 0 rgba(59,130,246,0.15); }
-          50% { box-shadow: 0 0 20px rgba(59,130,246,0.22); }
-          100% { box-shadow: 0 0 0 rgba(59,130,246,0.15); }
-        }
-        .search-pulse {
-          animation: search-pulse 1.6s ease-in-out 2;
-        }
-      `}</style>
+   
 
       {/* Header row: Title | Search | Add button */}
       <div className="flex flex-col md:flex-row items-center gap-3 justify-between">
@@ -261,9 +244,14 @@ export default function ClientsTable({
             <TableHead onClick={() => toggleSort("phone")} className="cursor-pointer select-none">
               {TEXT.clients.list.headers.phone} {renderSortIcon("phone")}
             </TableHead>
-            <TableHead onClick={() => toggleSort("balance")} className="cursor-pointer select-none">
-              {TEXT.clients.list.headers.balance} {renderSortIcon("balance")}
-            </TableHead>
+
+            {/* balance header hidden when hideBalance === true */}
+            {!hideBalance && (
+              <TableHead onClick={() => toggleSort("balance")} className="cursor-pointer select-none">
+                {TEXT.clients.list.headers.balance} {renderSortIcon("balance")}
+              </TableHead>
+            )}
+
             <TableHead className="w-[120px]">{TEXT.clients.list.headers.status}</TableHead>
             <TableHead className="w-[100px] text-center">{TEXT.clients.list.headers.actions}</TableHead>
           </TableRow>
@@ -283,7 +271,10 @@ export default function ClientsTable({
                 </TableCell>
                 <TableCell>{client.email ?? "-"}</TableCell>
                 <TableCell>{client.phone ?? "-"}</TableCell>
-                <TableCell>{client.balance ?? "-"}</TableCell>
+
+                {/* balance cell hidden when hideBalance === true */}
+                {!hideBalance && <TableCell>{client.balance ?? "-"}</TableCell>}
+
                 <TableCell>{(client.isActive ?? true) ? TEXT.clients.list.statusActive : TEXT.clients.list.statusInactive}</TableCell>
                 <TableCell className="flex gap-2 justify-center">
                   <Button size="icon" variant="ghost" onClick={() => setEditClient(client)}>
