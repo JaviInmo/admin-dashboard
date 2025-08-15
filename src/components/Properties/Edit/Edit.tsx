@@ -33,7 +33,6 @@ export default function EditPropertyDialog({ property, onClose, onUpdated }: Pro
   const [searchResults, setSearchResults] = React.useState<any[]>([]);
   const [searchLoading, setSearchLoading] = React.useState(false);
   const [showDropdown, setShowDropdown] = React.useState(false);
-  const [searchPage, setSearchPage] = React.useState(1);
 
   const [name, setName] = React.useState<string>(property.name ?? "");
   const [address, setAddress] = React.useState<string>(property.address ?? "");
@@ -150,7 +149,6 @@ export default function EditPropertyDialog({ property, onClose, onUpdated }: Pro
             ? res
             : [];
           setSearchResults(items);
-          setSearchPage(1);
         } catch (err) {
           console.error("listClients search failed", err);
           setSearchResults([]);
@@ -217,11 +215,6 @@ export default function EditPropertyDialog({ property, onClose, onUpdated }: Pro
       if (mountedRef.current) setLoading(false);
     }
   }
-
-  // Mostrar etiqueta legible de cliente
-  const clientLabel = selectedClient
-    ? selectedClient.username ?? `${selectedClient.firstName ?? ""} ${selectedClient.lastName ?? ""}`.trim()
-    : ownerInput;
 
   return (
     <Dialog open={true} onOpenChange={onClose}>

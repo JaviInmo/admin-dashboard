@@ -9,7 +9,7 @@ import * as React from "react";
 import type { PaginatedResult } from "@/lib/pagination";
 import {
 	listProperties,
-	getProperty,
+	// getProperty, // Comentado temporalmente porque no se usa actualmente
 	PROPERTY_KEY,
 	type AppProperty,
 } from "@/lib/services/properties";
@@ -39,7 +39,8 @@ export default function PropertiesPage() {
 
 	const totalPages = Math.max(1, Math.ceil((data?.count ?? 0) / pageSize));
 
-	const [selectedPropertyId, setSelectedPropertyId] = React.useState<number | null>(null);
+	// const [selectedPropertyId, setSelectedPropertyId] = React.useState<number | null>(null);
+	// Comentado temporalmente porque no se usa actualmente y rompe la build con TS6133
 
 	return (
 		<div className="flex flex-1 flex-col gap-6 p-6">
@@ -57,7 +58,7 @@ export default function PropertiesPage() {
 
 			<PropertiesTable
 				properties={data?.items ?? []}
-				onSelectProperty={(id) => setSelectedPropertyId(id)}
+				// onSelectProperty={(id) => setSelectedPropertyId(id)}
 				onRefresh={() => queryClient.invalidateQueries({ queryKey: [PROPERTY_KEY] })}
 				serverSide={true}
 				currentPage={page}
@@ -67,11 +68,19 @@ export default function PropertiesPage() {
 				onSearch={(term) => setSearch(term)}
 			/>
 
-			
+			{/* Si en el futuro quieres volver a mostrar detalles, descomenta el state y el componente PropertyDetails */}
 		</div>
 	);
 }
 
+/* ------------------------------------------------------------------
+   PropertyDetails: comentado porque actualmente no se utiliza y
+   provoca TS6133 (declarado pero nunca leído). Si más adelante
+   quieres mostrar detalles, descomenta esta función y la parte en
+   el JSX que la renderice.
+------------------------------------------------------------------- */
+
+/*
 function PropertyDetails({ selectedPropertyId }: Readonly<{ selectedPropertyId: number | null }>) {
 	const { data } = useQuery({
 		queryKey: [PROPERTY_KEY, selectedPropertyId],
@@ -98,3 +107,5 @@ function PropertyDetails({ selectedPropertyId }: Readonly<{ selectedPropertyId: 
 		</div>
 	);
 }
+*/
+
