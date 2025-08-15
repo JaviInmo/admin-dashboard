@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import type { AppProperty, AppPropertyType } from "@/lib/services/properties";
 import {
   partialUpdateProperty,
-  deleteProperty,
   listPropertyTypesOfService,
 } from "@/lib/services/properties";
 import { listClients, getClient } from "@/lib/services/clients";
@@ -219,22 +218,6 @@ export default function EditPropertyDialog({ property, onClose, onUpdated }: Pro
     }
   }
 
-  async function handleDelete() {
-    if (!confirm("¿Eliminar esta propiedad? Esta acción no se puede deshacer.")) return;
-    setLoading(true);
-    try {
-      await deleteProperty(property.id);
-      toast.success("Propiedad eliminada");
-      if (onUpdated) await onUpdated();
-      onClose();
-    } catch (err: any) {
-      console.error("Error eliminando propiedad", err);
-      setError(err?.message ?? "Error eliminando propiedad");
-    } finally {
-      if (mountedRef.current) setLoading(false);
-    }
-  }
-
   // Mostrar etiqueta legible de cliente
   const clientLabel = selectedClient
     ? selectedClient.username ?? `${selectedClient.firstName ?? ""} ${selectedClient.lastName ?? ""}`.trim()
@@ -354,9 +337,6 @@ export default function EditPropertyDialog({ property, onClose, onUpdated }: Pro
           <div className="flex justify-end items-center gap-2">
             <Button variant="secondary" onClick={() => onClose()} disabled={loading}>
               Cancelar
-            </Button>
-            <Button onClick={handleDelete} variant="destructive" disabled={loading}>
-              Eliminar
             </Button>
             <Button onClick={handleSubmit} className="ml-2" disabled={loading}>
               {loading ? "Guardando..." : "Guardar"}
