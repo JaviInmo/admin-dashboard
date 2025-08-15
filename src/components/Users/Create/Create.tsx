@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -40,9 +41,7 @@ export default function CreatePropertyDialog({ open, onClose, onCreated }: Props
 
   React.useEffect(() => {
     mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-    };
+    return () => { mountedRef.current = false; };
   }, []);
 
   React.useEffect(() => {
@@ -62,7 +61,7 @@ export default function CreatePropertyDialog({ open, onClose, onCreated }: Props
     setTotalHours("");
   }
 
-  // load property types
+  // load property types for tags (same approach as EditPropertyDialog)
   React.useEffect(() => {
     let mounted = true;
     setTypesLoading(true);
@@ -82,19 +81,14 @@ export default function CreatePropertyDialog({ open, onClose, onCreated }: Props
         console.error("listPropertyTypesOfService failed", err);
         setAvailableTypes([]);
       })
-      .finally(() => {
-        if (mounted) setTypesLoading(false);
-      });
-    return () => {
-      mounted = false;
-    };
+      .finally(() => { if (mounted) setTypesLoading(false); });
+    return () => { mounted = false; };
   }, []);
 
   // debounced client search (uses listClients)
   const doSearchClients = React.useCallback((q: string, page = 1) => {
     if (!q || String(q).trim() === "") {
       setSearchResults([]);
-      setShowDropdown(false);
       return;
     }
     if (searchTimerRef.current) {
@@ -112,16 +106,12 @@ export default function CreatePropertyDialog({ open, onClose, onCreated }: Props
           : Array.isArray(res)
           ? res
           : [];
-        if (!mountedRef.current) return;
         setSearchResults(items);
-        setShowDropdown(true);
       } catch (err) {
         console.error("listClients search failed", err);
-        if (!mountedRef.current) return;
         setSearchResults([]);
-        setShowDropdown(false);
       } finally {
-        if (mountedRef.current) setSearchLoading(false);
+        setSearchLoading(false);
       }
     }, 300);
   }, []);
@@ -138,6 +128,7 @@ export default function CreatePropertyDialog({ open, onClose, onCreated }: Props
     }
     if (ownerInput && ownerInput.length >= 1) {
       doSearchClients(ownerInput, 1);
+      setShowDropdown(true);
     } else {
       setSearchResults([]);
       setShowDropdown(false);
@@ -154,30 +145,29 @@ export default function CreatePropertyDialog({ open, onClose, onCreated }: Props
       setShowDropdown(false);
       return;
     }
-    // else fetch client detail (getClient returns mapped client and should include user if server provides it)
+    // else fetch client detail
     try {
       setSearchLoading(true);
       const detailed = await getClient(Number(c.id));
-      if (!mountedRef.current) return;
       setSelectedClient(detailed);
       const label = detailed.username ?? `${detailed.firstName ?? ""} ${detailed.lastName ?? ""}`.trim() ?? `#${detailed.id}`;
       setOwnerInput(label);
       setShowDropdown(false);
     } catch (err) {
       console.error("getClient failed", err);
-      // still accept the item but warn user
+      // still accept c but warn user that client has no user
       setSelectedClient(c);
       const label = c.username ?? `${c.first_name ?? c.firstName ?? ""} ${c.last_name ?? c.lastName ?? ""}`.trim() ?? `#${c.id}`;
       setOwnerInput(label);
       setShowDropdown(false);
       toast.error("No se pudo obtener detalles del cliente; el cliente podría no tener un 'user' asociado.");
     } finally {
-      if (mountedRef.current) setSearchLoading(false);
+      setSearchLoading(false);
     }
   }, []);
 
   const toggleType = (id: number) => {
-    setTypes(prev => (prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]));
+    setTypes(prev => prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]);
   };
 
   async function handleSubmit(e?: React.FormEvent) {
@@ -196,33 +186,26 @@ export default function CreatePropertyDialog({ open, onClose, onCreated }: Props
         return;
       }
 
-      // Prefer selectedClient.user (user id). si no existe, usar owner (client id)
+      // Prefer selectedClient.user (user id). si no existe, lo rechazamos porque backend pide owner_details.user
       const userId = selectedClient.user ?? selectedClient.user_id ?? selectedClient.userId ?? undefined;
       const ownerClientId = selectedClient.id ?? undefined;
 
-      // Build payload: always include address, include owner if we have client id,
-      // include owner_details.user if we have userId, include phone if available.
-      const payload: any = { address };
-
-      if (typeof ownerClientId !== "undefined") {
-        payload.owner = Number(ownerClientId);
+      if (typeof userId === "undefined") {
+        toast.error("El cliente seleccionado no tiene user id asociado. No se puede crear la propiedad.");
+        setLoading(false);
+        return;
       }
 
-      if (typeof userId !== "undefined") {
-        payload.owner_details = { user: Number(userId) };
-        if (selectedClient.phone) payload.owner_details.phone = selectedClient.phone;
-      } else {
-        // no hay user asociado: tratamos de enviar al menos owner_details.phone o fallback a owner
-        if (selectedClient?.phone) {
-          payload.owner_details = { phone: selectedClient.phone };
-        }
-        toast.warning("El cliente seleccionado no tiene 'user' asociado. Se intentará crear la propiedad usando el id de cliente (owner).");
-      }
+      const payload: any = {
+        address,
+        owner: ownerClientId, // enviar client id también (ok si backend lo acepta)
+        owner_details: { user: Number(userId) }, // ENVIAMOS SÓLO user (sin phone)
+      };
 
       if (name) payload.name = name;
       if (Array.isArray(types) && types.length > 0) payload.types_of_service = types.map(n => Number(n));
       if (monthlyRate) payload.monthly_rate = monthlyRate;
-      if (contractStartDate) payload.contract_start_date = contract_start_date_or_null(contractStartDate);
+      if (contractStartDate) payload.contract_start_date = contractStartDate || null;
       if (totalHours !== "" && totalHours !== null) payload.total_hours = Number(totalHours);
 
       await createProperty(payload);
@@ -240,140 +223,117 @@ export default function CreatePropertyDialog({ open, onClose, onCreated }: Props
     }
   }
 
-  // small helper for date optional null
-  function contract_start_date_or_null(val: string) {
-    return val && val.trim() !== "" ? val : null;
-  }
-
-  if (!open) return null;
-
   return (
-    <div style={backdropStyle}>
-      <div style={modalStyle}>
-        <h3 className="text-lg font-semibold mb-2">Crear Propiedad</h3>
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="w-full max-w-3xl max-h-[90vh] overflow-hidden">
+        <DialogHeader>
+          <DialogTitle>Crear Propiedad</DialogTitle>
+        </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-3">
-          {/* Owner autocomplete */}
-          <div>
-            <label className="block text-sm">Owner (buscar cliente)</label>
-            <div className="relative">
-              <Input
-                value={ownerInput}
-                onChange={(e) => { setOwnerInput(e.target.value); setSelectedClient(null); }}
-                onFocus={() => { if (searchResults.length > 0) setShowDropdown(true); }}
-                placeholder="Buscar cliente por nombre/username..."
-                name="ownerInput"
-              />
-              {showDropdown && (searchLoading || searchResults.length > 0) && (
-                <div className="absolute z-50 mt-1 w-full max-h-48 overflow-auto rounded border bg-popover p-1">
-                  {searchLoading && <div className="px-2 py-1 text-sm">Buscando...</div>}
-                  {!searchLoading && searchResults.length === 0 && <div className="px-2 py-1 text-sm">No hay resultados</div>}
-                  {!searchLoading && searchResults.map((c) => {
-                    const label = c.username ?? `${c.first_name ?? c.firstName ?? ""} ${c.last_name ?? c.lastName ?? ""}`.trim() ?? `#${c.id}`;
-                    return (
-                      <button
-                        key={c.id}
-                        type="button"
-                        className="block w-full text-left px-2 py-1 hover:bg-muted"
-                        onClick={() => void handlePickClient(c)}
-                      >
-                        <div className="text-sm">{label}</div>
-                        <div className="text-xs text-muted-foreground">#cliente {c.id} • user:{String(c.user ?? c.user_id ?? "-")}</div>
-                      </button>
-                    );
-                  })}
+        <div className="space-y-3 p-4 max-h-[82vh] overflow-auto">
+          <form onSubmit={handleSubmit} className="space-y-3">
+            {/* Owner autocomplete */}
+            <div>
+              <label className="block text-sm">Owner (buscar cliente)</label>
+              <div className="relative">
+                <Input
+                  value={ownerInput}
+                  onChange={(e) => { setOwnerInput(e.target.value); setSelectedClient(null); }}
+                  onFocus={() => { if (searchResults.length > 0) setShowDropdown(true); }}
+                  placeholder="Buscar cliente por nombre/username..."
+                  name="ownerInput"
+                />
+                {showDropdown && (searchLoading || searchResults.length > 0) && (
+                  <div className="absolute z-50 mt-1 w-full max-h-48 overflow-auto rounded border bg-popover p-1">
+                    {searchLoading && <div className="px-2 py-1 text-sm">Buscando...</div>}
+                    {!searchLoading && searchResults.length === 0 && <div className="px-2 py-1 text-sm">No hay resultados</div>}
+                    {!searchLoading && searchResults.map((c) => {
+                      const label = c.username ?? `${c.first_name ?? c.firstName ?? ""} ${c.last_name ?? c.lastName ?? ""}`.trim() ?? `#${c.id}`;
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          className="block w-full text-left px-2 py-1 hover:bg-muted"
+                          onClick={() => void handlePickClient(c)}
+                        >
+                          <div className="text-sm">{label}</div>
+                          <div className="text-xs text-muted-foreground">#cliente {c.id} • user:{String(c.user ?? c.user_id ?? "-")}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Selecciona el cliente propietario. Se enviará <code>owner_details.user</code> (user id) del cliente seleccionado.
+              </p>
+            </div>
+
+            {/* Name / Address */}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-sm">Name</label>
+                <Input name="name" value={name} onChange={(e) => setName(e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-sm">Address *</label>
+                <Input name="address" value={address} onChange={(e) => setAddress(e.target.value)} required />
+              </div>
+            </div>
+
+            {/* Service types as tags (visual + behaviour aligned with EditPropertyDialog) */}
+            <div>
+              <p className="font-medium mb-2">Service Types</p>
+              {typesLoading ? (
+                <p className="text-sm">Cargando tipos...</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {availableTypes.length === 0 ? (
+                    <p className="text-sm">No hay tipos disponibles</p>
+                  ) : (
+                    availableTypes.map((t) => {
+                      const selected = types.includes(t.id);
+                      return (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => toggleType(t.id)}
+                          className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-sm focus:outline-none ${
+                            selected ? "bg-primary text-primary-foreground border-primary" : "bg-transparent text-muted-foreground"
+                          }`}
+                          aria-pressed={selected}
+                        >
+                          <span>{t.name}</span>
+                        </button>
+                      );
+                    })
+                  )}
                 </div>
               )}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Selecciona el cliente propietario. Se enviará <code>owner_details.user</code> (user id) si existe o el <code>owner</code> (client id) como fallback.
-            </p>
-          </div>
 
-          {/* Name / Address */}
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="block text-sm">Name</label>
-              <Input name="name" value={name} onChange={(e) => setName(e.target.value)} />
-            </div>
-            <div>
-              <label className="block text-sm">Address *</label>
-              <Input name="address" value={address} onChange={(e) => setAddress(e.target.value)} required />
-            </div>
-          </div>
-
-          {/* Service types as tags */}
-          <div>
-            <p className="font-medium mb-2">Service Types</p>
-            {typesLoading ? (
-              <p className="text-sm">Cargando tipos...</p>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {availableTypes.length === 0 ? (
-                  <p className="text-sm">No hay tipos disponibles</p>
-                ) : (
-                  availableTypes.map((t) => {
-                    const selected = types.includes(t.id);
-                    return (
-                      <button
-                        key={t.id}
-                        type="button"
-                        onClick={() => toggleType(t.id)}
-                        className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-sm focus:outline-none ${
-                          selected ? "bg-primary text-primary-foreground border-primary" : "bg-transparent text-muted-foreground"
-                        }`}
-                        aria-pressed={selected}
-                      >
-                        <span>{t.name}</span>
-                      </button>
-                    );
-                  })
-                )}
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="block text-sm">Monthly Rate</label>
+                <Input value={monthlyRate} onChange={(e) => setMonthlyRate(e.target.value)} />
               </div>
-            )}
-          </div>
+              <div>
+                <label className="block text-sm">Contract Start Date</label>
+                <Input type="date" value={contractStartDate} onChange={(e) => setContractStartDate(e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-sm">Total Hours</label>
+                <Input type="number" value={totalHours === "" ? "" : String(totalHours)} onChange={(e) => setTotalHours(e.target.value === "" ? "" : Number(e.target.value))} />
+              </div>
+            </div>
 
-          <div className="grid grid-cols-3 gap-2">
-            <div>
-              <label className="block text-sm">Monthly Rate</label>
-              <Input value={monthlyRate} onChange={(e) => setMonthlyRate(e.target.value)} />
+            <div className="flex justify-end gap-2 mt-3">
+              <Button variant="ghost" onClick={onClose} disabled={loading}>Cancelar</Button>
+              <Button type="submit" disabled={loading}>{loading ? "Creando..." : "Crear"}</Button>
             </div>
-            <div>
-              <label className="block text-sm">Contract Start Date</label>
-              <Input type="date" value={contractStartDate} onChange={(e) => setContractStartDate(e.target.value)} />
-            </div>
-            <div>
-              <label className="block text-sm">Total Hours</label>
-              <Input type="number" value={totalHours === "" ? "" : String(totalHours)} onChange={(e) => setTotalHours(e.target.value === "" ? "" : Number(e.target.value))} />
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-2 mt-3">
-            <Button variant="ghost" onClick={onClose} disabled={loading}>Cancelar</Button>
-            <Button type="submit" disabled={loading}>{loading ? "Creando..." : "Crear"}</Button>
-          </div>
-        </form>
-      </div>
-    </div>
+          </form>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
-
-/* Inline styles para modal simple */
-const backdropStyle: React.CSSProperties = {
-  position: "fixed",
-  inset: 0,
-  background: "rgba(0,0,0,0.35)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  zIndex: 60,
-};
-
-const modalStyle: React.CSSProperties = {
-  width: 700,
-  maxWidth: "95%",
-  background: "var(--card-background, #fff)",
-  padding: 20,
-  borderRadius: 8,
-  boxShadow: "0 6px 24px rgba(0,0,0,0.2)",
-};
