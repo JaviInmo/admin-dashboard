@@ -1,4 +1,3 @@
-// src/config/ui-text.es.ts
 export const ES_TEXT = {
   appName: "Acme Inc",
   header: {
@@ -13,6 +12,7 @@ export const ES_TEXT = {
     clients: "Clientes",
     guards: "Guardias",
     users: "Usuarios",
+    properties: "Propiedades",
   },
   common: {
     notFoundTitle: "Contenido no encontrado",
@@ -118,6 +118,46 @@ export const ES_TEXT = {
         email: "Correo",
         permissions: "Permisos",
         actions: "Acciones",
+      },
+    },
+  },
+  properties: {
+    title: "Gestión de Propiedades",
+    table: {
+      title: "Lista de Propiedades",
+      add: "Agregar",
+      searchPlaceholder: "Buscar...",
+      headers: {
+        owner: "Propietario",
+        name: "Nombre",
+        address: "Dirección",
+        serviceTypes: "Tipos de Servicio",
+        monthlyRate: "Tarifa Mensual",
+        totalHours: "Horas Totales",
+        startDate: "Fecha Inicio",
+        actions: "Acciones",
+      },
+      actionEdit: "Editar {name}",
+      actionDelete: "Eliminar {name}",
+    },
+    form: {
+      createTitle: "Crear Propiedad",
+      editTitle: "Editar Propiedad",
+      fields: {
+        ownerUser: "Owner (user id)",
+        ownerPhone: "Teléfono propietario",
+        name: "Nombre",
+        address: "Dirección",
+        typesOfService: "Tipos de Servicio",
+        monthlyRate: "Tarifa Mensual",
+        contractStartDate: "Fecha de inicio del contrato",
+        totalHours: "Horas Totales",
+      },
+      buttons: {
+        cancel: "Cancelar",
+        create: "Crear",
+        save: "Guardar",
+        delete: "Eliminar",
       },
     },
   },

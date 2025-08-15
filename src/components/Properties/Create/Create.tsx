@@ -40,9 +40,7 @@ export default function CreatePropertyDialog({ open, onClose, onCreated }: Props
 
   React.useEffect(() => {
     mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-    };
+    return () => { mountedRef.current = false; };
   }, []);
 
   React.useEffect(() => {
@@ -62,7 +60,7 @@ export default function CreatePropertyDialog({ open, onClose, onCreated }: Props
     setTotalHours("");
   }
 
-  // load property types
+  // load property types for tags
   React.useEffect(() => {
     let mounted = true;
     setTypesLoading(true);
@@ -82,19 +80,14 @@ export default function CreatePropertyDialog({ open, onClose, onCreated }: Props
         console.error("listPropertyTypesOfService failed", err);
         setAvailableTypes([]);
       })
-      .finally(() => {
-        if (mounted) setTypesLoading(false);
-      });
-    return () => {
-      mounted = false;
-    };
+      .finally(() => { if (mounted) setTypesLoading(false); });
+    return () => { mounted = false; };
   }, []);
 
   // debounced client search (uses listClients)
   const doSearchClients = React.useCallback((q: string, page = 1) => {
     if (!q || String(q).trim() === "") {
       setSearchResults([]);
-      setShowDropdown(false);
       return;
     }
     if (searchTimerRef.current) {
@@ -112,16 +105,12 @@ export default function CreatePropertyDialog({ open, onClose, onCreated }: Props
           : Array.isArray(res)
           ? res
           : [];
-        if (!mountedRef.current) return;
         setSearchResults(items);
-        setShowDropdown(true);
       } catch (err) {
         console.error("listClients search failed", err);
-        if (!mountedRef.current) return;
         setSearchResults([]);
-        setShowDropdown(false);
       } finally {
-        if (mountedRef.current) setSearchLoading(false);
+        setSearchLoading(false);
       }
     }, 300);
   }, []);
@@ -138,6 +127,7 @@ export default function CreatePropertyDialog({ open, onClose, onCreated }: Props
     }
     if (ownerInput && ownerInput.length >= 1) {
       doSearchClients(ownerInput, 1);
+      setShowDropdown(true);
     } else {
       setSearchResults([]);
       setShowDropdown(false);
@@ -154,30 +144,30 @@ export default function CreatePropertyDialog({ open, onClose, onCreated }: Props
       setShowDropdown(false);
       return;
     }
-    // else fetch client detail (getClient returns mapped client and should include user if server provides it)
+    // else fetch client detail
     try {
       setSearchLoading(true);
       const detailed = await getClient(Number(c.id));
-      if (!mountedRef.current) return;
+      // getClient returns mapped AppClient (username, firstName, lastName, maybe user??) — map safe
       setSelectedClient(detailed);
       const label = detailed.username ?? `${detailed.firstName ?? ""} ${detailed.lastName ?? ""}`.trim() ?? `#${detailed.id}`;
       setOwnerInput(label);
       setShowDropdown(false);
     } catch (err) {
       console.error("getClient failed", err);
-      // still accept the item but warn user
+      // still accept c but warn user that client has no user
       setSelectedClient(c);
       const label = c.username ?? `${c.first_name ?? c.firstName ?? ""} ${c.last_name ?? c.lastName ?? ""}`.trim() ?? `#${c.id}`;
       setOwnerInput(label);
       setShowDropdown(false);
       toast.error("No se pudo obtener detalles del cliente; el cliente podría no tener un 'user' asociado.");
     } finally {
-      if (mountedRef.current) setSearchLoading(false);
+      setSearchLoading(false);
     }
   }, []);
 
   const toggleType = (id: number) => {
-    setTypes(prev => (prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]));
+    setTypes(prev => prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]);
   };
 
   async function handleSubmit(e?: React.FormEvent) {
@@ -196,33 +186,26 @@ export default function CreatePropertyDialog({ open, onClose, onCreated }: Props
         return;
       }
 
-      // Prefer selectedClient.user (user id). si no existe, usar owner (client id)
+      // Prefer selectedClient.user (user id). si no existe, lo rechazamos porque backend pide owner_details.user
       const userId = selectedClient.user ?? selectedClient.user_id ?? selectedClient.userId ?? undefined;
       const ownerClientId = selectedClient.id ?? undefined;
 
-      // Build payload: always include address, include owner if we have client id,
-      // include owner_details.user if we have userId, include phone if available.
-      const payload: any = { address };
-
-      if (typeof ownerClientId !== "undefined") {
-        payload.owner = Number(ownerClientId);
+      if (typeof userId === "undefined") {
+        toast.error("El cliente seleccionado no tiene user id asociado. No se puede crear la propiedad.");
+        setLoading(false);
+        return;
       }
 
-      if (typeof userId !== "undefined") {
-        payload.owner_details = { user: Number(userId) };
-        if (selectedClient.phone) payload.owner_details.phone = selectedClient.phone;
-      } else {
-        // no hay user asociado: tratamos de enviar al menos owner_details.phone o fallback a owner
-        if (selectedClient?.phone) {
-          payload.owner_details = { phone: selectedClient.phone };
-        }
-        toast.warning("El cliente seleccionado no tiene 'user' asociado. Se intentará crear la propiedad usando el id de cliente (owner).");
-      }
+      const payload: any = {
+        address,
+        owner: ownerClientId, // enviar client id también (ok si backend lo acepta)
+        owner_details: { user: Number(userId) }, // ENVIAMOS SÓLO user (sin phone)
+      };
 
       if (name) payload.name = name;
       if (Array.isArray(types) && types.length > 0) payload.types_of_service = types.map(n => Number(n));
       if (monthlyRate) payload.monthly_rate = monthlyRate;
-      if (contractStartDate) payload.contract_start_date = contract_start_date_or_null(contractStartDate);
+      if (contractStartDate) payload.contract_start_date = contractStartDate || null;
       if (totalHours !== "" && totalHours !== null) payload.total_hours = Number(totalHours);
 
       await createProperty(payload);
@@ -238,11 +221,6 @@ export default function CreatePropertyDialog({ open, onClose, onCreated }: Props
     } finally {
       if (mountedRef.current) setLoading(false);
     }
-  }
-
-  // small helper for date optional null
-  function contract_start_date_or_null(val: string) {
-    return val && val.trim() !== "" ? val : null;
   }
 
   if (!open) return null;
@@ -286,7 +264,7 @@ export default function CreatePropertyDialog({ open, onClose, onCreated }: Props
               )}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              Selecciona el cliente propietario. Se enviará <code>owner_details.user</code> (user id) si existe o el <code>owner</code> (client id) como fallback.
+              Selecciona el cliente propietario. Se enviará <code>owner_details.user</code> (user id) del cliente seleccionado.
             </p>
           </div>
 

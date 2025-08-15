@@ -1,4 +1,3 @@
-// src/config/ui-text.en.ts
 export const EN_TEXT = {
   appName: "Acme Inc",
   header: {
@@ -13,6 +12,7 @@ export const EN_TEXT = {
     clients: "Clients",
     guards: "Guards",
     users: "Users",
+    properties: "Properties",
   },
   common: {
     notFoundTitle: "Content not found",
@@ -118,6 +118,46 @@ export const EN_TEXT = {
         email: "Email",
         permissions: "Permissions",
         actions: "Actions",
+      },
+    },
+  },
+  properties: {
+    title: "Properties Management",
+    table: {
+      title: "Properties List",
+      add: "Add",
+      searchPlaceholder: "Search...",
+      headers: {
+        owner: "Owner (user)",
+        name: "Name",
+        address: "Address",
+        serviceTypes: "Service Types",
+        monthlyRate: "Monthly Rate",
+        totalHours: "Total Hours",
+        startDate: "Start Date",
+        actions: "Actions",
+      },
+      actionEdit: "Edit {name}",
+      actionDelete: "Delete {name}",
+    },
+    form: {
+      createTitle: "Create Property",
+      editTitle: "Edit Property",
+      fields: {
+        ownerUser: "Owner (user id)",
+        ownerPhone: "Owner phone",
+        name: "Name",
+        address: "Address",
+        typesOfService: "Service Types",
+        monthlyRate: "Monthly Rate",
+        contractStartDate: "Contract Start Date",
+        totalHours: "Total Hours",
+      },
+      buttons: {
+        cancel: "Cancel",
+        create: "Create",
+        save: "Save",
+        delete: "Delete",
       },
     },
   },

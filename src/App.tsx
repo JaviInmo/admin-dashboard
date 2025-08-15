@@ -1,4 +1,3 @@
-// src/App.tsx
 import { useEffect, useState } from 'react'
 import DashboardLayout from './components/dashboard-layout'
 import LoginPage from './components/login-page'
@@ -7,48 +6,68 @@ import { refreshAccessToken } from '@/lib/services/auth'
 import { Toaster } from 'sonner'
 import { getGeneralSettings } from '@/lib/services/common'
 import { useI18n } from '@/i18n'
-import { HashRouter as Router , Routes, Route } from 'react-router-dom'
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom' // <- solo Routes/Route/Navigate
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [hydrated, setHydrated] = useState(false)
   const { lang } = useI18n()
+  const navigate = useNavigate()
 
-  // Rehydrate auth state on app load. If we have an access token or user in storage,
-  // consider the user logged in. If only a refresh token exists, try a silent refresh.
+  // Rehydrate auth state on app load.
   useEffect(() => {
-    const hasAccess = !!getAccessToken()
-    const hasUser = !!getUser()
-    const hasRefresh = !!getRefreshToken()
+    let mounted = true
+    ;(async () => {
+      try {
+        const access = getAccessToken()
+        const user = getUser()
+        const refresh = getRefreshToken()
 
-    if (hasAccess || hasUser) {
-      setIsLoggedIn(true)
-      setHydrated(true)
-      return
-    }
+        // DEBUG (borra en producción)
+        // eslint-disable-next-line no-console
+        console.log('[rehydrate] access:', !!access, 'user:', !!user, 'refresh:', !!refresh)
 
-    if (!hasAccess && hasRefresh) {
-      ;(async () => {
-        const refreshed = await refreshAccessToken()
-        setIsLoggedIn(!!refreshed)
-        setHydrated(true)
-      })()
-    } else {
-      setHydrated(true)
-    }
+        if (access && user) {
+          if (!mounted) return
+          setIsLoggedIn(true)
+          setHydrated(true)
+          return
+        }
+
+        if (!access && refresh) {
+          // eslint-disable-next-line no-console
+          console.log('[rehydrate] trying silent refresh...')
+          const refreshed = await refreshAccessToken()
+          if (!mounted) return
+          setIsLoggedIn(!!refreshed)
+          setHydrated(true)
+          return
+        }
+
+        if (mounted) {
+          setIsLoggedIn(false)
+          setHydrated(true)
+        }
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn('[rehydrate] error while checking auth:', err)
+        if (mounted) {
+          setIsLoggedIn(false)
+          setHydrated(true)
+        }
+      }
+    })()
+    return () => { mounted = false }
   }, [])
 
-  // Load general settings (app_name, app_description) to set document title and meta description
-  // Re-run when language changes so metadata reflects the selected locale
+  // Load app settings (title, description)
   useEffect(() => {
     let mounted = true
     ;(async () => {
       try {
         const { app_name, app_description } = await getGeneralSettings()
         if (!mounted) return
-        if (app_name) {
-          document.title = app_name
-        }
+        if (app_name) document.title = app_name
         if (app_description) {
           let meta = document.querySelector('meta[name="description"]') as HTMLMetaElement | null
           if (!meta) {
@@ -59,8 +78,7 @@ function App() {
           meta.setAttribute('content', app_description)
         }
       } catch (err) {
-        // Non-blocking; ignore errors loading settings
-        // console.warn('Failed to load general settings', err)
+        // ignore
       }
     })()
     return () => { mounted = false }
@@ -68,22 +86,34 @@ function App() {
 
   const handleLoginSuccess = () => {
     setIsLoggedIn(true)
+    // Navegación simple: al iniciar sesión vamos a /dashboard
+    navigate('/dashboard')
   }
 
   const handleLogout = () => {
     setIsLoggedIn(false)
+    navigate('/login')
   }
 
-  // Avoid flashing login screen before we rehydrate
   if (!hydrated) return <div className="app" />
 
   return (
     <div className="app">
-      {isLoggedIn ? (
-        <DashboardLayout onLogout={handleLogout} />
-      ) : (
-        <LoginPage onLoginSuccess={handleLoginSuccess} />
-      )}
+      <Routes>
+        <Route path="/login" element={<LoginPage onLoginSuccess={handleLoginSuccess} />} />
+
+        <Route
+          path="/dashboard/*"
+          element={
+            isLoggedIn ? <DashboardLayout onLogout={handleLogout} /> : <Navigate to="/login" replace />
+          }
+        />
+
+        <Route path="/" element={isLoggedIn ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />} />
+
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+
       <Toaster richColors position="top-right" closeButton />
     </div>
   )

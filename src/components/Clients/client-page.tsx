@@ -55,7 +55,7 @@ export default function ClientsPage() {
         </div>
       )}
 
-      {/* ALWAYS VERTICAL: tabla primero */}
+{/*     ClientsTable render */}
       <ClientsTable
         clients={data.items}
         onSelectClient={(id) => setSelectedClientId(id)}

@@ -7,6 +7,7 @@ import type { Client } from '@/components/Clients/types' // <-- usar el tipo de 
 /** Server (DRF) shape (snake_case) */
 type ServerClient = {
   id: number
+  user?: number                 // <-- <-- AÑADIDO: id del User asociado (según tu response)
   username: string
   first_name?: string
   last_name?: string
@@ -45,21 +46,23 @@ export type AppClient = Client
 /* ----------------------------------------------------------------
   mapServerClient -> devuelve el shape que tu UI espera (Client)
   ---------------------------------------------------------------- */
-function mapServerClient(client: ServerClient): Client {
+function mapServerClient(client: ServerClient): Client & { user?: number } {
   return {
     id: client.id,
+    user: client.user, // <-- RETORNAMOS el campo `user` para que lo uses
     username: client.username,
     firstName: client.first_name,
     lastName: client.last_name,
     // fallback a string vacío si backend no trae email
     email: client.email ?? '',
     phone: client.phone,
-    balance: client.balance !== undefined ? Number(client.balance) : undefined,
-    // si tu tipo Client usa camelCase createdAt/updatedAt cámbialo; ahora dejo snake
+    balance: client.balance !== undefined && client.balance !== null ? Number(client.balance) : undefined,
+    // mantengo created_at/updated_at como vienen si tu UI los espera así;
+    // si quieres camelCase createdAt/updatedAt cámbialo aquí.
     created_at: client.created_at,
     updated_at: client.updated_at,
     isActive: client.is_active,
-  }
+  } as any
 }
 
 /* ----------------------------------------------------------------
@@ -83,9 +86,9 @@ export async function listClients(
 
 export const CLIENT_KEY = 'clients' as const
 
-export async function getClient(id: number): Promise<Client> {
+export async function getClient(id: number): Promise<Client & { user?: number }> {
   const { data } = await api.get<ServerClient>(`${endpoints.clients}${id}/`)
-  return mapServerClient(data)
+  return mapServerClient(data) as any
 }
 
 /* ahora usan los tipos exportados */
