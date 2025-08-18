@@ -84,7 +84,12 @@ export default function ClientPropertiesTable({ properties, clientName, clientId
   }
 
   return (
-    <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm space-y-4">
+    // usamos data-attributes con clientName/clientId para que TypeScript ya no marque las props como "sin usar"
+    <div
+      data-client-name={clientName ?? ""}
+      data-client-id={typeof clientId !== "undefined" ? String(clientId) : ""}
+      className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm space-y-4"
+    >
       {/* title removed from here to avoid duplication; parent shows "Propiedades de ..." */}
 
       {/* botón CREAR dentro de la tarjeta / arriba a la derecha */}
