@@ -53,7 +53,7 @@ import {
 
 import DashboardContent from "@/components/Dashboard/dashboard-content";
 import SalesRegistrationContent from "@/components/Clients/client-page";
-import GuardsContent from "./Guards/guard-page";
+import GuardsContent from "./Guards/guards-page";
 import UserPage from "./Users/UsersPage";
 import PropertiesContent from "./Properties/properties-page";
 

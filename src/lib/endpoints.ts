@@ -9,6 +9,7 @@ export const endpoints = {
   users: 'api/users/',
   clients: 'api/clients/',
   guards: 'api/guards/',
+   guards_property_tariffs: 'api/guards-preperty-tariffs/',
   permissions: 'api/v1/permissions/admin',
   properties: 'api/properties/',
   propertyTypesOfService: 'api/property-types-of-service/',
