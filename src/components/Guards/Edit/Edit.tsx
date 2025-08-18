@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import type { Guard } from "../types";
-import { updateGuard } from "@/lib/services/guard";
+import { updateGuard, type UpdateGuardPayload } from "@/lib/services/guard";
 
 interface Props {
   guard: Guard;
@@ -65,8 +65,8 @@ export default function EditGuardDialog({ guard, onClose, onUpdated }: Props) {
 
     setLoading(true);
     try {
-      // Construimos payload explícitamente y omitimos campos opcionales vacíos
-      const payload: Record<string, unknown> = {
+      // Construimos payload tipado como UpdateGuardPayload y omitimos campos vacíos
+      const payload: UpdateGuardPayload = {
         first_name: firstName.trim(),
         last_name: lastName.trim(),
         email: email.trim(),
@@ -78,7 +78,7 @@ export default function EditGuardDialog({ guard, onClose, onUpdated }: Props) {
       if (birthdate !== "") payload.birth_date = birthdate;
 
       // Remover `user` defensivamente si alguien lo hubiese agregado por error
-      if ("user" in payload) {
+      if ("user" in (payload as any)) {
         delete (payload as any).user;
       }
 

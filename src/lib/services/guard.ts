@@ -1,5 +1,3 @@
-// src/lib/services/guard.ts
-
 import type { Guard } from "@/components/Guards/types";
 import { endpoints } from "@/lib/endpoints";
 import { api } from "@/lib/http";
@@ -20,10 +18,10 @@ export type CreateGuardPayload = {
     first_name: string;
     last_name: string;
     email: string;
-    phone?: string | null;
-    ssn?: string | null;
-    address?: string | null;
-    birth_date?: string | null;
+    phone?: string | null | undefined;
+    ssn?: string | null | undefined;
+    address?: string | null | undefined;
+    birth_date?: string | null | undefined;
 };
 
 export type UpdateGuardPayload = Partial<CreateGuardPayload>;
@@ -65,12 +63,84 @@ export async function getGuard(id: number): Promise<Guard> {
 }
 
 export async function createGuard(payload: CreateGuardPayload): Promise<Guard> {
-    const { data } = await api.post<ServerGuard>(endpoints.guards, payload);
+    // Construir body explícito y sanitizado
+    const body: Record<string, unknown> = {
+        first_name: payload.first_name,
+        last_name: payload.last_name,
+        email: payload.email,
+    };
+
+    if (payload.phone !== undefined && payload.phone !== null && payload.phone !== "") {
+        body.phone = payload.phone;
+    }
+    if (payload.ssn !== undefined && payload.ssn !== null && payload.ssn !== "") {
+        body.ssn = payload.ssn;
+    }
+    if (payload.address !== undefined && payload.address !== null && payload.address !== "") {
+        body.address = payload.address;
+    }
+    if (payload.birth_date !== undefined && payload.birth_date !== null && payload.birth_date !== "") {
+        body.birth_date = payload.birth_date;
+    }
+
+    // Defender: nunca enviar user
+    if ("user" in body) {
+        delete (body as any).user;
+    }
+
+    const { data } = await api.post<ServerGuard>(endpoints.guards, body);
     return mapServerGuard(data);
 }
 
 export async function updateGuard(id: number, payload: UpdateGuardPayload): Promise<Guard> {
-    const { data } = await api.patch<ServerGuard>(`${endpoints.guards}${id}/`, payload);
+    // Construir body sólo con campos presentes en payload (PATCH semantics)
+    const body: Record<string, unknown> = {};
+
+    if (payload.first_name !== undefined && payload.first_name !== null) {
+        body.first_name = payload.first_name;
+    }
+    if (payload.last_name !== undefined && payload.last_name !== null) {
+        body.last_name = payload.last_name;
+    }
+    if (payload.email !== undefined && payload.email !== null) {
+        body.email = payload.email;
+    }
+    if (payload.phone !== undefined) {
+        // permitir null explicito (si el caller quiere borrar), pero evitar ""
+        if (payload.phone === "") {
+            // si quieres que "" se interprete como borrar, cambia a null; por ahora lo omitimos
+        } else {
+            body.phone = payload.phone;
+        }
+    }
+    if (payload.ssn !== undefined) {
+        if (payload.ssn === "") {
+            // omitimos cadena vacía
+        } else {
+            body.ssn = payload.ssn;
+        }
+    }
+    if (payload.address !== undefined) {
+        if (payload.address === "") {
+            // omitimos cadena vacía
+        } else {
+            body.address = payload.address;
+        }
+    }
+    if (payload.birth_date !== undefined) {
+        if (payload.birth_date === "") {
+            // omitimos cadena vacía
+        } else {
+            body.birth_date = payload.birth_date;
+        }
+    }
+
+    // Defender: nunca enviar user
+    if ("user" in body) {
+        delete (body as any).user;
+    }
+
+    const { data } = await api.patch<ServerGuard>(`${endpoints.guards}${id}/`, body);
     return mapServerGuard(data);
 }
 
