@@ -6,7 +6,6 @@ import { updateClient, type AppClient, type UpdateClientPayload } from "@/lib/se
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
-
 type Props = {
   client: AppClient
   onClose: () => void
@@ -18,7 +17,6 @@ export default function EditClientDialog({ client, onClose, onUpdated }: Props) 
   const [lastName, setLastName] = React.useState(client.lastName ?? "")
   const [email, setEmail] = React.useState(client.email ?? "")
   const [phone, setPhone] = React.useState(client.phone ?? "")
-  const [balance, setBalance] = React.useState(client.balance ?? "")
   const [loading, setLoading] = React.useState(false)
   const mountedRef = React.useRef(true)
 
@@ -33,7 +31,6 @@ export default function EditClientDialog({ client, onClose, onUpdated }: Props) 
     setLastName(client.lastName ?? "")
     setEmail(client.email ?? "")
     setPhone(client.phone ?? "")
-    setBalance(client.balance ?? "")
   }, [client])
 
   async function handleSubmit(e: React.FormEvent) {
@@ -45,7 +42,7 @@ export default function EditClientDialog({ client, onClose, onUpdated }: Props) 
         last_name: lastName || undefined,
         email: email || undefined,
         phone: phone || undefined,
-       balance: (balance ?? "").toString().trim() !== "" ? String(balance) : undefined,
+        // No enviamos 'balance' aquí: permanece intacto en el servidor.
       }
       await updateClient(client.id, payload)
       await (onUpdated ? onUpdated() : undefined)
@@ -80,10 +77,8 @@ export default function EditClientDialog({ client, onClose, onUpdated }: Props) 
             <label className="block text-sm">Teléfono</label>
             <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
           </div>
-          <div>
-            <label className="block text-sm">Balance</label>
-            <Input value={balance} onChange={(e) => setBalance(e.target.value)} />
-          </div>
+
+          {/* Balance oculto en edición: no renderizamos input y no lo mandamos en payload */}
 
           <div className="flex justify-end gap-2 mt-3">
             <Button variant="ghost" onClick={onClose} disabled={loading}>Cancelar</Button>

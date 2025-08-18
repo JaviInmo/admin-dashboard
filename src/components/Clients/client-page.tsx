@@ -12,6 +12,8 @@ import { getClient, getClientProperties, listClients, CLIENT_KEY } from "@/lib/s
 import type { Client } from "./types";
 import ClientsTable from "./clients-table";
 import ClientPropertiesTable from "./client-properties-table";
+import CreatePropertyDialog from "@/components/Properties/Create/Create";
+import { Button } from "@/components/ui/button";
 
 const INITIAL_CLIENT_DATA: PaginatedResult<Client> = {
   items: [],
@@ -35,9 +37,17 @@ export default function ClientsPage() {
     initialData: INITIAL_CLIENT_DATA,
   });
 
-  const totalPages = Math.max(1, Math.ceil(data.count / pageSize));
+  const totalPages = Math.max(1, Math.ceil((data?.count ?? 0) / pageSize));
 
   const [selectedClientId, setSelectedClientId] = React.useState<number | null>(null);
+
+  // helper para refrescar propiedades del cliente actual (lo paso al panel)
+  const refreshClientProperties = React.useCallback(async () => {
+    if (!selectedClientId) return;
+    try {
+      await queryClient.invalidateQueries({ queryKey: ["client-properties", selectedClientId] });
+    } catch {}
+  }, [queryClient, selectedClientId]);
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
@@ -45,7 +55,7 @@ export default function ClientsPage() {
 
       {error && (
         <div className="rounded-lg border bg-card p-4 text-red-600">
-          {error}
+          {String(error)}
         </div>
       )}
 
@@ -55,9 +65,9 @@ export default function ClientsPage() {
         </div>
       )}
 
-{/*     ClientsTable render */}
+      {/* ClientsTable render */}
       <ClientsTable
-        clients={data.items}
+        clients={data?.items ?? []}
         onSelectClient={(id) => setSelectedClientId(id)}
         onRefresh={() =>
           queryClient.invalidateQueries({ queryKey: [CLIENT_KEY] })
@@ -74,7 +84,10 @@ export default function ClientsPage() {
 
       {/* PROPERTIES: always below the table */}
       <div>
-        <ClientPropertiesPanel selectedClientId={selectedClientId} />
+        <ClientPropertiesPanel
+          selectedClientId={selectedClientId}
+          onRefreshProperties={refreshClientProperties}
+        />
       </div>
     </div>
   );
@@ -84,7 +97,14 @@ export default function ClientsPage() {
 /*  Panel que obtiene label y propiedades y renderiza ClientPropertiesTable    */
 /*  (Se renderiza debajo de la tabla de clientes)                             */
 /* -------------------------------------------------------------------------- */
-function ClientPropertiesPanel({ selectedClientId }: Readonly<{ selectedClientId: number | null }>) {
+function ClientPropertiesPanel({
+  selectedClientId,
+  onRefreshProperties,
+}: Readonly<{ selectedClientId: number | null; onRefreshProperties?: () => Promise<void> | void }>) {
+  const queryClient = useQueryClient();
+
+  const [openCreate, setOpenCreate] = React.useState(false);
+
   // fetch client (for label)
   const { data: clientData, isLoading: clientLoading, error: clientError } = useQuery<Client, string>({
     queryKey: [CLIENT_KEY, "detail", selectedClientId],
@@ -135,7 +155,61 @@ function ClientPropertiesPanel({ selectedClientId }: Readonly<{ selectedClientId
     );
   }
 
+  // Si no tiene propiedades -> mostrar mensaje y botón para crear una
+  if ((properties ?? []).length === 0) {
+    return (
+      <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm space-y-4">
+        <h3 className="text-lg font-semibold">Este cliente no tiene propiedades</h3>
+        <p className="text-sm text-muted-foreground">Puedes crear una propiedad para <strong>{clientLabel}</strong>.</p>
+
+        <div className="flex items-center gap-3">
+          <Button onClick={() => setOpenCreate(true)}>Crear propiedad</Button>
+        </div>
+
+        {/* Usamos el Create dialog existente; le pasamos clientId */}
+        <CreatePropertyDialog
+          open={openCreate}
+          onClose={() => setOpenCreate(false)}
+          clientId={selectedClientId ?? undefined}
+          onCreated={async () => {
+            // refrescar lista de propiedades del cliente
+            await queryClient.invalidateQueries({ queryKey: ["client-properties", selectedClientId] });
+            // aviso al parent (si lo desea)
+            await onRefreshProperties?.();
+          }}
+        />
+      </div>
+    );
+  }
+
+  // Si tiene propiedades -> renderizamos la tabla habitual
+  // Nota: el título principal lo dejamos aquí (afuera de la tabla), y el botón "Crear propiedad"
+  // se mostrará dentro de ClientPropertiesTable (arriba a la derecha)
   return (
-    <ClientPropertiesTable properties={properties ?? []} clientName={clientLabel} />
+    <div>
+      <h3 className="text-lg font-semibold mb-3">Propiedades de {clientLabel}</h3>
+
+      <ClientPropertiesTable
+        properties={properties ?? []}
+        clientName={clientLabel}
+        clientId={selectedClientId ?? undefined}
+        onOpenCreate={() => setOpenCreate(true)}
+        onRefresh={async () => {
+          await queryClient.invalidateQueries({ queryKey: ["client-properties", selectedClientId] });
+          await onRefreshProperties?.();
+        }}
+      />
+
+      {/* Renderizamos el dialog de creación (invisible hasta openCreate=true) */}
+      <CreatePropertyDialog
+        open={openCreate}
+        onClose={() => setOpenCreate(false)}
+        clientId={selectedClientId ?? undefined}
+        onCreated={async () => {
+          await queryClient.invalidateQueries({ queryKey: ["client-properties", selectedClientId] });
+          await onRefreshProperties?.();
+        }}
+      />
+    </div>
   );
 }

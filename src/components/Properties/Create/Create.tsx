@@ -1,3 +1,4 @@
+// src/components/Properties/Create/Create.tsx
 "use client";
 
 import * as React from "react";
@@ -12,12 +13,16 @@ import {
 } from "@/lib/services/properties";
 
 type Props = {
-  open: boolean;
-  onClose: () => void;
+  // si pasas `open`, el componente se comporta como un dialog modal (igual que antes).
+  open?: boolean;
+  onClose?: () => void;
   onCreated?: () => Promise<void> | void;
+
+  // nueva prop: clientId -> si se proporciona, pre-selecciona el cliente y oculta el autocomplete
+  clientId?: number;
 };
 
-export default function CreatePropertyDialog({ open, onClose, onCreated }: Props) {
+export default function CreatePropertyDialog({ open = true, onClose, onCreated, clientId }: Props) {
   const [ownerInput, setOwnerInput] = React.useState<string>("");
   const [selectedClient, setSelectedClient] = React.useState<any | null>(null);
   const [searchResults, setSearchResults] = React.useState<any[]>([]);
@@ -43,6 +48,7 @@ export default function CreatePropertyDialog({ open, onClose, onCreated }: Props
     return () => { mountedRef.current = false; };
   }, []);
 
+  // Reset cuando se cierra (si se usa como dialog)
   React.useEffect(() => {
     if (!open) resetForm();
   }, [open]);
@@ -83,6 +89,28 @@ export default function CreatePropertyDialog({ open, onClose, onCreated }: Props
       .finally(() => { if (mounted) setTypesLoading(false); });
     return () => { mounted = false; };
   }, []);
+
+  // Si se pasa clientId, cargar su detalle y pre-seleccionarlo
+  React.useEffect(() => {
+    if (!clientId) return;
+
+    let mounted = true;
+    (async () => {
+      try {
+        const detail = await getClient(clientId);
+        if (!mounted) return;
+        setSelectedClient(detail);
+        const label = detail.username ?? `${detail.firstName ?? ""} ${detail.lastName ?? ""}`.trim() ?? `#${detail.id}`;
+        setOwnerInput(label);
+        setShowDropdown(false);
+      } catch (err) {
+        console.error("getClient(clientId) failed", err);
+        // si falla, no bloqueamos: permitimos seleccionar manualmente en el autocomplete
+        toast.error("No se pudo cargar el cliente. Puedes seleccionar otro cliente manualmente.");
+      }
+    })();
+    return () => { mounted = false; };
+  }, [clientId]);
 
   // debounced client search (uses listClients)
   const doSearchClients = React.useCallback((q: string, page = 1) => {
@@ -148,7 +176,6 @@ export default function CreatePropertyDialog({ open, onClose, onCreated }: Props
     try {
       setSearchLoading(true);
       const detailed = await getClient(Number(c.id));
-      // getClient returns mapped AppClient (username, firstName, lastName, maybe user??) — map safe
       setSelectedClient(detailed);
       const label = detailed.username ?? `${detailed.firstName ?? ""} ${detailed.lastName ?? ""}`.trim() ?? `#${detailed.id}`;
       setOwnerInput(label);
@@ -205,7 +232,7 @@ export default function CreatePropertyDialog({ open, onClose, onCreated }: Props
       if (name) payload.name = name;
       if (Array.isArray(types) && types.length > 0) payload.types_of_service = types.map(n => Number(n));
       if (monthlyRate) payload.monthly_rate = monthlyRate;
-      if (contractStartDate) payload.contract_start_date = contractStartDate || null;
+      if (contractStartDate) payload.contract_start_date = contract_start_date_or_null(contractStartDate);
       if (totalHours !== "" && totalHours !== null) payload.total_hours = Number(totalHours);
 
       await createProperty(payload);
@@ -213,7 +240,7 @@ export default function CreatePropertyDialog({ open, onClose, onCreated }: Props
       toast.success("Propiedad creada");
       if (!mountedRef.current) return;
       if (onCreated) await onCreated();
-      onClose();
+      onClose?.();
     } catch (err: any) {
       console.error("Error creando propiedad:", err);
       const server = err?.response?.data ?? err?.message ?? String(err);
@@ -223,7 +250,8 @@ export default function CreatePropertyDialog({ open, onClose, onCreated }: Props
     }
   }
 
-  if (!open) return null;
+  // Si se usa en modo dialog y open===false -> no renderizamos
+  if (typeof open === "boolean" && open === false) return null;
 
   return (
     <div style={backdropStyle}>
@@ -231,42 +259,54 @@ export default function CreatePropertyDialog({ open, onClose, onCreated }: Props
         <h3 className="text-lg font-semibold mb-2">Crear Propiedad</h3>
 
         <form onSubmit={handleSubmit} className="space-y-3">
-          {/* Owner autocomplete */}
-          <div>
-            <label className="block text-sm">Owner (buscar cliente)</label>
-            <div className="relative">
-              <Input
-                value={ownerInput}
-                onChange={(e) => { setOwnerInput(e.target.value); setSelectedClient(null); }}
-                onFocus={() => { if (searchResults.length > 0) setShowDropdown(true); }}
-                placeholder="Buscar cliente por nombre/username..."
-                name="ownerInput"
-              />
-              {showDropdown && (searchLoading || searchResults.length > 0) && (
-                <div className="absolute z-50 mt-1 w-full max-h-48 overflow-auto rounded border bg-popover p-1">
-                  {searchLoading && <div className="px-2 py-1 text-sm">Buscando...</div>}
-                  {!searchLoading && searchResults.length === 0 && <div className="px-2 py-1 text-sm">No hay resultados</div>}
-                  {!searchLoading && searchResults.map((c) => {
-                    const label = c.username ?? `${c.first_name ?? c.firstName ?? ""} ${c.last_name ?? c.lastName ?? ""}`.trim() ?? `#${c.id}`;
-                    return (
-                      <button
-                        key={c.id}
-                        type="button"
-                        className="block w-full text-left px-2 py-1 hover:bg-muted"
-                        onClick={() => void handlePickClient(c)}
-                      >
-                        <div className="text-sm">{label}</div>
-                        <div className="text-xs text-muted-foreground">#cliente {c.id} • user:{String(c.user ?? c.user_id ?? "-")}</div>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
+          {/* Owner autocomplete — si clientId fue pasado, mostramos un texto en vez del selector */}
+          {clientId ? (
+            <div>
+              <label className="block text-sm">Owner</label>
+              <div className="p-2 rounded border bg-muted">
+                {ownerInput || `#${clientId}`}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Se creará la propiedad para este cliente (preseleccionado).
+              </p>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Selecciona el cliente propietario. Se enviará <code>owner_details.user</code> (user id) del cliente seleccionado.
-            </p>
-          </div>
+          ) : (
+            <div>
+              <label className="block text-sm">Owner (buscar cliente)</label>
+              <div className="relative">
+                <Input
+                  value={ownerInput}
+                  onChange={(e) => { setOwnerInput(e.target.value); setSelectedClient(null); }}
+                  onFocus={() => { if (searchResults.length > 0) setShowDropdown(true); }}
+                  placeholder="Buscar cliente por nombre/username..."
+                  name="ownerInput"
+                />
+                {showDropdown && (searchLoading || searchResults.length > 0) && (
+                  <div className="absolute z-50 mt-1 w-full max-h-48 overflow-auto rounded border bg-popover p-1">
+                    {searchLoading && <div className="px-2 py-1 text-sm">Buscando...</div>}
+                    {!searchLoading && searchResults.length === 0 && <div className="px-2 py-1 text-sm">No hay resultados</div>}
+                    {!searchLoading && searchResults.map((c) => {
+                      const label = c.username ?? `${c.first_name ?? c.firstName ?? ""} ${c.last_name ?? c.lastName ?? ""}`.trim() ?? `#${c.id}`;
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          className="block w-full text-left px-2 py-1 hover:bg-muted"
+                          onClick={() => void handlePickClient(c)}
+                        >
+                          <div className="text-sm">{label}</div>
+                          <div className="text-xs text-muted-foreground">#cliente {c.id} • user:{String(c.user ?? c.user_id ?? "-")}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Selecciona el cliente propietario. Se enviará <code>owner_details.user</code> (user id) del cliente seleccionado.
+              </p>
+            </div>
+          )}
 
           {/* Name / Address */}
           <div className="grid grid-cols-2 gap-2">
@@ -334,6 +374,12 @@ export default function CreatePropertyDialog({ open, onClose, onCreated }: Props
       </div>
     </div>
   );
+}
+
+/* helper para manejar fecha nula */
+function contract_start_date_or_null(v: string) {
+  if (!v) return null;
+  return v;
 }
 
 /* Inline styles para modal simple */

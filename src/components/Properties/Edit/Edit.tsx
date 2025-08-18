@@ -19,29 +19,54 @@ type Props = {
 };
 
 export default function EditPropertyDialog({ property, onClose, onUpdated }: Props) {
+  const asAny = property as any;
+
   const normalizeInitialTypes = (): number[] => {
-    const tAny: any = (property as any).typesOfService ?? (property as any).types_of_service ?? [];
+    const tAny: any =
+      asAny.typesOfService ??
+      asAny.types_of_service ??
+      asAny.types ??
+      asAny.types_of_services ??
+      [];
     if (!Array.isArray(tAny)) return [];
     return tAny
       .map((x: any) => (typeof x === "object" && x !== null ? Number(x.id) : Number(x)))
       .filter((n) => !Number.isNaN(n));
   };
 
+  // helper para leer diferentes variantes de nombres de campo
+  const pick = (...keys: string[]) => {
+    for (const k of keys) {
+      if (Object.prototype.hasOwnProperty.call(asAny, k)) return asAny[k];
+    }
+    return undefined;
+  };
+
   const [selectedClient, setSelectedClient] = React.useState<any | null>(null);
   const [ownerInput, setOwnerInput] = React.useState<string>("");
-  const [ownerPhone, setOwnerPhone] = React.useState<string>(String(property.ownerDetails?.phone ?? ""));
+  const [ownerPhone, setOwnerPhone] = React.useState<string>(
+    String(pick("ownerDetails")?.phone ?? pick("owner_details")?.phone ?? "")
+  );
   const [searchResults, setSearchResults] = React.useState<any[]>([]);
   const [searchLoading, setSearchLoading] = React.useState(false);
   const [showDropdown, setShowDropdown] = React.useState(false);
 
-  const [name, setName] = React.useState<string>(property.name ?? "");
-  const [address, setAddress] = React.useState<string>(property.address ?? "");
+  const [name, setName] = React.useState<string>(() => String(pick("name") ?? ""));
+  const [address, setAddress] = React.useState<string>(() => String(pick("address") ?? ""));
   const [types, setTypes] = React.useState<number[]>(normalizeInitialTypes());
-  const [monthlyRate, setMonthlyRate] = React.useState<string>(property.monthlyRate ?? "");
-  const [contractStartDate, setContractStartDate] = React.useState<string>(property.contractStartDate ?? "");
-  const [totalHours, setTotalHours] = React.useState<number | "">(
-    typeof property.totalHours === "number" ? property.totalHours : property.totalHours ? Number(property.totalHours) : ""
-  );
+  const [monthlyRate, setMonthlyRate] = React.useState<string>(() => {
+    const v = pick("monthlyRate", "monthly_rate");
+    return v === null || v === undefined ? "" : String(v);
+  });
+  const [contractStartDate, setContractStartDate] = React.useState<string>(() => {
+    return String(pick("contractStartDate", "contract_start_date") ?? "");
+  });
+  const [totalHours, setTotalHours] = React.useState<number | "">(() => {
+    const t = pick("totalHours", "total_hours");
+    if (t === "" || t === null || t === undefined) return "";
+    const n = Number(t);
+    return Number.isFinite(n) ? n : "";
+  });
 
   const [loading, setLoading] = React.useState(false);
   const [typesLoading, setTypesLoading] = React.useState(false);
@@ -89,7 +114,7 @@ export default function EditPropertyDialog({ property, onClose, onUpdated }: Pro
     let mounted = true;
     (async () => {
       try {
-        const od: any = (property as any).ownerDetails ?? null;
+        const od: any = pick("ownerDetails", "owner_details") ?? null;
         if (od) {
           const label =
             od.username ??
@@ -99,9 +124,10 @@ export default function EditPropertyDialog({ property, onClose, onUpdated }: Pro
           if (mounted) {
             setOwnerInput(String(label ?? ""));
             if (od.id) setSelectedClient(od);
+            setOwnerPhone(String(od.phone ?? pick("ownerDetails")?.phone ?? pick("owner_details")?.phone ?? ""));
           }
         } else {
-          const ownerId = (property as any).owner ?? (property as any).ownerId ?? null;
+          const ownerId = pick("owner", "ownerId", "owner_id") ?? null;
           if (ownerId) {
             try {
               const client = await getClient(Number(ownerId));
@@ -109,6 +135,7 @@ export default function EditPropertyDialog({ property, onClose, onUpdated }: Pro
               const cliLabel = client.username ?? `${client.firstName ?? ""} ${client.lastName ?? ""}`.trim() ?? `#${client.id}`;
               setOwnerInput(cliLabel);
               setSelectedClient(client);
+              setOwnerPhone(String(client.phone ?? ""));
             } catch (err) {
               if (!mounted) return;
               setOwnerInput(`#${ownerId}`);
@@ -124,6 +151,7 @@ export default function EditPropertyDialog({ property, onClose, onUpdated }: Pro
     return () => {
       mounted = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [property]);
 
   // búsqueda de clientes (debounced)
@@ -162,7 +190,9 @@ export default function EditPropertyDialog({ property, onClose, onUpdated }: Pro
 
   // cuando cambias el texto del owner, lanzas búsqueda
   React.useEffect(() => {
-    const label = selectedClient ? (selectedClient.username ?? `${selectedClient.firstName ?? ""} ${selectedClient.lastName ?? ""}`.trim()) : "";
+    const label = selectedClient
+      ? selectedClient.username ?? `${selectedClient.firstName ?? ""} ${selectedClient.lastName ?? ""}`.trim()
+      : "";
     if (ownerInput && label && ownerInput === label) {
       setSearchResults([]);
       return;
@@ -192,7 +222,7 @@ export default function EditPropertyDialog({ property, onClose, onUpdated }: Pro
         payload.owner_details = {};
         if (typeof userId !== "undefined") payload.owner_details.user = userId;
         payload.owner_details.phone = ownerPhone || selectedClient.phone || undefined;
-      } else if (ownerPhone && (property as any).ownerDetails) {
+      } else if (ownerPhone && (pick("ownerDetails") || pick("owner_details"))) {
         payload.owner_details = { phone: ownerPhone };
       }
 
@@ -277,7 +307,7 @@ export default function EditPropertyDialog({ property, onClose, onUpdated }: Pro
             <div />
           </div>
 
-          {/* ==== Aquí añadí los labels para Name y Address ==== */}
+          {/* ==== Name y Address ==== */}
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="block text-sm">Name</label>
