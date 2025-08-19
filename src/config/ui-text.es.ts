@@ -78,6 +78,7 @@ export const ES_TEXT = {
         fuel: "Gasolina ($)",
         actions: "Acciones",
       },
+       pageSizeLabel: "Items por página",
       actionEdit: "Editar {name}",
       actionDelete: "Eliminar {name}",
     },

@@ -30,6 +30,11 @@ import CreateClientDialog from "./Create/Create";
 import DeleteClientDialog from "./Delete/Delete";
 import EditClientDialog from "./Edit/Edit";
 import type { Client as AppClient, Client } from "./types";
+import PageSizeSelector from "@/components/ui/PageSizeSelector";
+import { ClickableEmail } from "../ui/clickable-email";
+
+
+
 
 export interface ClientsTableProps {
 	clients: AppClient[];
@@ -50,6 +55,7 @@ export interface ClientsTableProps {
 
 	// ocultar columna balance (por defecto: oculto)
 	hideBalance?: boolean;
+	 onPageSizeChange?: (size: number) => void;
 }
 
 export default function ClientsTable({
@@ -62,8 +68,9 @@ export default function ClientsTable({
 	onPageChange,
 	pageSize = 5,
 	onSearch,
+	
 	hideBalance = true, // <- ocultamos por defecto según tu petición
-
+  onPageSizeChange,
 	sortField,
 	sortOrder,
 	toggleSort,
@@ -233,7 +240,8 @@ export default function ClientsTable({
 			</Pagination>
 		);
 	};
-
+	 const clientsTable =
+  (TEXT.clients && (TEXT.clients as any).list) ?? (TEXT.clients as any) ?? {};
 	return (
 		<div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm space-y-4">
 			{/* Header row: Title | Search | Add button */}
@@ -257,6 +265,17 @@ export default function ClientsTable({
 						/>
 					</div>
 				</div>
+
+<div className="flex-none mr-2">
+		  <PageSizeSelector
+			pageSize={pageSize}
+			onChange={(s) => {
+			  onPageSizeChange?.(s);
+			  if (!serverSide) setPage(1);
+			}}
+			ariaLabel={clientsTable.pageSizeLabel ?? "Items per page"}
+		  />
+		  </div>
 
 				<div className="flex-none">
 					<Button onClick={() => setCreateOpen(true)}>
@@ -341,7 +360,9 @@ export default function ClientsTable({
 													<span>{clientName}</span>
 												</div>
 											</TableCell>
-											<TableCell>{client.email ?? "-"}</TableCell>
+											<TableCell>
+												 <ClickableEmail email={client.email || ""} />
+											</TableCell>
 											<TableCell>{client.phone ?? "-"}</TableCell>
 
 											{/* balance cell hidden when hideBalance === true */}

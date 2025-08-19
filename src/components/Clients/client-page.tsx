@@ -1,20 +1,16 @@
 // src/components/Clients/client-page.tsx
 "use client";
 
-import {
-	keepPreviousData,
-	useQuery,
-	useQueryClient,
-} from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as React from "react";
 import CreatePropertyDialog from "@/components/Properties/Create/Create";
 import { Button } from "@/components/ui/button";
 import type { PaginatedResult } from "@/lib/pagination";
 import {
-	CLIENT_KEY,
-	getClient,
-	getClientProperties,
-	listClients,
+  CLIENT_KEY,
+  getClient,
+  getClientProperties,
+  listClients,
 } from "@/lib/services/clients";
 import type { SortOrder } from "@/lib/sort";
 import ClientPropertiesTable from "./client-properties-table";
@@ -22,241 +18,243 @@ import ClientsTable from "./clients-table";
 import type { Client } from "./types";
 
 const INITIAL_CLIENT_DATA: PaginatedResult<Client> = {
-	items: [],
-	count: 0,
-	next: null,
-	previous: null,
+  items: [],
+  count: 0,
+  next: null,
+  previous: null,
 };
 
-const pageSize = 10;
-
 export default function ClientsPage() {
-	const queryClient = useQueryClient();
+  const queryClient = useQueryClient();
 
-	const [page, setPage] = React.useState<number>(1);
-	const [search, setSearch] = React.useState<string>("");
-	const [sortField, setSortField] = React.useState<keyof Client>("firstName");
-	const [sortOrder, setSortOrder] = React.useState<SortOrder>("asc");
+  const [page, setPage] = React.useState<number>(1);
+  const [pageSize, setPageSize] = React.useState<number>(10); // ahora es state (igual que guards)
+  const [search, setSearch] = React.useState<string>("");
+  const [sortField, setSortField] = React.useState<keyof Client>("firstName");
+  const [sortOrder, setSortOrder] = React.useState<SortOrder>("asc");
 
-	const { data, isPending, error } = useQuery<PaginatedResult<Client>, string>({
-		queryKey: [CLIENT_KEY, search, page, sortField, sortOrder],
-		queryFn: () => listClients(page, search, pageSize, sortField, sortOrder),
-		placeholderData: keepPreviousData,
-		initialData: INITIAL_CLIENT_DATA,
-	});
+  // handler estilo GuardsPage: reset page a 1 y setSearch
+  const handleSearch = React.useCallback((term: string) => {
+    setPage(1);
+    setSearch(term);
+  }, []);
 
-	const totalPages = Math.max(1, Math.ceil((data?.count ?? 0) / pageSize));
+  const query = useQuery<PaginatedResult<Client>, string>({
+    queryKey: [CLIENT_KEY, search, page, pageSize, sortField, sortOrder],
+    queryFn: () => listClients(page, search, pageSize, sortField, sortOrder),
+  });
 
-	const [selectedClientId, setSelectedClientId] = React.useState<number | null>(
-		null,
-	);
+  // garantizar que `data` siempre sea del tipo PaginatedResult<Client>
+  const data = query.data ?? INITIAL_CLIENT_DATA;
+  const isLoading = query.isLoading;
+  const error = query.error ?? null;
 
-	const toggleSort = (field: keyof Client) => {
-		setSortField(field);
-		setSortOrder(sortField === field && sortOrder === "asc" ? "desc" : "asc");
-	};
+  // Backend puede devolver count; aseguramos totalPages con pageSize del state
+  const totalPages = Math.max(1, Math.ceil((data.count ?? 0) / pageSize));
 
-	// helper para refrescar propiedades del cliente actual (lo paso al panel)
-	const refreshClientProperties = React.useCallback(async () => {
-		if (!selectedClientId) return;
-		try {
-			await queryClient.invalidateQueries({
-				queryKey: ["client-properties", selectedClientId],
-			});
-		} catch {}
-	}, [queryClient, selectedClientId]);
+  const [selectedClientId, setSelectedClientId] = React.useState<number | null>(
+    null
+  );
 
-	return (
-		<div className="flex flex-1 flex-col gap-6 p-6">
-			<h2 className="text-2xl font-bold">Gestión de Clientes</h2>
+  // toggleSort replicando exactamente la lógica de GuardsPage
+  const toggleSort = (field: keyof Client) => {
+    setSortField(field);
+    setSortOrder(sortField === field && sortOrder === "asc" ? "desc" : "asc");
+  };
 
-			{error && (
-				<div className="rounded-lg border bg-card p-4 text-red-600">
-					{String(error)}
-				</div>
-			)}
+  // helper para refrescar propiedades del cliente actual (lo paso al panel)
+  const refreshClientProperties = React.useCallback(async () => {
+    if (!selectedClientId) return;
+    try {
+      await queryClient.invalidateQueries({
+        queryKey: ["client-properties", selectedClientId],
+      });
+    } catch {}
+  }, [queryClient, selectedClientId]);
 
-			{isPending && (
-				<div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
-					<p>Cargando clientes...</p>
-				</div>
-			)}
+  return (
+    <div className="flex flex-1 flex-col gap-6 p-6">
+      <h2 className="text-2xl font-bold">Gestión de Clientes</h2>
 
-			{/* ClientsTable render */}
-			<ClientsTable
-				clients={data?.items ?? []}
-				onSelectClient={(id) => setSelectedClientId(id)}
-				onRefresh={() =>
-					queryClient.invalidateQueries({ queryKey: [CLIENT_KEY] })
-				}
-				serverSide={true}
-				currentPage={page}
-				totalPages={totalPages}
-				onPageChange={(page) => setPage(page)}
-				pageSize={pageSize}
-				onSearch={(term) => {
-					setSearch(term);
-				}}
-				toggleSort={toggleSort}
-				sortField={sortField}
-				sortOrder={sortOrder}
-			/>
+      {error && (
+        <div className="rounded-lg border bg-card p-4 text-red-600">
+          {String(error)}
+        </div>
+      )}
 
-			{/* PROPERTIES: always below the table */}
-			<div>
-				<ClientPropertiesPanel
-					selectedClientId={selectedClientId}
-					onRefreshProperties={refreshClientProperties}
-				/>
-			</div>
-		</div>
-	);
+      {isLoading && (
+        <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+          <p>Cargando clientes...</p>
+        </div>
+      )}
+
+      {/* ClientsTable render */}
+      <ClientsTable
+        clients={data?.items ?? []}
+        onSelectClient={(id) => setSelectedClientId(id)}
+        // invalidamos con predicate como en GuardsPage para cubrir todas las variantes
+        onRefresh={() =>
+          queryClient.invalidateQueries({
+            predicate: (q) =>
+              Array.isArray(q.queryKey) && q.queryKey[0] === CLIENT_KEY,
+          })
+        }
+        serverSide={true}
+        currentPage={page}
+        totalPages={totalPages}
+        onPageChange={(p) => setPage(p)}
+        pageSize={pageSize}
+        onSearch={handleSearch}
+        onPageSizeChange={(size) => {
+          setPageSize(size);
+          setPage(1);
+        }}
+        toggleSort={toggleSort}
+        sortField={sortField}
+        sortOrder={sortOrder}
+      />
+
+      {/* PROPERTIES: always below the table */}
+      <div>
+        <ClientPropertiesPanel
+          selectedClientId={selectedClientId}
+          onRefreshProperties={refreshClientProperties}
+        />
+      </div>
+    </div>
+  );
 }
 
 /* -------------------------------------------------------------------------- */
 /*  Panel que obtiene label y propiedades y renderiza ClientPropertiesTable    */
-/*  (Se renderiza debajo de la tabla de clientes)                             */
 /* -------------------------------------------------------------------------- */
 function ClientPropertiesPanel({
-	selectedClientId,
-	onRefreshProperties,
+  selectedClientId,
+  onRefreshProperties,
 }: Readonly<{
-	selectedClientId: number | null;
-	onRefreshProperties?: () => Promise<void> | void;
+  selectedClientId: number | null;
+  onRefreshProperties?: () => Promise<void> | void;
 }>) {
-	const queryClient = useQueryClient();
+  const queryClient = useQueryClient();
 
-	const [openCreate, setOpenCreate] = React.useState(false);
+  const [openCreate, setOpenCreate] = React.useState(false);
 
-	// fetch client (for label)
-	const {
-		data: clientData,
-		isLoading: clientLoading,
-		error: clientError,
-	} = useQuery<Client, string>({
-		queryKey: [CLIENT_KEY, "detail", selectedClientId],
-		queryFn: () => getClient(selectedClientId ?? 0),
-		enabled: selectedClientId != null,
-	});
+  // fetch client (for label)
+  const {
+    data: clientData,
+    isLoading: clientLoading,
+    error: clientError,
+  } = useQuery<Client, string>({
+    queryKey: [CLIENT_KEY, "detail", selectedClientId],
+    queryFn: () => getClient(selectedClientId ?? 0),
+    enabled: selectedClientId != null,
+  });
 
-	// fetch properties
-	const {
-		data: properties,
-		isLoading: propsLoading,
-		error: propsError,
-	} = useQuery<any[], string>({
-		queryKey: ["client-properties", selectedClientId],
-		queryFn: () => getClientProperties(selectedClientId ?? 0),
-		enabled: selectedClientId != null,
-	});
+  // fetch properties
+  const {
+    data: properties,
+    isLoading: propsLoading,
+    error: propsError,
+  } = useQuery<any[], string>({
+    queryKey: ["client-properties", selectedClientId],
+    queryFn: () => getClientProperties(selectedClientId ?? 0),
+    enabled: selectedClientId != null,
+  });
 
-	// No selected client -> show hint (below the table)
-	if (!selectedClientId) {
-		return (
-			<div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
-				<p className="text-sm text-muted-foreground">
-					Selecciona un cliente para ver sus propiedades.
-				</p>
-			</div>
-		);
-	}
+  if (!selectedClientId) {
+    return (
+      <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+        <p className="text-sm text-muted-foreground">
+          Selecciona un cliente para ver sus propiedades.
+        </p>
+      </div>
+    );
+  }
 
-	if (clientError) {
-		return (
-			<div className="rounded-lg border bg-card p-4 text-red-600">
-				Error cargando cliente: {String(clientError)}
-			</div>
-		);
-	}
+  if (clientError) {
+    return (
+      <div className="rounded-lg border bg-card p-4 text-red-600">
+        Error cargando cliente: {String(clientError)}
+      </div>
+    );
+  }
 
-	if (propsError) {
-		return (
-			<div className="rounded-lg border bg-card p-4 text-red-600">
-				Error cargando propiedades: {String(propsError)}
-			</div>
-		);
-	}
+  if (propsError) {
+    return (
+      <div className="rounded-lg border bg-card p-4 text-red-600">
+        Error cargando propiedades: {String(propsError)}
+      </div>
+    );
+  }
 
-	const clientLabel = clientData
-		? `${clientData.firstName ?? ""} ${clientData.lastName ?? ""}`.trim() ||
-			clientData.username
-		: `#${selectedClientId}`;
+  const clientLabel = clientData
+    ? `${clientData.firstName ?? ""} ${clientData.lastName ?? ""}`.trim() ||
+      clientData.username
+    : `#${selectedClientId}`;
 
-	if (clientLoading || propsLoading) {
-		return (
-			<div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
-				<p>Cargando propiedades...</p>
-			</div>
-		);
-	}
+  if (clientLoading || propsLoading) {
+    return (
+      <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+        <p>Cargando propiedades...</p>
+      </div>
+    );
+  }
 
-	// Si no tiene propiedades -> mostrar mensaje y botón para crear una
-	if ((properties ?? []).length === 0) {
-		return (
-			<div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm space-y-4">
-				<h3 className="text-lg font-semibold">
-					Este cliente no tiene propiedades
-				</h3>
-				<p className="text-sm text-muted-foreground">
-					Puedes crear una propiedad para <strong>{clientLabel}</strong>.
-				</p>
+  if ((properties ?? []).length === 0) {
+    return (
+      <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm space-y-4">
+        <h3 className="text-lg font-semibold">Este cliente no tiene propiedades</h3>
+        <p className="text-sm text-muted-foreground">
+          Puedes crear una propiedad para <strong>{clientLabel}</strong>.
+        </p>
 
-				<div className="flex items-center gap-3">
-					<Button onClick={() => setOpenCreate(true)}>Crear propiedad</Button>
-				</div>
+        <div className="flex items-center gap-3">
+          <Button onClick={() => setOpenCreate(true)}>Crear propiedad</Button>
+        </div>
 
-				{/* Usamos el Create dialog existente; le pasamos clientId */}
-				<CreatePropertyDialog
-					open={openCreate}
-					onClose={() => setOpenCreate(false)}
-					clientId={selectedClientId ?? undefined}
-					onCreated={async () => {
-						// refrescar lista de propiedades del cliente
-						await queryClient.invalidateQueries({
-							queryKey: ["client-properties", selectedClientId],
-						});
-						// aviso al parent (si lo desea)
-						await onRefreshProperties?.();
-					}}
-				/>
-			</div>
-		);
-	}
+        <CreatePropertyDialog
+          open={openCreate}
+          onClose={() => setOpenCreate(false)}
+          clientId={selectedClientId ?? undefined}
+          onCreated={async () => {
+            await queryClient.invalidateQueries({
+              queryKey: ["client-properties", selectedClientId],
+            });
+            await onRefreshProperties?.();
+          }}
+        />
+      </div>
+    );
+  }
 
-	// Si tiene propiedades -> renderizamos la tabla habitual
-	// Nota: el título principal lo dejamos aquí (afuera de la tabla), y el botón "Crear propiedad"
-	// se mostrará dentro de ClientPropertiesTable (arriba a la derecha)
-	return (
-		<div>
-			<h3 className="text-lg font-semibold mb-3">
-				Propiedades de {clientLabel}
-			</h3>
+  return (
+    <div>
+      <h3 className="text-lg font-semibold mb-3">Propiedades de {clientLabel}</h3>
 
-			<ClientPropertiesTable
-				properties={properties ?? []}
-				clientName={clientLabel}
-				clientId={selectedClientId ?? undefined}
-				onOpenCreate={() => setOpenCreate(true)}
-				onRefresh={async () => {
-					await queryClient.invalidateQueries({
-						queryKey: ["client-properties", selectedClientId],
-					});
-					await onRefreshProperties?.();
-				}}
-			/>
+      <ClientPropertiesTable
+        properties={properties ?? []}
+        clientName={clientLabel}
+        clientId={selectedClientId ?? undefined}
+        onOpenCreate={() => setOpenCreate(true)}
+        onRefresh={async () => {
+          await queryClient.invalidateQueries({
+            queryKey: ["client-properties", selectedClientId],
+          });
+          await onRefreshProperties?.();
+        }}
+      />
 
-			{/* Renderizamos el dialog de creación (invisible hasta openCreate=true) */}
-			<CreatePropertyDialog
-				open={openCreate}
-				onClose={() => setOpenCreate(false)}
-				clientId={selectedClientId ?? undefined}
-				onCreated={async () => {
-					await queryClient.invalidateQueries({
-						queryKey: ["client-properties", selectedClientId],
-					});
-					await onRefreshProperties?.();
-				}}
-			/>
-		</div>
-	);
+      <CreatePropertyDialog
+        open={openCreate}
+        onClose={() => setOpenCreate(false)}
+        clientId={selectedClientId ?? undefined}
+        onCreated={async () => {
+          await queryClient.invalidateQueries({
+            queryKey: ["client-properties", selectedClientId],
+          });
+          await onRefreshProperties?.();
+        }}
+      />
+    </div>
+  );
 }

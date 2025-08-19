@@ -32,7 +32,6 @@ import type { Guard } from "./types";
 import PageSizeSelector from "@/components/ui/PageSizeSelector";
 import { ClickableEmail } from "../ui/clickable-email";
 
-
 export interface GuardsTableProps {
   guards: Guard[];
   onSelectGuard: (id: number) => void;
@@ -115,17 +114,28 @@ export default function GuardsTable({
   });
 
   const effectiveList = serverSide ? normalizedGuards : localFilteredAndSorted;
-  const localTotalPages = Math.max(1, Math.ceil(localFilteredAndSorted.length / itemsPerPage));
-  const effectiveTotalPages = serverSide ? Math.max(1, totalPages ?? 1) : localTotalPages;
-  const effectivePage = serverSide ? Math.max(1, Math.min(currentPage, effectiveTotalPages)) : page;
+  const localTotalPages = Math.max(
+    1,
+    Math.ceil(localFilteredAndSorted.length / itemsPerPage)
+  );
+  const effectiveTotalPages = serverSide
+    ? Math.max(1, totalPages ?? 1)
+    : localTotalPages;
+  const effectivePage = serverSide
+    ? Math.max(1, Math.min(currentPage, effectiveTotalPages))
+    : page;
   const startIndex = (effectivePage - 1) * itemsPerPage;
-  const paginatedGuards = serverSide ? effectiveList : effectiveList.slice(startIndex, startIndex + itemsPerPage);
+  const paginatedGuards = serverSide
+    ? effectiveList
+    : effectiveList.slice(startIndex, startIndex + itemsPerPage);
 
   React.useEffect(() => {
     if (!serverSide) setPage(1);
   }, [search, serverSide, guards.length]);
 
-  const searchTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
   React.useEffect(() => {
     if (!serverSide) return;
     if (!onSearch) return;
@@ -151,12 +161,18 @@ export default function GuardsTable({
   };
 
   const renderSortIcon = (field: keyof Guard) => {
-    if (sortField !== field) return <ArrowUpDown className="ml-1 h-3 w-3 inline" />;
-    return sortOrder === "asc" ? <ArrowUp className="ml-1 h-3 w-3 inline" /> : <ArrowDown className="ml-1 h-3 w-3 inline" />;
+    if (sortField !== field)
+      return <ArrowUpDown className="ml-1 h-3 w-3 inline" />;
+    return sortOrder === "asc" ? (
+      <ArrowUp className="ml-1 h-3 w-3 inline" />
+    ) : (
+      <ArrowDown className="ml-1 h-3 w-3 inline" />
+    );
   };
 
   // --- Access i18n keys from your files: TEXT.guards.table.*
-  const guardTable = (TEXT.guards && (TEXT.guards as any).table) ?? (TEXT.guards as any) ?? {};
+  const guardTable =
+    (TEXT.guards && (TEXT.guards as any).table) ?? (TEXT.guards as any) ?? {};
 
   return (
     <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm space-y-4">
@@ -166,7 +182,12 @@ export default function GuardsTable({
         </h3>
 
         <div className="flex-1 md:mx-4 w-full max-w-3xl">
-          <div className={`${highlightSearch ? "search-highlight search-pulse" : ""}`} style={{ minWidth: 280 }}>
+          <div
+            className={`${
+              highlightSearch ? "search-highlight search-pulse" : ""
+            }`}
+            style={{ minWidth: 280 }}
+          >
             <Input
               ref={searchRef}
               placeholder={guardTable.searchPlaceholder ?? "Buscar..."}
@@ -180,132 +201,185 @@ export default function GuardsTable({
 
         <div className="flex-none mr-2">
           <PageSizeSelector
-  pageSize={pageSize}
-  onChange={(s) => {
-    onPageSizeChange?.(s);
-    if (!serverSide) setPage(1);
-  }}
-  ariaLabel={guardTable.pageSizeLabel ?? "Items per page"}
-/>
-
+            pageSize={pageSize}
+            onChange={(s) => {
+              onPageSizeChange?.(s);
+              if (!serverSide) setPage(1);
+            }}
+            ariaLabel={guardTable.pageSizeLabel ?? "Items per page"}
+          />
         </div>
 
         <div className="flex-none">
-          <Button onClick={() => setCreateOpen(true)}>{guardTable.add ?? "Agregar"}</Button>
+          <Button onClick={() => setCreateOpen(true)}>
+            {guardTable.add ?? "Agregar"}
+          </Button>
         </div>
       </div>
 
       <div className="rounded-md border">
-		<ScrollArea className="rounded-md border">
-        <div className="max-h-[60vh] ">
-          <div className="min-w-[900px]">
-			
-            <Table className="table-fixed w-full">
-              <TableHeader className="sticky top-0 z-10 bg-card">
-                <TableRow>
-                  <TableHead onClick={() => toggleSort("firstName")} className="cursor-pointer select-none">
-                    {guardTable.headers?.name ?? "Nombre"} {renderSortIcon("firstName")}
-                  </TableHead>
-                  <TableHead onClick={() => toggleSort("lastName")} className="cursor-pointer select-none">
-                    {guardTable.headers?.lastName ?? "Apellido"} {renderSortIcon("lastName")}
-                  </TableHead>
-                  <TableHead onClick={() => toggleSort("email")} className="cursor-pointer select-none">
-                    {guardTable.headers?.email ?? "Correo"} {renderSortIcon("email")}
-                  </TableHead>
-                  <TableHead className="w-[140px]">{guardTable.headers?.phone ?? "Teléfono"}</TableHead>
-                  <TableHead className="w-[120px]">{guardTable.headers?.ssn ?? "DNI/SSN"}</TableHead>
-                  <TableHead className="w-[140px]">{guardTable.headers?.birthdate ?? "Fecha Nac."}</TableHead>
-                  <TableHead className="w-[100px] text-center">{guardTable.headers?.actions ?? "Acciones"}</TableHead>
-                </TableRow>
-              </TableHeader>
-
-              <TableBody>
-                {paginatedGuards.map((g, idx) => (
-                  <TableRow
-                    key={g.id}
-                    className={`cursor-pointer hover:bg-muted ${idx % 2 === 0 ? "bg-transparent" : "bg-muted/5"}`}
-                    onClick={() => onSelectGuard(g.id)}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        onSelectGuard(g.id);
-                      }
-                    }}
-                  >
-                    <TableCell>
-                      <div className="w-full">
-                        <span>{g.firstName || "-"}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>{g.lastName || "-"}</TableCell>
-                    <TableCell>
-                      <ClickableEmail email={g.email || ""} />
-                    </TableCell>
-                    <TableCell>{g.phone || "-"}</TableCell>
-                    <TableCell>{guardTable.ssnHidden ?? "******"}</TableCell>
-                    <TableCell>{g.birthdate || "-"}</TableCell>
-                    <TableCell className="flex gap-2 justify-center">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditGuard(g);
-                        }}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDeleteGuard(g);
-                        }}
-                      >
-                        <Trash className="h-4 w-4 text-red-500" />
-                      </Button>
-                    </TableCell>
+        <ScrollArea className="rounded-md border">
+          <div className="max-h-[60vh] ">
+            <div className="min-w-[900px]">
+              <Table className="table-fixed w-full">
+                <TableHeader className="sticky top-0 z-10 bg-card">
+                  <TableRow>
+                    <TableHead
+                      onClick={() => toggleSort("firstName")}
+                      className="cursor-pointer select-none"
+                    >
+                      {guardTable.headers?.name ?? "Nombre"}{" "}
+                      {renderSortIcon("firstName")}
+                    </TableHead>
+                    <TableHead
+                      onClick={() => toggleSort("lastName")}
+                      className="cursor-pointer select-none"
+                    >
+                      {guardTable.headers?.lastName ?? "Apellido"}{" "}
+                      {renderSortIcon("lastName")}
+                    </TableHead>
+                    <TableHead
+                      onClick={() => toggleSort("email")}
+                      className="cursor-pointer select-none"
+                    >
+                      {guardTable.headers?.email ?? "Correo"}{" "}
+                      {renderSortIcon("email")}
+                    </TableHead>
+                    <TableHead className="w-[140px]">
+                      {guardTable.headers?.phone ?? "Teléfono"}
+                    </TableHead>
+                    <TableHead className="w-[120px]">
+                      {guardTable.headers?.ssn ?? "DNI/SSN"}
+                    </TableHead>
+                    <TableHead className="w-[140px]">
+                      {guardTable.headers?.birthdate ?? "Fecha Nac."}
+                    </TableHead>
+                    <TableHead className="w-[100px] text-center">
+                      {guardTable.headers?.actions ?? "Acciones"}
+                    </TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-			
+                </TableHeader>
+
+                <TableBody>
+                  {paginatedGuards.map((g, idx) => (
+                    <TableRow
+                      key={g.id}
+                      className={`cursor-pointer hover:bg-muted ${
+                        idx % 2 === 0 ? "bg-transparent" : "bg-muted/5"
+                      }`}
+                      onClick={() => onSelectGuard(g.id)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          onSelectGuard(g.id);
+                        }
+                      }}
+                    >
+                      <TableCell>
+                        <div className="w-full">
+                          <span>{g.firstName || "-"}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>{g.lastName || "-"}</TableCell>
+                      <TableCell>
+                        <ClickableEmail email={g.email || ""} />
+                      </TableCell>
+                      <TableCell>{g.phone || "-"}</TableCell>
+                      <TableCell>{guardTable.ssnHidden ?? "******"}</TableCell>
+                      <TableCell>{g.birthdate || "-"}</TableCell>
+                      <TableCell className="flex gap-2 justify-center">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditGuard(g);
+                          }}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteGuard(g);
+                          }}
+                        >
+                          <Trash className="h-4 w-4 text-red-500" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </div>
-        </div>
-		</ScrollArea>
-	
+        </ScrollArea>
       </div>
 
       <div className="flex justify-end">
         <Pagination>
           <PaginationContent>
             <PaginationItem>
-              <PaginationPrevious onClick={() => goToPage(effectivePage - 1)} className={effectivePage === 1 ? "pointer-events-none opacity-50" : ""} />
+              <PaginationPrevious
+                onClick={() => goToPage(effectivePage - 1)}
+                className={
+                  effectivePage === 1 ? "pointer-events-none opacity-50" : ""
+                }
+              />
             </PaginationItem>
 
             {Array.from({ length: effectiveTotalPages }, (_, i) => i)
-              .filter((item) => shouldShowPage(item, effectivePage, effectiveTotalPages))
+              .filter((item) =>
+                shouldShowPage(item, effectivePage, effectiveTotalPages)
+              )
               .map((item) => (
                 <PaginationItem key={item}>
-                  <PaginationLink isActive={effectivePage === item + 1} onClick={() => goToPage(item + 1)}>
+                  <PaginationLink
+                    isActive={effectivePage === item + 1}
+                    onClick={() => goToPage(item + 1)}
+                  >
                     {item + 1}
                   </PaginationLink>
                 </PaginationItem>
               ))}
 
             <PaginationItem>
-              <PaginationNext onClick={() => goToPage(effectivePage + 1)} className={effectivePage === effectiveTotalPages ? "pointer-events-none opacity-50" : ""} />
+              <PaginationNext
+                onClick={() => goToPage(effectivePage + 1)}
+                className={
+                  effectivePage === effectiveTotalPages
+                    ? "pointer-events-none opacity-50"
+                    : ""
+                }
+              />
             </PaginationItem>
           </PaginationContent>
         </Pagination>
       </div>
 
-      <CreateGuardDialog open={createOpen} onClose={() => setCreateOpen(false)} onCreated={onRefresh} />
-      {editGuard && <EditGuardDialog guard={editGuard} onClose={() => setEditGuard(null)} onUpdated={onRefresh} />}
-      {deleteGuard && <DeleteGuardDialog guard={deleteGuard} onClose={() => setDeleteGuard(null)} onDeleted={onRefresh} />}
+      <CreateGuardDialog
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={onRefresh}
+      />
+      {editGuard && (
+        <EditGuardDialog
+          guard={editGuard}
+          onClose={() => setEditGuard(null)}
+          onUpdated={onRefresh}
+        />
+      )}
+      {deleteGuard && (
+        <DeleteGuardDialog
+          guard={deleteGuard}
+          onClose={() => setDeleteGuard(null)}
+          onDeleted={onRefresh}
+        />
+      )}
     </div>
   );
 }

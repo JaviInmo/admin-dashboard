@@ -33,7 +33,7 @@ export const UI_TEXT = {
     upcomingShifts: {
       title: "Próximos turnos",
       headers: { guard: "Guardia", location: "Lugar", date: "Fecha" },
-       pageSizeLabel: "Items por página",
+      
     },
   },
   clients: {
@@ -49,6 +49,7 @@ export const UI_TEXT = {
         fuel: "Gasolina ($)",
         actions: "Acciones",
       },
+       pageSizeLabel: "Items por página",
       actionEdit: "Editar {name}",
       actionDelete: "Eliminar {name}",
     },
@@ -79,6 +80,7 @@ export const UI_TEXT = {
         totalSalary: "Salario Total ($)",
         actions: "Acciones",
       },
+       pageSizeLabel: "Items por página",
       actionEdit: "Editar guardia {name}",
       actionDeleteConfirm: "¿Eliminar guardia {name}?",
       actionDelete: "Eliminar guardia {name}",
