@@ -127,7 +127,7 @@ export default function GuardsTable({
 
   React.useEffect(() => {
     if (!serverSide) setPage(1);
-  }, [guards.length, search, serverSide]);
+  }, [search, serverSide]);
 
   const searchTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
     null,

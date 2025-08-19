@@ -23,6 +23,11 @@ export default function GuardsPage() {
   const [page, setPage] = React.useState<number>(1);
   const [search, setSearch] = React.useState<string>("");
 
+  const handleSearch = React.useCallback((term: string) => {
+    setPage(1);
+    setSearch(term);
+  }, []);
+
   const query = useQuery<PaginatedResult<Guard>, string>({
     queryKey: [GUARDS_KEY, search, page],
     queryFn: () => listGuards(page, search, pageSize),
@@ -70,10 +75,7 @@ export default function GuardsPage() {
         totalPages={totalPages}
         onPageChange={(p) => setPage(p)}
         pageSize={pageSize}
-        onSearch={(term) => {
-          setPage(1); // resetear página cuando cambia la búsqueda
-          setSearch(term);
-        }}
+        onSearch={handleSearch}
       />
 
      {/*  <GuardDetails selectedGuardId={selectedGuardId} /> */}
