@@ -13,6 +13,9 @@ import EditClientDialog from "./Edit/Edit"
 import DeleteClientDialog from "./Delete/Delete"
 import { useI18n } from "@/i18n"
 
+// <-- IMPORT DEL SCROLLAREA de shadcn
+import { ScrollArea } from "@/components/ui/scroll-area"
+
 export interface ClientsTableProps {
   clients: AppClient[]
   onSelectClient: (id: number) => void
@@ -250,14 +253,10 @@ export default function ClientsTable({
 
   return (
     <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm space-y-4">
-      {/* Inline styles for the blink/pulse to ensure it works regardless of global CSS */}
-   
-
       {/* Header row: Title | Search | Add button */}
       <div className="flex flex-col md:flex-row items-center gap-3 justify-between">
         <h3 className="text-lg font-semibold md:mr-4">{TEXT.clients.list.title}</h3>
 
-        {/* Search sits to the right of title and to the left of the Add button */}
         <div className="flex-1 md:mx-4 w-full max-w-3xl">
           <div className={`${highlightSearch ? "search-highlight search-pulse" : ""}`} style={{ minWidth: 280 }}>
             <Input
@@ -276,87 +275,98 @@ export default function ClientsTable({
         </div>
       </div>
 
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead onClick={() => toggleSort("firstName")} className="cursor-pointer select-none">
-              {TEXT.clients.list.headers.clientName} {renderSortIcon("firstName")}
-            </TableHead>
-            <TableHead onClick={() => toggleSort("email")} className="cursor-pointer select-none">
-              {TEXT.clients.list.headers.email} {renderSortIcon("email")}
-            </TableHead>
-            <TableHead onClick={() => toggleSort("phone")} className="cursor-pointer select-none">
-              {TEXT.clients.list.headers.phone} {renderSortIcon("phone")}
-            </TableHead>
+      {/* ========== Aquí añadí ScrollArea + max-h para evitar overflow ========== */}
+      <ScrollArea className="rounded-md border">
+        <div className="max-h-[48vh]">
+          {/* Mantengo un min-width para evitar que la tabla se rompa en pantallas grandes;
+              ajusta o quita si prefieres que ocupe todo el ancho */}
+          <div className="min-w-[60vw]">
+            <Table className="table-fixed w-full border-collapse">
+              {/* header sticky para que siempre sea visible al scrollear */}
+              <TableHeader className="sticky top-0 z-20 bg-card border-b">
+                <TableRow>
+                  <TableHead onClick={() => toggleSort("firstName")} className="cursor-pointer select-none">
+                    {TEXT.clients.list.headers.clientName} {renderSortIcon("firstName")}
+                  </TableHead>
+                  <TableHead onClick={() => toggleSort("email")} className="cursor-pointer select-none">
+                    {TEXT.clients.list.headers.email} {renderSortIcon("email")}
+                  </TableHead>
+                  <TableHead onClick={() => toggleSort("phone")} className="cursor-pointer select-none">
+                    {TEXT.clients.list.headers.phone} {renderSortIcon("phone")}
+                  </TableHead>
 
-            {/* balance header hidden when hideBalance === true */}
-            {!hideBalance && (
-              <TableHead onClick={() => toggleSort("balance")} className="cursor-pointer select-none">
-                {TEXT.clients.list.headers.balance} {renderSortIcon("balance")}
-              </TableHead>
-            )}
+                  {/* balance header hidden when hideBalance === true */}
+                  {!hideBalance && (
+                    <TableHead onClick={() => toggleSort("balance")} className="cursor-pointer select-none">
+                      {TEXT.clients.list.headers.balance} {renderSortIcon("balance")}
+                    </TableHead>
+                  )}
 
-            <TableHead className="w-[120px]">{TEXT.clients.list.headers.status}</TableHead>
-            <TableHead className="w-[100px] text-center">{TEXT.clients.list.headers.actions}</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {paginatedClients.map((client, idx) => {
-            const clientName = ((client as any).clientName ?? `${client.firstName ?? ""} ${client.lastName ?? ""}`.trim()) || "-"
-            return (
-              <TableRow
-                key={client.id}
-                className={`cursor-pointer hover:bg-muted ${idx % 2 === 0 ? "bg-transparent" : "bg-muted/5"}`}
-                onClick={() => onSelectClient(client.id)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault()
-                    onSelectClient(client.id)
-                  }
-                }}
-              >
-                <TableCell>
-                  <div className="w-full">
-                    {/* name is plain text now (no blue) */}
-                    <span>{clientName}</span>
-                  </div>
-                </TableCell>
-                <TableCell>{client.email ?? "-"}</TableCell>
-                <TableCell>{client.phone ?? "-"}</TableCell>
+                  <TableHead className="w-[120px]">{TEXT.clients.list.headers.status}</TableHead>
+                  <TableHead className="w-[100px] text-center">{TEXT.clients.list.headers.actions}</TableHead>
+                </TableRow>
+              </TableHeader>
 
-                {/* balance cell hidden when hideBalance === true */}
-                {!hideBalance && <TableCell>{client.balance ?? "-"}</TableCell>}
+              <TableBody>
+                {paginatedClients.map((client, idx) => {
+                  const clientName = ((client as any).clientName ?? `${client.firstName ?? ""} ${client.lastName ?? ""}`.trim()) || "-"
+                  return (
+                    <TableRow
+                      key={client.id}
+                      className={`cursor-pointer hover:bg-muted ${idx % 2 === 0 ? "bg-transparent" : "bg-muted/5"}`}
+                      onClick={() => onSelectClient(client.id)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault()
+                          onSelectClient(client.id)
+                        }
+                      }}
+                    >
+                      <TableCell>
+                        <div className="w-full">
+                          {/* name is plain text now (no blue) */}
+                          <span>{clientName}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>{client.email ?? "-"}</TableCell>
+                      <TableCell>{client.phone ?? "-"}</TableCell>
 
-                <TableCell>{(client.isActive ?? true) ? TEXT.clients.list.statusActive : TEXT.clients.list.statusInactive}</TableCell>
-                <TableCell className="flex gap-2 justify-center">
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setEditClient(client)
-                    }}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setDeleteClient(client)
-                    }}
-                  >
-                    <Trash className="h-4 w-4 text-red-500" />
-                  </Button>
-                </TableCell>
-              </TableRow>
-            )
-          })}
-        </TableBody>
-      </Table>
+                      {/* balance cell hidden when hideBalance === true */}
+                      {!hideBalance && <TableCell>{client.balance ?? "-"}</TableCell>}
+
+                      <TableCell>{(client.isActive ?? true) ? TEXT.clients.list.statusActive : TEXT.clients.list.statusInactive}</TableCell>
+                      <TableCell className="flex gap-2 justify-center">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setEditClient(client)
+                          }}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setDeleteClient(client)
+                          }}
+                        >
+                          <Trash className="h-4 w-4 text-red-500" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      </ScrollArea>
 
       <div className="flex justify-end">
         {renderPagination()}
