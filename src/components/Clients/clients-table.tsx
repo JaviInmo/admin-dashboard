@@ -185,16 +185,60 @@ export default function ClientsTable({
             <PaginationPrevious onClick={() => goToPage(active - 1)} className={active === 1 ? "pointer-events-none opacity-50" : ""}/>
           </PaginationItem>
 
-          {Array.from({ length: pages }, (_, i) => (
-            <PaginationItem key={i}>
-              <PaginationLink
-                isActive={active === i + 1}
-                onClick={() => goToPage(i + 1)}
-              >
-                {i + 1}
-              </PaginationLink>
-            </PaginationItem>
-          ))}
+          {/* Lógica de paginación estándar con máximo 7 páginas */}
+          {(() => {
+            const totalPages = pages;
+            const currentPage = active;
+            const pageNumbers: (number | string)[] = [];
+
+            if (totalPages <= 5) {
+              // Si hay 5 páginas o menos, mostrar todas
+              for (let i = 1; i <= totalPages; i++) {
+                pageNumbers.push(i);
+              }
+            } else {
+              // Siempre mostrar primera página
+              pageNumbers.push(1);
+
+              if (currentPage <= 3) {
+                // Caso: página actual está cerca del inicio
+                for (let i = 2; i <= 4; i++) {
+                  pageNumbers.push(i);
+                }
+                pageNumbers.push("...");
+                pageNumbers.push(totalPages);
+              } else if (currentPage >= totalPages - 2) {
+                // Caso: página actual está cerca del final
+                pageNumbers.push("...");
+                for (let i = totalPages - 3; i <= totalPages; i++) {
+                  pageNumbers.push(i);
+                }
+              } else {
+                // Caso: página actual está en el medio
+                pageNumbers.push("...");
+                for (let i = currentPage - 1; i <= currentPage + 1; i++) {
+                  pageNumbers.push(i);
+                }
+                pageNumbers.push("...");
+                pageNumbers.push(totalPages);
+              }
+            }
+
+            return pageNumbers.map((page, index) => (
+              <PaginationItem key={index}>
+                {page === "..." ? (
+                  <span className="px-3 py-2 text-sm">...</span>
+                ) : (
+                  <PaginationLink
+                    isActive={active === page}
+                    onClick={() => goToPage(page as number)}
+                  >
+                    {page}
+                  </PaginationLink>
+                )}
+              </PaginationItem>
+            ));
+          })()}
 
           <PaginationItem>
             <PaginationNext onClick={() => goToPage(active + 1)} className={active === pages ? "pointer-events-none opacity-50" : ""}/>

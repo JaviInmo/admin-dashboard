@@ -295,13 +295,62 @@ export default function PropertiesTable({
             <PaginationItem>
               <PaginationPrevious onClick={() => goToPage(effectivePage - 1)} className={effectivePage === 1 ? "pointer-events-none opacity-50" : ""}/>
             </PaginationItem>
-            {Array.from({ length: effectiveTotalPages }, (_, i) => (
-              <PaginationItem key={i}>
-                <PaginationLink isActive={effectivePage === i + 1} onClick={() => goToPage(i + 1)}>
-                  {i + 1}
-                </PaginationLink>
-              </PaginationItem>
-            ))}
+
+            {/* Lógica de paginación estándar con máximo 7 páginas */}
+            {(() => {
+              const totalPages = effectiveTotalPages;
+              const currentPage = effectivePage;
+              const pages: (number | string)[] = [];
+
+              if (totalPages <= 5) {
+                // Si hay 5 páginas o menos, mostrar todas
+                for (let i = 1; i <= totalPages; i++) {
+                  pages.push(i);
+                }
+              } else {
+                // Siempre mostrar primera página
+                pages.push(1);
+
+                if (currentPage <= 3) {
+                  // Caso: página actual está cerca del inicio
+                  for (let i = 2; i <= 4; i++) {
+                    pages.push(i);
+                  }
+                  pages.push("...");
+                  pages.push(totalPages);
+                } else if (currentPage >= totalPages - 2) {
+                  // Caso: página actual está cerca del final
+                  pages.push("...");
+                  for (let i = totalPages - 3; i <= totalPages; i++) {
+                    pages.push(i);
+                  }
+                } else {
+                  // Caso: página actual está en el medio
+                  pages.push("...");
+                  for (let i = currentPage - 1; i <= currentPage + 1; i++) {
+                    pages.push(i);
+                  }
+                  pages.push("...");
+                  pages.push(totalPages);
+                }
+              }
+
+              return pages.map((page, index) => (
+                <PaginationItem key={index}>
+                  {page === "..." ? (
+                    <span className="px-3 py-2 text-sm">...</span>
+                  ) : (
+                    <PaginationLink
+                      isActive={effectivePage === page}
+                      onClick={() => goToPage(page as number)}
+                    >
+                      {page}
+                    </PaginationLink>
+                  )}
+                </PaginationItem>
+              ));
+            })()}
+
             <PaginationItem>
               <PaginationNext onClick={() => goToPage(effectivePage + 1)} className={effectivePage === effectiveTotalPages ? "pointer-events-none opacity-50" : ""}/>
             </PaginationItem>

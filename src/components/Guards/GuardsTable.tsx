@@ -305,8 +305,8 @@ export default function GuardsTable({
               const currentPage = effectivePage;
               const pages: (number | string)[] = [];
 
-              if (totalPages <= 7) {
-                // Si hay 7 páginas o menos, mostrar todas
+              if (totalPages <= 5) {
+                // Si hay 5 páginas o menos, mostrar todas
                 for (let i = 1; i <= totalPages; i++) {
                   pages.push(i);
                 }
@@ -314,17 +314,17 @@ export default function GuardsTable({
                 // Siempre mostrar primera página
                 pages.push(1);
 
-                if (currentPage <= 4) {
+                if (currentPage <= 3) {
                   // Caso: página actual está cerca del inicio
-                  for (let i = 2; i <= 5; i++) {
+                  for (let i = 2; i <= 4; i++) {
                     pages.push(i);
                   }
                   pages.push("...");
                   pages.push(totalPages);
-                } else if (currentPage >= totalPages - 3) {
+                } else if (currentPage >= totalPages - 2) {
                   // Caso: página actual está cerca del final
                   pages.push("...");
-                  for (let i = totalPages - 4; i <= totalPages; i++) {
+                  for (let i = totalPages - 3; i <= totalPages; i++) {
                     pages.push(i);
                   }
                 } else {
