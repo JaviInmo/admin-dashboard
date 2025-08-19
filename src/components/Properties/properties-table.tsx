@@ -28,6 +28,7 @@ import {
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
 import type { AppProperty } from "@/lib/services/properties";
+import type { SortOrder } from "@/lib/sort";
 import { shouldShowPage } from "../_utils/pagination";
 import CreatePropertyDialog from "./Create/Create";
 import DeletePropertyDialog from "./Delete/Delete";
@@ -72,6 +73,10 @@ export interface PropertiesTableProps {
 	pageSize?: number;
 	onSearch?: (term: string) => void;
 	propertyTypesMap?: Record<number, string>;
+
+	sortField: keyof AppProperty;
+	sortOrder: SortOrder;
+	toggleSort: (key: keyof AppProperty) => void;
 }
 
 export default function PropertiesTable({
@@ -85,11 +90,13 @@ export default function PropertiesTable({
 	pageSize = 5,
 	onSearch,
 	propertyTypesMap,
+
+	sortField,
+	sortOrder,
+	toggleSort,
 }: PropertiesTableProps) {
 	const [page, setPage] = React.useState(1);
 	const [search, setSearch] = React.useState("");
-	const [sortField, setSortField] = React.useState<string>("name");
-	const [sortOrder, setSortOrder] = React.useState<"asc" | "desc">("asc");
 
 	const [createOpen, setCreateOpen] = React.useState(false);
 	const [editProperty, setEditProperty] = React.useState<AppProperty | null>(
@@ -252,15 +259,6 @@ export default function PropertiesTable({
 		else setPage(newP);
 	};
 
-	const toggleSort = (field: string) => {
-		if (sortField === field) {
-			setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-		} else {
-			setSortField(field);
-			setSortOrder("asc");
-		}
-	};
-
 	const renderSortIcon = (field: string) => {
 		if (sortField !== field)
 			return <ArrowUpDown className="ml-1 h-3 w-3 inline" />;
@@ -270,9 +268,6 @@ export default function PropertiesTable({
 			<ArrowDown className="ml-1 h-3 w-3 inline" />
 		);
 	};
-
-	const hasPrevious = currentPage > 1;
-	const hasNext = currentPage < totalPages;
 
 	return (
 		<div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm space-y-4">

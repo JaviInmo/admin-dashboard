@@ -8,6 +8,7 @@ import {
 import * as React from "react";
 import type { PaginatedResult } from "@/lib/pagination";
 import { getUser, listUsers, USER_KEY } from "@/lib/services/users";
+import type { SortOrder } from "@/lib/sort";
 import type { User } from "./types";
 import UserPermissionsTable from "./UserPermissionsTable";
 import UsersTable from "./UsersTable";
@@ -26,10 +27,12 @@ export default function UsersPage() {
 
 	const [page, setPage] = React.useState<number>(1);
 	const [search, setSearch] = React.useState<string>("");
+	const [sortField, setSortField] = React.useState<keyof User>("username");
+	const [sortOrder, setSortOrder] = React.useState<SortOrder>("asc");
 
 	const { data, isPending, error } = useQuery<PaginatedResult<User>, string>({
-		queryKey: [USER_KEY, search, page],
-		queryFn: () => listUsers(page, search, pageSize),
+		queryKey: [USER_KEY, search, page, sortField, sortOrder],
+		queryFn: () => listUsers(page, search, pageSize, sortField, sortOrder),
 		placeholderData: keepPreviousData,
 		initialData: INITIAL_USER_DATA,
 	});
@@ -39,6 +42,11 @@ export default function UsersPage() {
 	const [selectedUserId, setSelectedUserId] = React.useState<number | null>(
 		null,
 	);
+
+	const toggleSort = (field: keyof User) => {
+		setSortField(field);
+		setSortOrder(sortField === field && sortOrder === "asc" ? "desc" : "asc");
+	};
 
 	return (
 		<div className="flex flex-1 flex-col gap-6 p-6">
@@ -67,6 +75,9 @@ export default function UsersPage() {
 				onSearch={(term) => {
 					setSearch(term);
 				}}
+				toggleSort={toggleSort}
+				sortField={sortField}
+				sortOrder={sortOrder}
 			/>
 			<UserPermisions selectedUserId={selectedUserId} />
 		</div>

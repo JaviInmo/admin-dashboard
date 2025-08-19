@@ -4,6 +4,7 @@ import type { User } from "@/components/Users/types";
 import { endpoints } from "@/lib/endpoints";
 import { api } from "@/lib/http";
 import { drfList, type PaginatedResult } from "@/lib/pagination";
+import { generateSort, type SortOrder } from "../sort";
 
 /**
  * Server shapes (según swagger)
@@ -89,6 +90,8 @@ export async function listUsers(
 	page?: number,
 	search?: string,
 	pageSize: number = 10,
+	sortField?: keyof User,
+	sortOrder?: SortOrder,
 ): Promise<PaginatedResult<User>> {
 	return drfList<ServerUser, User>(
 		endpoints.users,
@@ -99,6 +102,7 @@ export async function listUsers(
 				search && String(search).trim() !== ""
 					? String(search).trim()
 					: undefined,
+			ordering: generateSort(sortField, sortOrder),
 		},
 		mapServerUser,
 	);
