@@ -257,17 +257,27 @@ export default function ClientsTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {paginatedClients.map((client) => {
+          {paginatedClients.map((client, idx) => {
             const clientName = ((client as any).clientName ?? `${client.firstName ?? ""} ${client.lastName ?? ""}`.trim()) || "-"
             return (
-              <TableRow key={client.id}>
+              <TableRow
+                key={client.id}
+                className={`cursor-pointer hover:bg-muted ${idx % 2 === 0 ? "bg-transparent" : "bg-muted/5"}`}
+                onClick={() => onSelectClient(client.id)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault()
+                    onSelectClient(client.id)
+                  }
+                }}
+              >
                 <TableCell>
-                  <button
-                    onClick={() => onSelectClient(client.id)}
-                    className="text-blue-600 hover:underline"
-                  >
-                    {clientName}
-                  </button>
+                  <div className="w-full">
+                    {/* name is plain text now (no blue) */}
+                    <span>{clientName}</span>
+                  </div>
                 </TableCell>
                 <TableCell>{client.email ?? "-"}</TableCell>
                 <TableCell>{client.phone ?? "-"}</TableCell>
@@ -277,10 +287,24 @@ export default function ClientsTable({
 
                 <TableCell>{(client.isActive ?? true) ? TEXT.clients.list.statusActive : TEXT.clients.list.statusInactive}</TableCell>
                 <TableCell className="flex gap-2 justify-center">
-                  <Button size="icon" variant="ghost" onClick={() => setEditClient(client)}>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setEditClient(client)
+                    }}
+                  >
                     <Pencil className="h-4 w-4" />
                   </Button>
-                  <Button size="icon" variant="ghost" onClick={() => setDeleteClient(client)}>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setDeleteClient(client)
+                    }}
+                  >
                     <Trash className="h-4 w-4 text-red-500" />
                   </Button>
                 </TableCell>

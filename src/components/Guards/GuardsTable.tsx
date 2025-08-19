@@ -10,6 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -25,6 +26,9 @@ import type { Guard } from "./types";
 import CreateGuardDialog from "./Create/Create";
 import EditGuardDialog from "./Edit/Edit";
 import DeleteGuardDialog from "./Delete/Delete";
+
+// <-- IMPORT DEL SCROLLAREA de shadcn
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 export interface GuardsTableProps {
   guards: Guard[];
@@ -194,61 +198,96 @@ export default function GuardsTable({
         </div>
       </div>
 
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead
-              onClick={() => toggleSort("firstName")}
-              className="cursor-pointer select-none"
-            >
-              Nombre {renderSortIcon("firstName")}
-            </TableHead>
-            <TableHead
-              onClick={() => toggleSort("lastName")}
-              className="cursor-pointer select-none"
-            >
-              Apellido {renderSortIcon("lastName")}
-            </TableHead>
-            <TableHead
-              onClick={() => toggleSort("email")}
-              className="cursor-pointer select-none"
-            >
-              Correo {renderSortIcon("email")}
-            </TableHead>
-            <TableHead className="w-[140px]">Teléfono</TableHead>
-            <TableHead className="w-[120px]">DNI/SSN</TableHead>
-            <TableHead className="w-[140px]">Fecha Nac.</TableHead>
-            <TableHead className="w-[100px] text-center">Acciones</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {paginatedGuards.map((g) => (
-            <TableRow key={g.id}>
-              <TableCell>
-                <button
-                  onClick={() => onSelectGuard(g.id)}
-                  className="text-blue-600 hover:underline"
-                >
-                  {g.firstName}
-                </button>
-              </TableCell>
-              <TableCell>{g.lastName}</TableCell>
-              <TableCell>{g.email}</TableCell>
-              <TableCell>{g.phone}</TableCell>
-              <TableCell>{g.ssn}</TableCell>
-              <TableCell>{g.birthdate}</TableCell>
-              <TableCell className="flex gap-2 justify-center">
-                <Button size="icon" variant="ghost" onClick={() => setEditGuard(g)}>
-                  <Pencil className="h-4 w-4" />
-                </Button>
-                <Button size="icon" variant="ghost" onClick={() => setDeleteGuard(g)}>
-                  <Trash className="h-4 w-4 text-red-500" />
-                </Button>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+      {/* SCROLL AREA envuelve la tabla: controla scroll vertical y horizontal */}
+      <ScrollArea className="rounded-md border">
+        {/* Ajusta max-h para controlar cuándo aparece el scroll vertical */}
+        <div className="max-h-[48vh]">
+          {/* Forzamos min-width para activar scroll horizontal si hace falta */}
+          <div className="min-w-[900px]">
+            <Table>
+              {/* Si quieres que el header quede pegado dentro del ScrollArea,
+                  puedes usar la clase sticky. A veces necesitas ajustar el z-index y background. */}
+              <TableHeader className="sticky top-0 z-10 bg-card">
+                <TableRow>
+                  <TableHead
+                    onClick={() => toggleSort("firstName")}
+                    className="cursor-pointer select-none"
+                  >
+                    Nombre {renderSortIcon("firstName")}
+                  </TableHead>
+                  <TableHead
+                    onClick={() => toggleSort("lastName")}
+                    className="cursor-pointer select-none"
+                  >
+                    Apellido {renderSortIcon("lastName")}
+                  </TableHead>
+                  <TableHead
+                    onClick={() => toggleSort("email")}
+                    className="cursor-pointer select-none"
+                  >
+                    Correo {renderSortIcon("email")}
+                  </TableHead>
+                  <TableHead className="w-[140px]">Teléfono</TableHead>
+                  <TableHead className="w-[120px]">DNI/SSN</TableHead>
+                  <TableHead className="w-[140px]">Fecha Nac.</TableHead>
+                  <TableHead className="w-[100px] text-center">Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paginatedGuards.map((g, idx) => (
+                  <TableRow
+                    key={g.id}
+                    className={`cursor-pointer hover:bg-muted ${idx % 2 === 0 ? "bg-transparent" : "bg-muted/5"}`}
+                    onClick={() => onSelectGuard(g.id)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onSelectGuard(g.id);
+                      }
+                    }}
+                  >
+                    <TableCell>
+                      <div className="w-full">
+                        <span>{g.firstName}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>{g.lastName}</TableCell>
+                    <TableCell>{g.email}</TableCell>
+                    <TableCell>{g.phone}</TableCell>
+                    {/* SSN oculto */}
+                    <TableCell>******</TableCell>
+                    <TableCell>{g.birthdate}</TableCell>
+                    <TableCell className="flex gap-2 justify-center">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditGuard(g);
+                        }}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteGuard(g);
+                        }}
+                      >
+                        <Trash className="h-4 w-4 text-red-500" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      </ScrollArea>
 
       <div className="flex justify-end">
         <Pagination>

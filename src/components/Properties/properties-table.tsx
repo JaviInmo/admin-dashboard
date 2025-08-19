@@ -1,3 +1,4 @@
+// src/components/Properties/PropertiesTable.tsx
 "use client"
 
 import * as React from "react"
@@ -234,15 +235,26 @@ export default function PropertiesTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {paginated.map((p) => (
-            <TableRow key={p.id}>
+          {paginated.map((p, idx) => (
+            <TableRow
+              key={p.id}
+              className={`cursor-pointer hover:bg-muted ${idx % 2 === 0 ? "bg-transparent" : "bg-muted/5"}`}
+              onClick={() => onSelectProperty?.(p.id)}
+              role={onSelectProperty ? "button" : undefined}
+              tabIndex={onSelectProperty ? 0 : undefined}
+              onKeyDown={(e) => {
+                if (!onSelectProperty) return
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault()
+                  onSelectProperty(p.id)
+                }
+              }}
+            >
               <TableCell>
-                <button
-                  onClick={() => onSelectProperty?.(p.id)}
-                  className="text-blue-600 hover:underline"
-                >
-                  {(p as any).ownerName ?? `#${(p as any).ownerId ?? (p as any).owner ?? p.id}`}
-                </button>
+                {/* ownerName plain text (no blue) */}
+                <div className="w-full">
+                  <span>{(p as any).ownerName ?? `#${(p as any).ownerId ?? (p as any).owner ?? p.id}`}</span>
+                </div>
               </TableCell>
               <TableCell>{p.name}</TableCell>
               <TableCell>{p.address}</TableCell>
@@ -251,10 +263,24 @@ export default function PropertiesTable({
               <TableCell>{p.totalHours ?? "-"}</TableCell>
               <TableCell>{p.contractStartDate ?? "-"}</TableCell>
               <TableCell className="flex gap-2 justify-center">
-                <Button size="icon" variant="ghost" onClick={() => setEditProperty(p)}>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setEditProperty(p)
+                  }}
+                >
                   <Pencil className="h-4 w-4" />
                 </Button>
-                <Button size="icon" variant="ghost" onClick={() => setDeleteProperty(p)}>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setDeleteProperty(p)
+                  }}
+                >
                   <Trash className="h-4 w-4 text-red-500" />
                 </Button>
               </TableCell>

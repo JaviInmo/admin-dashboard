@@ -1,4 +1,4 @@
-"use client"
+'use client'
 
 import * as React from "react"
 import { Button } from "@/components/ui/button"
@@ -426,26 +426,44 @@ export default function UserPermissionsTable({ userId, userLabel, onUpdated }: U
             <p className="text-xs text-muted-foreground mt-2">Los cambios se aplican con grant/revoke por resource/action usando los endpoints administrativos.</p>
           </div>
 
+          {/* ====== Propiedades (UNA COLUMNA, fila por propiedad) ====== */}
           <div className="border rounded p-2">
             <p className="font-semibold mb-2">Acceso a propiedades</p>
             {properties.length === 0 ? (
               <p className="text-sm">No se encontraron propiedades (o la ruta pública no respondió).</p>
             ) : (
-              <div className="grid grid-cols-2 gap-2 max-h-44 overflow-auto">
+              <div className="flex flex-col gap-2 max-h-72 overflow-auto">
                 {properties.map((p) => {
                   const sel = selectedProperties[p.id] ?? { checked: false, accessId: undefined, accessType: "viewer" }
                   return (
-                    <div key={p.id} className="inline-flex items-center gap-2">
-                      <label className="inline-flex items-center gap-2">
-                        <input type="checkbox" checked={Boolean(sel.checked)} onChange={(e) => toggleProperty(p.id, e.target.checked)} />
+                    <div
+                      key={p.id}
+                      className="flex items-center justify-between gap-3 p-2 rounded hover:bg-muted"
+                      role="row"
+                    >
+                      <label className="inline-flex items-center gap-2" role="checkbox" aria-checked={Boolean(sel.checked)}>
+                        <input
+                          type="checkbox"
+                          checked={Boolean(sel.checked)}
+                          onChange={(e) => toggleProperty(p.id, e.target.checked)}
+                          className="mr-2"
+                        />
                         <span className="text-sm">#{p.id} {p.address}</span>
                       </label>
-                      <select value={sel.accessType} onChange={(e) => setPropertyAccessType(p.id, e.target.value)} disabled={!sel.checked} className="ml-2">
-                        <option value="viewer">Visor</option>
-                        <option value="editor">Editor</option>
-                        <option value="admin">Admin</option>
-                        <option value="full">Completo</option>
-                      </select>
+
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={sel.accessType}
+                          onChange={(e) => setPropertyAccessType(p.id, e.target.value)}
+                          disabled={!sel.checked}
+                          className="ml-2"
+                        >
+                          <option value="viewer">Visor</option>
+                          <option value="editor">Editor</option>
+                          <option value="admin">Admin</option>
+                          <option value="full">Completo</option>
+                        </select>
+                      </div>
                     </div>
                   )
                 })}
