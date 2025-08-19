@@ -11,6 +11,29 @@ import type { AppProperty } from "@/lib/services/properties"
 import CreatePropertyDialog from "./Create/Create"
 import EditPropertyDialog from "./Edit/Edit"
 import DeletePropertyDialog from "./Delete/Delete"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+
+// Componente helper para texto truncado con tooltip
+function TruncatedText({ text, maxLength = 30 }: { text: string; maxLength?: number }) {
+  if (!text || text.length <= maxLength) {
+    return <span>{text}</span>;
+  }
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="cursor-help truncate block max-w-[200px]">
+            {text.substring(0, maxLength)}...
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-xs">
+          <p className="whitespace-normal break-words">{text}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
 
 export interface PropertiesTableProps {
   properties: AppProperty[]
@@ -256,9 +279,15 @@ export default function PropertiesTable({
                   <span>{(p as any).ownerName ?? `#${(p as any).ownerId ?? (p as any).owner ?? p.id}`}</span>
                 </div>
               </TableCell>
-              <TableCell>{p.name}</TableCell>
-              <TableCell>{p.address}</TableCell>
-              <TableCell>{(p as any).typesOfServiceStr || "-"}</TableCell>
+              <TableCell>
+                <TruncatedText text={p.name || ""} maxLength={25} />
+              </TableCell>
+              <TableCell>
+                <TruncatedText text={p.address || ""} maxLength={30} />
+              </TableCell>
+              <TableCell>
+                <TruncatedText text={(p as any).typesOfServiceStr || "-"} maxLength={25} />
+              </TableCell>
               <TableCell>{p.monthlyRate ?? "-"}</TableCell>
               <TableCell>{p.totalHours ?? "-"}</TableCell>
               <TableCell>{p.contractStartDate ?? "-"}</TableCell>
