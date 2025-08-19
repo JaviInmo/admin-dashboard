@@ -15,7 +15,7 @@ const INITIAL_GUARD_DATA: PaginatedResult<Guard> = {
   previous: null,
 };
 
-const pageSize = 10;
+const pageSize = 20;
 
 export default function GuardsPage() {
   const queryClient = useQueryClient();
@@ -38,9 +38,8 @@ export default function GuardsPage() {
   const isLoading = query.isLoading;
   const error = query.error ?? null;
 
-  // Calcular pageSize real basado en lo que devuelve el backend
-  const actualPageSize = data.items.length > 0 ? data.items.length : pageSize;
-  const totalPages = Math.max(1, Math.ceil((data.count ?? 0) / actualPageSize));
+  // Backend siempre envía 20 elementos por página
+  const totalPages = Math.max(1, Math.ceil((data.count ?? 0) / pageSize));
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
@@ -76,7 +75,7 @@ export default function GuardsPage() {
         currentPage={page}
         totalPages={totalPages}
         onPageChange={(p) => setPage(p)}
-        pageSize={actualPageSize}
+        pageSize={pageSize}
         onSearch={handleSearch}
       />
 
