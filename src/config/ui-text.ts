@@ -33,6 +33,7 @@ export const UI_TEXT = {
     upcomingShifts: {
       title: "Próximos turnos",
       headers: { guard: "Guardia", location: "Lugar", date: "Fecha" },
+       pageSizeLabel: "Items por página",
     },
   },
   clients: {

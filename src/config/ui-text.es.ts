@@ -95,6 +95,7 @@ export const ES_TEXT = {
         totalSalary: "Salario Total ($)",
         actions: "Acciones",
       },
+       pageSizeLabel: "Items por página",
       actionEdit: "Editar guardia {name}",
       actionDeleteConfirm: "¿Eliminar guardia {name}?",
       actionDelete: "Eliminar guardia {name}",

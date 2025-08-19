@@ -88,13 +88,14 @@ export const EN_TEXT = {
     weeklyMaxNote: "Note: totals are calculated by summing shifts (hours × pricePerHour). Weekly max set to {hours}h.",
     table: {
       title: "Guards List",
-      add: "Add",
+      add: "Add Guard",
       headers: {
         name: "Name",
         totalHours: "Total Hours",
         totalSalary: "Total Salary ($)",
         actions: "Actions",
       },
+       pageSizeLabel: "Items per page", 
       actionEdit: "Edit guard {name}",
       actionDeleteConfirm: "Delete guard {name}?",
       actionDelete: "Delete guard {name}",
@@ -109,7 +110,7 @@ export const EN_TEXT = {
     noPermissions: "No permissions",
     table: {
       title: "Users List",
-      add: "Add",
+      add: "Add User",
       searchPlaceholder: "Search...",
       headers: {
         username: "Username",
