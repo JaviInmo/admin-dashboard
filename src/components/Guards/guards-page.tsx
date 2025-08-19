@@ -38,7 +38,9 @@ export default function GuardsPage() {
   const isLoading = query.isLoading;
   const error = query.error ?? null;
 
-  const totalPages = Math.max(1, Math.ceil((data.count ?? 0) / pageSize));
+  // Calcular pageSize real basado en lo que devuelve el backend
+  const actualPageSize = data.items.length > 0 ? data.items.length : pageSize;
+  const totalPages = Math.max(1, Math.ceil((data.count ?? 0) / actualPageSize));
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
@@ -74,7 +76,7 @@ export default function GuardsPage() {
         currentPage={page}
         totalPages={totalPages}
         onPageChange={(p) => setPage(p)}
-        pageSize={pageSize}
+        pageSize={actualPageSize}
         onSearch={handleSearch}
       />
 
