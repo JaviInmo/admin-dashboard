@@ -4,6 +4,12 @@ import * as React from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination"
 import { Pencil, Trash, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react"
 import type { User, Permissions } from "./types"
@@ -21,6 +27,7 @@ export interface UsersTableProps {
   onPageChange?: (page: number) => void
   pageSize?: number
   onSearch?: (term: string) => void
+  onPageSizeChange?: (pageSize: number) => void
 }
 
 export default function UsersTable({
@@ -32,7 +39,8 @@ export default function UsersTable({
   totalPages = 1,
   onPageChange,
   pageSize = 5,
-  onSearch
+  onSearch,
+  onPageSizeChange
 }: UsersTableProps) {
   const [page, setPage] = React.useState(1)
   const [search, setSearch] = React.useState("")
@@ -161,6 +169,29 @@ export default function UsersTable({
             />
           </div>
         </div>
+        
+        {/* Selector de Page Size */}
+        <div className="flex-none">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                {pageSize} por página
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {[5, 10, 20, 50, 100].map((size) => (
+                <DropdownMenuItem
+                  key={size}
+                  onClick={() => onPageSizeChange?.(size)}
+                  className={pageSize === size ? "bg-accent" : ""}
+                >
+                  {size} por página
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+        
         <div className="flex-none">
           <Button onClick={() => setCreateOpen(true)}>Agregar</Button>
         </div>
@@ -223,7 +254,11 @@ export default function UsersTable({
             </PaginationItem>
             {Array.from({ length: effectiveTotalPages }, (_, i) => (
               <PaginationItem key={i}>
-                <PaginationLink isActive={effectivePage === i + 1} onClick={() => goToPage(i + 1)}>
+                <PaginationLink 
+                  isActive={effectivePage === i + 1} 
+                  onClick={() => goToPage(i + 1)}
+                  className="cursor-pointer"
+                >
                   {i + 1}
                 </PaginationLink>
               </PaginationItem>

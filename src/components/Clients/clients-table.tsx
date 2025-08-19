@@ -5,6 +5,12 @@ import * as React from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination"
 import { Pencil, Trash, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react"
 import type { Client as AppClient } from "./types"
@@ -28,6 +34,7 @@ export interface ClientsTableProps {
   onPageChange?: (page: number) => void
   pageSize?: number
   onSearch?: (term: string) => void
+  onPageSizeChange?: (pageSize: number) => void
 
   // ocultar columna balance (por defecto: oculto)
   hideBalance?: boolean
@@ -43,6 +50,7 @@ export default function ClientsTable({
   onPageChange,
   pageSize = 5,
   onSearch,
+  onPageSizeChange,
   hideBalance = true, // <- ocultamos por defecto según tu petición
 }: ClientsTableProps) {
   const { TEXT } = useI18n()
@@ -235,6 +243,7 @@ export default function ClientsTable({
                   <PaginationLink
                     isActive={active === page}
                     onClick={() => goToPage(page as number)}
+                    className="cursor-pointer"
                   >
                     {page}
                   </PaginationLink>
@@ -270,6 +279,28 @@ export default function ClientsTable({
           </div>
         </div>
 
+        {/* Selector de Page Size */}
+        <div className="flex-none">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                {pageSize} por página
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {[5, 10, 20, 50, 100].map((size) => (
+                <DropdownMenuItem
+                  key={size}
+                  onClick={() => onPageSizeChange?.(size)}
+                  className={pageSize === size ? "bg-accent" : ""}
+                >
+                  {size} por página
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
         <div className="flex-none">
           <Button onClick={() => setCreateOpen(true)}>{TEXT.clients.list.addClient}</Button>
         </div>
@@ -285,13 +316,13 @@ export default function ClientsTable({
               {/* header sticky para que siempre sea visible al scrollear */}
               <TableHeader className="sticky top-0 z-20 bg-card border-b">
                 <TableRow>
-                  <TableHead onClick={() => toggleSort("firstName")} className="cursor-pointer select-none">
+                  <TableHead onClick={() => toggleSort("firstName")} className="cursor-pointer select-none max-w-[150px]">
                     {TEXT.clients.list.headers.clientName} {renderSortIcon("firstName")}
                   </TableHead>
-                  <TableHead onClick={() => toggleSort("email")} className="cursor-pointer select-none">
+                  <TableHead onClick={() => toggleSort("email")} className="cursor-pointer select-none max-w-[180px]">
                     {TEXT.clients.list.headers.email} {renderSortIcon("email")}
                   </TableHead>
-                  <TableHead onClick={() => toggleSort("phone")} className="cursor-pointer select-none">
+                  <TableHead onClick={() => toggleSort("phone")} className="cursor-pointer select-none max-w-[120px]">
                     {TEXT.clients.list.headers.phone} {renderSortIcon("phone")}
                   </TableHead>
 
@@ -324,40 +355,43 @@ export default function ClientsTable({
                         }
                       }}
                     >
-                      <TableCell>
-                        <div className="w-full">
-                          {/* name is plain text now (no blue) */}
-                          <span>{clientName}</span>
-                        </div>
+                      <TableCell className="max-w-[150px]">
+                        <span>{clientName}</span>
                       </TableCell>
-                      <TableCell>{client.email ?? "-"}</TableCell>
-                      <TableCell>{client.phone ?? "-"}</TableCell>
+                      <TableCell className="max-w-[180px]">
+                        <span>{client.email ?? "-"}</span>
+                      </TableCell>
+                      <TableCell className="max-w-[120px]">
+                        <span>{client.phone ?? "-"}</span>
+                      </TableCell>
 
                       {/* balance cell hidden when hideBalance === true */}
-                      {!hideBalance && <TableCell>{client.balance ?? "-"}</TableCell>}
+                      {!hideBalance && <TableCell className="min-w-fit whitespace-nowrap px-4">{client.balance ?? "-"}</TableCell>}
 
-                      <TableCell>{(client.isActive ?? true) ? TEXT.clients.list.statusActive : TEXT.clients.list.statusInactive}</TableCell>
-                      <TableCell className="flex gap-2 justify-center">
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setEditClient(client)
-                          }}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setDeleteClient(client)
-                          }}
-                        >
-                          <Trash className="h-4 w-4 text-red-500" />
-                        </Button>
+                      <TableCell className="min-w-fit whitespace-nowrap px-4">{(client.isActive ?? true) ? TEXT.clients.list.statusActive : TEXT.clients.list.statusInactive}</TableCell>
+                      <TableCell className="min-w-fit whitespace-nowrap px-4">
+                        <div className="flex gap-2 justify-center">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setEditClient(client)
+                            }}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setDeleteClient(client)
+                            }}
+                          >
+                            <Trash className="h-4 w-4 text-red-500" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   )

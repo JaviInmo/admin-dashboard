@@ -19,16 +19,29 @@ const INITIAL_USER_DATA: PaginatedResult<User> = {
 	previous: null,
 };
 
-const pageSize = 10;
+const getInitialPageSize = (): number => {
+	if (typeof window === 'undefined') return 10;
+	const saved = sessionStorage.getItem('users-page-size');
+	return saved ? parseInt(saved, 10) : 10;
+};
 
 export default function UsersPage() {
 	const queryClient = useQueryClient();
 
 	const [page, setPage] = React.useState<number>(1);
 	const [search, setSearch] = React.useState<string>("");
+	const [pageSize, setPageSize] = React.useState<number>(getInitialPageSize);
+
+	const handlePageSizeChange = React.useCallback((newSize: number) => {
+		setPageSize(newSize);
+		setPage(1); // Reset to first page
+		if (typeof window !== 'undefined') {
+			sessionStorage.setItem('users-page-size', String(newSize));
+		}
+	}, []);
 
 	const { data, isPending, error } = useQuery<PaginatedResult<User>, string>({
-		queryKey: [USER_KEY, search, page],
+		queryKey: [USER_KEY, search, page, pageSize],
 		queryFn: () => listUsers(page, search, pageSize),
 		placeholderData: keepPreviousData,
 		initialData: INITIAL_USER_DATA,
@@ -67,6 +80,7 @@ export default function UsersPage() {
 				onSearch={(term) => {
 					setSearch(term);
 				}}
+				onPageSizeChange={handlePageSizeChange}
 			/>
 			<UserPermisions selectedUserId={selectedUserId} />
 		</div>

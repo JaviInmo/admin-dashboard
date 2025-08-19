@@ -22,16 +22,35 @@ const INITIAL_PROPERTY_DATA: PaginatedResult<AppProperty> = {
 	previous: null,
 };
 
-const pageSize = 10;
-
 export default function PropertiesPage() {
 	const queryClient = useQueryClient();
 
 	const [page, setPage] = React.useState<number>(1);
 	const [search, setSearch] = React.useState<string>("");
+	
+	// Page size con persistencia en sesión, valor por defecto 5
+	const [pageSize, setPageSize] = React.useState<number>(() => {
+		if (typeof window !== 'undefined') {
+			const saved = sessionStorage.getItem('properties-page-size');
+			return saved ? parseInt(saved, 10) : 5;
+		}
+		return 5;
+	});
+
+	// Guardar pageSize en sesión cuando cambie
+	React.useEffect(() => {
+		if (typeof window !== 'undefined') {
+			sessionStorage.setItem('properties-page-size', pageSize.toString());
+		}
+	}, [pageSize]);
+
+	const handlePageSizeChange = React.useCallback((newPageSize: number) => {
+		setPage(1); // Reset a página 1 cuando cambie el page size
+		setPageSize(newPageSize);
+	}, []);
 
 	const { data, isPending, error } = useQuery<PaginatedResult<AppProperty>, string>({
-		queryKey: [PROPERTY_KEY, search, page],
+		queryKey: [PROPERTY_KEY, search, page, pageSize],
 		queryFn: () => listProperties(page, search, pageSize),
 		placeholderData: keepPreviousData,
 		initialData: INITIAL_PROPERTY_DATA,
@@ -57,15 +76,16 @@ export default function PropertiesPage() {
 			)}
 
 			<PropertiesTable
-				properties={data?.items ?? []}
-				// onSelectProperty={(id) => setSelectedPropertyId(id)}
-				onRefresh={() => queryClient.invalidateQueries({ queryKey: [PROPERTY_KEY] })}
-				serverSide={true}
-				currentPage={page}
-				totalPages={totalPages}
+			properties={data?.items ?? []}
+			// onSelectProperty={(id) => setSelectedPropertyId(id)}
+			onRefresh={() => queryClient.invalidateQueries({ queryKey: [PROPERTY_KEY] })}
+			serverSide={true}
+			currentPage={page}
+			totalPages={totalPages}
 				onPageChange={(p) => setPage(p)}
 				pageSize={pageSize}
 				onSearch={(term) => setSearch(term)}
+				onPageSizeChange={handlePageSizeChange}
 			/>
 
 			{/* Si en el futuro quieres volver a mostrar detalles, descomenta el state y el componente PropertyDetails */}

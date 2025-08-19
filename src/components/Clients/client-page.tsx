@@ -22,16 +22,43 @@ const INITIAL_CLIENT_DATA: PaginatedResult<Client> = {
   previous: null,
 };
 
-const pageSize = 10;
+const getInitialPageSize = (): number => {
+  if (typeof window === 'undefined') return 10;
+  const saved = sessionStorage.getItem('clients-page-size');
+  return saved ? parseInt(saved, 10) : 10;
+};
+
+const getInitialPropertiesPageSize = (): number => {
+  if (typeof window === 'undefined') return 5;
+  const saved = sessionStorage.getItem('client-properties-page-size');
+  return saved ? parseInt(saved, 10) : 5;
+};
 
 export default function ClientsPage() {
   const queryClient = useQueryClient();
 
   const [page, setPage] = React.useState<number>(1);
   const [search, setSearch] = React.useState<string>("");
+  const [pageSize, setPageSize] = React.useState<number>(getInitialPageSize);
+  const [propertiesPageSize, setPropertiesPageSize] = React.useState<number>(getInitialPropertiesPageSize);
+
+  const handlePageSizeChange = React.useCallback((newSize: number) => {
+    setPageSize(newSize);
+    setPage(1); // Reset to first page
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('clients-page-size', String(newSize));
+    }
+  }, []);
+
+  const handlePropertiesPageSizeChange = React.useCallback((newSize: number) => {
+    setPropertiesPageSize(newSize);
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('client-properties-page-size', String(newSize));
+    }
+  }, []);
 
   const { data, isPending, error } = useQuery<PaginatedResult<Client>, string>({
-    queryKey: [CLIENT_KEY, search, page],
+    queryKey: [CLIENT_KEY, search, page, pageSize],
     queryFn: () => listClients(page, search, pageSize),
     placeholderData: keepPreviousData,
     initialData: INITIAL_CLIENT_DATA,
@@ -80,6 +107,7 @@ export default function ClientsPage() {
         onSearch={(term) => {
           setSearch(term);
         }}
+        onPageSizeChange={handlePageSizeChange}
       />
 
       {/* PROPERTIES: always below the table */}
@@ -87,6 +115,8 @@ export default function ClientsPage() {
         <ClientPropertiesPanel
           selectedClientId={selectedClientId}
           onRefreshProperties={refreshClientProperties}
+          propertiesPageSize={propertiesPageSize}
+          onPropertiesPageSizeChange={handlePropertiesPageSizeChange}
         />
       </div>
     </div>
@@ -100,7 +130,14 @@ export default function ClientsPage() {
 function ClientPropertiesPanel({
   selectedClientId,
   onRefreshProperties,
-}: Readonly<{ selectedClientId: number | null; onRefreshProperties?: () => Promise<void> | void }>) {
+  propertiesPageSize,
+  onPropertiesPageSizeChange,
+}: Readonly<{ 
+  selectedClientId: number | null; 
+  onRefreshProperties?: () => Promise<void> | void;
+  propertiesPageSize: number;
+  onPropertiesPageSizeChange: (newSize: number) => void;
+}>) {
   const queryClient = useQueryClient();
 
   const [openCreate, setOpenCreate] = React.useState(false);
@@ -198,6 +235,8 @@ function ClientPropertiesPanel({
           await queryClient.invalidateQueries({ queryKey: ["client-properties", selectedClientId] });
           await onRefreshProperties?.();
         }}
+        pageSize={propertiesPageSize}
+        onPageSizeChange={onPropertiesPageSizeChange}
       />
 
       {/* Renderizamos el dialog de creación (invisible hasta openCreate=true) */}

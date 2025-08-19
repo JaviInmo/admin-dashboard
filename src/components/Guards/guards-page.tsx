@@ -15,13 +15,26 @@ const INITIAL_GUARD_DATA: PaginatedResult<Guard> = {
   previous: null,
 };
 
-const pageSize = 20;
+const getInitialPageSize = (): number => {
+  if (typeof window === 'undefined') return 20;
+  const saved = sessionStorage.getItem('guards-page-size');
+  return saved ? parseInt(saved, 10) : 20;
+};
 
 export default function GuardsPage() {
   const queryClient = useQueryClient();
 
   const [page, setPage] = React.useState<number>(1);
   const [search, setSearch] = React.useState<string>("");
+  const [pageSize, setPageSize] = React.useState<number>(getInitialPageSize);
+
+  const handlePageSizeChange = React.useCallback((newSize: number) => {
+    setPageSize(newSize);
+    setPage(1); // Reset to first page
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('guards-page-size', String(newSize));
+    }
+  }, []);
 
   const handleSearch = React.useCallback((term: string) => {
     setPage(1);
@@ -29,7 +42,7 @@ export default function GuardsPage() {
   }, []);
 
   const query = useQuery<PaginatedResult<Guard>, string>({
-    queryKey: [GUARDS_KEY, search, page],
+    queryKey: [GUARDS_KEY, search, page, pageSize],
     queryFn: () => listGuards(page, search, pageSize),
   });
 
@@ -77,6 +90,7 @@ export default function GuardsPage() {
         onPageChange={(p) => setPage(p)}
         pageSize={pageSize}
         onSearch={handleSearch}
+        onPageSizeChange={handlePageSizeChange}
       />
 
      {/*  <GuardDetails selectedGuardId={selectedGuardId} /> */}

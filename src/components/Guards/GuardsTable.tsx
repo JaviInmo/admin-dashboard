@@ -14,6 +14,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Pagination,
   PaginationContent,
   PaginationItem,
@@ -40,6 +46,7 @@ export interface GuardsTableProps {
   onPageChange?: (page: number) => void;
   pageSize?: number;
   onSearch?: (term: string) => void;
+  onPageSizeChange?: (pageSize: number) => void;
 }
 
 export default function GuardsTable({
@@ -52,6 +59,7 @@ export default function GuardsTable({
   onPageChange,
   pageSize = 5,
   onSearch,
+  onPageSizeChange,
 }: GuardsTableProps) {
   const [page, setPage] = React.useState<number>(1);
   const [search, setSearch] = React.useState<string>("");
@@ -193,6 +201,29 @@ export default function GuardsTable({
             />
           </div>
         </div>
+        
+        {/* Selector de Page Size */}
+        <div className="flex-none">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                {pageSize} por página
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {[5, 10, 20, 50, 100].map((size) => (
+                <DropdownMenuItem
+                  key={size}
+                  onClick={() => onPageSizeChange?.(size)}
+                  className={pageSize === size ? "bg-accent" : ""}
+                >
+                  {size} por página
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+        
         <div className="flex-none">
           <Button onClick={() => setCreateOpen(true)}>Agregar</Button>
         </div>
@@ -346,6 +377,7 @@ export default function GuardsTable({
                     <PaginationLink
                       isActive={effectivePage === page}
                       onClick={() => goToPage(page as number)}
+                      className="cursor-pointer"
                     >
                       {page}
                     </PaginationLink>

@@ -5,6 +5,12 @@ import * as React from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination"
 import { Pencil, Trash, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react"
 import type { AppProperty } from "@/lib/services/properties"
@@ -13,26 +19,88 @@ import EditPropertyDialog from "./Edit/Edit"
 import DeletePropertyDialog from "./Delete/Delete"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
-// Componente helper para texto truncado con tooltip
-function TruncatedText({ text, maxLength = 30 }: { text: string; maxLength?: number }) {
-  if (!text || text.length <= maxLength) {
-    return <span>{text}</span>;
+// Componente helper para texto que se adapta automáticamente
+function AdaptiveText({ text, maxWidth = "200px" }: { text: string; maxWidth?: string }) {
+  const [isOverflowing, setIsOverflowing] = React.useState(false);
+  const textRef = React.useRef<HTMLDivElement>(null);
+  const measureRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const checkOverflow = () => {
+      if (textRef.current && measureRef.current) {
+        // Obtener el ancho máximo permitido
+        const maxWidthValue = parseInt(maxWidth.replace('px', '')) || 200;
+        
+        // Medir el ancho real del texto
+        measureRef.current.textContent = text;
+        const textWidth = measureRef.current.offsetWidth;
+        
+        // Solo truncar si el texto es más ancho que el máximo permitido
+        const shouldTruncate = textWidth > maxWidthValue;
+        setIsOverflowing(shouldTruncate);
+      }
+    };
+
+    checkOverflow();
+    // Usar un timeout más largo para asegurar que el layout esté completamente renderizado
+    const timer = setTimeout(checkOverflow, 200);
+    
+    return () => clearTimeout(timer);
+  }, [text, maxWidth]);
+
+  if (!text) {
+    return <span>-</span>;
   }
 
-  return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span className="cursor-help truncate block max-w-[200px]">
-            {text.substring(0, maxLength)}...
-          </span>
-        </TooltipTrigger>
-        <TooltipContent side="top" className="max-w-xs">
-          <p className="whitespace-normal break-words">{text}</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+  const content = (
+    <>
+      {/* Elemento invisible para medir el ancho real del texto */}
+      <div
+        ref={measureRef}
+        style={{
+          position: 'absolute',
+          visibility: 'hidden',
+          height: 'auto',
+          width: 'auto',
+          whiteSpace: 'nowrap',
+          fontSize: 'inherit',
+          fontFamily: 'inherit',
+          fontWeight: 'inherit'
+        }}
+      />
+      
+      {/* Elemento visible con el texto */}
+      <div
+        ref={textRef}
+        className={isOverflowing ? "cursor-help" : ""}
+        style={{ 
+          maxWidth,
+          overflow: isOverflowing ? 'hidden' : 'visible',
+          textOverflow: isOverflowing ? 'ellipsis' : 'initial',
+          whiteSpace: 'nowrap'
+        }}
+      >
+        {text}
+      </div>
+    </>
   );
+
+  if (isOverflowing) {
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div>{content}</div>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="max-w-xs">
+            <p className="whitespace-normal break-words">{text}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
+
+  return <div>{content}</div>;
 }
 
 export interface PropertiesTableProps {
@@ -45,6 +113,7 @@ export interface PropertiesTableProps {
   onPageChange?: (page: number) => void
   pageSize?: number
   onSearch?: (term: string) => void
+  onPageSizeChange?: (pageSize: number) => void
   propertyTypesMap?: Record<number, string>
 }
 
@@ -58,6 +127,7 @@ export default function PropertiesTable({
   onPageChange,
   pageSize = 5,
   onSearch,
+  onPageSizeChange,
   propertyTypesMap,
 }: PropertiesTableProps) {
   const [page, setPage] = React.useState(1)
@@ -239,6 +309,29 @@ export default function PropertiesTable({
             />
           </div>
         </div>
+        
+        {/* Selector de Page Size */}
+        <div className="flex-none">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                {pageSize} por página
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {[5, 10, 20, 50, 100].map((size) => (
+                <DropdownMenuItem
+                  key={size}
+                  onClick={() => onPageSizeChange?.(size)}
+                  className={pageSize === size ? "bg-accent" : ""}
+                >
+                  {size} por página
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+        
         <div className="flex-none">
           <Button onClick={() => setCreateOpen(true)}>Agregar</Button>
         </div>
@@ -247,13 +340,13 @@ export default function PropertiesTable({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead onClick={() => toggleSort("ownerName")} className="cursor-pointer select-none">Owner {renderSortIcon("ownerName")}</TableHead>
-            <TableHead onClick={() => toggleSort("name")} className="cursor-pointer select-none">Name {renderSortIcon("name")}</TableHead>
-            <TableHead onClick={() => toggleSort("address")} className="cursor-pointer select-none">Address {renderSortIcon("address")}</TableHead>
-            <TableHead onClick={() => toggleSort("typesOfServiceStr")} className="cursor-pointer select-none">Service Types {renderSortIcon("typesOfServiceStr")}</TableHead>
-            <TableHead onClick={() => toggleSort("monthlyRate")} className="cursor-pointer select-none">Monthly Rate {renderSortIcon("monthlyRate")}</TableHead>
-            <TableHead onClick={() => toggleSort("totalHours")} className="cursor-pointer select-none">Total Hours {renderSortIcon("totalHours")}</TableHead>
-            <TableHead onClick={() => toggleSort("contractStartDate")} className="cursor-pointer select-none">Start Date {renderSortIcon("contractStartDate")}</TableHead>
+            <TableHead onClick={() => toggleSort("ownerName")} className="cursor-pointer select-none max-w-[120px]">Owner {renderSortIcon("ownerName")}</TableHead>
+            <TableHead onClick={() => toggleSort("name")} className="cursor-pointer select-none max-w-[150px]">Name {renderSortIcon("name")}</TableHead>
+            <TableHead onClick={() => toggleSort("address")} className="cursor-pointer select-none max-w-[200px]">Address {renderSortIcon("address")}</TableHead>
+            <TableHead onClick={() => toggleSort("typesOfServiceStr")} className="cursor-pointer select-none max-w-[150px]">Service Types {renderSortIcon("typesOfServiceStr")}</TableHead>
+            <TableHead onClick={() => toggleSort("monthlyRate")} className="cursor-pointer select-none w-[120px]">Monthly Rate {renderSortIcon("monthlyRate")}</TableHead>
+            <TableHead onClick={() => toggleSort("totalHours")} className="cursor-pointer select-none w-[120px]">Total Hours {renderSortIcon("totalHours")}</TableHead>
+            <TableHead onClick={() => toggleSort("contractStartDate")} className="cursor-pointer select-none w-[140px]">Start Date {renderSortIcon("contractStartDate")}</TableHead>
             <TableHead className="w-[100px] text-center">Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -273,20 +366,20 @@ export default function PropertiesTable({
                 }
               }}
             >
-              <TableCell>
+              <TableCell className="max-w-[120px]">
                 {/* ownerName plain text (no blue) */}
                 <div className="w-full">
                   <span>{(p as any).ownerName ?? `#${(p as any).ownerId ?? (p as any).owner ?? p.id}`}</span>
                 </div>
               </TableCell>
-              <TableCell>
-                <TruncatedText text={p.name || ""} maxLength={25} />
+              <TableCell className="max-w-[150px]">
+                <span>{p.name || ""}</span>
               </TableCell>
-              <TableCell>
-                <TruncatedText text={p.address || ""} maxLength={30} />
+              <TableCell className="max-w-[200px]">
+                <AdaptiveText text={p.address || ""} maxWidth="200px" />
               </TableCell>
-              <TableCell>
-                <TruncatedText text={(p as any).typesOfServiceStr || "-"} maxLength={25} />
+              <TableCell className="max-w-[150px]">
+                <span>{(p as any).typesOfServiceStr || "-"}</span>
               </TableCell>
               <TableCell>{p.monthlyRate ?? "-"}</TableCell>
               <TableCell>{p.totalHours ?? "-"}</TableCell>
@@ -372,6 +465,7 @@ export default function PropertiesTable({
                     <PaginationLink
                       isActive={effectivePage === page}
                       onClick={() => goToPage(page as number)}
+                      className="cursor-pointer"
                     >
                       {page}
                     </PaginationLink>
