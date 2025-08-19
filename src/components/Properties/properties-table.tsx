@@ -297,7 +297,7 @@ export default function PropertiesTable({
 				<TableHeader>
 					<TableRow>
 						<TableHead
-							onClick={() => toggleSort("ownerName")}
+							onClick={() => toggleSort("id")}
 							className="cursor-pointer select-none"
 						>
 							Owner {renderSortIcon("ownerName")}
@@ -315,7 +315,7 @@ export default function PropertiesTable({
 							Address {renderSortIcon("address")}
 						</TableHead>
 						<TableHead
-							onClick={() => toggleSort("typesOfServiceStr")}
+							onClick={() => toggleSort("typesOfService")}
 							className="cursor-pointer select-none"
 						>
 							Service Types {renderSortIcon("typesOfServiceStr")}
