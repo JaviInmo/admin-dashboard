@@ -32,6 +32,7 @@ import type { Guard } from "./types";
 import PageSizeSelector from "@/components/ui/PageSizeSelector";
 import { ClickableEmail } from "../ui/clickable-email";
 
+
 export interface GuardsTableProps {
   guards: Guard[];
   onSelectGuard: (id: number) => void;
@@ -194,9 +195,11 @@ export default function GuardsTable({
         </div>
       </div>
 
-      <ScrollArea className="rounded-md border">
-        <div className="max-h-[60vh] overflow-y-auto">
+      <div className="rounded-md border">
+		<ScrollArea className="rounded-md border">
+        <div className="max-h-[60vh] ">
           <div className="min-w-[900px]">
+			
             <Table className="table-fixed w-full">
               <TableHeader className="sticky top-0 z-10 bg-card">
                 <TableRow>
@@ -269,9 +272,12 @@ export default function GuardsTable({
                 ))}
               </TableBody>
             </Table>
+			
           </div>
         </div>
-      </ScrollArea>
+		</ScrollArea>
+	
+      </div>
 
       <div className="flex justify-end">
         <Pagination>
