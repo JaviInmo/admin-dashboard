@@ -21,6 +21,7 @@ import { useI18n } from "@/i18n"
 
 // <-- IMPORT DEL SCROLLAREA de shadcn
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { ClickableEmail } from "@/components/ui/clickable-email"
 
 export interface ClientsTableProps {
   clients: AppClient[]
@@ -359,7 +360,7 @@ export default function ClientsTable({
                         <span>{clientName}</span>
                       </TableCell>
                       <TableCell className="max-w-[180px]">
-                        <span>{client.email ?? "-"}</span>
+                        <ClickableEmail email={client.email} />
                       </TableCell>
                       <TableCell className="max-w-[120px]">
                         <span>{client.phone ?? "-"}</span>

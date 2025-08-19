@@ -18,6 +18,7 @@ import CreatePropertyDialog from "./Create/Create"
 import EditPropertyDialog from "./Edit/Edit"
 import DeletePropertyDialog from "./Delete/Delete"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { ClickableAddress } from "@/components/ui/clickable-address"
 
 // Componente helper para texto que se adapta automáticamente
 function AdaptiveText({ text, maxWidth = "200px" }: { text: string; maxWidth?: string }) {
@@ -376,7 +377,7 @@ export default function PropertiesTable({
                 <span>{p.name || ""}</span>
               </TableCell>
               <TableCell className="max-w-[200px]">
-                <AdaptiveText text={p.address || ""} maxWidth="200px" />
+                <ClickableAddress address={p.address} maxWidth="200px" />
               </TableCell>
               <TableCell className="max-w-[150px]">
                 <span>{(p as any).typesOfServiceStr || "-"}</span>

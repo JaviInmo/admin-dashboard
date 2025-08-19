@@ -2,7 +2,7 @@
 // You can later split by locale (e.g., en, es) or load dynamically
 
 export const UI_TEXT = {
-  appName: "Texas Counties Division Patrol",
+  appName: "Texas Counties Division Patrol LLC",
   header: {
     notificationsAria: "Notifications",
     userMenuAria: "Toggle user menu",

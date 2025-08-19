@@ -24,6 +24,7 @@ import { useI18n } from "@/i18n"
 import { toast } from "sonner"
 import EditPropertyDialog from "@/components/Properties/Edit/Edit"
 import DeletePropertyDialog from "@/components/Properties/Delete/Delete"
+import { ClickableAddress } from "@/components/ui/clickable-address"
 
 // Componente helper para texto que se adapta automáticamente
 function AdaptiveText({ text, maxWidth = "150px" }: { text: string; maxWidth?: string }) {
@@ -239,7 +240,7 @@ export default function ClientPropertiesTable({
                 <span>{property.name}</span>
               </TableCell>
               <TableCell className="max-w-[150px]">
-                <AdaptiveText text={property.address || "-"} maxWidth="150px" />
+                <ClickableAddress address={property.address || "-"} maxWidth="150px" />
               </TableCell>
               <TableCell className="max-w-[120px]">
                 <span>{(property.types_of_service ?? [])?.map((t) => (t as any)?.name).filter(Boolean).join(', ') || '-'}</span>

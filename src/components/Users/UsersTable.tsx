@@ -16,6 +16,7 @@ import type { User, Permissions } from "./types"
 import CreateUserDialog from "./Create/Create"
 import EditUserDialog from "./Edit/Edit"
 import DeleteUserDialog from "./Delete/Delete"
+import { ClickableEmail } from "@/components/ui/clickable-email"
 
 export interface UsersTableProps {
   users: (User & { permissions?: Permissions })[]
@@ -230,7 +231,9 @@ export default function UsersTable({
               </TableCell>
               <TableCell>{user.firstName}</TableCell>
               <TableCell>{user.lastName}</TableCell>
-              <TableCell>{user.email}</TableCell>
+              <TableCell>
+                <ClickableEmail email={user.email} />
+              </TableCell>
               <TableCell>{(user as any).is_active ?? (user.isActive ?? true) ? "Activo" : "Inactivo"}</TableCell>
               <TableCell>{renderRoleText(user)}</TableCell>
               <TableCell className="flex gap-2 justify-center">

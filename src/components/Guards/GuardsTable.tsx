@@ -19,6 +19,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ClickableEmail } from "@/components/ui/clickable-email";
 import {
   Pagination,
   PaginationContent,
@@ -285,7 +286,9 @@ export default function GuardsTable({
                       </div>
                     </TableCell>
                     <TableCell>{g.lastName}</TableCell>
-                    <TableCell>{g.email}</TableCell>
+                    <TableCell>
+                      <ClickableEmail email={g.email} />
+                    </TableCell>
                     <TableCell>{g.phone}</TableCell>
                     {/* SSN oculto */}
                     <TableCell>******</TableCell>

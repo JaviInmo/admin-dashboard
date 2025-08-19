@@ -1,5 +1,5 @@
 export const EN_TEXT = {
-  appName: "Texas Counties Division Patrol",
+  appName: "Texas Counties Division Patrol LLC",
   header: {
     notificationsAria: "Notifications",
     userMenuAria: "Toggle user menu",

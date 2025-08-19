@@ -4,7 +4,6 @@ import { Link } from "react-router-dom";
 import {
   Bell,
   LogOut,
-  Package2,
   LayoutDashboard,
   Users,
   Briefcase,
@@ -50,6 +49,7 @@ import {
   SidebarTrigger,
   SidebarInset,
 } from "@/components/ui/sidebar";
+import { TexasLogo } from "@/components/ui/texas-logo";
 
 import DashboardContent from "@/components/Dashboard/dashboard-content";
 import SalesRegistrationContent from "@/components/Clients/client-page";
@@ -172,7 +172,7 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
         <Sidebar collapsible="icon" side="left">
           <SidebarHeader className="p-2">
             <Link to="#" className="flex items-center gap-2 font-semibold p-2">
-              <Package2 className="h-6 w-6" />
+              <TexasLogo className="h-full w-auto max-h-10" />
               <span className="group-data-[state=collapsed]:hidden">
                 {TEXT.appName}
               </span>
