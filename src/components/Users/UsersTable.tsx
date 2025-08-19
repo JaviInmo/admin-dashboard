@@ -20,6 +20,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
+import type { SortOrder } from "@/lib/sort";
 import { shouldShowPage } from "../_utils/pagination";
 import CreateUserDialog from "./Create/Create";
 import DeleteUserDialog from "./Delete/Delete";
@@ -36,6 +37,10 @@ export interface UsersTableProps {
 	onPageChange?: (page: number) => void;
 	pageSize?: number;
 	onSearch?: (term: string) => void;
+
+	sortField: keyof User;
+	sortOrder: SortOrder;
+	toggleSort: (key: keyof User) => void;
 }
 
 export default function UsersTable({
@@ -48,11 +53,13 @@ export default function UsersTable({
 	onPageChange,
 	pageSize = 5,
 	onSearch,
+
+	sortField,
+	sortOrder,
+	toggleSort,
 }: UsersTableProps) {
 	const [page, setPage] = React.useState(1);
 	const [search, setSearch] = React.useState("");
-	const [sortField, setSortField] = React.useState<keyof User>("username");
-	const [sortOrder, setSortOrder] = React.useState<"asc" | "desc">("asc");
 
 	const [createOpen, setCreateOpen] = React.useState(false);
 	const [editUser, setEditUser] = React.useState<
@@ -88,24 +95,16 @@ export default function UsersTable({
 			}) as User,
 	);
 
-	const localFilteredAndSorted = normalizedUsers
-		.filter((u) => {
-			const q = search.toLowerCase();
-			return (
-				(u.username ?? "").toLowerCase().includes(q) ||
-				(u.firstName ?? "").toLowerCase().includes(q) ||
-				(u.lastName ?? "").toLowerCase().includes(q) ||
-				(u.email ?? "").toLowerCase().includes(q) ||
-				(u.name ?? "").toLowerCase().includes(q)
-			);
-		})
-		.sort((a, b) => {
-			const valA = (a[sortField] ?? "") as unknown as string;
-			const valB = (b[sortField] ?? "") as unknown as string;
-			return sortOrder === "asc"
-				? String(valA).localeCompare(String(valB))
-				: String(valB).localeCompare(String(valA));
-		});
+	const localFilteredAndSorted = normalizedUsers.filter((u) => {
+		const q = search.toLowerCase();
+		return (
+			(u.username ?? "").toLowerCase().includes(q) ||
+			(u.firstName ?? "").toLowerCase().includes(q) ||
+			(u.lastName ?? "").toLowerCase().includes(q) ||
+			(u.email ?? "").toLowerCase().includes(q) ||
+			(u.name ?? "").toLowerCase().includes(q)
+		);
+	});
 
 	const effectiveList = serverSide ? normalizedUsers : localFilteredAndSorted;
 	const localTotalPages = Math.max(
@@ -137,6 +136,7 @@ export default function UsersTable({
 			clearTimeout(searchTimerRef.current);
 			searchTimerRef.current = null;
 		}
+
 		searchTimerRef.current = setTimeout(() => {
 			onSearch(search);
 		}, 350);
@@ -152,15 +152,6 @@ export default function UsersTable({
 		const newP = Math.max(1, Math.min(effectiveTotalPages, p));
 		if (serverSide) onPageChange?.(newP);
 		else setPage(newP);
-	};
-
-	const toggleSort = (field: keyof User) => {
-		if (sortField === field) {
-			setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-		} else {
-			setSortField(field);
-			setSortOrder("asc");
-		}
 	};
 
 	const renderSortIcon = (field: keyof User) => {

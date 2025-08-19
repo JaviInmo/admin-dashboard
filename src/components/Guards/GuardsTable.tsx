@@ -24,6 +24,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
+import type { SortOrder } from "@/lib/sort";
 import { shouldShowPage } from "../_utils/pagination";
 import CreateGuardDialog from "./Create/Create";
 import DeleteGuardDialog from "./Delete/Delete";
@@ -40,6 +41,10 @@ export interface GuardsTableProps {
 	onPageChange?: (page: number) => void;
 	pageSize?: number;
 	onSearch?: (term: string) => void;
+
+	sortField: keyof Guard;
+	sortOrder: SortOrder;
+	toggleSort: (key: keyof Guard) => void;
 }
 
 export default function GuardsTable({
@@ -52,11 +57,13 @@ export default function GuardsTable({
 	onPageChange,
 	pageSize = 5,
 	onSearch,
+
+	sortField,
+	sortOrder,
+	toggleSort,
 }: GuardsTableProps) {
 	const [page, setPage] = React.useState<number>(1);
 	const [search, setSearch] = React.useState<string>("");
-	const [sortField, setSortField] = React.useState<keyof Guard>("firstName");
-	const [sortOrder, setSortOrder] = React.useState<"asc" | "desc">("asc");
 
 	const [createOpen, setCreateOpen] = React.useState(false);
 	const [editGuard, setEditGuard] = React.useState<Guard | null>(null);
@@ -89,25 +96,17 @@ export default function GuardsTable({
 		birthdate: g.birthdate ?? "",
 	})) as Guard[];
 
-	const localFilteredAndSorted = normalizedGuards
-		.filter((g) => {
-			const q = search.toLowerCase();
-			return (
-				(g.firstName ?? "").toLowerCase().includes(q) ||
-				(g.lastName ?? "").toLowerCase().includes(q) ||
-				(g.email ?? "").toLowerCase().includes(q) ||
-				(g.phone ?? "").toLowerCase().includes(q) ||
-				(g.ssn ?? "").toLowerCase().includes(q) ||
-				(g.address ?? "").toLowerCase().includes(q)
-			);
-		})
-		.sort((a, b) => {
-			const valA = (a[sortField] ?? "") as unknown as string;
-			const valB = (b[sortField] ?? "") as unknown as string;
-			return sortOrder === "asc"
-				? String(valA).localeCompare(String(valB))
-				: String(valB).localeCompare(String(valA));
-		});
+	const localFilteredAndSorted = normalizedGuards.filter((g) => {
+		const q = search.toLowerCase();
+		return (
+			(g.firstName ?? "").toLowerCase().includes(q) ||
+			(g.lastName ?? "").toLowerCase().includes(q) ||
+			(g.email ?? "").toLowerCase().includes(q) ||
+			(g.phone ?? "").toLowerCase().includes(q) ||
+			(g.ssn ?? "").toLowerCase().includes(q) ||
+			(g.address ?? "").toLowerCase().includes(q)
+		);
+	});
 
 	const effectiveList = serverSide ? normalizedGuards : localFilteredAndSorted;
 	const localTotalPages = Math.max(
@@ -154,15 +153,6 @@ export default function GuardsTable({
 		const newP = Math.max(1, Math.min(effectiveTotalPages, p));
 		if (serverSide) onPageChange?.(newP);
 		else setPage(newP);
-	};
-
-	const toggleSort = (field: keyof Guard) => {
-		if (sortField === field) {
-			setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-		} else {
-			setSortField(field);
-			setSortOrder("asc");
-		}
 	};
 
 	const renderSortIcon = (field: keyof Guard) => {

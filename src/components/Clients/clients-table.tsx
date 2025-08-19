@@ -24,11 +24,12 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { useI18n } from "@/i18n";
+import type { SortOrder } from "@/lib/sort";
 import { shouldShowPage } from "../_utils/pagination";
 import CreateClientDialog from "./Create/Create";
 import DeleteClientDialog from "./Delete/Delete";
 import EditClientDialog from "./Edit/Edit";
-import type { Client as AppClient } from "./types";
+import type { Client as AppClient, Client } from "./types";
 
 export interface ClientsTableProps {
 	clients: AppClient[];
@@ -42,6 +43,10 @@ export interface ClientsTableProps {
 	onPageChange?: (page: number) => void;
 	pageSize?: number;
 	onSearch?: (term: string) => void;
+
+	sortField: keyof Client;
+	sortOrder: SortOrder;
+	toggleSort: (key: keyof Client) => void;
 
 	// ocultar columna balance (por defecto: oculto)
 	hideBalance?: boolean;
@@ -58,14 +63,14 @@ export default function ClientsTable({
 	pageSize = 5,
 	onSearch,
 	hideBalance = true, // <- ocultamos por defecto según tu petición
+
+	sortField,
+	sortOrder,
+	toggleSort,
 }: ClientsTableProps) {
 	const { TEXT } = useI18n();
 	const [page, setPage] = React.useState(1);
 	const [search, setSearch] = React.useState("");
-	// default sort by first name (we treat "Client Name" as firstName + lastName)
-	const [sortField, setSortField] =
-		React.useState<keyof AppClient>("firstName");
-	const [sortOrder, setSortOrder] = React.useState<"asc" | "desc">("asc");
 
 	const [createOpen, setCreateOpen] = React.useState(false);
 	const [editClient, setEditClient] = React.useState<AppClient | null>(null);
@@ -96,27 +101,18 @@ export default function ClientsTable({
 		} as AppClient & { clientName: string };
 	});
 
-	const localFilteredAndSorted = normalizedClients
-		.filter((c) => {
-			const q = (search ?? "").toLowerCase();
-			if (!q) return true;
-			const clientName = (c as any).clientName ?? "";
-			return (
-				clientName.toLowerCase().includes(q) ||
-				(c.firstName ?? "").toLowerCase().includes(q) ||
-				(c.lastName ?? "").toLowerCase().includes(q) ||
-				(c.email ?? "").toLowerCase().includes(q) ||
-				(c.phone ?? "").toLowerCase().includes(q)
-			);
-		})
-		.sort((a, b) => {
-			// special-case sorting when sortField is firstName or lastName:
-			const valA = ((a as any)[sortField] ?? "") as string;
-			const valB = ((b as any)[sortField] ?? "") as string;
-			return sortOrder === "asc"
-				? String(valA).localeCompare(String(valB))
-				: String(valB).localeCompare(String(valA));
-		});
+	const localFilteredAndSorted = normalizedClients.filter((c) => {
+		const q = (search ?? "").toLowerCase();
+		if (!q) return true;
+		const clientName = (c as any).clientName ?? "";
+		return (
+			clientName.toLowerCase().includes(q) ||
+			(c.firstName ?? "").toLowerCase().includes(q) ||
+			(c.lastName ?? "").toLowerCase().includes(q) ||
+			(c.email ?? "").toLowerCase().includes(q) ||
+			(c.phone ?? "").toLowerCase().includes(q)
+		);
+	});
 
 	// When serverSide is true, do not filter/sort locally; rely on backend
 	const effectiveList = serverSide ? normalizedClients : localFilteredAndSorted;
@@ -184,15 +180,6 @@ export default function ClientsTable({
 			onPageChange?.(newP);
 		} else {
 			setPage(newP);
-		}
-	};
-
-	const toggleSort = (field: keyof AppClient) => {
-		if (sortField === field) {
-			setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-		} else {
-			setSortField(field);
-			setSortOrder("asc");
 		}
 	};
 
