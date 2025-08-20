@@ -140,6 +140,7 @@ export const EN_TEXT = {
         startDate: "Start Date",
         actions: "Actions",
       },
+       pageSizeLabel: "Items per page", 
       actionEdit: "Edit {name}",
       actionDelete: "Delete {name}",
     },

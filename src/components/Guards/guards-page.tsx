@@ -1,3 +1,4 @@
+// src/components/Guards/GuardsPage.tsx
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -7,8 +8,6 @@ import { GUARDS_KEY, listGuards } from "@/lib/services/guard";
 import type { SortOrder } from "@/lib/sort";
 import GuardsTable from "./GuardsTable";
 import type { Guard } from "./types";
-
-/* import GuardDetailsTable from "./GuardDetailsTable"; */
 
 const INITIAL_GUARD_DATA: PaginatedResult<Guard> = {
   items: [],
@@ -21,7 +20,7 @@ export default function GuardsPage() {
   const queryClient = useQueryClient();
 
   const [page, setPage] = React.useState<number>(1);
-  const [pageSize, setPageSize] = React.useState<number>(20); // ahora es state
+  const [pageSize, setPageSize] = React.useState<number>(20);
   const [search, setSearch] = React.useState<string>("");
   const [sortField, setSortField] = React.useState<keyof Guard>("firstName");
   const [sortOrder, setSortOrder] = React.useState<SortOrder>("asc");
@@ -31,22 +30,26 @@ export default function GuardsPage() {
     setSearch(term);
   }, []);
 
-  const query = useQuery<PaginatedResult<Guard>, string>({
+  const query = useQuery<PaginatedResult<Guard>, unknown>({
     queryKey: [GUARDS_KEY, search, page, pageSize, sortField, sortOrder],
     queryFn: () => listGuards(page, search, pageSize, sortField, sortOrder),
+    // placeholderData da una "forma" mientras carga; evita accesos a undefined
+    placeholderData: INITIAL_GUARD_DATA,
+    // <-- no incluyo `keepPreviousData` para evitar las sobrecargas que te daban error TS.
+    // Si querés keepPreviousData, te muestro abajo cómo añadirlo correctamente.
   });
 
-  // garantizar que `data` siempre sea del tipo PaginatedResult<Guard>
-  const data = query.data ?? INITIAL_GUARD_DATA;
+  // Garantizar a TS que `data` tiene la forma paginada
+  const data = (query.data ?? INITIAL_GUARD_DATA) as PaginatedResult<Guard>;
   const isLoading = query.isLoading;
   const error = query.error ?? null;
 
-  // Backend puede devolver count; aseguramos totalPages con pageSize del state
   const totalPages = Math.max(1, Math.ceil((data.count ?? 0) / pageSize));
 
   const toggleSort = (field: keyof Guard) => {
     setSortField(field);
-    setSortOrder(sortField === field && sortOrder === "asc" ? "desc" : "asc");
+    setSortOrder((prev) => (field === sortField && prev === "asc" ? "desc" : "asc"));
+    setPage(1);
   };
 
   return (
@@ -67,16 +70,13 @@ export default function GuardsPage() {
 
       <GuardsTable
         guards={data.items}
-        // aceptamos number | Guard pero aquí no guardamos el id (no se usa en esta página)
         onSelectGuard={(idOrGuard: number | Guard) => {
-          // noop — si en el futuro querés usar la selección, restaurá el estado y lo manejo
           void idOrGuard;
         }}
         onRefresh={() =>
-          // invalidar todas las queries relacionadas con GUARDS_KEY (search/page variantes incl.)
           queryClient.invalidateQueries({
-            predicate: (query) =>
-              Array.isArray(query.queryKey) && query.queryKey[0] === GUARDS_KEY,
+            predicate: (q) =>
+              Array.isArray(q.queryKey) && q.queryKey[0] === GUARDS_KEY,
           })
         }
         serverSide={true}
@@ -93,8 +93,6 @@ export default function GuardsPage() {
         sortField={sortField}
         sortOrder={sortOrder}
       />
-
-      {/*  <GuardDetails selectedGuardId={selectedGuardId} /> */}
     </div>
   );
 }

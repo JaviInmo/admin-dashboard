@@ -121,6 +121,7 @@ export const UI_TEXT = {
         startDate: "Fecha Inicio",
         actions: "Acciones",
       },
+       pageSizeLabel: "Items por página",
       actionEdit: "Editar {name}",
       actionDelete: "Eliminar {name}",
     },
