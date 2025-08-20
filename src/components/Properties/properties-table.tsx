@@ -1,19 +1,10 @@
 // src/components/Properties/PropertiesTable.tsx
 "use client";
 
-import { ArrowDown, ArrowUp, ArrowUpDown, Pencil, Trash } from "lucide-react";
+import { Pencil, Trash } from "lucide-react";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { ReusablePagination } from "@/components/ui/reusable-pagination";
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@/components/ui/table";
+import { ReusableTable, type Column } from "@/components/ui/reusable-table";
 import { ClickableAddress } from "@/components/ui/clickable-address";
 import {
 	Tooltip,
@@ -83,49 +74,20 @@ export default function PropertiesTable({
 	pageSize = 5,
 	onSearch,
 	propertyTypesMap,
-
 	sortField,
 	sortOrder,
 	toggleSort,
 }: PropertiesTableProps) {
-	const [page, setPage] = React.useState(1);
-	const [search, setSearch] = React.useState("");
-
 	const [createOpen, setCreateOpen] = React.useState(false);
-	const [editProperty, setEditProperty] = React.useState<AppProperty | null>(
-		null,
-	);
-	const [deleteProperty, setDeleteProperty] =
-		React.useState<AppProperty | null>(null);
+	const [editProperty, setEditProperty] = React.useState<AppProperty | null>(null);
+	const [deleteProperty, setDeleteProperty] = React.useState<AppProperty | null>(null);
 
-	const itemsPerPage = pageSize ?? 5;
-
-	// estilos y animación del search
-	const [highlightSearch, setHighlightSearch] = React.useState(true);
-	const searchRef = React.useRef<HTMLInputElement | null>(null);
-
-	React.useEffect(() => {
-		if (searchRef.current) {
-			try {
-				searchRef.current.focus();
-			} catch {}
-		}
-		const t = setTimeout(() => setHighlightSearch(false), 3500);
-		return () => clearTimeout(t);
-	}, []);
-
-	/**
-	 * Normalización:
-	 * - ownerName: intenta username, luego nombre completo, luego fallback a #ownerId
-	 * - typesOfServiceStr: soporta:
-	 *     - [{id, name}, {..}] -> mostrar names
-	 *     - [1,2,3] -> usar propertyTypesMap (si viene) o mostrar ids
-	 */
-	const normalized = properties.map((p) => {
-		// owner name
+	// Normalizar los datos de propiedades
+	const normalizedProperties = properties.map((p) => {
 		const od: any = (p as any).ownerDetails ?? {};
 		let ownerName = "";
-		// posibles campos donde puede venir el username
+		
+		// Buscar el username del propietario
 		const usernameCandidates = [od.username, od.user_username, od.user_name];
 		for (const cand of usernameCandidates) {
 			if (typeof cand === "string" && cand.trim() !== "") {
@@ -133,38 +95,35 @@ export default function PropertiesTable({
 				break;
 			}
 		}
+		
 		if (!ownerName) {
 			const first = od.first_name ?? od.firstName ?? "";
 			const last = od.last_name ?? od.lastName ?? "";
 			if ((first || last) && `${first} ${last}`.trim() !== "")
 				ownerName = `${first} ${last}`.trim();
 		}
+		
 		if (!ownerName) {
-			// ownerDetails.user a veces es un id numérico
 			if (typeof od.user === "number") ownerName = `#${od.user}`;
 		}
+		
 		if (!ownerName)
 			ownerName = `#${(p as any).ownerId ?? (p as any).owner ?? p.id}`;
 
-		// types_of_service puede venir como array de objetos { id, name } o array de ids
+		// Procesar tipos de servicio
 		let typesOfServiceStr = "";
-		const tos: any =
-			(p as any).typesOfService ?? (p as any).types_of_service ?? [];
+		const tos: any = (p as any).typesOfService ?? (p as any).types_of_service ?? [];
 		if (Array.isArray(tos)) {
 			typesOfServiceStr = tos
 				.map((t: any) => {
 					if (!t && t !== 0) return null;
-					// si t es objeto con name
 					if (typeof t === "object") {
 						return String(t.name ?? t.title ?? t.id ?? "");
 					}
-					// si t es number (id), buscar en map si existe
 					if (typeof t === "number") {
 						return propertyTypesMap?.[t] ?? String(t);
 					}
-					// si t es string (ej. '1' o 'name')
 					if (typeof t === "string") {
-						// si es numérica, buscar en map
 						const n = Number(t);
 						if (!Number.isNaN(n)) return propertyTypesMap?.[n] ?? t;
 						return t;
@@ -176,241 +135,122 @@ export default function PropertiesTable({
 		}
 
 		return {
-			...(p as any),
+			...p,
 			ownerName,
 			typesOfServiceStr,
-		} as AppProperty & { ownerName: string; typesOfServiceStr: string };
+		};
 	});
 
-	const localFilteredAndSorted = normalized
-		.filter((p) => {
-			const q = search.toLowerCase();
-			return (
-				(p.ownerName ?? "").toLowerCase().includes(q) ||
-				(p.name ?? "").toLowerCase().includes(q) ||
-				(p.address ?? "").toLowerCase().includes(q) ||
-				(p.typesOfServiceStr ?? "").toLowerCase().includes(q) ||
-				(String(p.monthlyRate ?? "") ?? "").toLowerCase().includes(q) ||
-				String(p.totalHours ?? "")
-					.toLowerCase()
-					.includes(q) ||
-				(p.contractStartDate ?? "").toLowerCase().includes(q)
-			);
-		})
-		.sort((a, b) => {
-			const valA = (a as any)[sortField] ?? "";
-			const valB = (b as any)[sortField] ?? "";
-			return sortOrder === "asc"
-				? String(valA).localeCompare(String(valB))
-				: String(valB).localeCompare(String(valA));
-		});
+	// Definir las columnas de la tabla usando un tipo más flexible
+	const columns: Column<any>[] = [
+		{
+			key: "ownerId",
+			label: "Propietario",
+			sortable: true,
+			render: (p) => (
+				<div className="w-full">
+					<span>
+						{(p as any).ownerName ?? `#${(p as any).ownerId ?? (p as any).owner ?? p.id}`}
+					</span>
+				</div>
+			),
+		},
+		{
+			key: "name",
+			label: "Nombre",
+			sortable: true,
+			render: (p) => <TruncatedText text={p.name || ""} maxLength={25} />,
+		},
+		{
+			key: "address",
+			label: "Dirección",
+			sortable: true,
+			render: (p) => <ClickableAddress address={p.address || ""} />,
+		},
+		{
+			key: "typesOfService",
+			label: "Tipos de Servicio",
+			sortable: false,
+			render: (p) => (
+				<TruncatedText
+					text={(p as any).typesOfServiceStr || "-"}
+					maxLength={25}
+				/>
+			),
+		},
+		{
+			key: "monthlyRate",
+			label: "Tarifa Mensual",
+			sortable: true,
+			render: (p) => p.monthlyRate ?? "-",
+		},
+		{
+			key: "totalHours",
+			label: "Horas Totales",
+			sortable: true,
+			render: (p) => p.totalHours ?? "-",
+		},
+		{
+			key: "contractStartDate",
+			label: "Fecha Inicio",
+			sortable: true,
+			render: (p) => p.contractStartDate ?? "-",
+		},
+	];
 
-	const effectiveList = serverSide ? normalized : localFilteredAndSorted;
-	const localTotalPages = Math.max(
-		1,
-		Math.ceil(localFilteredAndSorted.length / itemsPerPage),
+	// Campos de búsqueda
+	const searchFields: (keyof AppProperty)[] = ["name", "address"];
+
+	// Acciones de fila
+	const renderActions = (property: AppProperty) => (
+		<>
+			<Button
+				size="icon"
+				variant="ghost"
+				onClick={(e) => {
+					e.stopPropagation();
+					setEditProperty(property);
+				}}
+			>
+				<Pencil className="h-4 w-4" />
+			</Button>
+			<Button
+				size="icon"
+				variant="ghost"
+				onClick={(e) => {
+					e.stopPropagation();
+					setDeleteProperty(property);
+				}}
+			>
+				<Trash className="h-4 w-4 text-red-500" />
+			</Button>
+		</>
 	);
-	const effectiveTotalPages = serverSide
-		? Math.max(1, totalPages ?? 1)
-		: localTotalPages;
-	const effectivePage = serverSide
-		? Math.max(1, Math.min(currentPage, effectiveTotalPages))
-		: page;
-	const startIndex = (effectivePage - 1) * itemsPerPage;
-	const paginated = serverSide
-		? effectiveList
-		: effectiveList.slice(startIndex, startIndex + itemsPerPage);
-
-	React.useEffect(() => {
-		if (!serverSide) setPage(1);
-	}, [properties.length, search, serverSide]);
-
-	const searchTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
-		null,
-	);
-	React.useEffect(() => {
-		if (!serverSide) return;
-		if (!onSearch) return;
-		if (searchTimerRef.current) {
-			clearTimeout(searchTimerRef.current);
-			searchTimerRef.current = null;
-		}
-		searchTimerRef.current = setTimeout(() => {
-			onSearch(search);
-		}, 350);
-		return () => {
-			if (searchTimerRef.current) {
-				clearTimeout(searchTimerRef.current);
-				searchTimerRef.current = null;
-			}
-		};
-	}, [search, serverSide, onSearch]);
-
-	const goToPage = (p: number) => {
-		const newP = Math.max(1, Math.min(effectiveTotalPages, p));
-		if (serverSide) onPageChange?.(newP);
-		else setPage(newP);
-	};
-
-	const renderSortIcon = (field: string) => {
-		if (sortField !== field)
-			return <ArrowUpDown className="ml-1 h-3 w-3 inline" />;
-		return sortOrder === "asc" ? (
-			<ArrowUp className="ml-1 h-3 w-3 inline" />
-		) : (
-			<ArrowDown className="ml-1 h-3 w-3 inline" />
-		);
-	};
 
 	return (
-		<div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm space-y-4">
-			<div className="flex flex-col md:flex-row items-center gap-3 justify-between">
-				<h3 className="text-lg font-semibold md:mr-4">Lista de Propiedades</h3>
-				<div className="flex-1 md:mx-4 w-full max-w-3xl">
-					<div
-						className={`${highlightSearch ? "search-highlight search-pulse" : ""}`}
-						style={{ minWidth: 280 }}
-					>
-						<Input
-							ref={searchRef}
-							placeholder="Buscar..."
-							value={search}
-							onChange={(e) => setSearch(e.target.value)}
-							className="w-full"
-							aria-label="Buscar propiedades"
-						/>
-					</div>
-				</div>
-				<div className="flex-none">
-					<Button onClick={() => setCreateOpen(true)}>Agregar</Button>
-				</div>
-			</div>
-
-			<Table>
-				<TableHeader>
-					<TableRow>
-						<TableHead
-							onClick={() => toggleSort("id")}
-							className="cursor-pointer select-none"
-						>
-							Owner {renderSortIcon("ownerName")}
-						</TableHead>
-						<TableHead
-							onClick={() => toggleSort("name")}
-							className="cursor-pointer select-none"
-						>
-							Name {renderSortIcon("name")}
-						</TableHead>
-						<TableHead
-							onClick={() => toggleSort("address")}
-							className="cursor-pointer select-none"
-						>
-							Address {renderSortIcon("address")}
-						</TableHead>
-						<TableHead
-							onClick={() => toggleSort("typesOfService")}
-							className="cursor-pointer select-none"
-						>
-							Service Types {renderSortIcon("typesOfServiceStr")}
-						</TableHead>
-						<TableHead
-							onClick={() => toggleSort("monthlyRate")}
-							className="cursor-pointer select-none"
-						>
-							Monthly Rate {renderSortIcon("monthlyRate")}
-						</TableHead>
-						<TableHead
-							onClick={() => toggleSort("totalHours")}
-							className="cursor-pointer select-none"
-						>
-							Total Hours {renderSortIcon("totalHours")}
-						</TableHead>
-						<TableHead
-							onClick={() => toggleSort("contractStartDate")}
-							className="cursor-pointer select-none"
-						>
-							Start Date {renderSortIcon("contractStartDate")}
-						</TableHead>
-						<TableHead className="w-[100px] text-center">Actions</TableHead>
-					</TableRow>
-				</TableHeader>
-				<TableBody>
-					{paginated.map((p, idx) => (
-						<TableRow
-							key={p.id}
-							className={`cursor-pointer hover:bg-muted ${idx % 2 === 0 ? "bg-transparent" : "bg-muted/5"}`}
-							onClick={() => onSelectProperty?.(p.id)}
-							role={onSelectProperty ? "button" : undefined}
-							tabIndex={onSelectProperty ? 0 : undefined}
-							onKeyDown={(e) => {
-								if (!onSelectProperty) return;
-								if (e.key === "Enter" || e.key === " ") {
-									e.preventDefault();
-									onSelectProperty(p.id);
-								}
-							}}
-						>
-							<TableCell>
-								{/* ownerName plain text (no blue) */}
-								<div className="w-full">
-									<span>
-										{(p as any).ownerName ??
-											`#${(p as any).ownerId ?? (p as any).owner ?? p.id}`}
-									</span>
-								</div>
-							</TableCell>
-							<TableCell>
-								<TruncatedText text={p.name || ""} maxLength={25} />
-							</TableCell>
-							<TableCell>
-								<ClickableAddress address={p.address || ""} />
-							</TableCell>
-							<TableCell>
-								<TruncatedText
-									text={(p as any).typesOfServiceStr || "-"}
-									maxLength={25}
-								/>
-							</TableCell>
-							<TableCell>{p.monthlyRate ?? "-"}</TableCell>
-							<TableCell>{p.totalHours ?? "-"}</TableCell>
-							<TableCell>{p.contractStartDate ?? "-"}</TableCell>
-							<TableCell className="flex gap-2 justify-center">
-								<Button
-									size="icon"
-									variant="ghost"
-									onClick={(e) => {
-										e.stopPropagation();
-										setEditProperty(p);
-									}}
-								>
-									<Pencil className="h-4 w-4" />
-								</Button>
-								<Button
-									size="icon"
-									variant="ghost"
-									onClick={(e) => {
-										e.stopPropagation();
-										setDeleteProperty(p);
-									}}
-								>
-									<Trash className="h-4 w-4 text-red-500" />
-								</Button>
-							</TableCell>
-						</TableRow>
-					))}
-				</TableBody>
-			</Table>
-
-			<div className="flex justify-center">
-				<ReusablePagination
-					currentPage={effectivePage}
-					totalPages={effectiveTotalPages}
-					onPageChange={goToPage}
-					showFirstLast={true}
-					showPageInfo={true}
-					pageInfoText={(current, total) => `Página ${current} de ${total}`}
-				/>
-			</div>
+		<>
+			<ReusableTable<any>
+				data={normalizedProperties}
+				columns={columns}
+				getItemId={(p) => p.id}
+				onSelectItem={(id) => onSelectProperty?.(Number(id))}
+				title="Lista de Propiedades"
+				searchPlaceholder="Buscar propiedades..."
+				addButtonText="Agregar"
+				onAddClick={() => setCreateOpen(true)}
+				serverSide={serverSide}
+				currentPage={currentPage}
+				totalPages={totalPages}
+				onPageChange={onPageChange}
+				pageSize={pageSize}
+				onSearch={onSearch}
+				searchFields={searchFields}
+				sortField={sortField as any}
+				sortOrder={sortOrder}
+				toggleSort={toggleSort as any}
+				actions={renderActions}
+				minWidth="1000px"
+			/>
 
 			<CreatePropertyDialog
 				open={createOpen}
@@ -431,6 +271,6 @@ export default function PropertiesTable({
 					onDeleted={onRefresh}
 				/>
 			)}
-		</div>
+		</>
 	);
 }
