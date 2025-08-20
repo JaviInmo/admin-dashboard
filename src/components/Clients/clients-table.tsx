@@ -5,14 +5,7 @@ import { ArrowDown, ArrowUp, ArrowUpDown, Pencil, Trash } from "lucide-react";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-	Pagination,
-	PaginationContent,
-	PaginationItem,
-	PaginationLink,
-	PaginationNext,
-	PaginationPrevious,
-} from "@/components/ui/pagination";
+import { ReusablePagination } from "@/components/ui/reusable-pagination";
 // <-- IMPORT DEL SCROLLAREA de shadcn
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -25,7 +18,6 @@ import {
 } from "@/components/ui/table";
 import { useI18n } from "@/i18n";
 import type { SortOrder } from "@/lib/sort";
-import { shouldShowPage } from "../_utils/pagination";
 import CreateClientDialog from "./Create/Create";
 import DeleteClientDialog from "./Delete/Delete";
 import EditClientDialog from "./Edit/Edit";
@@ -200,46 +192,7 @@ export default function ClientsTable({
 		);
 	};
 
-	// Render pagination control (works for serverSide or local)
-	const renderPagination = () => {
-		const pages = effectiveTotalPages;
-		const active = effectivePage;
-
-		return (
-			<Pagination>
-				<PaginationContent>
-					<PaginationItem>
-						<PaginationPrevious
-							onClick={() => goToPage(active - 1)}
-							className={active === 1 ? "pointer-events-none opacity-50" : ""}
-						/>
-					</PaginationItem>
-
-					{Array.from({ length: pages }, (_, i) => i)
-						.filter((item) => shouldShowPage(item, active, pages))
-						.map((item) => (
-							<PaginationItem key={item}>
-								<PaginationLink
-									isActive={effectivePage === item + 1}
-									onClick={() => goToPage(item + 1)}
-								>
-									{item + 1}
-								</PaginationLink>
-							</PaginationItem>
-						))}
-
-					<PaginationItem>
-						<PaginationNext
-							onClick={() => goToPage(active + 1)}
-							className={
-								active === pages ? "pointer-events-none opacity-50" : ""
-							}
-						/>
-					</PaginationItem>
-				</PaginationContent>
-			</Pagination>
-		);
-	};
+	// No need for renderPagination function anymore, we'll use ReusablePagination directly
 	 const clientsTable =
   (TEXT.clients && (TEXT.clients as any).list) ?? (TEXT.clients as any) ?? {};
 	return (
@@ -406,7 +359,17 @@ export default function ClientsTable({
 				</div>
 			</ScrollArea>
 
-			<div className="flex justify-end">{renderPagination()}</div>
+			<div className="flex justify-end">
+				<ReusablePagination
+					currentPage={effectivePage}
+					totalPages={effectiveTotalPages}
+					onPageChange={goToPage}
+					showFirstLast={true}
+					showPageInfo={true}
+					pageInfoText={(current, total) => `Página ${current} de ${total}`}
+					className="justify-center"
+				/>
+			</div>
 
 			<CreateClientDialog
 				open={createOpen}

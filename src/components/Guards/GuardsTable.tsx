@@ -5,14 +5,7 @@ import * as React from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
+import { ReusablePagination } from "@/components/ui/reusable-pagination";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Table,
@@ -24,8 +17,6 @@ import {
 } from "@/components/ui/table";
 import { useI18n } from "@/i18n";
 import type { SortOrder } from "@/lib/sort";
-import { cn } from "@/lib/utils";
-import { shouldShowPage } from "../_utils/pagination";
 import CreateGuardDialog from "./Create/Create";
 import DeleteGuardDialog from "./Delete/Delete";
 import EditGuardDialog from "./Edit/Edit";
@@ -322,47 +313,15 @@ export default function GuardsTable({
       </div>
 
       <div className="flex justify-end">
-        <Pagination>
-          <PaginationContent>
-            <PaginationItem>
-              <PaginationPrevious
-                onClick={() => goToPage(effectivePage - 1)}
-                className={cn(
-                  effectivePage === 1 
-                    ? "pointer-events-none opacity-50 cursor-not-allowed" 
-                    : "cursor-pointer hover:bg-accent hover:text-accent-foreground"
-                )}
-              />
-            </PaginationItem>
-
-            {Array.from({ length: effectiveTotalPages }, (_, i) => i)
-              .filter((item) =>
-                shouldShowPage(item + 1, effectivePage, effectiveTotalPages)
-              )
-              .map((item) => (
-                <PaginationItem key={item}>
-                  <PaginationLink
-                    isActive={effectivePage === item + 1}
-                    onClick={() => goToPage(item + 1)}
-                    className="cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors"
-                  >
-                    {item + 1}
-                  </PaginationLink>
-                </PaginationItem>
-              ))}
-
-            <PaginationItem>
-              <PaginationNext
-                onClick={() => goToPage(effectivePage + 1)}
-                className={cn(
-                  effectivePage === effectiveTotalPages
-                    ? "pointer-events-none opacity-50 cursor-not-allowed"
-                    : "cursor-pointer hover:bg-accent hover:text-accent-foreground"
-                )}
-              />
-            </PaginationItem>
-          </PaginationContent>
-        </Pagination>
+        <ReusablePagination
+          currentPage={effectivePage}
+          totalPages={effectiveTotalPages}
+          onPageChange={goToPage}
+          showFirstLast={true}
+          showPageInfo={true}
+          pageInfoText={(current, total) => `Página ${current} de ${total}`}
+          className="justify-center"
+        />
       </div>
 
       <CreateGuardDialog
