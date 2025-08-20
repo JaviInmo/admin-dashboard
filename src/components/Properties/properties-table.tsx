@@ -14,6 +14,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
+import { ClickableAddress } from "@/components/ui/clickable-address";
 import {
 	Tooltip,
 	TooltipContent,
@@ -362,7 +363,7 @@ export default function PropertiesTable({
 								<TruncatedText text={p.name || ""} maxLength={25} />
 							</TableCell>
 							<TableCell>
-								<TruncatedText text={p.address || ""} maxLength={30} />
+								<ClickableAddress address={p.address || ""} />
 							</TableCell>
 							<TableCell>
 								<TruncatedText

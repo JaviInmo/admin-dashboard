@@ -2,6 +2,7 @@
 "use client"
 
 import React from "react"
+import { ClickableAddress } from "@/components/ui/clickable-address";
 import { Pencil, Trash } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -108,7 +109,7 @@ export default function ClientPropertiesTable({ properties, clientName, clientId
           {paginatedProperties.map((property) => (
             <TableRow key={property.id}>
               <TableCell>{property.name}</TableCell>
-              <TableCell>{property.address ?? '-'}</TableCell>
+              <TableCell><ClickableAddress address={property.address ?? "-"} /></TableCell>
               <TableCell>{(property.types_of_service ?? [])?.map((t) => (t as any)?.name).filter(Boolean).join(', ') || '-'}</TableCell>
               <TableCell className="text-center">
                 {fmtMoney((property as any).monthly_rate ?? (property as any).monthlyRate)}
