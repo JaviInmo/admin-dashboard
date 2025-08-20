@@ -21,8 +21,8 @@ export function EnhancedPagination({
   const [pageOffset, setPageOffset] = React.useState(0);
   const [isScrolling, setIsScrolling] = React.useState(false);
   const [scrollDirection, setScrollDirection] = React.useState<'left' | 'right' | null>(null);
-  const [hoverTimeout, setHoverTimeout] = React.useState<number | null>(null);
-  const scrollIntervalRef = React.useRef<number | null>(null);
+  const [hoverTimeout, setHoverTimeout] = React.useState<NodeJS.Timeout | null>(null);
+  const scrollIntervalRef = React.useRef<NodeJS.Timeout | null>(null);
   const speedRef = React.useRef(1);
 
   const maxVisiblePages = 7; // Número máximo de páginas visibles

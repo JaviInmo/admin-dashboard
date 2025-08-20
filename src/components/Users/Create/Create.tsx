@@ -485,7 +485,7 @@ export default function CreateUserDialog({ open, onClose, onCreated }: Props) {
                             <div className="shrink-0 ml-2">
                               <Switch
                                 checked={isChecked}
-                                onCheckedChange={(checked) => handleToggle(res, act, checked)}
+                                onCheckedChange={(checked: boolean) => handleToggle(res, act, checked)}
                                 className="transform scale-75"
                               />
                             </div>

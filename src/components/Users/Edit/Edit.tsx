@@ -684,7 +684,7 @@ export default function EditUserDialog({ user, open, onClose, onUpdated }: Props
                             <div className="shrink-0 ml-2">
                               <Switch
                                 checked={isChecked}
-                                onCheckedChange={(checked) => handleToggle(res, act, checked)}
+                                onCheckedChange={(checked: boolean) => handleToggle(res, act, checked)}
                                 className="transform scale-75"
                               />
                             </div>
@@ -755,7 +755,7 @@ export default function EditUserDialog({ user, open, onClose, onUpdated }: Props
                         <div className="flex items-center gap-3">
                           <Switch
                             checked={Boolean(sel.checked)}
-                            onCheckedChange={(checked) => toggleProperty(p.id, checked)}
+                            onCheckedChange={(checked: boolean) => toggleProperty(p.id, checked)}
                             className="transform scale-75"
                           />
                           <div className="flex items-center gap-2">
@@ -769,7 +769,7 @@ export default function EditUserDialog({ user, open, onClose, onUpdated }: Props
                           </div>
                         </div>
 
-                        <Select value={sel.accessType} onValueChange={(value) => setPropertyAccessType(p.id, value)} disabled={!sel.checked}>
+                        <Select value={sel.accessType} onValueChange={(value: string) => setPropertyAccessType(p.id, value)} disabled={!sel.checked}>
                           <SelectTrigger className="w-28 text-xs py-1">
                             <SelectValue />
                           </SelectTrigger>
