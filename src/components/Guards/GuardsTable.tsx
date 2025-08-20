@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/table";
 import { useI18n } from "@/i18n";
 import type { SortOrder } from "@/lib/sort";
+import { cn } from "@/lib/utils";
 import { shouldShowPage } from "../_utils/pagination";
 import CreateGuardDialog from "./Create/Create";
 import DeleteGuardDialog from "./Delete/Delete";
@@ -326,21 +327,24 @@ export default function GuardsTable({
             <PaginationItem>
               <PaginationPrevious
                 onClick={() => goToPage(effectivePage - 1)}
-                className={
-                  effectivePage === 1 ? "pointer-events-none opacity-50" : ""
-                }
+                className={cn(
+                  effectivePage === 1 
+                    ? "pointer-events-none opacity-50 cursor-not-allowed" 
+                    : "cursor-pointer hover:bg-accent hover:text-accent-foreground"
+                )}
               />
             </PaginationItem>
 
             {Array.from({ length: effectiveTotalPages }, (_, i) => i)
               .filter((item) =>
-                shouldShowPage(item, effectivePage, effectiveTotalPages)
+                shouldShowPage(item + 1, effectivePage, effectiveTotalPages)
               )
               .map((item) => (
                 <PaginationItem key={item}>
                   <PaginationLink
                     isActive={effectivePage === item + 1}
                     onClick={() => goToPage(item + 1)}
+                    className="cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors"
                   >
                     {item + 1}
                   </PaginationLink>
@@ -350,11 +354,11 @@ export default function GuardsTable({
             <PaginationItem>
               <PaginationNext
                 onClick={() => goToPage(effectivePage + 1)}
-                className={
+                className={cn(
                   effectivePage === effectiveTotalPages
-                    ? "pointer-events-none opacity-50"
-                    : ""
-                }
+                    ? "pointer-events-none opacity-50 cursor-not-allowed"
+                    : "cursor-pointer hover:bg-accent hover:text-accent-foreground"
+                )}
               />
             </PaginationItem>
           </PaginationContent>

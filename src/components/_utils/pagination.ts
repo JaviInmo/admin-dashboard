@@ -3,13 +3,26 @@ export function shouldShowPage(
 	currentPage: number,
 	totalPages: number,
 ): boolean {
-	const min = Math.max(1, currentPage - 2);
-	const max = Math.min(totalPages, currentPage + 1);
-
-	const shouldShow =
-		(page >= min && page <= max) ||
-		(page <= min && currentPage - page < 2) ||
-		currentPage - page === 2;
-
-	return shouldShow;
+	// Mostrar 5 páginas con la página actual SIEMPRE en el centro
+	const maxVisible = 5;
+	const halfVisible = Math.floor(maxVisible / 2); // 2
+	
+	// Calcular el rango ideal centrado en la página actual
+	let start = currentPage - halfVisible; // currentPage - 2
+	let end = currentPage + halfVisible;   // currentPage + 2
+	
+	// Ajustar si nos salimos de los límites
+	if (start < 1) {
+		// Si empezamos antes de la página 1, ajustar hacia la derecha
+		const offset = 1 - start;
+		start = 1;
+		end = Math.min(totalPages, end + offset);
+	} else if (end > totalPages) {
+		// Si terminamos después de la última página, ajustar hacia la izquierda
+		const offset = end - totalPages;
+		end = totalPages;
+		start = Math.max(1, start - offset);
+	}
+	
+	return page >= start && page <= end;
 }
