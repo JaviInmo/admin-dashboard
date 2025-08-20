@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import type { PaginatedResult } from "@/lib/pagination";
 import { listUsers, USER_KEY } from "@/lib/services/users";
@@ -56,8 +57,15 @@ export default function UsersPage() {
 
       {error && <div className="rounded-lg border bg-card p-4 text-red-600">{String(error)}</div>}
 
+
       {isPending && (
-        <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
+        <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm flex flex-col gap-2">
+          <Skeleton className="h-8 w-1/3 mb-2" />
+          <Skeleton className="h-6 w-full mb-2" />
+          <Skeleton className="h-10 w-full mb-2" />
+          <Skeleton className="h-6 w-full mb-2" />
+          <Skeleton className="h-6 w-full mb-2" />
+          <Skeleton className="h-6 w-full mb-2" />
           <p>{TEXT.users?.loading ?? "Cargando usuarios..."}</p>
         </div>
       )}
