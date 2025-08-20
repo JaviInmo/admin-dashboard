@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/table";
 import type { SortOrder } from "@/lib/sort";
 import PageSizeSelector from "@/components/ui/PageSizeSelector";
+import { useI18n } from "@/i18n";
 
 export interface Column<T> {
   key: keyof T;
@@ -95,6 +96,8 @@ export function ReusableTable<T extends Record<string, any>>({
   actions,
   className = "",
 }: ReusableTableProps<T>) {
+  const { TEXT } = useI18n();
+  
   const [page, setPage] = React.useState<number>(1);
   const [search, setSearch] = React.useState<string>("");
   const [highlightSearch, setHighlightSearch] = React.useState(true);
@@ -109,17 +112,23 @@ export function ReusableTable<T extends Record<string, any>>({
     if (column.width) {
       // Si tiene ancho fijo, usarlo directamente
       styles.width = column.width;
+      styles.minWidth = column.width;
     } else if (columnIndex === 2) {
-      // La columna de dirección (índice 2) toma el espacio restante
-      styles.width = 'auto';
-      styles.maxWidth = '1px'; // Trick para que se expanda pero se pueda truncar
+      // La columna sacrificial (índice 2) es flexible pero puede crecer más
+      styles.width = '30%'; // Base width más amplia para cuando hay espacio
+      styles.minWidth = '120px'; // Mínimo ancho para legibilidad
+      styles.maxWidth = '300px'; // Máximo para evitar que sea demasiado ancha
       styles.overflow = 'hidden';
       styles.textOverflow = 'ellipsis';
       styles.whiteSpace = 'nowrap';
     } else {
-      // Otras columnas: ancho mínimo para su contenido
-      styles.width = '1px';
+      // Otras columnas: ancho flexible pero más controlado
+      styles.width = '15%'; // Distribución más equitativa
+      styles.minWidth = '80px'; // Mínimo para contenido
+      styles.maxWidth = '150px'; // Máximo para mantener proporción
       styles.whiteSpace = 'nowrap';
+      styles.overflow = 'hidden';
+      styles.textOverflow = 'ellipsis';
     }
     
     return styles;
@@ -231,7 +240,7 @@ export function ReusableTable<T extends Record<string, any>>({
               onPageSizeChange?.(s);
               if (!serverSide) setPage(1);
             }}
-            ariaLabel="Items per page"
+            ariaLabel={TEXT.properties?.table?.pageSizeLabel ?? "Filas por página"}
           />
         </div>
 
@@ -246,7 +255,7 @@ export function ReusableTable<T extends Record<string, any>>({
       <div className="rounded-md border">
         <ScrollArea className="rounded-md border">
           <div className="max-h-[60vh] w-full">
-            <Table className="w-full">
+            <Table className="w-full" style={{ tableLayout: 'auto' }}>
               <TableHeader className="sticky top-0 z-10 bg-card">
                 <TableRow>
                   {columns.map((column, index) => (
@@ -265,7 +274,7 @@ export function ReusableTable<T extends Record<string, any>>({
                   {actions && (
                     <TableHead 
                       className="text-center"
-                      style={{ width: '1px', whiteSpace: 'nowrap' }}
+                      style={{ width: '10%', minWidth: '80px', maxWidth: '120px', whiteSpace: 'nowrap' }}
                     >
                       Acciones
                     </TableHead>
@@ -302,7 +311,7 @@ export function ReusableTable<T extends Record<string, any>>({
                     {actions && (
                       <TableCell 
                         className="text-center"
-                        style={{ width: '1px', whiteSpace: 'nowrap' }}
+                        style={{ width: '10%', minWidth: '80px', maxWidth: '120px', whiteSpace: 'nowrap' }}
                       >
                         <div className="flex gap-2 justify-center">
                           {actions(item)}

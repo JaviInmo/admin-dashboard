@@ -21,7 +21,7 @@ export default function PageSizeSelector({
   pageSize,
   onChange,
   options = [5, 10, 20, 50, 100],
-  ariaLabel = "Items por página",
+  ariaLabel = "Filas por página",
   className,
 }: PageSizeSelectorProps) {
   return (
