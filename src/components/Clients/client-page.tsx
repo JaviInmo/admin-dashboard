@@ -247,7 +247,6 @@ function ClientPropertiesPanel({
 
       <ClientPropertiesTable
         properties={properties ?? []}
-        clientName={clientLabel}
         clientId={selectedClientId ?? undefined}
         onOpenCreate={() => setOpenCreate(true)}
         onRefresh={async () => {

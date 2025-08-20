@@ -31,7 +31,6 @@ interface Property {
 
 interface ClientPropertiesTableProps {
   properties: Property[]
-  clientName: string
   clientId?: number
   onOpenCreate?: () => void
   // callback que el parent (client-page) pasará para refrescar la lista de propiedades
@@ -40,7 +39,6 @@ interface ClientPropertiesTableProps {
 
 export default function ClientPropertiesTable({ 
   properties, 
-  clientName, 
 /*   clientId,  */
   onOpenCreate, 
   onRefresh 
@@ -153,7 +151,7 @@ export default function ClientPropertiesTable({
         columns={columns}
         getItemId={(property) => property.id}
         onSelectItem={handlePropertySelect}
-        title={`${TEXT.clients.properties.title} - ${clientName}`}
+        title="Lista de Propiedades"
         searchPlaceholder={"Buscar propiedades..."}
         addButtonText={"Agregar Propiedad"}
         onAddClick={onOpenCreate}

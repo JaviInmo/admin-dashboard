@@ -33,7 +33,7 @@ export interface ReusableTableProps<T> {
   onSelectItem?: (id: number | string) => void;
   
   // Configuración de tabla
-  title: string;
+  title?: string;
   searchPlaceholder?: string;
   addButtonText?: string;
   onAddClick?: () => void;
@@ -248,7 +248,7 @@ export function ReusableTable<T extends Record<string, any>>({
     <div className={`rounded-lg border bg-card p-6 text-card-foreground shadow-sm space-y-4 ${className}`}>
       {/* Header */}
       <div className="flex flex-col md:flex-row items-center gap-3 justify-between">
-        <h3 className="text-lg font-semibold md:mr-4">{title}</h3>
+        {title && <h3 className="text-lg font-semibold md:mr-4">{title}</h3>}
 
         <div className="flex-1 md:mx-4 w-full max-w-3xl">
           <div className={`${highlightSearch ? "search-highlight search-pulse" : ""}`} style={{ minWidth: 280 }}>
