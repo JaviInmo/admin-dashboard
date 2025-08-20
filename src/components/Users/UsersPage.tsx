@@ -3,11 +3,11 @@
 import * as React from "react";
 import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import type { PaginatedResult } from "@/lib/pagination";
-import { listUsers, getUser, USER_KEY } from "@/lib/services/users";
+import { listUsers, USER_KEY } from "@/lib/services/users";
 import type { SortOrder } from "@/lib/sort";
 import type { User } from "./types";
 import UsersTable from "./UsersTable";
-import UserPermissionsTable from "./UserPermissionsTable";
+/* import UserPermissionsTable from "./UserPermissionsTable"; */
 import { useI18n } from "@/i18n";
 
 const INITIAL_USER_DATA: PaginatedResult<User> = {
@@ -37,7 +37,7 @@ export default function UsersPage() {
   });
 
   const totalPages = Math.max(1, Math.ceil((data?.count ?? 0) / pageSize));
-  const [selectedUserId, setSelectedUserId] = React.useState<number | null>(null);
+  const [, setSelectedUserId] = React.useState<number | null>(null);
 
   const toggleSort = (field: keyof User) => {
     if (sortField === field) {
@@ -81,11 +81,11 @@ export default function UsersPage() {
         sortOrder={sortOrder}
       />
 
-      <UserPermisions selectedUserId={selectedUserId} />
+     {/*  <UserPermisions selectedUserId={selectedUserId} /> */}
     </div>
   );
 }
-
+/* 
 function UserPermisions({ selectedUserId }: Readonly<{ selectedUserId: number | null }>) {
   const queryClient = useQueryClient();
   const { TEXT } = useI18n();
@@ -113,3 +113,4 @@ function UserPermisions({ selectedUserId }: Readonly<{ selectedUserId: number | 
     />
   );
 }
+ */

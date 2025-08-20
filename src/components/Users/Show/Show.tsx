@@ -1,11 +1,11 @@
-// src/components/Users/CreateUserDialog.tsx
+// src/components/Users/Show/Show.tsx
 "use client";
 
 import * as React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -15,22 +15,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { toast } from "sonner";
-import {
-  createUser,
-  type CreateUserPayload
-} from "@/lib/services/users";
-import {
-  listAdminAvailableOptions,
-  listProperties,
-  assignUserPermissions,
-  grantPropertyAccess,
-} from "@/lib/services/permissions";
 import { CheckCircle2, XCircle, Shield, Building } from "lucide-react";
+import type { User } from "../types";
+import { listAdminAvailableOptions, listProperties } from "@/lib/services/permissions";
 import { useI18n } from "@/i18n";
 
 type UiPermissions = Record<string, Record<string, boolean>>;
-type SelectedProperty = { checked: boolean; accessType?: string };
+type SelectedProperty = { checked: boolean; accessId?: number; accessType?: string };
 
 const FALLBACK_ACTIONS: Record<string, string[]> = {
   guard: ["read", "update", "delete", "approve", "assign"],
@@ -108,53 +99,53 @@ function deriveAvailableFromOptions(opts: any) {
   return { av, resLabels, actLabels };
 }
 
-const uiPermissionsToCodenames = (ui: UiPermissions) => {
-  const c: string[] = [];
-  for (const [res, actions] of Object.entries(ui)) {
-    for (const [act, en] of Object.entries(actions)) {
-      if (!en) continue;
-      c.push(`${res.toLowerCase()}.${act.toLowerCase()}`);
-    }
-  }
-  return c;
-};
-
 interface Props {
+  user: User & {
+    permissions?: any;
+    resource_permissions?: any[];
+    property_access?: any[];
+    firstName?: string;
+    lastName?: string;
+  } | null;
   open: boolean;
   onClose: () => void;
-  onCreated?: () => void | Promise<void>;
 }
 
-export default function CreateUserDialog({ open, onClose, onCreated }: Props) {
+export default function ShowUserDialog({ user, open, onClose }: Props) {
   const { TEXT } = useI18n();
   const U = TEXT as any;
 
-  const [username, setUsername] = React.useState<string>("");
-  const [firstName, setFirstName] = React.useState<string>("");
-  const [lastName, setLastName] = React.useState<string>("");
-  const [email, setEmail] = React.useState<string>("");
-  const [password, setPassword] = React.useState<string>("");
-  const [passwordConfirm, setPasswordConfirm] = React.useState<string>("");
-  const [isActive, setIsActive] = React.useState<boolean>(true);
-  const [isStaff, setIsStaff] = React.useState<boolean>(false);
+  // helpers to read snake/camel and avoid TS complaints
+  const readUserBool = (u: any, snake: string, camel: string, fallback = false): boolean => {
+    if (!u) return fallback;
+    if (u[snake] !== undefined) return Boolean(u[snake]);
+    if (u[camel] !== undefined) return Boolean(u[camel]);
+    return fallback;
+  };
+
+  /* const getUserProp = (u: any, ...keys: string[]) => {
+    if (!u) return undefined;
+    for (const k of keys) {
+      if (u[k] !== undefined) return u[k];
+    }
+    return undefined;
+  }; */
 
   const [availableActions, setAvailableActions] = React.useState<Record<string, string[]>>({});
   const [resourceLabels, setResourceLabels] = React.useState<Record<string, string>>({});
   const [actionLabels, setActionLabels] = React.useState<Record<string, string>>({});
   const [permissions, setPermissions] = React.useState<UiPermissions>({});
-
+  const permissionIdMapRef = React.useRef<Record<string, number | null>>({});
   const [properties, setProperties] = React.useState<Array<{ id: number; address?: string }>>([]);
   const [selectedProperties, setSelectedProperties] = React.useState<Record<number, SelectedProperty>>({});
 
-  const [loading, setLoading] = React.useState<boolean>(false);
-  const [loadingOptions, setLoadingOptions] = React.useState<boolean>(false);
-  const [error, setError] = React.useState<string | null>(null);
+  const [, setLoadingOptions] = React.useState(false);
+  const [loadingPermissions, setLoadingPermissions] = React.useState(false);
 
   // search + highlight for properties
   const [search, setSearch] = React.useState<string>("");
   const [highlightSearch, setHighlightSearch] = React.useState(true);
   const searchRef = React.useRef<HTMLInputElement | null>(null);
-
   React.useEffect(() => {
     if (searchRef.current) {
       try {
@@ -165,6 +156,140 @@ export default function CreateUserDialog({ open, onClose, onCreated }: Props) {
     return () => clearTimeout(t);
   }, []);
 
+  React.useEffect(() => {
+    if (!user) return;
+    let mounted = true;
+
+    const load = async () => {
+      setLoadingOptions(true);
+      setLoadingPermissions(true);
+      permissionIdMapRef.current = {};
+      setPermissions({});
+      setAvailableActions({});
+      setResourceLabels({});
+      setActionLabels({});
+      setSelectedProperties({});
+      setProperties([]);
+
+      try {
+        const [optsRes, propsRes] = await Promise.allSettled([listAdminAvailableOptions(), listProperties({ page_size: 200 })]);
+        if (!mounted) return;
+
+        const optsVal = optsRes.status === "fulfilled" ? optsRes.value : null;
+        const propsVal = propsRes.status === "fulfilled" ? propsRes.value : null;
+
+        const { av, resLabels, actLabels } = deriveAvailableFromOptions(optsVal);
+        setAvailableActions(av);
+        setResourceLabels(resLabels);
+        setActionLabels(actLabels);
+
+        // --- build initial permission booleans from user data (defensive) ---
+        const initialPermBooleans: UiPermissions = {};
+        const anyUser = user as any;
+
+        // prefer array of resource_permissions objects
+        if (Array.isArray(anyUser.resource_permissions) && anyUser.resource_permissions.length > 0) {
+          anyUser.resource_permissions.forEach((rp: any) => {
+            const resource = String(rp.resource_type ?? rp.resource ?? "").toLowerCase();
+            const action = String(rp.action ?? "").toLowerCase();
+            if (!resource) return;
+            permissionIdMapRef.current[`${resource}.${action}`] = Number(rp.id ?? rp.permission_id ?? rp.pk ?? null) || null;
+            initialPermBooleans[resource] = initialPermBooleans[resource] ?? {};
+            initialPermBooleans[resource][action] = true;
+          });
+        } else {
+          // fallback: user.permissions (can be object or array)
+          const permsSrc = anyUser.permissions ?? anyUser.resource_permissions ?? null;
+          if (permsSrc) {
+            if (!Array.isArray(permsSrc) && typeof permsSrc === "object") {
+              for (const [sec, obj] of Object.entries(permsSrc)) {
+                const s = String(sec).toLowerCase();
+                initialPermBooleans[s] = initialPermBooleans[s] ?? {};
+                if (obj && typeof obj === "object") {
+                  for (const [k, v] of Object.entries(obj as any)) {
+                    initialPermBooleans[s][String(k).toLowerCase()] = Boolean(v);
+                  }
+                }
+              }
+            } else if (Array.isArray(permsSrc)) {
+              permsSrc.forEach((it: any) => {
+                if (typeof it === "string" && it.includes(".")) {
+                  const [s, a] = it.split(".");
+                  initialPermBooleans[s] = initialPermBooleans[s] ?? {};
+                  initialPermBooleans[s][a] = true;
+                } else if (it && typeof it === "object") {
+                  const codename = it.codename || it.permission || "";
+                  if (typeof codename === "string" && codename.includes(".")) {
+                    const [s, a] = codename.split(".");
+                    initialPermBooleans[s] = initialPermBooleans[s] ?? {};
+                    initialPermBooleans[s][a] = true;
+                  }
+                }
+              });
+            }
+          }
+        }
+
+        // seed UI permissions from available actions
+        const seed: UiPermissions = {};
+        for (const [resKey, acts] of Object.entries(av)) {
+          seed[resKey] = {};
+          acts.forEach((a) => {
+            seed[resKey][a] = Boolean(initialPermBooleans[resKey]?.[a] ?? false);
+          });
+        }
+        setPermissions(seed);
+
+        // --- build property access map defensively ---
+        const initialPropMap: Record<number, SelectedProperty> = {};
+        // primary source: property_access array objects
+        if (Array.isArray(anyUser.property_access) && anyUser.property_access.length > 0) {
+          anyUser.property_access.forEach((pa: any) => {
+            const pid = Number(pa.property_id ?? pa.property ?? pa.propertyId ?? Number.NaN);
+            if (Number.isNaN(pid)) return;
+            initialPropMap[pid] = {
+              checked: true,
+              accessId: Number(pa.id ?? pa.access_id ?? pa.pk ?? null) || undefined,
+              accessType: String(pa.access_type ?? pa.accessType ?? "viewer"),
+            };
+          });
+        } else {
+          // fallback: accessible_properties (array of ids or objects) OR property_ids
+          const acc = anyUser.accessible_properties ?? anyUser.property_ids ?? anyUser.accessibleProperties ?? null;
+          if (Array.isArray(acc)) {
+            acc.forEach((p: any) => {
+              const pid = Number(p?.id ?? p ?? Number.NaN);
+              if (Number.isNaN(pid)) return;
+              initialPropMap[pid] = {
+                checked: true,
+                accessType: "viewer",
+              };
+            });
+          }
+        }
+
+        setSelectedProperties(initialPropMap);
+
+        const items = Array.isArray(propsVal) ? propsVal : propsVal?.results ?? [];
+        const simple = items.map((p: any) => ({ id: p.id, address: p.address ?? p.name ?? String(p.id) }));
+        setProperties(simple);
+      } catch (err: any) {
+        console.error("[ShowUserDialog] load error", err);
+      } finally {
+        if (mounted) {
+          setLoadingOptions(false);
+          setLoadingPermissions(false);
+        }
+      }
+    };
+
+    void load();
+    return () => {
+      mounted = false;
+    };
+  }, [user]);
+
+  // filter properties with search
   const q = (search ?? "").trim().toLowerCase();
   const filteredProperties = React.useMemo(() => {
     if (!q) return properties;
@@ -193,249 +318,54 @@ export default function CreateUserDialog({ open, onClose, onCreated }: Props) {
     );
   };
 
-  const mountedRef = React.useRef(true);
+  const displayFirst = (u?: any) => u?.firstName ?? u?.first_name ?? (u?.name ? String(u.name).split(" ").slice(0, -1).join(" ") : "");
+  const displayLast = (u?: any) => u?.lastName ?? u?.last_name ?? (u?.name ? String(u.name).split(" ").pop() : "");
 
-  React.useEffect(() => {
-    mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
-
-  React.useEffect(() => {
-    if (!open) resetForm();
-  }, [open]);
-
-  function resetForm() {
-    setUsername("");
-    setFirstName("");
-    setLastName("");
-    setEmail("");
-    setPassword("");
-    setPasswordConfirm("");
-    setIsActive(true);
-    setIsStaff(false);
-    setPermissions((prev) => {
-      const seed: UiPermissions = {};
-      for (const [res, acts] of Object.entries(prev ?? {})) {
-        seed[res] = {};
-        for (const a of Object.keys(acts)) seed[res][a] = false;
-      }
-      return seed;
-    });
-    setSelectedProperties({});
-    setError(null);
-    setSearch("");
-    setHighlightSearch(true);
-  }
-
-  React.useEffect(() => {
-    if (!open) return;
-    let mounted = true;
-
-    const load = async () => {
-      setLoadingOptions(true);
-      setError(null);
-      try {
-        const [optsRes, propsRes] = await Promise.allSettled([listAdminAvailableOptions(), listProperties({ page_size: 200 })]);
-        if (!mounted) return;
-
-        const optsVal = optsRes.status === "fulfilled" ? optsRes.value : null;
-        const propsVal = propsRes.status === "fulfilled" ? propsRes.value : null;
-
-        const { av, resLabels, actLabels } = deriveAvailableFromOptions(optsVal);
-        setAvailableActions(av);
-        setResourceLabels(resLabels);
-        setActionLabels(actLabels);
-
-        const seed: UiPermissions = {};
-        Object.entries(av).forEach(([res, acts]) => {
-          seed[res] = {};
-          acts.forEach((a) => {
-            seed[res][a] = false;
-          });
-        });
-        setPermissions(seed);
-
-        const items = Array.isArray(propsVal) ? propsVal : propsVal?.results ?? [];
-        const simple = items.map((p: any) => ({ id: p.id, address: p.address ?? p.name ?? String(p.id) }));
-        setProperties(simple);
-        setSelectedProperties({});
-      } catch (err: unknown) {
-        console.error("[CreateUserDialog] load options error", err);
-        setAvailableActions(FALLBACK_ACTIONS as any);
-        const seed: UiPermissions = {};
-        Object.entries(FALLBACK_ACTIONS).forEach(([r, acts]) => {
-          seed[r] = {};
-          acts.forEach((a) => {
-            seed[r][a] = false;
-          });
-        });
-        setPermissions(seed);
-        setProperties([]);
-      } finally {
-        if (mounted) setLoadingOptions(false);
-      }
-    };
-
-    void load();
-    return () => {
-      mounted = false;
-    };
-  }, [open]);
-
-  const handleToggle = (resource: string, action: string, checked: boolean) => {
-    setPermissions((prev) => ({
-      ...prev,
-      [resource]: {
-        ...(prev?.[resource] ?? {}),
-        [action]: checked,
-      },
-    }));
-  };
-
-  const toggleProperty = (id: number, checked: boolean) => {
-    setSelectedProperties((prev) => ({
-      ...prev,
-      [id]: { checked, accessType: prev?.[id]?.accessType ?? "viewer" },
-    }));
-  };
-
-  const setPropertyAccessType = (id: number, type: string) => {
-    setSelectedProperties((prev) => ({
-      ...prev,
-      [id]: { checked: prev?.[id]?.checked ?? false, accessType: type },
-    }));
-  };
-
-  function validate(): string | null {
-    const vU = U?.users?.create?.validation ?? {};
-    if (!username.trim()) return vU.usernameRequired ?? "Usuario es requerido";
-    if (!firstName.trim()) return vU.firstNameRequired ?? "Nombre es requerido";
-    if (!lastName.trim()) return vU.lastNameRequired ?? "Apellido es requerido";
-    if (!email.trim()) return vU.emailRequired ?? "Email es requerido";
-    if (email && !/\S+@\S+\.\S+/.test(email)) return vU.emailInvalid ?? "Email inválido";
-    if (!password) return vU.passwordRequired ?? "Contraseña es requerida";
-    if (password.length < 6) return vU.passwordMin ?? "La contraseña debe tener al menos 6 caracteres";
-    if (password !== passwordConfirm) return vU.passwordsMismatch ?? "Las contraseñas no coinciden";
-    return null;
-  }
-
-  const handleSubmit = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    setError(null);
-    const v = validate();
-    if (v) {
-      setError(v);
-      toast.error(v);
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const payload: CreateUserPayload = {
-        username: username.trim(),
-        email: email.trim() !== "" ? email.trim() : undefined,
-        first_name: firstName.trim(),
-        last_name: lastName.trim(),
-        password,
-        password_confirm: passwordConfirm,
-        is_active: !!isActive,
-        is_staff: !!isStaff,
-      };
-
-      const created = await createUser(payload);
-
-      const codenames = uiPermissionsToCodenames(permissions);
-      if (codenames.length > 0) {
-        try {
-          await assignUserPermissions(created.id, codenames);
-        } catch (errAssign: any) {
-          console.error("Error assigning permissions on create:", errAssign);
-          toast.error(U?.users?.create?.permissionAssignError ?? "Some permissions couldn't be assigned (see console)");
-        }
-      }
-
-      const toGrant = Object.entries(selectedProperties)
-        .filter(([_, v]) => (v as SelectedProperty).checked)
-        .map(([k, v]) => ({ id: Number(k), access: v.accessType ?? "viewer" }));
-
-      for (const g of toGrant) {
-        try {
-          await grantPropertyAccess(created.id, g.id, g.access);
-        } catch (errGrant: any) {
-          console.error("Error granting property access", g, errGrant);
-          toast.error((U?.properties?.grantError ?? "Could not grant access to property") + ` #${g.id}`);
-        }
-      }
-
-      toast.success(U?.users?.create?.success ?? "User created");
-      if (mountedRef.current) {
-        if (onCreated) await onCreated();
-        onClose();
-      }
-    } catch (err: any) {
-      console.error("[CreateUserDialog] submit error", err);
-      const data = err?.response?.data ?? err?.message ?? String(err);
-      const msg = typeof data === "object" ? JSON.stringify(data) : String(data);
-      setError(msg);
-      toast.error(msg);
-    } finally {
-      if (mountedRef.current) setLoading(false);
-    }
-  };
+  // read boolean fields using helper to support both snake/camel
+  const isActiveVal = readUserBool(user as any, "is_active", "isActive", true);
+  const isStaffVal = readUserBool(user as any, "is_staff", "isStaff", false);
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="w-full max-w-[90vw] sm:max-w-5xl md:max-w-6xl lg:max-w-7xl max-h-[90vh] overflow-hidden">
         <DialogHeader className="px-4 pt-4 pb-2">
-          <DialogTitle>{U?.users?.createTitle ?? "Crear Usuario"}</DialogTitle>
+          <DialogTitle>{U?.users?.titleShow ?? U?.users?.editTitle ?? "Ver Usuario"}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-3 p-3 max-h-[82vh] overflow-auto">
+          {/* Basic info grid — read-only inputs */}
           <div className="grid grid-cols-3 gap-2">
             <div>
               <label className="text-xs font-medium text-muted-foreground block mb-1">{U?.users?.table?.headers?.username ?? "Usuario"}</label>
-              <Input placeholder={U?.users?.table?.headers?.username ?? "Usuario"} value={username} onChange={(e) => setUsername(e.target.value)} className="py-2" />
+              <Input value={(user as any)?.username ?? ""} disabled className="py-2" />
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground block mb-1">{U?.users?.table?.headers?.firstName ?? "Nombre"}</label>
-              <Input placeholder={U?.users?.table?.headers?.firstName ?? "Nombre"} value={firstName} onChange={(e) => setFirstName(e.target.value)} className="py-2" />
+              <Input value={displayFirst(user as any)} disabled className="py-2" />
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground block mb-1">{U?.users?.table?.headers?.lastName ?? "Apellido"}</label>
-              <Input placeholder={U?.users?.table?.headers?.lastName ?? "Apellido"} value={lastName} onChange={(e) => setLastName(e.target.value)} className="py-2" />
+              <Input value={displayLast(user as any)} disabled className="py-2" />
             </div>
           </div>
 
           <div>
             <label className="text-xs font-medium text-muted-foreground block mb-1">{U?.users?.table?.headers?.email ?? "Correo"}</label>
-            <Input placeholder={U?.users?.table?.headers?.email ?? "Correo"} value={email} onChange={(e) => setEmail(e.target.value)} className="py-2" />
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="text-xs font-medium text-muted-foreground block mb-1"> {U?.login?.passwordLabel ?? "Password"} </label>
-              <Input placeholder={U?.login?.passwordLabel ?? "Password"} value={password} onChange={(e) => setPassword(e.target.value)} type="password" className="py-2" />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-muted-foreground block mb-1"> {U?.users?.create?.confirmLabel ?? "Confirm password"} </label>
-              <Input placeholder={U?.users?.create?.confirmLabel ?? "Confirm password"} value={passwordConfirm} onChange={(e) => setPasswordConfirm(e.target.value)} type="password" className="py-2" />
-            </div>
+            <Input value={(user as any)?.email ?? ""} disabled className="py-2" />
           </div>
 
           <div className="flex items-center gap-3 text-sm">
             <label className="inline-flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
+              <Switch checked={isActiveVal} disabled />
               <span className="text-sm">{U?.users?.activeLabel ?? "Activo"}</span>
             </label>
             <label className="inline-flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={isStaff} onChange={(e) => setIsStaff(e.target.checked)} />
+              <Switch checked={isStaffVal} disabled />
               <span className="text-sm">{U?.users?.staffLabel ?? "Staff"}</span>
             </label>
           </div>
 
-          {/* Permisos - card similar a Edit */}
+          {/* Permissions card (read-only switches) */}
           <Card>
             <CardHeader className="px-3 py-2">
               <div className="flex items-center gap-2">
@@ -448,8 +378,9 @@ export default function CreateUserDialog({ open, onClose, onCreated }: Props) {
                 </div>
               </div>
             </CardHeader>
+
             <CardContent className="space-y-4 px-3 py-2">
-              {loadingOptions ? (
+              {loadingPermissions ? (
                 <div className="text-xs text-muted-foreground">Cargando opciones de permisos…</div>
               ) : Object.keys(availableActions).length === 0 ? (
                 <div className="text-xs text-muted-foreground">No hay opciones de permisos disponibles.</div>
@@ -469,7 +400,7 @@ export default function CreateUserDialog({ open, onClose, onCreated }: Props) {
                             key={act}
                             className={`
                               flex items-center justify-between px-2 py-1 rounded-md border transition-all
-                              ${isChecked ? "bg-accent/5 border-accent/20 shadow-sm" : "bg-muted/10 border-border hover:bg-muted/20"}
+                              ${isChecked ? "bg-accent/5 border-accent/20 shadow-sm" : "bg-muted/10 border-border"}
                             `}
                           >
                             <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -483,11 +414,7 @@ export default function CreateUserDialog({ open, onClose, onCreated }: Props) {
                             </div>
 
                             <div className="shrink-0 ml-2">
-                              <Switch
-                                checked={isChecked}
-                                onCheckedChange={(checked) => handleToggle(res, act, checked)}
-                                className="transform scale-75"
-                              />
+                              <Switch checked={isChecked} disabled />
                             </div>
                           </div>
                         );
@@ -498,12 +425,12 @@ export default function CreateUserDialog({ open, onClose, onCreated }: Props) {
               )}
 
               <div className="mt-1 p-2 bg-muted/10 rounded-md">
-                <p className="text-[11px] text-muted-foreground">{U?.users?.permissionsHelp ?? "Los permisos se aplican como resource.action."}</p>
+                <p className="text-[11px] text-muted-foreground">{U?.users?.permissionsHelp ?? "Los permisos se muestran en modo lectura."}</p>
               </div>
             </CardContent>
           </Card>
 
-          {/* Propiedades - misma estética que Edit - ahora con search */}
+          {/* Properties card (read-only) */}
           <Card>
             <CardHeader className="px-3 py-2">
               <div className="flex items-center gap-2 w-full">
@@ -544,21 +471,17 @@ export default function CreateUserDialog({ open, onClose, onCreated }: Props) {
               ) : (
                 <div className="space-y-2 max-h-72 overflow-auto">
                   {filteredProperties.map((p) => {
-                    const sel = selectedProperties[p.id] ?? { checked: false, accessType: "viewer" };
+                    const sel = selectedProperties[p.id] ?? { checked: false, accessId: undefined, accessType: "viewer" };
                     return (
                       <div
                         key={p.id}
                         className={`
                           flex items-center justify-between px-3 py-2 rounded-md border transition-all
-                          ${sel.checked ? "bg-accent/5 border-accent/20 shadow-sm" : "bg-card border-border hover:bg-muted/10"}
+                          ${sel.checked ? "bg-accent/5 border-accent/20 shadow-sm" : "bg-card border-border"}
                         `}
                       >
                         <div className="flex items-center gap-3">
-                          <Switch
-                            checked={Boolean(sel.checked)}
-                            onCheckedChange={(checked) => toggleProperty(p.id, checked)}
-                            className="transform scale-75"
-                          />
+                          <Switch checked={Boolean(sel.checked)} disabled />
                           <div className="flex items-center gap-2">
                             {sel.checked ? <CheckCircle2 className="h-3 w-3 text-accent" /> : <XCircle className="h-3 w-3 text-muted-foreground" />}
                             <div className="min-w-0">
@@ -570,7 +493,7 @@ export default function CreateUserDialog({ open, onClose, onCreated }: Props) {
                           </div>
                         </div>
 
-                        <Select value={sel.accessType} onValueChange={(value) => setPropertyAccessType(p.id, value)} disabled={!sel.checked}>
+                        <Select value={sel.accessType} disabled>
                           <SelectTrigger className="w-28 text-xs py-1">
                             <SelectValue />
                           </SelectTrigger>
@@ -590,19 +513,14 @@ export default function CreateUserDialog({ open, onClose, onCreated }: Props) {
               )}
 
               <div className="mt-3 p-2 bg-muted/10 rounded-md">
-                <p className="text-[11px] text-muted-foreground">{U?.properties?.help ?? "Marcar para otorgar, desmarcar para revocar."}</p>
+                <p className="text-[11px] text-muted-foreground">{U?.properties?.help ?? "Accesos a propiedades (solo lectura)."}</p>
               </div>
             </CardContent>
           </Card>
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
-
           <div className="flex justify-end items-center pt-1 gap-2">
-            <Button variant="secondary" onClick={() => onClose()} disabled={loading} className="py-1 px-2 text-sm">
-              {U?.actions?.cancel ?? "Cancelar"}
-            </Button>
-            <Button onClick={handleSubmit} className="ml-1 py-1 px-3 text-sm" disabled={loading}>
-              {loading ? `${U?.users?.create?.creating ?? "Creando..."}...` : (U?.users?.create?.submit ?? U?.actions?.create ?? "Crear")}
+            <Button variant="secondary" onClick={() => onClose()} className="py-1 px-2 text-sm">
+              {U?.actions?.cancel ?? "Cerrar"}
             </Button>
           </div>
         </div>

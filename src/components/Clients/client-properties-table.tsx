@@ -41,7 +41,7 @@ interface ClientPropertiesTableProps {
 export default function ClientPropertiesTable({ 
   properties, 
   clientName, 
-  clientId, 
+/*   clientId,  */
   onOpenCreate, 
   onRefresh 
 }: ClientPropertiesTableProps) {
