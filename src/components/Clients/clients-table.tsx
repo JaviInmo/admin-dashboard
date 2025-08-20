@@ -359,7 +359,7 @@ export default function ClientsTable({
 				</div>
 			</ScrollArea>
 
-			<div className="flex justify-end">
+			<div className="flex justify-center">
 				<ReusablePagination
 					currentPage={effectivePage}
 					totalPages={effectiveTotalPages}
@@ -367,7 +367,6 @@ export default function ClientsTable({
 					showFirstLast={true}
 					showPageInfo={true}
 					pageInfoText={(current, total) => `Página ${current} de ${total}`}
-					className="justify-center"
 				/>
 			</div>
 

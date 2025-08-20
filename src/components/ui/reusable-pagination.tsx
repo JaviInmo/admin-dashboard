@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { shouldShowPage } from "../_utils/pagination";
 
@@ -37,6 +39,8 @@ export function ReusablePagination({
   size = "sm",
   variant = "outline",
 }: ReusablePaginationProps) {
+  // Estado para el campo de búsqueda de páginas
+  const [pageInput, setPageInput] = useState("");
   // Validar props
   const validCurrentPage = Math.max(1, Math.min(currentPage, totalPages));
   const validTotalPages = Math.max(1, totalPages);
@@ -67,13 +71,61 @@ export function ReusablePagination({
   const goToPrevious = () => goToPage(validCurrentPage - 1);
   const goToNext = () => goToPage(validCurrentPage + 1);
 
+  // Manejar búsqueda de páginas
+  const handlePageInputSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      let inputPage = parseInt(pageInput);
+      
+      if (!isNaN(inputPage)) {
+        // Validar y corregir el rango
+        if (inputPage < 1) {
+          inputPage = 1;
+        } else if (inputPage > validTotalPages) {
+          inputPage = validTotalPages;
+        }
+        
+        // Mostrar el número corregido en el input brevemente antes de limpiar
+        setPageInput(inputPage.toString());
+        
+        // Navegar a la página (corregida si era necesario)
+        goToPage(inputPage);
+        
+        // Limpiar el input después de un breve delay
+        setTimeout(() => {
+          setPageInput("");
+        }, 500);
+      }
+    }
+  };
+
+  const handlePageInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    // Solo permitir números (incluyendo string vacío para poder borrar)
+    if (value === "" || /^\d+$/.test(value)) {
+      setPageInput(value);
+    }
+  };
+
   // Si solo hay una página, no mostrar paginación
   if (validTotalPages <= 1) {
     return null;
   }
 
   return (
-    <div className={cn("flex items-center justify-center space-x-1", className)}>
+    <div className={cn("flex items-center justify-center space-x-1 w-full", className)}>
+      {/* Campo de búsqueda de páginas */}
+      <div className="flex items-center space-x-2 mr-4">
+        <Input
+          type="text"
+          value={pageInput}
+          onChange={handlePageInputChange}
+          onKeyDown={handlePageInputSubmit}
+          placeholder="Ir a..."
+          className="w-20 h-8 text-center text-sm"
+          aria-label="Ir a página específica"
+        />
+      </div>
+
       {/* Botón ir al inicio */}
       {showFirstLast && (
         <Button

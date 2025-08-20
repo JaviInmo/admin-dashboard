@@ -5,14 +5,7 @@ import { ArrowDown, ArrowUp, ArrowUpDown, Pencil, Trash } from "lucide-react";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-	Pagination,
-	PaginationContent,
-	PaginationItem,
-	PaginationLink,
-	PaginationNext,
-	PaginationPrevious,
-} from "@/components/ui/pagination";
+import { ReusablePagination } from "@/components/ui/reusable-pagination";
 import {
 	Table,
 	TableBody,
@@ -29,7 +22,6 @@ import {
 } from "@/components/ui/tooltip";
 import type { AppProperty } from "@/lib/services/properties";
 import type { SortOrder } from "@/lib/sort";
-import { shouldShowPage } from "../_utils/pagination";
 import CreatePropertyDialog from "./Create/Create";
 import DeletePropertyDialog from "./Delete/Delete";
 import EditPropertyDialog from "./Edit/Edit";
@@ -408,45 +400,15 @@ export default function PropertiesTable({
 				</TableBody>
 			</Table>
 
-			<div className="flex justify-end">
-				<Pagination>
-					<PaginationContent>
-						<PaginationItem>
-							<PaginationPrevious
-								onClick={() => goToPage(effectivePage - 1)}
-								className={
-									effectivePage === 1 ? "pointer-events-none opacity-50" : ""
-								}
-							/>
-						</PaginationItem>
-
-						{Array.from({ length: effectiveTotalPages }, (_, i) => i)
-							.filter((item) =>
-								shouldShowPage(item, effectivePage, effectiveTotalPages),
-							)
-							.map((item) => (
-								<PaginationItem key={item}>
-									<PaginationLink
-										isActive={effectivePage === item + 1}
-										onClick={() => goToPage(item + 1)}
-									>
-										{item + 1}
-									</PaginationLink>
-								</PaginationItem>
-							))}
-
-						<PaginationItem>
-							<PaginationNext
-								onClick={() => goToPage(effectivePage + 1)}
-								className={
-									effectivePage === effectiveTotalPages
-										? "pointer-events-none opacity-50"
-										: ""
-								}
-							/>
-						</PaginationItem>
-					</PaginationContent>
-				</Pagination>
+			<div className="flex justify-center">
+				<ReusablePagination
+					currentPage={effectivePage}
+					totalPages={effectiveTotalPages}
+					onPageChange={goToPage}
+					showFirstLast={true}
+					showPageInfo={true}
+					pageInfoText={(current, total) => `Página ${current} de ${total}`}
+				/>
 			</div>
 
 			<CreatePropertyDialog

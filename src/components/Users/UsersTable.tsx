@@ -4,14 +4,7 @@ import { ArrowDown, ArrowUp, ArrowUpDown, Pencil, Trash } from "lucide-react";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-	Pagination,
-	PaginationContent,
-	PaginationItem,
-	PaginationLink,
-	PaginationNext,
-	PaginationPrevious,
-} from "@/components/ui/pagination";
+import { ReusablePagination } from "@/components/ui/reusable-pagination";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -294,34 +287,15 @@ export default function UsersTable({
 			</Table>
 
 			{/* Paginación */}
-			<div className="flex justify-end">
-				<Pagination>
-					<PaginationContent>
-						<PaginationItem>
-							<PaginationPrevious
-								onClick={() => goToPage(effectivePage - 1)}
-								className={effectivePage === 1 ? "pointer-events-none opacity-50" : ""}
-							/>
-						</PaginationItem>
-						{Array.from({ length: effectiveTotalPages }, (_, i) => (
-							<PaginationItem key={i}>
-								<PaginationLink
-									isActive={effectivePage === i + 1}
-									onClick={() => goToPage(i + 1)}
-									className="cursor-pointer"
-								>
-									{i + 1}
-								</PaginationLink>
-							</PaginationItem>
-						))}
-						<PaginationItem>
-							<PaginationNext
-								onClick={() => goToPage(effectivePage + 1)}
-								className={effectivePage === effectiveTotalPages ? "pointer-events-none opacity-50" : ""}
-							/>
-						</PaginationItem>
-					</PaginationContent>
-				</Pagination>
+			<div className="flex justify-center">
+				<ReusablePagination
+					currentPage={effectivePage}
+					totalPages={effectiveTotalPages}
+					onPageChange={goToPage}
+					showFirstLast={true}
+					showPageInfo={true}
+					pageInfoText={(current, total) => `Página ${current} de ${total}`}
+				/>
 			</div>
 
 			{/* Modals */}

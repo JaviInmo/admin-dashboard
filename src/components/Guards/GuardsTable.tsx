@@ -312,7 +312,7 @@ export default function GuardsTable({
         </ScrollArea>
       </div>
 
-      <div className="flex justify-end">
+      <div className="flex justify-center">
         <ReusablePagination
           currentPage={effectivePage}
           totalPages={effectiveTotalPages}
@@ -320,7 +320,6 @@ export default function GuardsTable({
           showFirstLast={true}
           showPageInfo={true}
           pageInfoText={(current, total) => `Página ${current} de ${total}`}
-          className="justify-center"
         />
       </div>
 

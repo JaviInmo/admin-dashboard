@@ -5,14 +5,7 @@ import React from "react"
 import { Pencil, Trash } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination"
+import { ReusablePagination } from "@/components/ui/reusable-pagination"
 import { useI18n } from "@/i18n"
 import { TABLE_CONFIG } from "@/config/ui-table"
 import { toast } from "sonner"
@@ -146,33 +139,15 @@ export default function ClientPropertiesTable({ properties, clientName, clientId
       </Table>
 
       {/* Paginación */}
-      <div className="flex justify-end">
-        <Pagination>
-          <PaginationContent>
-            <PaginationItem>
-              <PaginationPrevious
-                onClick={() => goToPage(page - 1)}
-                className={page === 1 ? "opacity-50 pointer-events-none" : ""}
-              />
-            </PaginationItem>
-            {Array.from({ length: totalPages }, (_, i) => (
-              <PaginationItem key={i}>
-                <PaginationLink
-                  isActive={page === i + 1}
-                  onClick={() => goToPage(i + 1)}
-                >
-                  {i + 1}
-                </PaginationLink>
-              </PaginationItem>
-            ))}
-            <PaginationItem>
-              <PaginationNext
-                onClick={() => goToPage(page + 1)}
-                className={page === totalPages ? "opacity-50 pointer-events-none" : ""}
-              />
-            </PaginationItem>
-          </PaginationContent>
-        </Pagination>
+      <div className="flex justify-center">
+        <ReusablePagination
+          currentPage={page}
+          totalPages={totalPages}
+          onPageChange={goToPage}
+          showFirstLast={true}
+          showPageInfo={true}
+          pageInfoText={(current, total) => `Página ${current} de ${total}`}
+        />
       </div>
 
       {/* Edit dialog */}
