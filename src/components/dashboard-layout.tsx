@@ -26,6 +26,7 @@ import { toast } from "sonner";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useI18n } from "@/i18n";
 import { AVATAR_CONFIG } from "@/config/ui-avatar";
 import {
@@ -249,6 +250,9 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
                 </button>
               </div>
             </div>
+
+            {/* Theme Toggle */}
+            <ThemeToggle />
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
