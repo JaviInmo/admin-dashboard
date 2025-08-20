@@ -1,6 +1,6 @@
 "use client";
 
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate, Outlet } from "react-router-dom";
 import {
   Bell,
   LogOut,
@@ -52,16 +52,9 @@ import {
   SidebarInset,
 } from "@/components/ui/sidebar";
 
-import DashboardContent from "@/components/Dashboard/dashboard-content";
-import SalesRegistrationContent from "@/components/Clients/client-page";
-import GuardsContent from "./Guards/guards-page";
-import UserPage from "./Users/UsersPage";
-import PropertiesContent from "./Properties/properties-page";
-
-type DashboardLayoutProps = { onLogout: () => void };
-
-export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
-  const [activeMenuItem, setActiveMenuItem] = useState("Dashboard");
+export default function DashboardLayout() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const { TEXT, lang, setLang } = useI18n();
 
@@ -121,49 +114,54 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
 
   const menuItems = [
     {
-      key: "Dashboard",
+      key: "dashboard",
+      path: "/dashboard",
       label: TEXT.menu.dashboard,
       icon: LayoutDashboard,
-      component: <DashboardContent />,
     },
     {
-      key: "Clients",
+      key: "clients",
+      path: "/clients",
       label: TEXT.menu.clients,
       icon: Briefcase,
-      component: <SalesRegistrationContent />,
     },
     {
-      key: "Guards",
+      key: "guards",
+      path: "/guards",
       label: TEXT.menu.guards,
       icon: Users,
-      component: <GuardsContent />,
     },
     {
-      key: "Users",
+      key: "users",
+      path: "/users",
       label: TEXT.menu.users,
       icon: UserRoundCheck,
-      component: <UserPage />,
     },
     {
-      key: "Properties",
+      key: "properties",
+      path: "/properties",
       label: TEXT.menu.properties,
       icon: Home,
-      component: <PropertiesContent />,
     },
   ];
 
-  const renderMainContent = () => {
-    const selected = menuItems.find((item) => item.key === activeMenuItem);
-    return selected ? (
-      selected.component
-    ) : (
-      <div className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-6">
-        <h2 className="text-2xl font-bold">{TEXT.common.notFoundTitle}</h2>
-        <p className="text-muted-foreground">
-          {TEXT.common.notFoundDescription}
-        </p>
-      </div>
-    );
+  
+  // Obtener la página activa basada en la ruta actual
+  const currentPath = location.pathname;
+  const activeMenuItem = menuItems.find(item => 
+    currentPath === item.path || currentPath.startsWith(item.path + '/')
+  )?.key || 'dashboard';
+
+  const handleLogout = async () => {
+    try {
+      await authLogout();
+      navigate('/login');
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Forzar logout local aunque falle la API
+      localStorage.removeItem('isLoggedIn');
+      navigate('/login');
+    }
   };
 
   return (
@@ -187,14 +185,16 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
               </SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {menuItems.map(({ key, label, icon: Icon }) => (
+                  {menuItems.map(({ key, path, label, icon: Icon }) => (
                     <SidebarMenuItem key={key}>
-                      <SidebarMenuButton
-                        onClick={() => setActiveMenuItem(key)}
-                        className={activeMenuItem === key ? "bg-muted" : ""}
-                      >
-                        <Icon className="h-4 w-4" />
-                        <span>{label}</span>
+                      <SidebarMenuButton asChild>
+                        <Link 
+                          to={path}
+                          className={activeMenuItem === key ? "bg-muted" : ""}
+                        >
+                          <Icon className="h-4 w-4" />
+                          <span>{label}</span>
+                        </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   ))}
@@ -283,7 +283,10 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
             </DropdownMenu>
           </header>
 
-          {renderMainContent()}
+          {/* Main content area */}
+          <main className="flex-1 overflow-auto">
+            <Outlet />
+          </main>
 
           {/* Logout confirmation dialog */}
           <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
@@ -307,7 +310,7 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
                       // Toast notification
                       toast.success(TEXT.logoutDialog.successToast);
                     } finally {
-                      onLogout();
+                      handleLogout();
                     }
                   }}
                 >
