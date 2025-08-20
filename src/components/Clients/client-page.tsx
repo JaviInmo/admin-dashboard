@@ -58,8 +58,14 @@ export default function ClientsPage() {
 
   // toggleSort replicando exactamente la lógica de GuardsPage
   const toggleSort = (field: keyof Client) => {
-    setSortField(field);
-    setSortOrder(sortField === field && sortOrder === "asc" ? "desc" : "asc");
+    if (sortField === field) {
+      // Si es el mismo campo, cambiar orden
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      // Si es un campo diferente, cambiar campo y empezar con asc
+      setSortField(field);
+      setSortOrder("asc");
+    }
   };
 
   // helper para refrescar propiedades del cliente actual (lo paso al panel)

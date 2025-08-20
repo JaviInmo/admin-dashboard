@@ -40,8 +40,14 @@ export default function UsersPage() {
   const [selectedUserId, setSelectedUserId] = React.useState<number | null>(null);
 
   const toggleSort = (field: keyof User) => {
-    setSortField(field);
-    setSortOrder(sortField === field && sortOrder === "asc" ? "desc" : "asc");
+    if (sortField === field) {
+      // Si es el mismo campo, cambiar orden
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      // Si es un campo diferente, cambiar campo y empezar con asc
+      setSortField(field);
+      setSortOrder("asc");
+    }
   };
 
   return (

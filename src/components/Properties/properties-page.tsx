@@ -46,8 +46,14 @@ export default function PropertiesPage() {
 	const totalPages = Math.max(1, Math.ceil((data?.count ?? 0) / pageSize));
 
 	const toggleSort = (field: keyof AppProperty) => {
-		setSortField(field);
-		setSortOrder(sortField === field && sortOrder === "asc" ? "desc" : "asc");
+		if (sortField === field) {
+			// Si es el mismo campo, cambiar orden
+			setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+		} else {
+			// Si es un campo diferente, cambiar campo y empezar con asc
+			setSortField(field);
+			setSortOrder("asc");
+		}
 	};
 
 	return (

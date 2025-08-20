@@ -5,18 +5,10 @@ import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ReusablePagination } from "@/components/ui/reusable-pagination";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import type { SortOrder } from "@/lib/sort";
 import PageSizeSelector from "@/components/ui/PageSizeSelector";
 import { useI18n } from "@/i18n";
+import { useIntelligentColumns } from "@/hooks/use-intelligent-columns";
 
 export interface Column<T> {
   key: keyof T;
@@ -102,33 +94,34 @@ export function ReusableTable<T extends Record<string, any>>({
   const [search, setSearch] = React.useState<string>("");
   const [highlightSearch, setHighlightSearch] = React.useState(true);
   const searchRef = React.useRef<HTMLInputElement | null>(null);
+  const tableContainerRef = React.useRef<HTMLDivElement>(null);
 
   const itemsPerPage = pageSize ?? 5;
 
-  // Función helper para calcular estilos de columna
-  const getColumnStyle = (column: Column<T>, columnIndex: number) => {
+  // Hook inteligente para distribución de columnas
+  const columnStrategy = useIntelligentColumns(columns, data, tableContainerRef as React.RefObject<HTMLElement>);
+
+  // Función helper para calcular estilos de columna usando estrategia inteligente
+  const getColumnStyle = (_column: Column<T>, columnIndex: number) => {
     const styles: React.CSSProperties = {};
     
-    if (column.width) {
-      // Si tiene ancho fijo, usarlo directamente
-      styles.width = column.width;
-      styles.minWidth = column.width;
-    } else if (columnIndex === 2) {
-      // La columna sacrificial (índice 2) es flexible pero puede crecer más
-      styles.width = '30%'; // Base width más amplia para cuando hay espacio
-      styles.minWidth = '120px'; // Mínimo ancho para legibilidad
-      styles.maxWidth = '300px'; // Máximo para evitar que sea demasiado ancha
+    // Si está en la lista de columnas ocultas, ocultarla
+    if (columnStrategy.hiddenColumns.includes(columnIndex)) {
+      styles.display = 'none';
+      return styles;
+    }
+    
+    // Usar el ancho calculado por la estrategia inteligente
+    if (columnStrategy.widths[columnIndex]) {
+      styles.width = columnStrategy.widths[columnIndex];
+      styles.minWidth = columnStrategy.type === 'content-based' ? '80px' : '60px';
+    }
+    
+    // Configurar overflow para evitar texto muy largo
+    if (columnStrategy.type === 'sacrifice' || columnStrategy.type === 'content-based') {
       styles.overflow = 'hidden';
       styles.textOverflow = 'ellipsis';
       styles.whiteSpace = 'nowrap';
-    } else {
-      // Otras columnas: ancho flexible pero más controlado
-      styles.width = '15%'; // Distribución más equitativa
-      styles.minWidth = '80px'; // Mínimo para contenido
-      styles.maxWidth = '150px'; // Máximo para mantener proporción
-      styles.whiteSpace = 'nowrap';
-      styles.overflow = 'hidden';
-      styles.textOverflow = 'ellipsis';
     }
     
     return styles;
@@ -208,10 +201,10 @@ export function ReusableTable<T extends Record<string, any>>({
 
   const renderSortIcon = (field: keyof T) => {
     if (!toggleSort) return null;
-    if (sortField !== field) return <ArrowUpDown className="ml-1 h-3 w-3 inline" />;
+    if (sortField !== field) return <ArrowUpDown className="h-4 w-4 text-muted-foreground/60 hover:text-muted-foreground transition-colors" />;
     return sortOrder === "asc" ? 
-      <ArrowUp className="ml-1 h-3 w-3 inline" /> : 
-      <ArrowDown className="ml-1 h-3 w-3 inline" />;
+      <ArrowUp className="h-4 w-4 text-primary" /> : 
+      <ArrowDown className="h-4 w-4 text-primary" />;
   };
 
   return (
@@ -252,41 +245,69 @@ export function ReusableTable<T extends Record<string, any>>({
       </div>
 
       {/* Table */}
-      <div className="rounded-md border">
-        <ScrollArea className="rounded-md border">
-          <div className="max-h-[60vh] w-full">
-            <Table className="w-full" style={{ tableLayout: 'auto' }}>
-              <TableHeader className="sticky top-0 z-10 bg-card">
-                <TableRow>
-                  {columns.map((column, index) => (
-                    <TableHead
-                      key={String(column.key)}
-                      onClick={column.sortable && toggleSort ? () => toggleSort(column.key) : undefined}
-                      className={getColumnClasses(column)}
-                      style={getColumnStyle(column, index)}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className={index === 2 ? "truncate" : ""}>{column.label}</span>
-                        {column.sortable && renderSortIcon(column.key)}
-                      </div>
-                    </TableHead>
-                  ))}
-                  {actions && (
-                    <TableHead 
-                      className="text-center"
-                      style={{ width: '10%', minWidth: '80px', maxWidth: '120px', whiteSpace: 'nowrap' }}
-                    >
-                      Acciones
-                    </TableHead>
-                  )}
-                </TableRow>
-              </TableHeader>
+      <div className="rounded-md border" ref={tableContainerRef}>
+        <div className="relative">
+          {/* Fixed Header */}
+          <div className="bg-background border-b sticky top-0 z-30">
+            <div className="overflow-hidden">
+              <table className="w-full" style={{ tableLayout: 'fixed' }}>
+                <thead>
+                  <tr>
+                    {columns.map((column, index) => {
+                      const isHidden = columnStrategy.hiddenColumns.includes(index);
+                      if (isHidden) return null;
+                      
+                      return (
+                        <th
+                          key={String(column.key)}
+                          onClick={column.sortable && toggleSort ? () => toggleSort(column.key) : undefined}
+                          className={`text-left font-medium text-foreground px-4 py-4 border-r border-border/30 last:border-r-0 ${getColumnClasses(column)} ${
+                            column.sortable && toggleSort ? 'cursor-pointer hover:bg-muted/40 active:bg-muted/60 transition-colors select-none' : ''
+                          }`}
+                          style={getColumnStyle(column, index)}
+                        >
+                          <div className="flex items-center justify-between min-h-[1.5rem]">
+                            <span className="truncate font-semibold">{column.label}</span>
+                            <div className="flex-shrink-0 ml-2">
+                              {column.sortable && toggleSort && renderSortIcon(column.key)}
+                            </div>
+                          </div>
+                        </th>
+                      );
+                    })}
+                    {actions && (
+                      <th 
+                        className="text-center font-medium text-foreground px-4 py-4"
+                        style={{ width: '10%', minWidth: '80px', maxWidth: '120px' }}
+                      >
+                        <span className="font-semibold">Acciones</span>
+                      </th>
+                    )}
+                  </tr>
+                </thead>
+              </table>
+            </div>
+          </div>
 
-              <TableBody>
+          {/* Scrollable Body */}
+          <div 
+            className="max-h-[50vh] overflow-auto scroll-smooth
+                       scrollbar-thin scrollbar-track-transparent scrollbar-thumb-border
+                       hover:scrollbar-thumb-muted-foreground/50 scrollbar-thumb-rounded-full
+                       transition-all duration-200"
+            style={{
+              scrollbarWidth: 'thin',
+              scrollbarColor: 'hsl(var(--border)) transparent'
+            }}
+          >
+            <table className="w-full" style={{ tableLayout: 'fixed' }}>
+              <tbody>
                 {paginatedData.map((item, rowIdx) => (
-                  <TableRow
+                  <tr
                     key={String(getItemId(item))}
-                    className={`cursor-pointer hover:bg-muted ${rowIdx % 2 === 0 ? "bg-transparent" : "bg-muted/5"}`}
+                    className={`cursor-pointer hover:bg-muted/50 transition-colors duration-150 ${
+                      rowIdx % 2 === 0 ? "bg-transparent" : "bg-muted/10"
+                    } border-b border-border/50`}
                     onClick={() => onSelectItem?.(getItemId(item))}
                     role="button"
                     tabIndex={0}
@@ -297,33 +318,38 @@ export function ReusableTable<T extends Record<string, any>>({
                       }
                     }}
                   >
-                    {columns.map((column, colIndex) => (
-                      <TableCell 
-                        key={String(column.key)} 
-                        className={column.className || ""}
-                        style={getColumnStyle(column, colIndex)}
-                      >
-                        <div className={colIndex === 2 ? "truncate" : ""}>
-                          {column.render ? column.render(item) : String(item[column.key] || "-")}
-                        </div>
-                      </TableCell>
-                    ))}
+                    {columns.map((column, colIndex) => {
+                      const isHidden = columnStrategy.hiddenColumns.includes(colIndex);
+                      if (isHidden) return null;
+                      
+                      return (
+                        <td 
+                          key={String(column.key)} 
+                          className={`px-4 py-3 border-r border-border/20 last:border-r-0 ${column.className || ""}`}
+                          style={getColumnStyle(column, colIndex)}
+                        >
+                          <div className="truncate">
+                            {column.render ? column.render(item) : String(item[column.key] || "-")}
+                          </div>
+                        </td>
+                      );
+                    })}
                     {actions && (
-                      <TableCell 
-                        className="text-center"
-                        style={{ width: '10%', minWidth: '80px', maxWidth: '120px', whiteSpace: 'nowrap' }}
+                      <td 
+                        className="text-center px-4 py-3"
+                        style={{ width: '10%', minWidth: '80px', maxWidth: '120px' }}
                       >
-                        <div className="flex gap-2 justify-center">
+                        <div className="flex gap-1 justify-center">
                           {actions(item)}
                         </div>
-                      </TableCell>
+                      </td>
                     )}
-                  </TableRow>
+                  </tr>
                 ))}
-              </TableBody>
-            </Table>
-            </div>
-        </ScrollArea>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
       {/* Pagination */}
