@@ -186,6 +186,7 @@ export default function ClientsTable({
 			{editClient && (
 				<EditClientDialog
 					client={editClient}
+					open={!!editClient}
 					onClose={() => setEditClient(null)}
 					onUpdated={onRefresh}
 				/>
@@ -193,6 +194,7 @@ export default function ClientsTable({
 			{deleteClient && (
 				<DeleteClientDialog
 					client={deleteClient}
+					open={!!deleteClient}
 					onClose={() => setDeleteClient(null)}
 					onDeleted={onRefresh}
 				/>

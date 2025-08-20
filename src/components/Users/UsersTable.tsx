@@ -300,7 +300,7 @@ export default function UsersTable({
 
 			{/* Modals */}
 			<CreateUserDialog open={createOpen} onClose={() => setCreateOpen(false)} onCreated={onRefresh} />
-			{editUser && <EditUserDialog user={editUser} onClose={() => setEditUser(null)} onUpdated={onRefresh} />}
+			{editUser && <EditUserDialog user={editUser} open={!!editUser} onClose={() => setEditUser(null)} onUpdated={onRefresh} />}
 			{deleteUser && <DeleteUserDialog user={deleteUser} onClose={() => setDeleteUser(null)} onDeleted={onRefresh} />}
 		</div>
 	);

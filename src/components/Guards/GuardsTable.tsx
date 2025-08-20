@@ -156,6 +156,7 @@ export default function GuardsTable({
       {editGuard && (
         <EditGuardDialog
           guard={editGuard}
+          open={!!editGuard}
           onClose={() => setEditGuard(null)}
           onUpdated={onRefresh}
         />

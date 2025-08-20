@@ -10,11 +10,12 @@ import { updateGuard, type UpdateGuardPayload } from "@/lib/services/guard";
 
 interface Props {
   guard: Guard;
+  open: boolean;
   onClose: () => void;
   onUpdated?: () => void | Promise<void>;
 }
 
-export default function EditGuardDialog({ guard, onClose, onUpdated }: Props) {
+export default function EditGuardDialog({ guard, open, onClose, onUpdated }: Props) {
   const [firstName, setFirstName] = React.useState<string>(guard.firstName ?? "");
   const [lastName, setLastName] = React.useState<string>(guard.lastName ?? "");
   const [email, setEmail] = React.useState<string>(guard.email ?? "");
@@ -101,7 +102,7 @@ export default function EditGuardDialog({ guard, onClose, onUpdated }: Props) {
   const guardLabel = `${guard.firstName ?? ""} ${guard.lastName ?? ""}`.trim() || `#${guard.id}`;
 
   return (
-    <Dialog open={true} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="w-full max-w-2xl">
         <DialogHeader>
           <DialogTitle>Editar Guardia — {guardLabel}</DialogTitle>

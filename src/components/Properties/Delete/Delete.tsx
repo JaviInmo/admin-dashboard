@@ -8,11 +8,12 @@ import { deleteProperty } from "@/lib/services/properties"
 
 interface Props {
   property: AppProperty
+  open: boolean
   onClose: () => void
   onDeleted?: () => void | Promise<void>
 }
 
-export default function DeletePropertyDialog({ property, onClose, onDeleted }: Props) {
+export default function DeletePropertyDialog({ property, open, onClose, onDeleted }: Props) {
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
 
@@ -41,7 +42,7 @@ export default function DeletePropertyDialog({ property, onClose, onDeleted }: P
   const label = property.name ? `${property.name} (${property.address})` : `${property.address} (#${property.id})`
 
   return (
-    <Dialog open={true} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Eliminar Propiedad</DialogTitle>

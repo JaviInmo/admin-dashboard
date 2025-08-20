@@ -34,13 +34,14 @@ interface Props {
     accessible_properties?: number[]
     property_ids?: number[]
   }
+  open: boolean
   onClose: () => void
   onUpdated?: () => void | Promise<void>
 }
 
 type SelectedProperty = { checked: boolean; accessId?: number; accessType?: string }
 
-export default function EditUserDialog({ user, onClose, onUpdated }: Props) {
+export default function EditUserDialog({ user, open, onClose, onUpdated }: Props) {
   const splitName = (name?: string) => {
     const parts = name?.trim().split(' ').filter(Boolean) ?? []
     return {
@@ -415,7 +416,7 @@ export default function EditUserDialog({ user, onClose, onUpdated }: Props) {
   }
 
   return (
-    <Dialog open={true} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="w-full max-w-6xl max-h-[90vh] overflow-hidden">
         <DialogHeader><DialogTitle>Editar Usuario</DialogTitle></DialogHeader>
 

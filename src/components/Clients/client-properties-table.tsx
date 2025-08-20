@@ -14,6 +14,7 @@ import DeletePropertyDialog from "@/components/Properties/Delete/Delete"
 interface Property {
   id: number
   name: string
+  alias?: string | null
   address?: string | null
   types_of_service?: { id: number; name: string }[] | null
   monthly_rate?: number | string | null
@@ -52,8 +53,14 @@ export default function ClientPropertiesTable({
   // Headers helper - usar headers de properties.table
   const H = TEXT.properties?.table?.headers || {}
 
-  // Definir las columnas de la tabla - address (índice 1) será sacrificado
+  // Definir las columnas de la tabla - address (índice 2) será sacrificado
   const columns: Column<Property>[] = [
+    {
+      key: "alias",
+      label: "Alias",
+      sortable: false,
+      render: (property) => property.alias || "-",
+    },
     {
       key: "name",
       label: TEXT.clients.properties.headers.name,
@@ -102,19 +109,10 @@ export default function ClientPropertiesTable({
         return hours ? String(hours) : "-";
       },
     },
-    {
-      key: "contract_start_date" as keyof Property,
-      label: H.startDate ?? 'Start Date',
-      sortable: false,
-      render: (property) => {
-        const date = property.contract_start_date ?? property.contractStartDate;
-        return date || "-";
-      },
-    },
   ];
 
   // Campos de búsqueda
-  const searchFields: (keyof Property)[] = ["name", "address"];
+  const searchFields: (keyof Property)[] = ["name", "alias", "address"];
 
   // Acciones de fila
   const renderActions = (property: Property) => (
@@ -170,6 +168,7 @@ export default function ClientPropertiesTable({
       {editProperty && (
         <EditPropertyDialog
           property={editProperty as any}
+          open={!!editProperty}
           onClose={() => setEditProperty(null)}
           onUpdated={async () => {
             setEditProperty(null)
@@ -188,6 +187,7 @@ export default function ClientPropertiesTable({
       {deleteProperty && (
         <DeletePropertyDialog
           property={deleteProperty as any}
+          open={!!deleteProperty}
           onClose={() => setDeleteProperty(null)}
           onDeleted={async () => {
             setDeleteProperty(null)

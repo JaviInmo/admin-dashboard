@@ -2,15 +2,18 @@
 
 import React from "react"
 import { deleteClient, type AppClient } from "@/lib/services/clients"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { toast } from "sonner"
 
 type Props = {
   client: AppClient
+  open: boolean
   onClose: () => void
   onDeleted?: () => Promise<void> | void
 }
 
-export default function DeleteClientDialog({ client, onClose, onDeleted }: Props) {
+export default function DeleteClientDialog({ client, open, onClose, onDeleted }: Props) {
   const [loading, setLoading] = React.useState(false)
   const mountedRef = React.useRef(true)
 
@@ -20,52 +23,37 @@ export default function DeleteClientDialog({ client, onClose, onDeleted }: Props
   }, [])
 
   async function handleDelete() {
-    if (!confirm(`¿Eliminar cliente ${client.username ?? client.id}? Esta acción no se puede deshacer.`)) return
     setLoading(true)
     try {
       await deleteClient(client.id)
+      toast.success("Cliente eliminado exitosamente")
       await (onDeleted ? onDeleted() : undefined)
       onClose()
-      // toast.success("Cliente eliminado")
     } catch (err: any) {
       console.error("Error borrando cliente:", err)
-      alert(err?.message ?? "Error borrando cliente")
+      toast.error(err?.message ?? "Error borrando cliente")
     } finally {
       if (mountedRef.current) setLoading(false)
     }
   }
 
   return (
-    <div style={backdropStyle}>
-      <div style={modalStyle}>
-        <h3 className="text-lg font-semibold mb-2">Eliminar Cliente</h3>
-        <p>¿Estás seguro que quieres eliminar <strong>{client.username ?? `${client.firstName ?? ""} ${client.lastName ?? ""}`}</strong>?</p>
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="w-full max-w-md">
+        <DialogHeader>
+          <DialogTitle>Eliminar Cliente</DialogTitle>
+        </DialogHeader>
 
-        <div className="flex justify-end gap-2 mt-4">
-          <Button variant="ghost" onClick={onClose} disabled={loading}>Cancelar</Button>
-          <Button onClick={handleDelete} disabled={loading} className="bg-red-600 text-white">{loading ? "Eliminando..." : "Eliminar"}</Button>
+        <div className="space-y-4 p-4">
+          <p>¿Estás seguro que quieres eliminar <strong>{client.username ?? `${client.firstName ?? ""} ${client.lastName ?? ""}`}</strong>?</p>
+          <p className="text-sm text-muted-foreground">Esta acción no se puede deshacer.</p>
+
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="ghost" onClick={onClose} disabled={loading}>Cancelar</Button>
+            <Button onClick={handleDelete} disabled={loading} variant="destructive">{loading ? "Eliminando..." : "Eliminar"}</Button>
+          </div>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
-}
-
-/* Reutiliza los estilos del modal */
-const backdropStyle: React.CSSProperties = {
-  position: "fixed",
-  inset: 0,
-  background: "rgba(0,0,0,0.35)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  zIndex: 60,
-}
-
-const modalStyle: React.CSSProperties = {
-  width: 460,
-  maxWidth: "95%",
-  background: "var(--card-background, #fff)",
-  padding: 18,
-  borderRadius: 8,
-  boxShadow: "0 6px 24px rgba(0,0,0,0.2)",
 }

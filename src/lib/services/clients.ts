@@ -15,6 +15,8 @@ type ServerClient = {
 	last_name?: string;
 	email?: string;
 	phone?: string;
+	address?: string;
+	billing_address?: string;
 	balance?: string;
 	created_at?: string;
 	updated_at?: string;
@@ -31,6 +33,8 @@ export type CreateClientPayload = {
 	last_name?: string;
 	email?: string;
 	phone?: string;
+	address?: string;
+	billing_address?: string;
 	balance?: string;
 };
 
@@ -39,6 +43,8 @@ export type UpdateClientPayload = {
 	last_name?: string;
 	email?: string;
 	phone?: string;
+	address?: string;
+	billing_address?: string;
 	balance?: string;
 	is_active?: boolean;
 };
@@ -58,6 +64,8 @@ function mapServerClient(client: ServerClient): Client & { user?: number } {
 		// fallback a string vacío si backend no trae email
 		email: client.email ?? "",
 		phone: client.phone,
+		address: client.address,
+		billingAddress: client.billing_address,
 		balance:
 			client.balance !== undefined && client.balance !== null
 				? Number(client.balance)

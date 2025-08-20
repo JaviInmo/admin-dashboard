@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { createClient, type CreateClientPayload } from "@/lib/services/clients";
+import { useModalCache } from "@/hooks/use-modal-cache";
 
 type Props = {
   open: boolean;
@@ -13,15 +14,28 @@ type Props = {
   onCreated?: () => Promise<void> | void;
 };
 
+interface ClientFormData {
+  username: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  address: string;
+  billingAddress: string;
+}
+
 export default function CreateClientDialog({ open, onClose, onCreated }: Props) {
   const [username, setUsername] = React.useState<string>("");
   const [firstName, setFirstName] = React.useState<string>("");
   const [lastName, setLastName] = React.useState<string>("");
   const [email, setEmail] = React.useState<string>("");
   const [phone, setPhone] = React.useState<string>("");
+  const [address, setAddress] = React.useState<string>("");
+  const [billingAddress, setBillingAddress] = React.useState<string>("");
 
   const [loading, setLoading] = React.useState<boolean>(false);
   const mountedRef = React.useRef(true);
+  const { saveToCache, getFromCache, clearCache } = useModalCache<ClientFormData>();
 
   React.useEffect(() => {
     mountedRef.current = true;
@@ -30,9 +44,36 @@ export default function CreateClientDialog({ open, onClose, onCreated }: Props) 
     };
   }, []);
 
+  // Cargar datos del caché cuando se abre el modal
   React.useEffect(() => {
-    if (!open) resetForm();
-  }, [open]);
+    if (open) {
+      const cachedData = getFromCache('create-client');
+      if (cachedData) {
+        setUsername(cachedData.username);
+        setFirstName(cachedData.firstName);
+        setLastName(cachedData.lastName);
+        setEmail(cachedData.email);
+        setPhone(cachedData.phone);
+        setAddress(cachedData.address);
+        setBillingAddress(cachedData.billingAddress);
+      }
+    }
+  }, [open, getFromCache]);
+
+  // Guardar en caché cuando cambian los valores
+  React.useEffect(() => {
+    if (open && (username || firstName || lastName || email || phone || address || billingAddress)) {
+      saveToCache('create-client', {
+        username,
+        firstName,
+        lastName,
+        email,
+        phone,
+        address,
+        billingAddress
+      });
+    }
+  }, [username, firstName, lastName, email, phone, address, billingAddress, open, saveToCache]);
 
   function resetForm() {
     setUsername("");
@@ -40,6 +81,25 @@ export default function CreateClientDialog({ open, onClose, onCreated }: Props) 
     setLastName("");
     setEmail("");
     setPhone("");
+    setAddress("");
+    setBillingAddress("");
+    clearCache('create-client');
+  }
+
+  function handleClose() {
+    // Guardar datos antes de cerrar (para conservar cambios)
+    if (username || firstName || lastName || email || phone || address || billingAddress) {
+      saveToCache('create-client', {
+        username,
+        firstName,
+        lastName,
+        email,
+        phone,
+        address,
+        billingAddress
+      });
+    }
+    onClose();
   }
 
   async function handleSubmit(e?: React.FormEvent) {
@@ -72,6 +132,8 @@ export default function CreateClientDialog({ open, onClose, onCreated }: Props) 
         last_name: lastName.trim(),
         email: email.trim(),
         phone: phone.trim() !== "" ? phone.trim() : undefined,
+        address: address.trim() !== "" ? address.trim() : undefined,
+        billing_address: billingAddress.trim() !== "" ? billingAddress.trim() : undefined,
         balance: "0",
       };
 
@@ -84,6 +146,11 @@ export default function CreateClientDialog({ open, onClose, onCreated }: Props) 
 
       toast.success("Cliente creado");
       if (!mountedRef.current) return;
+      
+      // Limpiar caché después de crear exitosamente
+      clearCache('create-client');
+      resetForm();
+      
       if (onCreated) await onCreated();
       onClose();
     } catch (err: any) {
@@ -96,7 +163,7 @@ export default function CreateClientDialog({ open, onClose, onCreated }: Props) 
   }
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="w-full max-w-2xl">
         <DialogHeader>
           <DialogTitle>Crear Cliente</DialogTitle>
@@ -135,8 +202,22 @@ export default function CreateClientDialog({ open, onClose, onCreated }: Props) 
               </div>
             </div>
 
+            <div className="grid grid-cols-1 gap-2">
+              <div>
+                <label className="block text-sm">Dirección</label>
+                <Input name="address" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Dirección principal del cliente" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2">
+              <div>
+                <label className="block text-sm">Dirección de facturación</label>
+                <Input name="billingAddress" value={billingAddress} onChange={(e) => setBillingAddress(e.target.value)} placeholder="Dirección para envío de facturas" />
+              </div>
+            </div>
+
             <div className="flex justify-end gap-2 mt-3">
-              <Button variant="ghost" onClick={onClose} disabled={loading}>Cancelar</Button>
+              <Button variant="ghost" onClick={handleClose} disabled={loading}>Cancelar</Button>
               <Button type="submit" disabled={loading}>{loading ? "Creando..." : "Crear"}</Button>
             </div>
           </form>

@@ -27,6 +27,7 @@ type ServerProperty = {
 	owner: number;
 	owner_details?: ServerClient;
 	name?: string | null;
+	alias?: string | null;
 	address: string;
 	types_of_service?: number[];
 	monthly_rate?: string | null;
@@ -44,6 +45,7 @@ export type AppProperty = {
 	ownerId: number;
 	ownerDetails?: ServerClient;
 	name?: string;
+	alias?: string;
 	address: string;
 	typesOfService: number[];
 	// mantengo monthlyRate como string (según el esquema)
@@ -59,6 +61,7 @@ export type CreatePropertyPayload = {
 	owner?: number;
 	owner_details?: { user: number; phone?: string };
 	name?: string | null;
+	alias?: string | null;
 	address: string;
 	phone?: string | null;
 	types_of_service?: number[];
@@ -79,6 +82,7 @@ function mapServerProperty(p: ServerProperty): AppProperty {
 		ownerId: p.owner,
 		ownerDetails: p.owner_details,
 		name: p.name ?? undefined,
+		alias: p.alias ?? undefined,
 		address: p.address,
 		typesOfService: Array.isArray(p.types_of_service) ? p.types_of_service : [],
 		// mantenemos monthly_rate como string (no convertir a number)

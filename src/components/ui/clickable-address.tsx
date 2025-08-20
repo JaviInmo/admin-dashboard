@@ -17,7 +17,8 @@ export const ClickableAddress: React.FC<ClickableAddressProps> = ({
     return <span className={className}>-</span>;
   }
 
-  const handleCopyAddress = async () => {
+  const handleCopyAddress = async (e: React.MouseEvent) => {
+    e.stopPropagation(); // Evitar que se propague al texto
     try {
       await navigator.clipboard.writeText(address);
       toast.success('Dirección copiada al portapapeles');
@@ -27,19 +28,38 @@ export const ClickableAddress: React.FC<ClickableAddressProps> = ({
     }
   };
 
+  const handleOpenMaps = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Evitar que se propague a la fila de la tabla
+    const encodedAddress = encodeURIComponent(address);
+    const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
+    window.open(mapsUrl, '_blank');
+  };
+
   const containerStyle = maxWidth ? { maxWidth } : {};
 
   return (
-    <button
-      onClick={handleCopyAddress}
-      className={`inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline transition-colors cursor-pointer ${className}`}
-      title={`Copiar dirección: ${address}`}
+    <div
+      className={`inline-flex items-center gap-1 ${className}`}
       style={containerStyle}
-      aria-label={`Copiar dirección: ${address}`}
-      type="button"
     >
-      <Copy className="h-4 w-4 text-gray-600 flex-shrink-0" />
-      <span className="truncate">{address}</span>
-    </button>
+      <button
+        onClick={handleCopyAddress}
+        className="text-gray-600 hover:text-gray-800 transition-colors cursor-pointer p-1"
+        title={`Copiar dirección: ${address}`}
+        aria-label={`Copiar dirección: ${address}`}
+        type="button"
+      >
+        <Copy className="h-4 w-4 flex-shrink-0" />
+      </button>
+      <button
+        onClick={handleOpenMaps}
+        className="text-blue-600 hover:text-blue-800 hover:underline transition-colors cursor-pointer truncate"
+        title={`Abrir en Google Maps: ${address}`}
+        aria-label={`Abrir en Google Maps: ${address}`}
+        type="button"
+      >
+        <span className="truncate">{address}</span>
+      </button>
+    </div>
   );
 };

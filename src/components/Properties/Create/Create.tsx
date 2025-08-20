@@ -30,6 +30,7 @@ export default function CreatePropertyDialog({ open = true, onClose, onCreated, 
   const [showDropdown, setShowDropdown] = React.useState<boolean>(false);
 
   const [name, setName] = React.useState<string>("");
+  const [alias, setAlias] = React.useState<string>("");
   const [address, setAddress] = React.useState<string>("");
   const [types, setTypes] = React.useState<number[]>([]);
   const [monthlyRate, setMonthlyRate] = React.useState<string>("");
@@ -59,6 +60,7 @@ export default function CreatePropertyDialog({ open = true, onClose, onCreated, 
     setSearchResults([]);
     setShowDropdown(false);
     setName("");
+    setAlias("");
     setAddress("");
     setTypes([]);
     setMonthlyRate("");
@@ -230,6 +232,7 @@ export default function CreatePropertyDialog({ open = true, onClose, onCreated, 
       };
 
       if (name) payload.name = name;
+      if (alias) payload.alias = alias;
       if (Array.isArray(types) && types.length > 0) payload.types_of_service = types.map(n => Number(n));
       if (monthlyRate) payload.monthly_rate = monthlyRate;
       if (contractStartDate) payload.contract_start_date = contract_start_date_or_null(contractStartDate);
@@ -308,15 +311,22 @@ export default function CreatePropertyDialog({ open = true, onClose, onCreated, 
             </div>
           )}
 
-          {/* Name / Address */}
+          {/* Name / Alias / Address */}
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="block text-sm">Name</label>
-              <Input name="name" value={name} onChange={(e) => setName(e.target.value)} />
+              <label className="block text-sm">Nombre</label>
+              <Input name="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre de la propiedad" />
             </div>
             <div>
-              <label className="block text-sm">Address *</label>
-              <Input name="address" value={address} onChange={(e) => setAddress(e.target.value)} required />
+              <label className="block text-sm">Alias</label>
+              <Input name="alias" value={alias} onChange={(e) => setAlias(e.target.value)} placeholder="Alias o nombre alternativo" />
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 gap-2">
+            <div>
+              <label className="block text-sm">Dirección *</label>
+              <Input name="address" value={address} onChange={(e) => setAddress(e.target.value)} required placeholder="Dirección de la propiedad" />
             </div>
           </div>
 
@@ -353,16 +363,16 @@ export default function CreatePropertyDialog({ open = true, onClose, onCreated, 
 
           <div className="grid grid-cols-3 gap-2">
             <div>
-              <label className="block text-sm">Monthly Rate</label>
-              <Input value={monthlyRate} onChange={(e) => setMonthlyRate(e.target.value)} />
+              <label className="block text-sm">Tarifa Mensual</label>
+              <Input value={monthlyRate} onChange={(e) => setMonthlyRate(e.target.value)} placeholder="$0.00" />
             </div>
             <div>
-              <label className="block text-sm">Contract Start Date</label>
+              <label className="block text-sm">Fecha de Inicio del Contrato</label>
               <Input type="date" value={contractStartDate} onChange={(e) => setContractStartDate(e.target.value)} />
             </div>
             <div>
-              <label className="block text-sm">Total Hours</label>
-              <Input type="number" value={totalHours === "" ? "" : String(totalHours)} onChange={(e) => setTotalHours(e.target.value === "" ? "" : Number(e.target.value))} />
+              <label className="block text-sm">Horas Totales</label>
+              <Input type="number" value={totalHours === "" ? "" : String(totalHours)} onChange={(e) => setTotalHours(e.target.value === "" ? "" : Number(e.target.value))} placeholder="0" />
             </div>
           </div>
 

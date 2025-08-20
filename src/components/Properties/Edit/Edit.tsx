@@ -14,11 +14,12 @@ import { toast } from "sonner";
 
 type Props = {
   property: AppProperty;
+  open: boolean;
   onClose: () => void;
   onUpdated?: () => void | Promise<void>;
 };
 
-export default function EditPropertyDialog({ property, onClose, onUpdated }: Props) {
+export default function EditPropertyDialog({ property, open, onClose, onUpdated }: Props) {
   const asAny = property as any;
 
   const normalizeInitialTypes = (): number[] => {
@@ -52,6 +53,7 @@ export default function EditPropertyDialog({ property, onClose, onUpdated }: Pro
   const [showDropdown, setShowDropdown] = React.useState(false);
 
   const [name, setName] = React.useState<string>(() => String(pick("name") ?? ""));
+  const [alias, setAlias] = React.useState<string>(() => String(pick("alias") ?? ""));
   const [address, setAddress] = React.useState<string>(() => String(pick("address") ?? ""));
   const [types, setTypes] = React.useState<number[]>(normalizeInitialTypes());
   const [monthlyRate, setMonthlyRate] = React.useState<string>(() => {
@@ -227,6 +229,7 @@ export default function EditPropertyDialog({ property, onClose, onUpdated }: Pro
       }
 
       if (name !== undefined) payload.name = name || null;
+      if (alias !== undefined) payload.alias = alias || null;
       if (address !== undefined) payload.address = address;
       payload.types_of_service = Array.isArray(types) ? types : [];
       if (monthlyRate !== undefined) payload.monthly_rate = monthlyRate || null;
@@ -247,7 +250,7 @@ export default function EditPropertyDialog({ property, onClose, onUpdated }: Pro
   }
 
   return (
-    <Dialog open={true} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="w-full max-w-3xl max-h-[90vh] overflow-hidden">
         <DialogHeader>
           <DialogTitle>Editar Propiedad</DialogTitle>
@@ -307,15 +310,22 @@ export default function EditPropertyDialog({ property, onClose, onUpdated }: Pro
             <div />
           </div>
 
-          {/* ==== Name y Address ==== */}
+          {/* ==== Name, Alias y Address ==== */}
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="block text-sm">Name</label>
-              <Input name="name" placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
+              <label className="block text-sm">Nombre</label>
+              <Input name="name" placeholder="Nombre de la propiedad" value={name} onChange={(e) => setName(e.target.value)} />
             </div>
             <div>
-              <label className="block text-sm">Address</label>
-              <Input name="address" placeholder="Address" value={address} onChange={(e) => setAddress(e.target.value)} />
+              <label className="block text-sm">Alias</label>
+              <Input name="alias" placeholder="Alias o nombre alternativo" value={alias} onChange={(e) => setAlias(e.target.value)} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-2">
+            <div>
+              <label className="block text-sm">Dirección</label>
+              <Input name="address" placeholder="Dirección de la propiedad" value={address} onChange={(e) => setAddress(e.target.value)} />
             </div>
           </div>
 
@@ -350,9 +360,18 @@ export default function EditPropertyDialog({ property, onClose, onUpdated }: Pro
           </div>
 
           <div className="grid grid-cols-3 gap-2">
-            <Input placeholder="Monthly Rate" value={monthlyRate ?? ""} onChange={(e) => setMonthlyRate(e.target.value)} name="monthlyRate" />
-            <Input type="date" placeholder="Contract Start Date" value={contractStartDate ?? ""} onChange={(e) => setContractStartDate(e.target.value)} name="contractStartDate" />
-            <Input type="number" placeholder="Total Hours" value={totalHours === "" ? "" : String(totalHours)} onChange={(e) => setTotalHours(e.target.value === "" ? "" : Number(e.target.value))} name="totalHours" />
+            <div>
+              <label className="block text-sm">Tarifa Mensual</label>
+              <Input placeholder="$0.00" value={monthlyRate ?? ""} onChange={(e) => setMonthlyRate(e.target.value)} name="monthlyRate" />
+            </div>
+            <div>
+              <label className="block text-sm">Fecha de Inicio del Contrato</label>
+              <Input type="date" value={contractStartDate ?? ""} onChange={(e) => setContractStartDate(e.target.value)} name="contractStartDate" />
+            </div>
+            <div>
+              <label className="block text-sm">Horas Totales</label>
+              <Input type="number" placeholder="0" value={totalHours === "" ? "" : String(totalHours)} onChange={(e) => setTotalHours(e.target.value === "" ? "" : Number(e.target.value))} name="totalHours" />
+            </div>
           </div>
 
           {error && <p className="text-sm text-red-600">{error}</p>}

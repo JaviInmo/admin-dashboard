@@ -141,7 +141,7 @@ export default function PropertiesTable({
 		};
 	});
 
-	// Definir las columnas de la tabla - la columna de dirección (índice 2) será sacrificada
+	// Definir las columnas de la tabla - la columna de dirección (índice 3) será sacrificada
 	const columns: Column<any>[] = [
 		{
 			key: "ownerId",
@@ -156,6 +156,12 @@ export default function PropertiesTable({
 			),
 		},
 		{
+			key: "alias",
+			label: "Alias",
+			sortable: true,
+			render: (p) => <TruncatedText text={p.alias || "-"} maxLength={20} />,
+		},
+		{
 			key: "name",
 			label: "Nombre",
 			sortable: true,
@@ -163,7 +169,7 @@ export default function PropertiesTable({
 		},
 		{
 			key: "address",
-			label: "Dirección", // Esta columna (índice 2) se truncará
+			label: "Dirección", // Esta columna (índice 3) se truncará
 			sortable: true,
 			render: (p) => <ClickableAddress address={p.address || ""} />,
 		},
@@ -190,16 +196,10 @@ export default function PropertiesTable({
 			sortable: true,
 			render: (p) => p.totalHours ?? "-",
 		},
-		{
-			key: "contractStartDate",
-			label: "Fecha Inicio",
-			sortable: true,
-			render: (p) => p.contractStartDate ?? "-",
-		},
 	];
 
 	// Campos de búsqueda
-	const searchFields: (keyof AppProperty)[] = ["name", "address"];
+	const searchFields: (keyof AppProperty)[] = ["name", "alias", "address"];
 
 	// Acciones de fila
 	const renderActions = (property: AppProperty) => (
@@ -259,6 +259,7 @@ export default function PropertiesTable({
 			{editProperty && (
 				<EditPropertyDialog
 					property={editProperty}
+					open={!!editProperty}
 					onClose={() => setEditProperty(null)}
 					onUpdated={onRefresh}
 				/>
@@ -266,6 +267,7 @@ export default function PropertiesTable({
 			{deleteProperty && (
 				<DeletePropertyDialog
 					property={deleteProperty}
+					open={!!deleteProperty}
 					onClose={() => setDeleteProperty(null)}
 					onDeleted={onRefresh}
 				/>
