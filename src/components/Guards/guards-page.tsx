@@ -1,14 +1,32 @@
-// src/components/Guards/GuardsPage.tsx
 "use client";
 
-import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as React from "react";
 import { toast } from "sonner";
 import type { PaginatedResult } from "@/lib/pagination";
 import { GUARDS_KEY, listGuards } from "@/lib/services/guard";
 import type { SortOrder } from "@/lib/sort";
+import { generateSort } from "@/lib/sort";
 import GuardsTable from "./GuardsTable";
 import type { Guard } from "./types";
+
+/**
+ * Mapear campos frontend -> campos que acepta el API (DRF).
+ */
+function mapGuardSortField(field: keyof Guard): string {
+  switch (field) {
+    case "firstName":
+      return "user__first_name";
+    case "lastName":
+      return "user__last_name";
+    case "email":
+      return "user__email";
+    case "phone":
+      return "phone";
+    default:
+      return String(field);
+  }
+}
 
 const INITIAL_GUARD_DATA: PaginatedResult<Guard> = {
   items: [],
@@ -25,8 +43,6 @@ export default function GuardsPage() {
   const [search, setSearch] = React.useState<string>("");
   const [sortField, setSortField] = React.useState<keyof Guard>("firstName");
   const [sortOrder, setSortOrder] = React.useState<SortOrder>("asc");
-  
-  // Estado para mantener totalPages estable durante loading
   const [stableTotalPages, setStableTotalPages] = React.useState<number>(1);
 
   const handleSearch = React.useCallback((term: string) => {
@@ -34,50 +50,54 @@ export default function GuardsPage() {
     setSearch(term);
   }, []);
 
-  const { data, isFetching, error } = useQuery<PaginatedResult<Guard>, unknown>({
-    queryKey: [GUARDS_KEY, search, page, pageSize, sortField, sortOrder],
-    queryFn: () => listGuards(page, search, pageSize, sortField, sortOrder),
-    placeholderData: keepPreviousData,
+  // ordering en formato DRF (ej: "-user__first_name" | "user__first_name" | undefined)
+  const apiOrdering = React.useMemo(() => {
+    const mapped = mapGuardSortField(sortField);
+    return generateSort(mapped, sortOrder); // string | undefined
+  }, [sortField, sortOrder]);
+
+  // --> Aquí: tipamos explícitamente los genéricos para evitar los errores de TS
+  const {
+    data = INITIAL_GUARD_DATA,
+    isFetching,
+    error,
+  } = useQuery<PaginatedResult<Guard>, unknown, PaginatedResult<Guard>>({
+    queryKey: [GUARDS_KEY, search, page, pageSize, apiOrdering],
+    queryFn: () => listGuards(page, search, pageSize, apiOrdering),
     initialData: INITIAL_GUARD_DATA,
+    placeholderData: INITIAL_GUARD_DATA,
   });
 
-  // Actualizar totalPages solo cuando tenemos datos nuevos definitivos
+  // Mantener totalPages estable durante loading
   const totalPages = React.useMemo(() => {
     const newTotalPages = Math.max(1, Math.ceil((data?.count ?? 0) / pageSize));
-    
-    // Solo actualizar si:
-    // 1. No estamos cargando Y tenemos datos
-    // 2. O es la primera vez que tenemos datos (stableTotalPages === 1)
+
     if ((!isFetching && data?.count !== undefined) || stableTotalPages === 1) {
       setStableTotalPages(newTotalPages);
       return newTotalPages;
     }
-    
-    // Mientras cargamos, mantener el valor anterior
+
     return stableTotalPages;
   }, [data?.count, isFetching, stableTotalPages, pageSize]);
 
   const toggleSort = (field: keyof Guard) => {
     if (sortField === field) {
-      // Si es el mismo campo, cambiar orden
-      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
     } else {
-      // Si es un campo diferente, cambiar campo y empezar con asc
       setSortField(field);
       setSortOrder("asc");
     }
     setPage(1);
   };
 
-  // Mostrar errores en toast
   React.useEffect(() => {
     if (error) {
-      const errorMessage = typeof error === 'string' 
-        ? error 
-        : error instanceof Error 
-        ? error.message 
-        : 'Error al cargar guardias';
-      
+      const errorMessage =
+        typeof error === "string"
+          ? error
+          : error instanceof Error
+          ? error.message
+          : "Error al cargar guardias";
       toast.error(errorMessage);
     }
   }, [error]);
@@ -88,8 +108,8 @@ export default function GuardsPage() {
 
       <GuardsTable
         guards={data.items}
-        onSelectGuard={(idOrGuard: number | Guard) => {
-          void idOrGuard;
+        onSelectGuard={(id: number) => {
+          void id;
         }}
         onRefresh={() =>
           queryClient.invalidateQueries({

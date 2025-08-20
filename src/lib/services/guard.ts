@@ -2,7 +2,7 @@ import type { Guard } from "@/components/Guards/types";
 import { endpoints } from "@/lib/endpoints";
 import { api } from "@/lib/http";
 import { drfList, type PaginatedResult } from "@/lib/pagination";
-import { generateSort, type SortOrder } from "../sort";
+// eliminé generateSort / SortOrder porque ahora listGuards recibe ordering como string
 
 type ServerGuard = {
 	id: number;
@@ -40,12 +40,16 @@ function mapServerGuard(u: ServerGuard): Guard {
 	};
 }
 
+/**
+ * listGuards
+ * Ahora acepta `ordering?: string` (ej: "user__first_name" o "-user__first_name")
+ * Esto encaja con el API DRF que usa `?ordering=...`.
+ */
 export async function listGuards(
 	page?: number,
 	search?: string,
 	pageSize?: number,
-	sortField?: keyof Guard,
-	sortOrder?: SortOrder,
+	ordering?: string,
 ): Promise<PaginatedResult<Guard>> {
 	return drfList<ServerGuard, Guard>(
 		endpoints.guards,
@@ -56,7 +60,7 @@ export async function listGuards(
 				search && String(search).trim() !== ""
 					? String(search).trim()
 					: undefined,
-			ordering: generateSort(sortField, sortOrder),
+			ordering: ordering ?? undefined,
 		},
 		mapServerGuard,
 	);
@@ -130,7 +134,7 @@ export async function updateGuard(
 	if (payload.phone !== undefined) {
 		// permitir null explicito (si el caller quiere borrar), pero evitar ""
 		if (payload.phone === "") {
-			// si quieres que "" se interprete como borrar, cambia a null; por ahora lo omitimos
+			// omitimos cadena vacía
 		} else {
 			body.phone = payload.phone;
 		}

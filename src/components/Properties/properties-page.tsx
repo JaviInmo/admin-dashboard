@@ -1,106 +1,134 @@
 "use client";
 
-import {
-	keepPreviousData,
-	useQuery,
-	useQueryClient,
-} from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as React from "react";
 import type { PaginatedResult } from "@/lib/pagination";
 import {
-	type AppProperty,
-	listProperties,
-	PROPERTY_KEY,
+  type AppProperty,
+  listProperties,
+  PROPERTY_KEY,
 } from "@/lib/services/properties";
 import type { SortOrder } from "@/lib/sort";
 import PropertiesTable from "./properties-table";
+import { generateSort } from "@/lib/sort";
+import { toast } from "sonner";
 
 const INITIAL_PROPERTY_DATA: PaginatedResult<AppProperty> = {
-	items: [],
-	count: 0,
-	next: null,
-	previous: null,
+  items: [],
+  count: 0,
+  next: null,
+  previous: null,
 };
 
 const pageSize = 10;
 
+/** Mapea keys del frontend a los campos que entiende DRF */
+function mapPropertySortField(field?: keyof AppProperty | string): string | undefined {
+  switch (field) {
+    case "ownerId":
+      return "owner";
+    case "alias":
+      return "alias";
+    case "name":
+      return "name";
+    case "address":
+      return "address";
+    case "monthlyRate":
+      return "monthly_rate";
+    case "totalHours":
+      return "total_hours";
+    case "contractStartDate":
+      return "contract_start_date";
+    case "createdAt":
+      return "created_at";
+    default:
+      return typeof field === "string" ? field : undefined;
+  }
+}
+
 export default function PropertiesPage() {
-	const queryClient = useQueryClient();
+  const queryClient = useQueryClient();
 
-	const [page, setPage] = React.useState<number>(1);
-	const [search, setSearch] = React.useState<string>("");
-	const [sortField, setSortField] = React.useState<keyof AppProperty>("name");
-	const [sortOrder, setSortOrder] = React.useState<SortOrder>("asc");
-	
-	// Estado para mantener totalPages estable durante loading
-	const [stableTotalPages, setStableTotalPages] = React.useState<number>(1);
+  const [page, setPage] = React.useState<number>(1);
+  const [search, setSearch] = React.useState<string>("");
+  const [sortField, setSortField] = React.useState<keyof AppProperty>("name");
+  const [sortOrder, setSortOrder] = React.useState<SortOrder>("asc");
 
-	const { data, isFetching, error } = useQuery<
-		PaginatedResult<AppProperty>,
-		string
-	>({
-		queryKey: [PROPERTY_KEY, search, page, sortField, sortOrder],
-		queryFn: () => listProperties(page, search, pageSize, sortField, sortOrder),
-		placeholderData: keepPreviousData,
-		initialData: INITIAL_PROPERTY_DATA,
-	});
+  // Mantener totalPages estable durante loading
+  const [stableTotalPages, setStableTotalPages] = React.useState<number>(1);
 
-	// Actualizar totalPages solo cuando tenemos datos nuevos definitivos
-	const totalPages = React.useMemo(() => {
-		const newTotalPages = Math.max(1, Math.ceil((data?.count ?? 0) / pageSize));
-		
-		// Solo actualizar si:
-		// 1. No estamos cargando Y tenemos datos
-		// 2. O es la primera vez que tenemos datos (stableTotalPages === 1)
-		if ((!isFetching && data?.count !== undefined) || stableTotalPages === 1) {
-			setStableTotalPages(newTotalPages);
-			return newTotalPages;
-		}
-		
-		// Mientras cargamos, mantener el valor anterior
-		return stableTotalPages;
-	}, [data?.count, isFetching, stableTotalPages, pageSize]);
+  const apiOrdering = React.useMemo(() => {
+    const mapped = mapPropertySortField(sortField);
+    return generateSort(mapped, sortOrder); // string | undefined
+  }, [sortField, sortOrder]);
 
-	const toggleSort = (field: keyof AppProperty) => {
-		if (sortField === field) {
-			setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-		} else {
-			setSortField(field);
-			setSortOrder("asc");
-		}
-	};
+  const { data = INITIAL_PROPERTY_DATA, isFetching, error } =
+    useQuery<PaginatedResult<AppProperty>, unknown, PaginatedResult<AppProperty>>({
+      queryKey: [PROPERTY_KEY, search, page, pageSize, apiOrdering],
+      queryFn: () => listProperties(page, search, pageSize, apiOrdering),
+      initialData: INITIAL_PROPERTY_DATA,
+      placeholderData: (previousData) => previousData ?? INITIAL_PROPERTY_DATA,
+    });
 
-	const handleSearch = React.useCallback((term: string) => {
-		setSearch(term);
-		setPage(1); // Solo resetear página cuando realmente cambia la búsqueda
-	}, []);
+  // Actualizar totalPages solo cuando tenemos datos nuevos definitivos
+  const totalPages = React.useMemo(() => {
+    const newTotalPages = Math.max(1, Math.ceil((data?.count ?? 0) / pageSize));
 
-	return (
-		<div className="flex flex-1 flex-col gap-6 p-6">
-			<h2 className="text-2xl font-bold">Gestión de Propiedades</h2>
+    if ((!isFetching && data?.count !== undefined) || stableTotalPages === 1) {
+      setStableTotalPages(newTotalPages);
+      return newTotalPages;
+    }
 
-			{error && (
-				<div className="rounded-lg border bg-card p-4 text-red-600">
-					{String(error)}
-				</div>
-			)}
+    return stableTotalPages;
+  }, [data?.count, isFetching, stableTotalPages, pageSize]);
 
-			<PropertiesTable
-				properties={data?.items ?? []}
-				onRefresh={() =>
-					queryClient.invalidateQueries({ queryKey: [PROPERTY_KEY] })
-				}
-				serverSide={true}
-				currentPage={page}
-				totalPages={totalPages}
-				onPageChange={setPage}
-				pageSize={pageSize}
-				onSearch={handleSearch}
-				toggleSort={toggleSort}
-				sortField={sortField}
-				sortOrder={sortOrder}
-				isPageLoading={isFetching}
-			/>
-		</div>
-	);
+  const toggleSort = (field: keyof AppProperty) => {
+    if (sortField === field) {
+      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortField(field);
+      setSortOrder("asc");
+    }
+    setPage(1); // reset page al cambiar orden
+  };
+
+  const handleSearch = React.useCallback((term: string) => {
+    setSearch(term);
+    setPage(1); // reset page cuando cambia búsqueda
+  }, []);
+
+  React.useEffect(() => {
+    if (error) {
+      const errorMessage =
+        typeof error === "string"
+          ? error
+          : error instanceof Error
+          ? error.message
+          : "Error al cargar propiedades";
+      toast.error(errorMessage);
+    }
+  }, [error]);
+
+
+  return (
+    <div className="flex flex-1 flex-col gap-6 p-6">
+      <h2 className="text-2xl font-bold">Gestión de Propiedades</h2>
+
+
+      <PropertiesTable
+        properties={data?.items ?? []}
+        onRefresh={() => queryClient.invalidateQueries({ queryKey: [PROPERTY_KEY] })}
+        serverSide={true}
+        currentPage={page}
+        totalPages={totalPages}
+        onPageChange={setPage}
+        pageSize={pageSize}
+        onSearch={handleSearch}
+        toggleSort={toggleSort}
+        sortField={sortField}
+        sortOrder={sortOrder}
+        isPageLoading={isFetching}
+      />
+    </div>
+  );
 }

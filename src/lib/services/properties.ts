@@ -1,7 +1,7 @@
 import { endpoints } from "@/lib/endpoints";
 import { api } from "@/lib/http";
 import { drfList, type PaginatedResult } from "@/lib/pagination";
-import { generateSort, type SortOrder } from "../sort";
+/* import { generateSort, type SortOrder } from "../sort"; */
 
 /**
  * Tipado del cliente (owner_details) según el swagger que pegaste.
@@ -98,26 +98,22 @@ function mapServerProperty(p: ServerProperty): AppProperty {
 /* Listados / CRUD globales (/api/properties/)                                 */
 /* -------------------------------------------------------------------------- */
 export async function listProperties(
-	page?: number,
-	search?: string,
-	pageSize: number = 10,
-	sortField?: keyof AppProperty,
-	sortOrder?: SortOrder,
+  page?: number,
+  search?: string,
+  pageSize: number = 10,
+  ordering?: string, // ahora recibe ordering string (ej "owner" | "-name")
 ): Promise<PaginatedResult<AppProperty>> {
-	// endpoints.properties debe ser algo como 'api/properties/'
-	return drfList<ServerProperty, AppProperty>(
-		endpoints.properties,
-		{
-			page,
-			page_size: pageSize,
-			search:
-				search && String(search).trim() !== ""
-					? String(search).trim()
-					: undefined,
-			ordering: generateSort(sortField, sortOrder),
-		},
-		mapServerProperty,
-	);
+  return drfList<ServerProperty, AppProperty>(
+    endpoints.properties,
+    {
+      page,
+      page_size: pageSize,
+      search:
+        search && String(search).trim() !== "" ? String(search).trim() : undefined,
+      ordering: ordering ?? undefined,
+    },
+    mapServerProperty,
+  );
 }
 
 export async function getProperty(id: number): Promise<AppProperty> {

@@ -1,7 +1,6 @@
-// src/components/Clients/client-page.tsx
 "use client";
 
-import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as React from "react";
 import CreatePropertyDialog from "@/components/Properties/Create/Create";
 import { Button } from "@/components/ui/button";
@@ -16,6 +15,8 @@ import type { SortOrder } from "@/lib/sort";
 import ClientPropertiesTable from "./client-properties-table";
 import ClientsTable from "./clients-table";
 import type { Client } from "./types";
+import { generateSort } from "@/lib/sort"; // si no lo usás directo aquí, puedes quitarlo
+import { toast } from "sonner";
 
 const INITIAL_CLIENT_DATA: PaginatedResult<Client> = {
   items: [],
@@ -24,44 +25,75 @@ const INITIAL_CLIENT_DATA: PaginatedResult<Client> = {
   previous: null,
 };
 
+/**
+ * mapear campos frontend -> campos que acepta el API (DRF)
+ */
+function mapClientSortField(field?: keyof Client | string): string | undefined {
+  switch (field) {
+    // nombre completo (cliente) lo mapeo a username/first_name según prefieras
+    case "clientName":
+      return "user__username";
+    case "firstName":
+      return "user__first_name";
+    case "lastName":
+      return "user__last_name";
+    case "username":
+      return "user__username";
+    case "email":
+      return "user__email";
+    case "phone":
+      return "phone";
+    case "balance":
+      return "balance";
+    case "created_at":
+      return "created_at";
+    default:
+      return typeof field === "string" ? field : undefined;
+  }
+}
+
 export default function ClientsPage() {
   const queryClient = useQueryClient();
 
   const [page, setPage] = React.useState<number>(1);
-  const [pageSize, setPageSize] = React.useState<number>(10); // ahora es state (igual que guards)
+  const [pageSize, setPageSize] = React.useState<number>(10);
   const [search, setSearch] = React.useState<string>("");
   const [sortField, setSortField] = React.useState<keyof Client>("firstName");
   const [sortOrder, setSortOrder] = React.useState<SortOrder>("asc");
 
-  // Estado para mantener totalPages estable durante loading
   const [stableTotalPages, setStableTotalPages] = React.useState<number>(1);
 
-  // handler estilo GuardsPage: reset page a 1 y setSearch
   const handleSearch = React.useCallback((term: string) => {
     setPage(1);
     setSearch(term);
   }, []);
 
-  const { data, isFetching, error } = useQuery<PaginatedResult<Client>, string>({
-    queryKey: [CLIENT_KEY, search, page, pageSize, sortField, sortOrder],
-    queryFn: () => listClients(page, search, pageSize, sortField, sortOrder),
-    placeholderData: keepPreviousData,
-    initialData: INITIAL_CLIENT_DATA,
-  });
+  // apiOrdering en formato DRF (ej: "-user__first_name" | "user__first_name" | undefined)
+  const apiOrdering = React.useMemo(() => {
+    const mapped = mapClientSortField(sortField);
+    return generateSort(mapped, sortOrder); // string | undefined
+  }, [sortField, sortOrder]);
 
-  // Actualizar totalPages solo cuando tenemos datos nuevos definitivos
+const {
+  data = INITIAL_CLIENT_DATA,
+  isFetching,
+  error,
+} = useQuery<PaginatedResult<Client>, unknown, PaginatedResult<Client>>({
+  queryKey: [CLIENT_KEY, search, page, pageSize, apiOrdering],
+  queryFn: () => listClients(page, search, pageSize, apiOrdering),
+  initialData: INITIAL_CLIENT_DATA,
+  placeholderData: (previousData) => previousData ?? INITIAL_CLIENT_DATA,
+});
+
+
   const totalPages = React.useMemo(() => {
     const newTotalPages = Math.max(1, Math.ceil((data?.count ?? 0) / pageSize));
-    
-    // Solo actualizar si:
-    // 1. No estamos cargando Y tenemos datos
-    // 2. O es la primera vez que tenemos datos (stableTotalPages === 1)
+
     if ((!isFetching && data?.count !== undefined) || stableTotalPages === 1) {
       setStableTotalPages(newTotalPages);
       return newTotalPages;
     }
-    
-    // Mientras cargamos, mantener el valor anterior
+
     return stableTotalPages;
   }, [data?.count, isFetching, stableTotalPages, pageSize]);
 
@@ -69,19 +101,17 @@ export default function ClientsPage() {
     null
   );
 
-  // toggleSort replicando exactamente la lógica de GuardsPage
+  // toggleSort: igual que GuardsPage, y resetea page a 1
   const toggleSort = (field: keyof Client) => {
     if (sortField === field) {
-      // Si es el mismo campo, cambiar orden
-      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
     } else {
-      // Si es un campo diferente, cambiar campo y empezar con asc
       setSortField(field);
       setSortOrder("asc");
     }
+    setPage(1);
   };
 
-  // helper para refrescar propiedades del cliente actual (lo paso al panel)
   const refreshClientProperties = React.useCallback(async () => {
     if (!selectedClientId) return;
     try {
@@ -91,21 +121,27 @@ export default function ClientsPage() {
     } catch {}
   }, [queryClient, selectedClientId]);
 
+  React.useEffect(() => {
+    if (error) {
+      const errorMessage =
+        typeof error === "string"
+          ? error
+          : error instanceof Error
+          ? error.message
+          : "Error al cargar clientes";
+      toast.error(errorMessage);
+    }
+  }, [error]);
+
+
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
       <h2 className="text-2xl font-bold">Gestión de Clientes</h2>
 
-      {error && (
-        <div className="rounded-lg border bg-card p-4 text-red-600">
-          {(error as any)?.message || String(error)}
-        </div>
-      )}
-
-      {/* ClientsTable render */}
+     
       <ClientsTable
         clients={data?.items ?? []}
         onSelectClient={(id) => setSelectedClientId(id)}
-        // invalidamos con predicate como en GuardsPage para cubrir todas las variantes
         onRefresh={() =>
           queryClient.invalidateQueries({
             predicate: (q) =>
@@ -128,7 +164,6 @@ export default function ClientsPage() {
         isPageLoading={isFetching}
       />
 
-      {/* PROPERTIES: always below the table */}
       <div>
         <ClientPropertiesPanel
           selectedClientId={selectedClientId}
@@ -140,7 +175,7 @@ export default function ClientsPage() {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Panel que obtiene label y propiedades y renderiza ClientPropertiesTable    */
+/*  ClientPropertiesPanel (sin cambios funcionales)                           */
 /* -------------------------------------------------------------------------- */
 function ClientPropertiesPanel({
   selectedClientId,
@@ -153,7 +188,6 @@ function ClientPropertiesPanel({
 
   const [openCreate, setOpenCreate] = React.useState(false);
 
-  // fetch client (for label)
   const {
     data: clientData,
     isLoading: clientLoading,
@@ -164,7 +198,6 @@ function ClientPropertiesPanel({
     enabled: selectedClientId != null,
   });
 
-  // fetch properties
   const {
     data: properties,
     isLoading: propsLoading,
