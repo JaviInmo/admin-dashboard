@@ -24,6 +24,7 @@ export interface GuardsTableProps {
   pageSize?: number;
   onSearch?: (term: string) => void;
   onPageSizeChange?: (size: number) => void;
+  isPageLoading?: boolean;
 
   sortField: keyof Guard;
   sortOrder: SortOrder;
@@ -41,6 +42,7 @@ export default function GuardsTable({
   pageSize = 5,
   onSearch,
   onPageSizeChange,
+  isPageLoading = false,
   sortField,
   sortOrder,
   toggleSort,
@@ -146,6 +148,7 @@ export default function GuardsTable({
         sortOrder={sortOrder}
         toggleSort={toggleSort}
         actions={renderActions}
+        isPageLoading={isPageLoading}
       />
 
       <CreateGuardDialog

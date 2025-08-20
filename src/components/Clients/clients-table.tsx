@@ -25,6 +25,7 @@ export interface ClientsTableProps {
 	onPageChange?: (page: number) => void;
 	pageSize?: number;
 	onSearch?: (term: string) => void;
+	isPageLoading?: boolean;
 
 	sortField: keyof Client;
 	sortOrder: SortOrder;
@@ -45,6 +46,7 @@ export default function ClientsTable({
 	onPageChange,
 	pageSize = 5,
 	onSearch,
+	isPageLoading = false,
 	hideBalance = true,
 	onPageSizeChange,
 	sortField,
@@ -176,6 +178,7 @@ export default function ClientsTable({
 				sortOrder={sortOrder}
 				toggleSort={toggleSort as (key: keyof (AppClient & { clientName: string })) => void}
 				actions={renderActions}
+				isPageLoading={isPageLoading}
 			/>
 
 			<CreateClientDialog

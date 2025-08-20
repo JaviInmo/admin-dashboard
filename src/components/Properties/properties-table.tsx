@@ -61,6 +61,9 @@ export interface PropertiesTableProps {
 	sortField: keyof AppProperty;
 	sortOrder: SortOrder;
 	toggleSort: (key: keyof AppProperty) => void;
+	
+	// Loading state para paginación
+	isPageLoading?: boolean;
 }
 
 export default function PropertiesTable({
@@ -77,6 +80,7 @@ export default function PropertiesTable({
 	sortField,
 	sortOrder,
 	toggleSort,
+	isPageLoading = false,
 }: PropertiesTableProps) {
 	const [createOpen, setCreateOpen] = React.useState(false);
 	const [editProperty, setEditProperty] = React.useState<AppProperty | null>(null);
@@ -243,6 +247,7 @@ export default function PropertiesTable({
 				totalPages={totalPages}
 				onPageChange={onPageChange}
 				pageSize={pageSize}
+				isPageLoading={isPageLoading}
 				onSearch={onSearch}
 				searchFields={searchFields}
 				sortField={sortField as any}

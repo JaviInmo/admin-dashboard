@@ -10,7 +10,6 @@ import type { PaginatedResult } from "@/lib/pagination";
 import {
 	type AppProperty,
 	listProperties,
-	// getProperty, // Comentado temporalmente porque no se usa actualmente
 	PROPERTY_KEY,
 } from "@/lib/services/properties";
 import type { SortOrder } from "@/lib/sort";
@@ -32,8 +31,11 @@ export default function PropertiesPage() {
 	const [search, setSearch] = React.useState<string>("");
 	const [sortField, setSortField] = React.useState<keyof AppProperty>("name");
 	const [sortOrder, setSortOrder] = React.useState<SortOrder>("asc");
+	
+	// Estado para mantener totalPages estable durante loading
+	const [stableTotalPages, setStableTotalPages] = React.useState<number>(1);
 
-	const { data, isPending, error } = useQuery<
+	const { data, isFetching, error } = useQuery<
 		PaginatedResult<AppProperty>,
 		string
 	>({
@@ -43,18 +45,35 @@ export default function PropertiesPage() {
 		initialData: INITIAL_PROPERTY_DATA,
 	});
 
-	const totalPages = Math.max(1, Math.ceil((data?.count ?? 0) / pageSize));
+	// Actualizar totalPages solo cuando tenemos datos nuevos definitivos
+	const totalPages = React.useMemo(() => {
+		const newTotalPages = Math.max(1, Math.ceil((data?.count ?? 0) / pageSize));
+		
+		// Solo actualizar si:
+		// 1. No estamos cargando Y tenemos datos
+		// 2. O es la primera vez que tenemos datos (stableTotalPages === 1)
+		if ((!isFetching && data?.count !== undefined) || stableTotalPages === 1) {
+			setStableTotalPages(newTotalPages);
+			return newTotalPages;
+		}
+		
+		// Mientras cargamos, mantener el valor anterior
+		return stableTotalPages;
+	}, [data?.count, isFetching, stableTotalPages, pageSize]);
 
 	const toggleSort = (field: keyof AppProperty) => {
 		if (sortField === field) {
-			// Si es el mismo campo, cambiar orden
 			setSortOrder(sortOrder === "asc" ? "desc" : "asc");
 		} else {
-			// Si es un campo diferente, cambiar campo y empezar con asc
 			setSortField(field);
 			setSortOrder("asc");
 		}
 	};
+
+	const handleSearch = React.useCallback((term: string) => {
+		setSearch(term);
+		setPage(1); // Solo resetear página cuando realmente cambia la búsqueda
+	}, []);
 
 	return (
 		<div className="flex flex-1 flex-col gap-6 p-6">
@@ -66,12 +85,6 @@ export default function PropertiesPage() {
 				</div>
 			)}
 
-			{isPending && (
-				<div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
-					<p>Cargando propiedades...</p>
-				</div>
-			)}
-
 			<PropertiesTable
 				properties={data?.items ?? []}
 				onRefresh={() =>
@@ -80,12 +93,13 @@ export default function PropertiesPage() {
 				serverSide={true}
 				currentPage={page}
 				totalPages={totalPages}
-				onPageChange={(p) => setPage(p)}
+				onPageChange={setPage}
 				pageSize={pageSize}
-				onSearch={(term) => setSearch(term)}
+				onSearch={handleSearch}
 				toggleSort={toggleSort}
 				sortField={sortField}
 				sortOrder={sortOrder}
+				isPageLoading={isFetching}
 			/>
 		</div>
 	);

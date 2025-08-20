@@ -26,6 +26,9 @@ interface ReusablePaginationProps {
   size?: "sm" | "default" | "lg";
   /** Variant de los botones */
   variant?: "default" | "outline" | "ghost";
+  /** Valores de display para mantener estabilidad durante la carga */
+  displayCurrentPage?: number;
+  displayTotalPages?: number;
 }
 
 export function ReusablePagination({
@@ -38,12 +41,19 @@ export function ReusablePagination({
   pageInfoText = (current, total) => `${current} de ${total}`,
   size = "sm",
   variant = "outline",
+  displayCurrentPage,
+  displayTotalPages,
 }: ReusablePaginationProps) {
   // Estado para el campo de búsqueda de páginas
   const [pageInput, setPageInput] = useState("");
-  // Validar props
-  const validCurrentPage = Math.max(1, Math.min(currentPage, totalPages));
-  const validTotalPages = Math.max(1, totalPages);
+  
+  // Usar valores de display si están disponibles, sino usar los valores normales
+  const effectiveCurrentPage = displayCurrentPage ?? currentPage;
+  const effectiveTotalPages = displayTotalPages ?? totalPages;
+  
+  // Validar props usando los valores efectivos
+  const validCurrentPage = Math.max(1, Math.min(effectiveCurrentPage, effectiveTotalPages));
+  const validTotalPages = Math.max(1, effectiveTotalPages);
 
   // Calcular páginas visibles usando la función existente
   const getVisiblePages = () => {
@@ -71,29 +81,24 @@ export function ReusablePagination({
   const goToPrevious = () => goToPage(validCurrentPage - 1);
   const goToNext = () => goToPage(validCurrentPage + 1);
 
-  // Manejar búsqueda de páginas
+  // Manejar búsqueda de páginas con Enter (para números fuera del rango)
   const handlePageInputSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       let inputPage = parseInt(pageInput);
       
       if (!isNaN(inputPage)) {
-        // Validar y corregir el rango
+        // Validar y corregir el rango si está fuera
         if (inputPage < 1) {
           inputPage = 1;
         } else if (inputPage > validTotalPages) {
           inputPage = validTotalPages;
         }
         
-        // Mostrar el número corregido en el input brevemente antes de limpiar
-        setPageInput(inputPage.toString());
-        
         // Navegar a la página (corregida si era necesario)
         goToPage(inputPage);
         
-        // Limpiar el input después de un breve delay
-        setTimeout(() => {
-          setPageInput("");
-        }, 500);
+        // Limpiar el input
+        setPageInput("");
       }
     }
   };
@@ -103,7 +108,34 @@ export function ReusablePagination({
     // Solo permitir números (incluyendo string vacío para poder borrar)
     if (value === "" || /^\d+$/.test(value)) {
       setPageInput(value);
+      
+      // Si el valor es un número válido, validar y ajustar si está fuera del rango
+      if (value !== "") {
+        let inputPage = parseInt(value);
+        if (!isNaN(inputPage)) {
+          // Aplicar validación de mínimo y máximo
+          if (inputPage < 1) {
+            inputPage = 1;
+          } else if (inputPage > validTotalPages) {
+            inputPage = validTotalPages;
+          }
+          
+          // Cambiar a la página validada
+          goToPage(inputPage);
+          
+          // Actualizar el input con el valor corregido si fue ajustado
+          if (inputPage !== parseInt(value)) {
+            setPageInput(inputPage.toString());
+          }
+        }
+      }
     }
+  };
+
+  // Manejar cuando el usuario pierde el foco del input
+  const handlePageInputBlur = () => {
+    // Limpiar el input cuando pierde el foco
+    setPageInput("");
   };
 
   // Si solo hay una página, no mostrar paginación
@@ -120,6 +152,7 @@ export function ReusablePagination({
           value={pageInput}
           onChange={handlePageInputChange}
           onKeyDown={handlePageInputSubmit}
+          onBlur={handlePageInputBlur}
           placeholder="Ir a..."
           className="w-20 h-8 text-center text-sm"
           aria-label="Ir a página específica"

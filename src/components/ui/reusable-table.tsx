@@ -45,6 +45,7 @@ export interface ReusableTableProps<T> {
   onPageChange?: (page: number) => void;
   pageSize?: number;
   onPageSizeChange?: (size: number) => void;
+  isPageLoading?: boolean; // Para mantener paginación estable
   
   // Búsqueda
   onSearch?: (term: string) => void;
@@ -80,6 +81,7 @@ export function ReusableTable<T extends Record<string, any>>({
   onPageChange,
   pageSize = 5,
   onPageSizeChange,
+  isPageLoading = false,
   onSearch,
   searchFields = [],
   sortField,
@@ -95,6 +97,24 @@ export function ReusableTable<T extends Record<string, any>>({
   const [highlightSearch, setHighlightSearch] = React.useState(true);
   const searchRef = React.useRef<HTMLInputElement | null>(null);
   const tableContainerRef = React.useRef<HTMLDivElement>(null);
+
+  // Mantener valores estables durante loading
+  const [stableCurrentPage, setStableCurrentPage] = React.useState<number>(currentPage);
+  const [stableTotalPages, setStableTotalPages] = React.useState<number>(totalPages);
+
+  // Actualizar valores estables siempre que los valores cambien y NO estemos cargando
+  // Esto asegura que capturemos los valores finales una vez que la carga termine
+  React.useEffect(() => {
+    if (!isPageLoading) {
+      setStableCurrentPage(currentPage);
+      setStableTotalPages(totalPages);
+    }
+  }, [currentPage, totalPages, isPageLoading]);
+
+  // Durante la carga, mantener los valores estables anteriores
+  // Cuando no esté cargando, usar los valores actuales
+  const displayCurrentPage = isPageLoading ? stableCurrentPage : currentPage;
+  const displayTotalPages = isPageLoading ? stableTotalPages : totalPages;
 
   const itemsPerPage = pageSize ?? 5;
 
@@ -165,8 +185,20 @@ export function ReusableTable<T extends Record<string, any>>({
   const localTotalPages = Math.max(1, Math.ceil(localFiltered.length / itemsPerPage));
   const effectiveTotalPages = serverSide ? Math.max(1, totalPages ?? 1) : localTotalPages;
   const effectivePage = serverSide ? Math.max(1, Math.min(currentPage, effectiveTotalPages)) : page;
+  
+  // Para la paginación visual, usar valores estables si estamos cargando
+  const displayEffectivePage = serverSide ? Math.max(1, Math.min(displayCurrentPage, displayTotalPages)) : page;
+  const displayEffectiveTotalPages = serverSide ? displayTotalPages : localTotalPages;
+  
   const startIndex = (effectivePage - 1) * itemsPerPage;
   const paginatedData = serverSide ? effectiveList : effectiveList.slice(startIndex, startIndex + itemsPerPage);
+
+  // Crear filas vacías si no hay suficientes datos para mantener la altura consistente
+  const emptyRowsNeeded = Math.max(0, itemsPerPage - paginatedData.length);
+  const emptyRows = Array.from({ length: emptyRowsNeeded }, (_, index) => ({
+    id: `empty-${index}`,
+    isEmpty: true,
+  }));
 
   // Reset página local cuando cambia búsqueda
   React.useEffect(() => {
@@ -182,9 +214,11 @@ export function ReusableTable<T extends Record<string, any>>({
       clearTimeout(searchTimerRef.current);
       searchTimerRef.current = null;
     }
+    
     searchTimerRef.current = setTimeout(() => {
       onSearch(search);
     }, 350);
+    
     return () => {
       if (searchTimerRef.current) {
         clearTimeout(searchTimerRef.current);
@@ -195,8 +229,11 @@ export function ReusableTable<T extends Record<string, any>>({
 
   const goToPage = (p: number) => {
     const newP = Math.max(1, Math.min(effectiveTotalPages, p));
-    if (serverSide) onPageChange?.(newP);
-    else setPage(newP);
+    if (serverSide) {
+      onPageChange?.(newP);
+    } else {
+      setPage(newP);
+    }
   };
 
   const renderSortIcon = (field: keyof T) => {
@@ -300,8 +337,10 @@ export function ReusableTable<T extends Record<string, any>>({
               scrollbarColor: 'hsl(var(--border)) transparent'
             }}
           >
+            {/* Siempre mostrar tabla, usar filas vacías para mantener altura */}
             <table className="w-full" style={{ tableLayout: 'fixed' }}>
               <tbody>
+                {/* Filas con datos */}
                 {paginatedData.map((item, rowIdx) => (
                   <tr
                     key={String(getItemId(item))}
@@ -346,6 +385,42 @@ export function ReusableTable<T extends Record<string, any>>({
                     )}
                   </tr>
                 ))}
+                
+                {/* Filas vacías para mantener altura consistente */}
+                {emptyRows.map((emptyRow, emptyIdx) => (
+                  <tr
+                    key={emptyRow.id}
+                    className={`border-b border-border/50 ${
+                      (paginatedData.length + emptyIdx) % 2 === 0 ? "bg-transparent" : "bg-muted/10"
+                    }`}
+                    style={{ height: "49px" }} // Altura consistente con filas normales
+                  >
+                    {columns.map((column, colIndex) => {
+                      const isHidden = columnStrategy.hiddenColumns.includes(colIndex);
+                      if (isHidden) return null;
+                      
+                      return (
+                        <td 
+                          key={String(column.key)} 
+                          className="px-4 py-3 border-r border-border/20 last:border-r-0"
+                          style={getColumnStyle(column, colIndex)}
+                        >
+                          <div className="truncate">
+                            {/* Celda vacía - mantiene espacio */}
+                          </div>
+                        </td>
+                      );
+                    })}
+                    {actions && (
+                      <td 
+                        className="text-center px-4 py-3"
+                        style={{ width: '10%', minWidth: '80px', maxWidth: '120px' }}
+                      >
+                        {/* Acciones vacías */}
+                      </td>
+                    )}
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
@@ -355,12 +430,14 @@ export function ReusableTable<T extends Record<string, any>>({
       {/* Pagination */}
       <div className="flex justify-center">
         <ReusablePagination
-          currentPage={effectivePage}
-          totalPages={effectiveTotalPages}
+          currentPage={displayEffectivePage}
+          totalPages={displayEffectiveTotalPages}
           onPageChange={goToPage}
           showFirstLast={true}
           showPageInfo={true}
           pageInfoText={(current, total) => `Página ${current} de ${total}`}
+          displayCurrentPage={displayCurrentPage}
+          displayTotalPages={displayTotalPages}
         />
       </div>
     </div>

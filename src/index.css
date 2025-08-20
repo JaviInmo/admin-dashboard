@@ -162,3 +162,61 @@
     scroll-behavior: smooth;
   }
 }
+
+/* Security Shield Loader Animations */
+@layer components {
+  .security-shield-loader {
+    @apply relative;
+  }
+
+  @keyframes drawPath {
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes glowPulse {
+    0%, 100% {
+      opacity: 0.3;
+    }
+    50% {
+      opacity: 0.8;
+    }
+  }
+
+  @keyframes securityScan {
+    0%, 100% {
+      transform: rotate(0deg);
+    }
+    50% {
+      transform: rotate(5deg);
+    }
+  }
+
+  @keyframes tableLoadingShimmer {
+    0% {
+      opacity: 0.6;
+      transform: translateX(-100%);
+    }
+    50% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0.6;
+      transform: translateX(100%);
+    }
+  }
+
+  .loading-shimmer {
+    animation: tableLoadingShimmer 1.5s ease-in-out infinite;
+  }
+}

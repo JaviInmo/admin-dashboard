@@ -1,7 +1,7 @@
 // src/components/Clients/client-page.tsx
 "use client";
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import * as React from "react";
 import CreatePropertyDialog from "@/components/Properties/Create/Create";
 import { Button } from "@/components/ui/button";
@@ -33,24 +33,37 @@ export default function ClientsPage() {
   const [sortField, setSortField] = React.useState<keyof Client>("firstName");
   const [sortOrder, setSortOrder] = React.useState<SortOrder>("asc");
 
+  // Estado para mantener totalPages estable durante loading
+  const [stableTotalPages, setStableTotalPages] = React.useState<number>(1);
+
   // handler estilo GuardsPage: reset page a 1 y setSearch
   const handleSearch = React.useCallback((term: string) => {
     setPage(1);
     setSearch(term);
   }, []);
 
-  const query = useQuery<PaginatedResult<Client>, string>({
+  const { data, isFetching, error } = useQuery<PaginatedResult<Client>, string>({
     queryKey: [CLIENT_KEY, search, page, pageSize, sortField, sortOrder],
     queryFn: () => listClients(page, search, pageSize, sortField, sortOrder),
+    placeholderData: keepPreviousData,
+    initialData: INITIAL_CLIENT_DATA,
   });
 
-  // garantizar que `data` siempre sea del tipo PaginatedResult<Client>
-  const data = query.data ?? INITIAL_CLIENT_DATA;
-  const isLoading = query.isLoading;
-  const error = query.error ?? null;
-
-  // Backend puede devolver count; aseguramos totalPages con pageSize del state
-  const totalPages = Math.max(1, Math.ceil((data.count ?? 0) / pageSize));
+  // Actualizar totalPages solo cuando tenemos datos nuevos definitivos
+  const totalPages = React.useMemo(() => {
+    const newTotalPages = Math.max(1, Math.ceil((data?.count ?? 0) / pageSize));
+    
+    // Solo actualizar si:
+    // 1. No estamos cargando Y tenemos datos
+    // 2. O es la primera vez que tenemos datos (stableTotalPages === 1)
+    if ((!isFetching && data?.count !== undefined) || stableTotalPages === 1) {
+      setStableTotalPages(newTotalPages);
+      return newTotalPages;
+    }
+    
+    // Mientras cargamos, mantener el valor anterior
+    return stableTotalPages;
+  }, [data?.count, isFetching, stableTotalPages, pageSize]);
 
   const [selectedClientId, setSelectedClientId] = React.useState<number | null>(
     null
@@ -84,13 +97,7 @@ export default function ClientsPage() {
 
       {error && (
         <div className="rounded-lg border bg-card p-4 text-red-600">
-          {String(error)}
-        </div>
-      )}
-
-      {isLoading && (
-        <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
-          <p>Cargando clientes...</p>
+          {(error as any)?.message || String(error)}
         </div>
       )}
 
@@ -118,6 +125,7 @@ export default function ClientsPage() {
         toggleSort={toggleSort}
         sortField={sortField}
         sortOrder={sortOrder}
+        isPageLoading={isFetching}
       />
 
       {/* PROPERTIES: always below the table */}

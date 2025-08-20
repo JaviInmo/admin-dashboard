@@ -1,8 +1,9 @@
 // src/components/Guards/GuardsPage.tsx
 "use client";
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import * as React from "react";
+import { toast } from "sonner";
 import type { PaginatedResult } from "@/lib/pagination";
 import { GUARDS_KEY, listGuards } from "@/lib/services/guard";
 import type { SortOrder } from "@/lib/sort";
@@ -24,27 +25,37 @@ export default function GuardsPage() {
   const [search, setSearch] = React.useState<string>("");
   const [sortField, setSortField] = React.useState<keyof Guard>("firstName");
   const [sortOrder, setSortOrder] = React.useState<SortOrder>("asc");
+  
+  // Estado para mantener totalPages estable durante loading
+  const [stableTotalPages, setStableTotalPages] = React.useState<number>(1);
 
   const handleSearch = React.useCallback((term: string) => {
     setPage(1);
     setSearch(term);
   }, []);
 
-  const query = useQuery<PaginatedResult<Guard>, unknown>({
+  const { data, isFetching, error } = useQuery<PaginatedResult<Guard>, unknown>({
     queryKey: [GUARDS_KEY, search, page, pageSize, sortField, sortOrder],
     queryFn: () => listGuards(page, search, pageSize, sortField, sortOrder),
-    // placeholderData da una "forma" mientras carga; evita accesos a undefined
-    placeholderData: INITIAL_GUARD_DATA,
-    // <-- no incluyo `keepPreviousData` para evitar las sobrecargas que te daban error TS.
-    // Si querés keepPreviousData, te muestro abajo cómo añadirlo correctamente.
+    placeholderData: keepPreviousData,
+    initialData: INITIAL_GUARD_DATA,
   });
 
-  // Garantizar a TS que `data` tiene la forma paginada
-  const data = (query.data ?? INITIAL_GUARD_DATA) as PaginatedResult<Guard>;
-  const isLoading = query.isLoading;
-  const error = query.error ?? null;
-
-  const totalPages = Math.max(1, Math.ceil((data.count ?? 0) / pageSize));
+  // Actualizar totalPages solo cuando tenemos datos nuevos definitivos
+  const totalPages = React.useMemo(() => {
+    const newTotalPages = Math.max(1, Math.ceil((data?.count ?? 0) / pageSize));
+    
+    // Solo actualizar si:
+    // 1. No estamos cargando Y tenemos datos
+    // 2. O es la primera vez que tenemos datos (stableTotalPages === 1)
+    if ((!isFetching && data?.count !== undefined) || stableTotalPages === 1) {
+      setStableTotalPages(newTotalPages);
+      return newTotalPages;
+    }
+    
+    // Mientras cargamos, mantener el valor anterior
+    return stableTotalPages;
+  }, [data?.count, isFetching, stableTotalPages, pageSize]);
 
   const toggleSort = (field: keyof Guard) => {
     if (sortField === field) {
@@ -58,21 +69,22 @@ export default function GuardsPage() {
     setPage(1);
   };
 
+  // Mostrar errores en toast
+  React.useEffect(() => {
+    if (error) {
+      const errorMessage = typeof error === 'string' 
+        ? error 
+        : error instanceof Error 
+        ? error.message 
+        : 'Error al cargar guardias';
+      
+      toast.error(errorMessage);
+    }
+  }, [error]);
+
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
       <h2 className="text-2xl font-bold">Gestión de Guardias</h2>
-
-      {error && (
-        <div className="rounded-lg border bg-card p-4 text-red-600">
-          {String(error)}
-        </div>
-      )}
-
-      {isLoading && (
-        <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
-          <p>Cargando guardias...</p>
-        </div>
-      )}
 
       <GuardsTable
         guards={data.items}
@@ -98,6 +110,7 @@ export default function GuardsPage() {
         toggleSort={toggleSort}
         sortField={sortField}
         sortOrder={sortOrder}
+        isPageLoading={isFetching}
       />
     </div>
   );
