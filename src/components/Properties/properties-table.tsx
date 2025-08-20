@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/tooltip";
 import type { AppProperty } from "@/lib/services/properties";
 import type { SortOrder } from "@/lib/sort";
+import { useI18n } from "@/i18n";
 import CreatePropertyDialog from "./Create/Create";
 import DeletePropertyDialog from "./Delete/Delete";
 import EditPropertyDialog from "./Edit/Edit";
@@ -85,6 +86,7 @@ export default function PropertiesTable({
 	const [createOpen, setCreateOpen] = React.useState(false);
 	const [editProperty, setEditProperty] = React.useState<AppProperty | null>(null);
 	const [deleteProperty, setDeleteProperty] = React.useState<AppProperty | null>(null);
+	const { TEXT } = useI18n();
 
 	// Normalizar los datos de propiedades
 	const normalizedProperties = properties.map((p) => {
@@ -149,7 +151,7 @@ export default function PropertiesTable({
 	const columns: Column<any>[] = [
 		{
 			key: "ownerId",
-			label: "Propietario",
+			label: TEXT.properties?.table?.headers?.owner ?? "Propietario",
 			sortable: true,
 			render: (p) => (
 				<div className="w-full">
@@ -161,25 +163,25 @@ export default function PropertiesTable({
 		},
 		{
 			key: "alias",
-			label: "Alias",
+			label: TEXT.properties?.table?.headers?.alias ?? "Alias",
 			sortable: true,
 			render: (p) => <TruncatedText text={p.alias || "-"} maxLength={20} />,
 		},
 		{
 			key: "name",
-			label: "Nombre",
+			label: TEXT.properties?.table?.headers?.name ?? "Nombre",
 			sortable: true,
 			render: (p) => <TruncatedText text={p.name || ""} maxLength={25} />,
 		},
 		{
 			key: "address",
-			label: "Dirección", // Esta columna (índice 3) se truncará
+			label: TEXT.properties?.table?.headers?.address ?? "Dirección", // Esta columna (índice 3) se truncará
 			sortable: true,
 			render: (p) => <ClickableAddress address={p.address || ""} />,
 		},
 		{
 			key: "typesOfService",
-			label: "Tipos de Servicio",
+			label: TEXT.properties?.table?.headers?.serviceTypes ?? "Tipos de Servicio",
 			sortable: false,
 			render: (p) => (
 				<TruncatedText
@@ -190,13 +192,13 @@ export default function PropertiesTable({
 		},
 		{
 			key: "monthlyRate",
-			label: "Tarifa Mensual",
+			label: TEXT.properties?.table?.headers?.monthlyRate ?? "Tarifa Mensual",
 			sortable: true,
 			render: (p) => p.monthlyRate ?? "-",
 		},
 		{
 			key: "totalHours",
-			label: "Horas Totales",
+			label: TEXT.properties?.table?.headers?.totalHours ?? "Horas Totales",
 			sortable: true,
 			render: (p) => p.totalHours ?? "-",
 		},
