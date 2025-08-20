@@ -141,7 +141,7 @@ export default function PropertiesTable({
 		};
 	});
 
-	// Definir las columnas de la tabla usando un tipo más flexible
+	// Definir las columnas de la tabla - la columna de dirección (índice 2) será sacrificada
 	const columns: Column<any>[] = [
 		{
 			key: "ownerId",
@@ -163,7 +163,7 @@ export default function PropertiesTable({
 		},
 		{
 			key: "address",
-			label: "Dirección",
+			label: "Dirección", // Esta columna (índice 2) se truncará
 			sortable: true,
 			render: (p) => <ClickableAddress address={p.address || ""} />,
 		},
@@ -249,7 +249,6 @@ export default function PropertiesTable({
 				sortOrder={sortOrder}
 				toggleSort={toggleSort as any}
 				actions={renderActions}
-				minWidth="1000px"
 			/>
 
 			<CreatePropertyDialog
