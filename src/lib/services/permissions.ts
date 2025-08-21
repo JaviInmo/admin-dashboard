@@ -15,7 +15,7 @@ const makeRel = (rel: string): string => `/api/${rel.replace(/^\/|\/$/g, '')}/`
 export async function listUsersWithPermissions(): Promise<any> {
   const rel = makeRel('v1/permissions/admin/list_users_with_permissions')
   try {
-    console.debug('[permissions] GET', rel)
+    console.debug('[] GET', rel)
     const res = await api.get(rel)
     console.debug('[permissions] list_users_with_permissions', res.status, res.data)
     return res.data
