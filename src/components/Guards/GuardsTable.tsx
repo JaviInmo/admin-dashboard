@@ -13,12 +13,6 @@ import type { Guard } from "./types";
 import { ClickableEmail } from "../ui/clickable-email";
 
 /* Servicios que utilizaremos para tarifas y propiedades (solo tipos/llamadas) */
-import { listProperties, type AppProperty } from "@/lib/services/properties";
-import {
-  listGuardPropertyTariffsByGuard,
-  createGuardPropertyTariff,
-  updateGuardPropertyTariff,
-} from "@/lib/services/guardpt";
 
 /* Modal separado (import) */
 import TariffModal from "./TarifModal";
