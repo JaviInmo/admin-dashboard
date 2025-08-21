@@ -1,3 +1,4 @@
+// src/components/Guards/guards-page.tsx
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -56,7 +57,6 @@ export default function GuardsPage() {
     return generateSort(mapped, sortOrder); // string | undefined
   }, [sortField, sortOrder]);
 
-  // --> Aquí: tipamos explícitamente los genéricos para evitar los errores de TS
   const {
     data = INITIAL_GUARD_DATA,
     isFetching,

@@ -1,8 +1,7 @@
 "use client";
 
-import { Pencil, Trash } from "lucide-react";
+import { Pencil, Trash, Tag } from "lucide-react";
 import * as React from "react";
-
 import { Button } from "@/components/ui/button";
 import { ReusableTable, type Column } from "@/components/ui/reusable-table";
 import { useI18n } from "@/i18n";
@@ -13,10 +12,21 @@ import EditGuardDialog from "./Edit/Edit";
 import type { Guard } from "./types";
 import { ClickableEmail } from "../ui/clickable-email";
 
+/* Servicios que utilizaremos para tarifas y propiedades (solo tipos/llamadas) */
+import { listProperties, type AppProperty } from "@/lib/services/properties";
+import {
+  listGuardPropertyTariffsByGuard,
+  createGuardPropertyTariff,
+  updateGuardPropertyTariff,
+} from "@/lib/services/guardpt";
+
+/* Modal separado (import) */
+import TariffModal from "./TarifModal";
+
 export interface GuardsTableProps {
   guards: Guard[];
   onSelectGuard: (id: number) => void;
-  onRefresh?: () => Promise<void>;
+  onRefresh?: () => Promise<void> | void;
   serverSide?: boolean;
   currentPage?: number;
   totalPages?: number;
@@ -52,6 +62,9 @@ export default function GuardsTable({
   const [createOpen, setCreateOpen] = React.useState(false);
   const [editGuard, setEditGuard] = React.useState<Guard | null>(null);
   const [deleteGuard, setDeleteGuard] = React.useState<Guard | null>(null);
+
+  // Nuevo: estado para abrir modal de tarifas
+  const [tariffGuard, setTariffGuard] = React.useState<Guard | null>(null);
 
   // Access i18n keys
   const guardTable = (TEXT.guards && (TEXT.guards as any).table) ?? (TEXT.guards as any) ?? {};
@@ -99,9 +112,24 @@ export default function GuardsTable({
   // Campos de búsqueda
   const searchFields: (keyof Guard)[] = ["firstName", "lastName", "email", "phone"];
 
-  // Acciones de fila
+  // Acciones de fila (ahora con icono de tarifas a la izquierda del edit)
   const renderActions = (guard: Guard) => (
     <>
+      {/* Tariff button */}
+      <Button
+        size="icon"
+        variant="ghost"
+        onClick={(e) => {
+          e.stopPropagation();
+          setTariffGuard(guard);
+        }}
+        title="Tarifas"
+        aria-label={`Tarifas guard ${guard.firstName ?? ""}`}
+      >
+        <Tag className="h-4 w-4" />
+      </Button>
+
+      {/* Edit */}
       <Button
         size="icon"
         variant="ghost"
@@ -112,6 +140,8 @@ export default function GuardsTable({
       >
         <Pencil className="h-4 w-4" />
       </Button>
+
+      {/* Delete */}
       <Button
         size="icon"
         variant="ghost"
@@ -169,6 +199,24 @@ export default function GuardsTable({
           guard={deleteGuard}
           onClose={() => setDeleteGuard(null)}
           onDeleted={onRefresh}
+        />
+      )}
+
+      {/* Tariff modal (componente importado) */}
+      {tariffGuard && (
+        <TariffModal
+          guard={tariffGuard}
+          open={!!tariffGuard}
+          onClose={() => setTariffGuard(null)}
+          onSaved={async () => {
+            if (onRefresh) {
+              const maybe = onRefresh();
+              if (maybe && typeof (maybe as any).then === "function") {
+                await maybe;
+              }
+            }
+            setTariffGuard(null);
+          }}
         />
       )}
     </>
