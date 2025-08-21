@@ -21,7 +21,7 @@ import {
   updateGuardPropertyTariff,
   deleteGuardPropertyTariff,
 } from "@/lib/services/guardpt";
-import { Trash, Pencil } from "lucide-react";
+import { Trash, Pencil, Check, X } from "lucide-react";
 
 type TariffItem = {
   id: number;
@@ -66,7 +66,7 @@ export default function TariffModal({
   const [rate, setRate] = React.useState<string>("");
   const [isActive, setIsActive] = React.useState<boolean>(true);
   const [saving, setSaving] = React.useState(false);
-  const [deleting, setDeleting] = React.useState(false);
+  const [, setDeleting] = React.useState(false);
 
   const tariffsByProperty = React.useMemo(() => {
     const map = new Map<number, TariffItem>();
@@ -265,6 +265,18 @@ export default function TariffModal({
     return t.propertyLabel ?? `#${t.propertyId}`;
   }
 
+  // Helper: formatea la tarifa anteponiendo $ y forzando 2 decimales si es número
+  function formatRate(rate: string) {
+    if (rate === null || rate === undefined) return "";
+    // convertir coma decimal a punto y limpiar espacios
+    const cleaned = String(rate).trim().replace(",", ".");
+    const n = Number(cleaned);
+    if (Number.isFinite(n)) {
+      return `$${n.toFixed(2)}`;
+    }
+    return String(rate);
+  }
+
   return (
     <Dialog
       open={open}
@@ -305,67 +317,82 @@ export default function TariffModal({
                     Este guard no tiene tarifas asignadas.
                   </div>
                 ) : (
-                 <table className="w-full table-fixed text-sm">
-  <thead>
-    <tr className="text-xs text-muted-foreground border-b">
-      {/* Darle un ancho fijo/relativo al primer th ayuda a que 'truncate' funcione */}
-      <th className="py-2 px-2 text-left w-2/5">Propiedad</th>
-      <th className="py-2 px-2 text-left">Tarifa</th>
-      <th className="py-2 px-2 text-left">Activo</th>
-      <th className="py-2 px-2 text-right">Acciones</th>
-    </tr>
-  </thead>
-  <tbody>
-    {tariffs.map((t) => (
-      <tr
-        key={t.id}
-        className={cn(
-          "cursor-pointer hover:bg-muted/20 transition-colors"
-        )}
-        onClick={() => handleSelectExistingTariff(t)}
-      >
-        {/* Celda truncada: max width + truncate + title para tooltip nativo */}
-        <td className="py-2 px-2 align-top">
-          <div
-            className="max-w-[260px] truncate"
-            title={propLabel(t)}
-            // opcional: evitar que el contenido se rompa en varias líneas
-            style={{ whiteSpace: "nowrap" }}
-          >
-            {propLabel(t)}
-          </div>
-        </td>
+                  <table className="w-full table-fixed text-sm">
+                    <thead>
+                      <tr className="text-xs text-muted-foreground border-b">
+                        <th className="py-2 px-2 text-left w-2/5">Propiedad</th>
+                        <th className="py-2 px-2 text-left">Tarifa</th>
+                        <th className="py-2 px-2 text-left">Activo</th>
+                        <th className="py-2 px-2 text-right">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tariffs.map((t) => (
+                        <tr
+                          key={t.id}
+                          className={cn(
+                            "cursor-pointer hover:bg-muted/20 transition-colors"
+                          )}
+                          onClick={() => handleSelectExistingTariff(t)}
+                        >
+                          <td className="py-2 px-2 align-top">
+                            <div
+                              className="max-w-[260px] truncate"
+                              title={propLabel(t)}
+                              style={{ whiteSpace: "nowrap" }}
+                            >
+                              {propLabel(t)}
+                            </div>
+                          </td>
 
-        <td className="py-2 px-2 align-top">{t.rate}</td>
-        <td className="py-2 px-2 align-top">{t.isActive ? "Sí" : "No"}</td>
-        <td className="py-2 px-2 align-top text-right">
-          <div className="flex items-center justify-end gap-2">
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleSelectExistingTariff(t);
-              }}
-            >
-              <Pencil className="h-4 w-4" />
-            </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={(e) => {
-                e.stopPropagation();
-                void handleDelete(t.id);
-              }}
-            >
-              <Trash className="h-4 w-4 text-red-500" />
-            </Button>
-          </div>
-        </td>
-      </tr>
-    ))}
-  </tbody>
-</table>
+                          {/* Tarifa: formateada con $ y 2 decimales cuando es número */}
+                          <td className="py-2 px-2 align-top">
+                            {formatRate(t.rate)}
+                          </td>
+
+                          {/* Activo: icono Check/X en vez de Sí/No */}
+                          <td className="py-2 px-2 align-top">
+                            {t.isActive ? (
+                              <Check
+                                className="h-4 w-4 text-green-600"
+                                aria-label="Activo"
+                              />
+                            ) : (
+                              <X
+                                className="h-4 w-4 text-red-500"
+                                aria-label="Inactivo"
+                              />
+                            )}
+                          </td>
+
+                          <td className="py-2 px-2 align-top text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleSelectExistingTariff(t);
+                                }}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void handleDelete(t.id);
+                                }}
+                              >
+                                <Trash className="h-4 w-4 text-red-500" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 )}
               </div>
             </div>
