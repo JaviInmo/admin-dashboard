@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDown, ArrowUp, ArrowUpDown, Pencil, Trash, Eye } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Pencil, Trash, Eye, Check, X } from "lucide-react";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,7 +58,23 @@ export default function UsersTable({
   sortOrder,
   toggleSort,
 }: UsersTableProps) {
-  const { TEXT } = useI18n();
+  const { TEXT, lang } = useI18n();
+
+  function getText(path: string, fallback?: string, vars?: Record<string, string>) {
+    const parts = path.split(".");
+    let val: any = TEXT;
+    for (const p of parts) {
+      val = val?.[p];
+      if (val == null) break;
+    }
+    let str = typeof val === "string" ? val : fallback ?? path;
+    if (vars && typeof str === "string") {
+      for (const k of Object.keys(vars)) {
+        str = str.replace(new RegExp(`\\{${k}\\}`, "g"), vars[k]);
+      }
+    }
+    return String(str);
+  }
 
   const [page, setPage] = React.useState(1);
   const [search, setSearch] = React.useState("");
@@ -160,21 +176,20 @@ export default function UsersTable({
   };
 
   const renderRoleText = (u: User) => {
-    if ((u as any).is_superuser || u.isSuperuser) return "Superuser";
-    if ((u as any).is_staff || u.isStaff) return "Staff";
-    return "Usuario";
+    // localized role names using users.userTypes.* keys, fallbacks differ by lang
+    if ((u as any).is_superuser || u.isSuperuser) return getText("users.userTypes.superuser", lang === "es" ? "Superusuario" : "Superuser");
+    if ((u as any).is_staff || u.isStaff) return getText("users.userTypes.staff", lang === "es" ? "Staff" : "Staff");
+    return getText("users.userTypes.user", lang === "es" ? "Usuario" : "User");
   };
 
-  const perPageLabel =
-    (TEXT.users as any)?.table?.perPage ??
-    (TEXT.users?.table?.searchPlaceholder?.includes("Buscar") ? "por página" : "per page");
+  const perPageLabel = (TEXT.users as any)?.table?.perPage ?? (lang === "es" ? "por página" : "per page");
 
   return (
     <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm space-y-4">
       {/* Header con search y acciones */}
       <div className="flex flex-col md:flex-row items-center gap-3 justify-between">
         <h3 className="text-lg font-semibold md:mr-4">
-          {TEXT.users?.table?.title ?? "Lista de Usuarios"}
+          {TEXT.users?.table?.title ?? getText("users.table.title", lang === "es" ? "Lista de Usuarios" : "Users List")}
         </h3>
 
         <div className="flex-1 md:mx-4 w-full max-w-3xl">
@@ -184,11 +199,11 @@ export default function UsersTable({
           >
             <Input
               ref={searchRef}
-              placeholder={TEXT.users?.table?.searchPlaceholder ?? "Buscar..."}
+              placeholder={TEXT.users?.table?.searchPlaceholder ?? getText("users.table.searchPlaceholder", lang === "es" ? "Buscar..." : "Search...")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full"
-              aria-label={TEXT.users?.table?.searchPlaceholder ?? "Buscar usuarios"}
+              aria-label={TEXT.users?.table?.searchPlaceholder ?? getText("users.table.searchPlaceholder", lang === "es" ? "Buscar usuarios" : "Search users")}
             />
           </div>
         </div>
@@ -217,7 +232,7 @@ export default function UsersTable({
 
         <div className="flex-none">
           <Button onClick={() => setCreateOpen(true)}>
-            {TEXT.users?.table?.add ?? "Agregar"}
+            {TEXT.users?.table?.add ?? getText("users.table.add", lang === "es" ? "Agregar" : "Add")}
           </Button>
         </div>
       </div>
@@ -227,20 +242,20 @@ export default function UsersTable({
         <TableHeader>
           <TableRow>
             <TableHead onClick={() => toggleSort("username")} className="cursor-pointer select-none">
-              {TEXT.users?.table?.headers?.username ?? "Username"} {renderSortIcon("username")}
+              {TEXT.users?.table?.headers?.username ?? getText("users.table.headers.username", lang === "es" ? "Usuario" : "Username")} {renderSortIcon("username")}
             </TableHead>
             <TableHead onClick={() => toggleSort("firstName")} className="cursor-pointer select-none">
-              {TEXT.users?.table?.headers?.firstName ?? "Nombre"} {renderSortIcon("firstName")}
+              {TEXT.users?.table?.headers?.firstName ?? getText("users.table.headers.firstName", lang === "es" ? "Nombre" : "First Name")} {renderSortIcon("firstName")}
             </TableHead>
             <TableHead onClick={() => toggleSort("lastName")} className="cursor-pointer select-none">
-              {TEXT.users?.table?.headers?.lastName ?? "Apellido"} {renderSortIcon("lastName")}
+              {TEXT.users?.table?.headers?.lastName ?? getText("users.table.headers.lastName", lang === "es" ? "Apellido" : "Last Name")} {renderSortIcon("lastName")}
             </TableHead>
             <TableHead onClick={() => toggleSort("email")} className="cursor-pointer select-none">
-              {TEXT.users?.table?.headers?.email ?? "Correo"} {renderSortIcon("email")}
+              {TEXT.users?.table?.headers?.email ?? getText("users.table.headers.email", lang === "es" ? "Correo" : "Email")} {renderSortIcon("email")}
             </TableHead>
-            <TableHead className="w-[120px]">{TEXT.users?.table?.headers?.permissions ?? "Estado"}</TableHead>
-            <TableHead className="w-[120px]">Rol</TableHead>
-            <TableHead className="w-[140px] text-center">{TEXT.users?.table?.headers?.actions ?? "Acciones"}</TableHead>
+            <TableHead className="w-[120px]">{getText("users.table.headers.status", lang === "es" ? "Estado" : "Status")}</TableHead>
+            <TableHead className="w-[120px]">{getText("users.table.headers.role", lang === "es" ? "Rol" : "Role")}</TableHead>
+            <TableHead className="w-[140px] text-center">{TEXT.users?.table?.headers?.actions ?? getText("users.table.headers.actions", lang === "es" ? "Acciones" : "Actions")}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -254,10 +269,12 @@ export default function UsersTable({
               <TableCell>{user.firstName}</TableCell>
               <TableCell>{user.lastName}</TableCell>
               <TableCell>{user.email ?? "-"}</TableCell>
-              <TableCell>
-                {((user as any).is_active ?? user.isActive ?? true)
-                  ? (TEXT.clients?.list?.statusActive ?? "Activo")
-                  : (TEXT.clients?.list?.statusInactive ?? "Inactivo")}
+              <TableCell className="flex items-center justify-center">
+                {((user as any).is_active ?? user.isActive ?? true) ? (
+                  <Check className="h-4 w-4 text-green-600" aria-label={getText("users.status.active", lang === "es" ? "Activo" : "Active")} />
+                ) : (
+                  <X className="h-4 w-4 text-red-500" aria-label={getText("users.status.inactive", lang === "es" ? "Inactivo" : "Inactive")} />
+                )}
               </TableCell>
               <TableCell>{renderRoleText(user)}</TableCell>
               <TableCell className="flex gap-2 justify-center">
@@ -284,7 +301,14 @@ export default function UsersTable({
           onPageChange={goToPage}
           showFirstLast={true}
           showPageInfo={true}
-          pageInfoText={(current, total) => `Página ${current} de ${total}`}
+          pageInfoText={(current, total) =>
+            // use pagination.pageInfo from TEXT, fallback localized
+            getText(
+              "pagination.pageInfo",
+              lang === "es" ? `Página ${current} de ${total}` : `Page ${current} of ${total}`,
+              { current: String(current), total: String(total) }
+            )
+          }
         />
       </div>
 

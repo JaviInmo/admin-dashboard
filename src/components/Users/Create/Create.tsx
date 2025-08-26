@@ -127,7 +127,25 @@ interface Props {
 
 export default function CreateUserDialog({ open, onClose, onCreated }: Props) {
   const { TEXT } = useI18n();
-  const U = TEXT as any;
+
+  function getText(path: string, fallback?: string, vars?: Record<string, string>) {
+    const parts = path.split(".");
+    let val: any = TEXT;
+    for (const p of parts) {
+      val = val?.[p];
+      if (val == null) break;
+    }
+    let str = typeof val === "string" ? val : fallback ?? path;
+    if (vars && typeof str === "string") {
+      for (const k of Object.keys(vars)) {
+        str = str.replace(new RegExp(`\\{${k}\\}`, "g"), vars[k]);
+      }
+    }
+    return String(str);
+  }
+
+  // For backward compatibility in a few places use U = TEXT
+/*   const U = TEXT as any; */
 
   const [username, setUsername] = React.useState<string>("");
   const [firstName, setFirstName] = React.useState<string>("");
@@ -309,15 +327,16 @@ export default function CreateUserDialog({ open, onClose, onCreated }: Props) {
   };
 
   function validate(): string | null {
-    const vU = U?.users?.create?.validation ?? {};
-    if (!username.trim()) return vU.usernameRequired ?? "Usuario es requerido";
-    if (!firstName.trim()) return vU.firstNameRequired ?? "Nombre es requerido";
-    if (!lastName.trim()) return vU.lastNameRequired ?? "Apellido es requerido";
-    if (!email.trim()) return vU.emailRequired ?? "Email es requerido";
-    if (email && !/\S+@\S+\.\S+/.test(email)) return vU.emailInvalid ?? "Email inválido";
-    if (!password) return vU.passwordRequired ?? "Contraseña es requerida";
-    if (password.length < 6) return vU.passwordMin ?? "La contraseña debe tener al menos 6 caracteres";
-    if (password !== passwordConfirm) return vU.passwordsMismatch ?? "Las contraseñas no coinciden";
+    // prefer users.form.validation keys if present, fallback to common messages
+    const vU = (TEXT.users as any)?.form?.validation ?? {};
+    if (!username.trim()) return vU.usernameRequired ?? getText("users.form.validation.usernameRequired", "Usuario es requerido");
+    if (!firstName.trim()) return vU.firstNameRequired ?? getText("users.form.validation.firstNameRequired", "Nombre es requerido");
+    if (!lastName.trim()) return vU.lastNameRequired ?? getText("users.form.validation.lastNameRequired", "Apellido es requerido");
+    if (!email.trim()) return vU.emailRequired ?? getText("users.form.validation.emailRequired", "Email es requerido");
+    if (email && !/\S+@\S+\.\S+/.test(email)) return vU.emailInvalid ?? getText("users.form.validation.emailInvalid", "Email inválido");
+    if (!password) return vU.passwordRequired ?? getText("users.form.validation.passwordRequired", "Contraseña es requerida");
+    if (password.length < 6) return vU.passwordMin ?? getText("users.form.validation.passwordMin", "La contraseña debe tener al menos 6 caracteres");
+    if (password !== passwordConfirm) return vU.passwordMatch ?? getText("users.form.validation.passwordMatch", "Las contraseñas no coinciden");
     return null;
   }
 
@@ -352,7 +371,7 @@ export default function CreateUserDialog({ open, onClose, onCreated }: Props) {
           await assignUserPermissions(created.id, codenames);
         } catch (errAssign: any) {
           console.error("Error assigning permissions on create:", errAssign);
-          toast.error(U?.users?.create?.permissionAssignError ?? "Some permissions couldn't be assigned (see console)");
+          toast.error(getText("users.create.permissionAssignError", "Some permissions couldn't be assigned (see console)"));
         }
       }
 
@@ -365,11 +384,11 @@ export default function CreateUserDialog({ open, onClose, onCreated }: Props) {
           await grantPropertyAccess(created.id, g.id, g.access);
         } catch (errGrant: any) {
           console.error("Error granting property access", g, errGrant);
-          toast.error((U?.properties?.grantError ?? "Could not grant access to property") + ` #${g.id}`);
+          toast.error(getText("properties.grantError", "Could not grant access to property") + ` #${g.id}`);
         }
       }
 
-      toast.success(U?.users?.create?.success ?? "User created");
+      toast.success(getText("users.form.createSuccess", "User created"));
       if (mountedRef.current) {
         if (onCreated) await onCreated();
         onClose();
@@ -385,53 +404,80 @@ export default function CreateUserDialog({ open, onClose, onCreated }: Props) {
     }
   };
 
+  // New helpers to localize resource/action labels:
+  const getResourceLabel = (resKey: string) => {
+    // Preference order: permissions.resources.<res>.label -> resourceLabels (server) -> raw key capitalized
+    const txt = getText(`permissions.resources.${resKey}.label`, "");
+    if (txt && !txt.startsWith("permissions.resources.")) return txt;
+    if (resourceLabels[resKey]) return resourceLabels[resKey];
+    // fallback: prettify key
+    return resKey.charAt(0).toUpperCase() + resKey.slice(1);
+  };
+
+  const getActionLabel = (resKey: string, actKey: string) => {
+    // Priority:
+    // 1) permissions.actions.<res>.<action>
+    // 2) permissions.actions.<action>
+    // 3) actionLabels[actKey] (server-provided)
+    // 4) prettified actKey
+    const byRes = getText(`permissions.actions.${resKey}.${actKey}`, "");
+    if (byRes && !byRes.startsWith("permissions.actions.")) return byRes;
+
+    const byAct = getText(`permissions.actions.${actKey}`, "");
+    if (byAct && !byAct.startsWith("permissions.actions.")) return byAct;
+
+    if (actionLabels[actKey]) return actionLabels[actKey];
+    // prettify fallback
+    return actKey.charAt(0).toUpperCase() + actKey.slice(1);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="w-full max-w-[90vw] sm:max-w-5xl md:max-w-6xl lg:max-w-7xl max-h-[90vh] overflow-hidden">
         <DialogHeader className="px-4 pt-4 pb-2">
-          <DialogTitle>{U?.users?.createTitle ?? "Crear Usuario"}</DialogTitle>
+          <DialogTitle>{getText("users.form.createTitle", "Crear Usuario")}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-3 p-3 max-h-[82vh] overflow-auto">
           <div className="grid grid-cols-3 gap-2">
             <div>
-              <label className="text-xs font-medium text-muted-foreground block mb-1">{U?.users?.table?.headers?.username ?? "Usuario"}</label>
-              <Input placeholder={U?.users?.table?.headers?.username ?? "Usuario"} value={username} onChange={(e) => setUsername(e.target.value)} className="py-2" />
+              <label className="text-xs font-medium text-muted-foreground block mb-1">{getText("users.table.headers.username", "Usuario")}</label>
+              <Input placeholder={getText("users.table.headers.username", "Usuario")} value={username} onChange={(e) => setUsername(e.target.value)} className="py-2" />
             </div>
             <div>
-              <label className="text-xs font-medium text-muted-foreground block mb-1">{U?.users?.table?.headers?.firstName ?? "Nombre"}</label>
-              <Input placeholder={U?.users?.table?.headers?.firstName ?? "Nombre"} value={firstName} onChange={(e) => setFirstName(e.target.value)} className="py-2" />
+              <label className="text-xs font-medium text-muted-foreground block mb-1">{getText("users.table.headers.firstName", "Nombre")}</label>
+              <Input placeholder={getText("users.table.headers.firstName", "Nombre")} value={firstName} onChange={(e) => setFirstName(e.target.value)} className="py-2" />
             </div>
             <div>
-              <label className="text-xs font-medium text-muted-foreground block mb-1">{U?.users?.table?.headers?.lastName ?? "Apellido"}</label>
-              <Input placeholder={U?.users?.table?.headers?.lastName ?? "Apellido"} value={lastName} onChange={(e) => setLastName(e.target.value)} className="py-2" />
+              <label className="text-xs font-medium text-muted-foreground block mb-1">{getText("users.table.headers.lastName", "Apellido")}</label>
+              <Input placeholder={getText("users.table.headers.lastName", "Apellido")} value={lastName} onChange={(e) => setLastName(e.target.value)} className="py-2" />
             </div>
           </div>
 
           <div>
-            <label className="text-xs font-medium text-muted-foreground block mb-1">{U?.users?.table?.headers?.email ?? "Correo"}</label>
-            <Input placeholder={U?.users?.table?.headers?.email ?? "Correo"} value={email} onChange={(e) => setEmail(e.target.value)} className="py-2" />
+            <label className="text-xs font-medium text-muted-foreground block mb-1">{getText("users.table.headers.email", "Correo")}</label>
+            <Input placeholder={getText("users.table.headers.email", "Correo")} value={email} onChange={(e) => setEmail(e.target.value)} className="py-2" />
           </div>
 
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="text-xs font-medium text-muted-foreground block mb-1"> {U?.login?.passwordLabel ?? "Password"} </label>
-              <Input placeholder={U?.login?.passwordLabel ?? "Password"} value={password} onChange={(e) => setPassword(e.target.value)} type="password" className="py-2" />
+              <label className="text-xs font-medium text-muted-foreground block mb-1"> {getText("login.passwordLabel", "Password")} </label>
+              <Input placeholder={getText("login.passwordLabel", "Password")} value={password} onChange={(e) => setPassword(e.target.value)} type="password" className="py-2" />
             </div>
             <div>
-              <label className="text-xs font-medium text-muted-foreground block mb-1"> {U?.users?.create?.confirmLabel ?? "Confirm password"} </label>
-              <Input placeholder={U?.users?.create?.confirmLabel ?? "Confirm password"} value={passwordConfirm} onChange={(e) => setPasswordConfirm(e.target.value)} type="password" className="py-2" />
+              <label className="text-xs font-medium text-muted-foreground block mb-1"> {getText("users.form.confirmLabel", "Confirm password")} </label>
+              <Input placeholder={getText("users.form.confirmLabel", "Confirm password")} value={passwordConfirm} onChange={(e) => setPasswordConfirm(e.target.value)} type="password" className="py-2" />
             </div>
           </div>
 
           <div className="flex items-center gap-3 text-sm">
             <label className="inline-flex items-center gap-2 text-sm">
               <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
-              <span className="text-sm">{U?.users?.activeLabel ?? "Activo"}</span>
+              <span className="text-sm">{getText("users.form.activeLabel", "Activo")}</span>
             </label>
             <label className="inline-flex items-center gap-2 text-sm">
               <input type="checkbox" checked={isStaff} onChange={(e) => setIsStaff(e.target.checked)} />
-              <span className="text-sm">{U?.users?.staffLabel ?? "Staff"}</span>
+              <span className="text-sm">{getText("users.form.staffLabel", "Staff")}</span>
             </label>
           </div>
 
@@ -443,21 +489,21 @@ export default function CreateUserDialog({ open, onClose, onCreated }: Props) {
                   <Shield className="h-4 w-4 text-black" />
                 </div>
                 <div>
-                  <CardTitle className="text-sm">{U?.users?.permissionsTitle ?? "Permisos por recurso"}</CardTitle>
-                  <p className="text-xs text-muted-foreground">{U?.users?.selectPrompt ?? ""}</p>
+                  <CardTitle className="text-sm">{getText("users.permissionsTitle", "Permisos por recurso")}</CardTitle>
+                  <p className="text-xs text-muted-foreground">{getText("users.selectPrompt", "")}</p>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-4 px-3 py-2">
               {loadingOptions ? (
-                <div className="text-xs text-muted-foreground">Cargando opciones de permisos…</div>
+                <div className="text-xs text-muted-foreground">{getText("common.loading", "Cargando opciones de permisos…")}</div>
               ) : Object.keys(availableActions).length === 0 ? (
-                <div className="text-xs text-muted-foreground">No hay opciones de permisos disponibles.</div>
+                <div className="text-xs text-muted-foreground">{getText("users.noPermissionsOptions", "No hay opciones de permisos disponibles.")}</div>
               ) : (
                 Object.entries(availableActions).map(([res, acts]) => (
                   <div key={res} className="space-y-2">
                     <div className="flex items-center gap-2">
-                      <h4 className="font-medium text-sm capitalize">{resourceLabels[res] ?? res}</h4>
+                      <h4 className="font-medium text-sm capitalize">{getResourceLabel(res)}</h4>
                       <Separator className="flex-1" />
                     </div>
 
@@ -477,7 +523,7 @@ export default function CreateUserDialog({ open, onClose, onCreated }: Props) {
 
                               <div className="min-w-0">
                                 <span className="text-xs font-medium capitalize break-words whitespace-normal">
-                                  {actionLabels[act] ?? act}
+                                  {getActionLabel(res, act)}
                                 </span>
                               </div>
                             </div>
@@ -487,6 +533,7 @@ export default function CreateUserDialog({ open, onClose, onCreated }: Props) {
                                 checked={isChecked}
                                 onCheckedChange={(checked: boolean) => handleToggle(res, act, checked)}
                                 className="transform scale-75"
+                                aria-label={getActionLabel(res, act)}
                               />
                             </div>
                           </div>
@@ -498,7 +545,7 @@ export default function CreateUserDialog({ open, onClose, onCreated }: Props) {
               )}
 
               <div className="mt-1 p-2 bg-muted/10 rounded-md">
-                <p className="text-[11px] text-muted-foreground">{U?.users?.permissionsHelp ?? "Los permisos se aplican como resource.action."}</p>
+                <p className="text-[11px] text-muted-foreground">{getText("users.permissionsHelp", "Los permisos se aplican como resource.action.")}</p>
               </div>
             </CardContent>
           </Card>
@@ -514,18 +561,18 @@ export default function CreateUserDialog({ open, onClose, onCreated }: Props) {
                 <div className="w-full">
                   <div className="flex items-start md:items-center w-full gap-3">
                     <div className="flex-1 min-w-0">
-                      <CardTitle className="text-sm">{U?.properties?.title ?? "Acceso a propiedades"}</CardTitle>
-                      <p className="text-xs text-muted-foreground mt-0.5">{U?.properties?.table?.searchPlaceholder ?? ""}</p>
+                      <CardTitle className="text-sm">{getText("properties.title", "Acceso a propiedades")}</CardTitle>
+                      <p className="text-xs text-muted-foreground mt-0.5">{getText("properties.table.searchPlaceholder", "")}</p>
                     </div>
 
                     <div className={`${highlightSearch ? "search-highlight search-pulse" : ""} flex-grow`} style={{ minWidth: 220 }}>
                       <Input
                         ref={searchRef}
-                        placeholder={U?.properties?.table?.searchPlaceholder ?? "Buscar..."}
+                        placeholder={getText("properties.table.searchPlaceholder", "Buscar...")}
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         className="w-full py-2"
-                        aria-label={U?.properties?.table?.searchPlaceholder ?? "Buscar..."}
+                        aria-label={getText("properties.table.searchPlaceholder", "Buscar...")}
                       />
                     </div>
                   </div>
@@ -538,7 +585,7 @@ export default function CreateUserDialog({ open, onClose, onCreated }: Props) {
                 <div className="flex items-center justify-center py-8">
                   <div className="text-center text-muted-foreground">
                     <Building className="h-6 w-6 mx-auto mb-2 opacity-50" />
-                    <p className="text-xs">{U?.properties?.table?.title ?? "Propiedades"}</p>
+                    <p className="text-xs">{getText("properties.table.title", "Propiedades")}</p>
                   </div>
                 </div>
               ) : (
@@ -575,22 +622,22 @@ export default function CreateUserDialog({ open, onClose, onCreated }: Props) {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="viewer">{U?.properties?.form?.fields?.viewer ?? "Visor"}</SelectItem>
-                            <SelectItem value="editor">{U?.properties?.form?.fields?.editor ?? "Editor"}</SelectItem>
-                            <SelectItem value="admin">{U?.properties?.form?.fields?.admin ?? "Admin"}</SelectItem>
-                            <SelectItem value="full">{U?.properties?.form?.fields?.full ?? "Completo"}</SelectItem>
+                            <SelectItem value="viewer">{getText("properties.form.viewer", "Visor")}</SelectItem>
+                            <SelectItem value="editor">{getText("properties.form.editor", "Editor")}</SelectItem>
+                            <SelectItem value="admin">{getText("properties.form.admin", "Admin")}</SelectItem>
+                            <SelectItem value="full">{getText("properties.form.full", "Completo")}</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
                     );
                   })}
 
-                  {filteredProperties.length === 0 && <div className="py-6 text-center text-xs text-muted-foreground">No se encontraron coincidencias.</div>}
+                  {filteredProperties.length === 0 && <div className="py-6 text-center text-xs text-muted-foreground">{getText("properties.form.noResultsText", "No se encontraron coincidencias.")}</div>}
                 </div>
               )}
 
               <div className="mt-3 p-2 bg-muted/10 rounded-md">
-                <p className="text-[11px] text-muted-foreground">{U?.properties?.help ?? "Marcar para otorgar, desmarcar para revocar."}</p>
+                <p className="text-[11px] text-muted-foreground">{getText("properties.help", "Marcar para otorgar, desmarcar para revocar.")}</p>
               </div>
             </CardContent>
           </Card>
@@ -599,10 +646,10 @@ export default function CreateUserDialog({ open, onClose, onCreated }: Props) {
 
           <div className="flex justify-end items-center pt-1 gap-2">
             <Button variant="secondary" onClick={() => onClose()} disabled={loading} className="py-1 px-2 text-sm">
-              {U?.actions?.cancel ?? "Cancelar"}
+              {getText("actions.cancel", "Cancelar")}
             </Button>
             <Button onClick={handleSubmit} className="ml-1 py-1 px-3 text-sm" disabled={loading}>
-              {loading ? `${U?.users?.create?.creating ?? "Creando..."}...` : (U?.users?.create?.submit ?? U?.actions?.create ?? "Crear")}
+              {loading ? `${getText("users.form.buttons.creating", "Creando...")}` : (getText("users.form.buttons.create", "Crear"))}
             </Button>
           </div>
         </div>

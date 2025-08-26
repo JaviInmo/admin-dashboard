@@ -39,6 +39,7 @@ export const ES_TEXT = {
     reset: "Resetear",
     close: "Cerrar",
     actions: "Acciones",
+    create: "Crear",
   },
   dashboard: {
     title: "Resumen del Panel",
@@ -164,9 +165,6 @@ export const ES_TEXT = {
       loadingTypesText: "Cargando tipos de servicio",
       noTypesText: "No hay tipos disponibles",
       success: "Propiedad actualizada",
-      /**
-       * Nueva clave usada al crear una propiedad
-       */
       createSuccess: "Propiedad creada exitosamente",
       errorUpdate: "Error actualizando propiedad",
       errorRefresh: "Error al refrescar propiedades",
@@ -181,7 +179,13 @@ export const ES_TEXT = {
         cancel: "Cancelar",
         errorRefresh: "Error al refrescar propiedades",
       },
+      // Access roles labels used in CreateUserDialog select
+      viewer: "Visor",
+      editor: "Editor",
+      admin: "Admin",
+      full: "Completo",
     },
+    help: "Marcar para otorgar, desmarcar para revocar.",
   },
 
   guards: {
@@ -212,9 +216,6 @@ export const ES_TEXT = {
       actionDelete: "Eliminar guardia {name}",
       confirmLabel: "Confirmar",
       deleteSuccess: "Guardia {name} eliminado",
-      // Tariff-related small keys for the table row buttons
-      tariffsButton: "Tarifas",
-      tariffsAria: "Abrir tarifas de {name}",
     },
     errorLoading: "Error al cargar guardias",
     form: {
@@ -243,8 +244,6 @@ export const ES_TEXT = {
         delete: "Eliminar",
       },
     },
-
-    // New block: traducciones para el modal de tarifas
     tariffs: {
       title: "Tarifas de {name}",
       assignedLabel: "Tarifas asignadas",
@@ -256,7 +255,6 @@ export const ES_TEXT = {
       flag: "⚑ Tarifa",
       active: "Activo",
       inactive: "Inactivo",
-      // propiedad / area de busqueda
       selectedPropertyLabel: "Propiedad seleccionada",
       noneSelected: "Ninguna propiedad seleccionada",
       rateLabel: "Tarifa por hora",
@@ -266,19 +264,7 @@ export const ES_TEXT = {
       create: "Crear tarifa",
       update: "Actualizar tarifa",
       saving: "Guardando...",
-      savingShort: "Guardando",
-      savingCreate: "Creando...",
-      savingUpdate: "Actualizando...",
-      savingDelete: "Eliminando...",
-      savingError: "Error guardando tarifa",
-      savingSuccess: "Tarifa guardada",
-      savingDeleteError: "Error eliminando tarifa",
       note: "Nota: si la propiedad ya tiene tarifa, al seleccionarla pasarás a editarla; si no, crearás una nueva.",
-      invalidRate: "Ingresa una tarifa válida (ej: 15.00).",
-      exists: "Ya existe una tarifa para esta propiedad. Se cargará para editar.",
-      saveError: "Error guardando tarifa (ver consola).",
-      confirmDelete: "¿Eliminar esta tarifa?",
-      deleteError: "Error eliminando tarifa (ver consola).",
     },
   },
 
@@ -291,6 +277,7 @@ export const ES_TEXT = {
     selectPrompt: "Selecciona un usuario para ver y editar sus permisos.",
     noPermissions: "Sin permisos",
     permissionsTitle: "Permisos por recurso",
+  
     userTypes: {
       superuser: "Superusuario",
       staff: "Staff",
@@ -311,7 +298,7 @@ export const ES_TEXT = {
         firstName: "Nombre",
         lastName: "Apellido",
         email: "Correo",
-        permissions: "Permisos",
+        permissions: "Estado",
         actions: "Acciones",
       },
     },
@@ -339,14 +326,32 @@ export const ES_TEXT = {
       buttons: {
         cancel: "Cancelar",
         create: "Crear",
+        creating: "Creando...",
         save: "Guardar",
         saving: "Guardando...",
+        delete: "Eliminar",
       },
+      createSuccess: "Usuario creado",
     },
-    errors: {
-      loadingPermissions: "Error cargando permisos/usuario",
-      grantingPermissions: "Error otorgando permisos",
-      revokingPermissions: "Error revocando permisos",
+    
+    permissionsHelp: "Los permisos se aplican como resource.action.",
+  },
+
+  // top-level permissions translations used by CreateUserDialog's labels
+  permissions: {
+    resources: {
+      guard: { label: "Guardia" },
+      expense: { label: "Gasto" },
+      shift: { label: "Turno" },
+      client: { label: "Cliente" },
+    },
+    actions: {
+      create: "Crear",
+      read: "Leer",
+      update: "Actualizar",
+      delete: "Eliminar",
+      approve: "Aprobar",
+      assign: "Asignar",
     },
   },
 

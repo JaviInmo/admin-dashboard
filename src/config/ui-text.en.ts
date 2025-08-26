@@ -39,6 +39,7 @@ export const EN_TEXT = {
     reset: "Reset",
     close: "Close",
     actions: "Actions",
+    create: "Create",
   },
   dashboard: {
     title: "Dashboard Overview",
@@ -164,9 +165,6 @@ export const EN_TEXT = {
       loadingTypesText: "Loading service types",
       noTypesText: "No types available",
       success: "Property updated",
-      /**
-       * New key used after creating a property
-       */
       createSuccess: "Property created successfully",
       errorUpdate: "Error updating property",
       errorRefresh: "Failed to refresh properties",
@@ -181,7 +179,13 @@ export const EN_TEXT = {
         cancel: "Cancel",
         errorRefresh: "Failed to refresh properties",
       },
+      // Access roles labels used in CreateUserDialog select
+      viewer: "Viewer",
+      editor: "Editor",
+      admin: "Admin",
+      full: "Full",
     },
+    help: "Check to grant, uncheck to revoke.",
   },
 
   guards: {
@@ -212,9 +216,6 @@ export const EN_TEXT = {
       actionDelete: "Delete guard {name}",
       confirmLabel: "Confirm",
       deleteSuccess: "Guard {name} deleted",
-      // Tariff-related small keys for the table row buttons
-      tariffsButton: "Tariffs",
-      tariffsAria: "Open tariffs for {name}",
     },
     errorLoading: "Error loading guards",
     form: {
@@ -243,8 +244,6 @@ export const EN_TEXT = {
         delete: "Delete",
       },
     },
-
-    // New block: tariffs translations for the tariff modal
     tariffs: {
       title: "Tariffs for {name}",
       assignedLabel: "Assigned tariffs",
@@ -256,7 +255,6 @@ export const EN_TEXT = {
       flag: "⚑ Tariff",
       active: "Active",
       inactive: "Inactive",
-      // property / search area
       selectedPropertyLabel: "Selected property",
       noneSelected: "No property selected",
       rateLabel: "Rate per hour",
@@ -266,19 +264,7 @@ export const EN_TEXT = {
       create: "Create tariff",
       update: "Update tariff",
       saving: "Saving...",
-      savingShort: "Saving",
-      savingCreate: "Creating...",
-      savingUpdate: "Updating...",
-      savingDelete: "Deleting...",
-      savingError: "Error saving tariff",
-      savingSuccess: "Tariff saved",
-      savingDeleteError: "Error deleting tariff",
       note: "Note: if the property already has a tariff, selecting it will load it for editing; otherwise you'll create a new one.",
-      invalidRate: "Please enter a valid rate (e.g. 15.00).",
-      exists: "There is already a tariff for this property. It will be loaded for editing.",
-      saveError: "Error saving tariff (see console).",
-      confirmDelete: "Delete this tariff?",
-      deleteError: "Error deleting tariff (see console).",
     },
   },
 
@@ -291,6 +277,7 @@ export const EN_TEXT = {
     selectPrompt: "Select a user to view and edit their permissions.",
     noPermissions: "No permissions",
     permissionsTitle: "Permissions by resource",
+    
     userTypes: {
       superuser: "Superuser",
       staff: "Staff",
@@ -311,7 +298,7 @@ export const EN_TEXT = {
         firstName: "First name",
         lastName: "Last name",
         email: "Email",
-        permissions: "Permissions",
+        permissions: "Status",
         actions: "Actions",
       },
     },
@@ -339,14 +326,32 @@ export const EN_TEXT = {
       buttons: {
         cancel: "Cancel",
         create: "Create",
+        creating: "Creating...",
         save: "Save",
         saving: "Saving...",
+        delete: "Delete",
       },
+      createSuccess: "User created",
     },
-    errors: {
-      loadingPermissions: "Error loading permissions/user",
-      grantingPermissions: "Error granting permissions",
-      revokingPermissions: "Error revoking permissions",
+   
+    permissionsHelp: "Permissions are applied as resource.action.",
+  },
+
+  // top-level permissions translations used by CreateUserDialog's labels
+  permissions: {
+    resources: {
+      guard: { label: "Guard" },
+      expense: { label: "Expense" },
+      shift: { label: "Shift" },
+      client: { label: "Client" },
+    },
+    actions: {
+      create: "Create",
+      read: "Read",
+      update: "Update",
+      delete: "Delete",
+      approve: "Approve",
+      assign: "Assign",
     },
   },
 
