@@ -157,6 +157,10 @@ export const EN_TEXT = {
       loadingTypesText: "Loading service types",
       noTypesText: "No types available",
       success: "Property updated",
+      /**
+       * New key used after creating a property
+       */
+      createSuccess: "Property created successfully",
       errorUpdate: "Error updating property",
       errorRefresh: "Failed to refresh properties",
       delete: {

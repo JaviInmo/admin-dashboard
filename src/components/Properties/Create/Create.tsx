@@ -1,4 +1,3 @@
-// src/components/Properties/Create/Create.tsx
 "use client";
 
 import * as React from "react";
@@ -11,18 +10,18 @@ import {
   listPropertyTypesOfService,
   type AppPropertyType,
 } from "@/lib/services/properties";
+import { useI18n } from "@/i18n";
 
 type Props = {
-  // si pasas `open`, el componente se comporta como un dialog modal (igual que antes).
   open?: boolean;
   onClose?: () => void;
   onCreated?: () => Promise<void> | void;
-
-  // nueva prop: clientId -> si se proporciona, pre-selecciona el cliente y oculta el autocomplete
   clientId?: number;
 };
 
 export default function CreatePropertyDialog({ open = true, onClose, onCreated, clientId }: Props) {
+  const { TEXT } = useI18n();
+
   const [ownerInput, setOwnerInput] = React.useState<string>("");
   const [selectedClient, setSelectedClient] = React.useState<any | null>(null);
   const [searchResults, setSearchResults] = React.useState<any[]>([]);
@@ -49,7 +48,6 @@ export default function CreatePropertyDialog({ open = true, onClose, onCreated, 
     return () => { mountedRef.current = false; };
   }, []);
 
-  // Reset cuando se cierra (si se usa como dialog)
   React.useEffect(() => {
     if (!open) resetForm();
   }, [open]);
@@ -68,7 +66,6 @@ export default function CreatePropertyDialog({ open = true, onClose, onCreated, 
     setTotalHours("");
   }
 
-  // load property types for tags
   React.useEffect(() => {
     let mounted = true;
     setTypesLoading(true);
@@ -92,7 +89,6 @@ export default function CreatePropertyDialog({ open = true, onClose, onCreated, 
     return () => { mounted = false; };
   }, []);
 
-  // Si se pasa clientId, cargar su detalle y pre-seleccionarlo
   React.useEffect(() => {
     if (!clientId) return;
 
@@ -102,19 +98,20 @@ export default function CreatePropertyDialog({ open = true, onClose, onCreated, 
         const detail = await getClient(clientId);
         if (!mounted) return;
         setSelectedClient(detail);
-        const label = detail.username ?? `${detail.firstName ?? ""} ${detail.lastName ?? ""}`.trim() ?? `#${detail.id}`;
+        const label =
+          detail.username ??
+          `${detail.firstName ?? ""} ${detail.lastName ?? ""}`.trim() ??
+          `#${detail.id}`;
         setOwnerInput(label);
         setShowDropdown(false);
       } catch (err) {
         console.error("getClient(clientId) failed", err);
-        // si falla, no bloqueamos: permitimos seleccionar manualmente en el autocomplete
-        toast.error("No se pudo cargar el cliente. Puedes seleccionar otro cliente manualmente.");
+        toast.error(TEXT.properties?.form?.errorRefresh ?? "No se pudo cargar el cliente. Puedes seleccionar otro cliente manualmente.");
       }
     })();
     return () => { mounted = false; };
-  }, [clientId]);
+  }, [clientId, TEXT]);
 
-  // debounced client search (uses listClients)
   const doSearchClients = React.useCallback((q: string, page = 1) => {
     if (!q || String(q).trim() === "") {
       setSearchResults([]);
@@ -127,7 +124,7 @@ export default function CreatePropertyDialog({ open = true, onClose, onCreated, 
     searchTimerRef.current = setTimeout(async () => {
       setSearchLoading(true);
       try {
-        const res = await listClients(page, q, 50); // page, search, page_size
+        const res = await listClients(page, q, 50);
         const items: any[] = Array.isArray((res as any).items)
           ? (res as any).items
           : Array.isArray((res as any).results)
@@ -145,7 +142,6 @@ export default function CreatePropertyDialog({ open = true, onClose, onCreated, 
     }, 300);
   }, []);
 
-  // trigger search unless ownerInput equals selected label
   React.useEffect(() => {
     const label = selectedClient
       ? selectedClient.username ?? `${selectedClient.first_name ?? selectedClient.firstName ?? ""} ${selectedClient.last_name ?? selectedClient.lastName ?? ""}`.trim()
@@ -164,9 +160,7 @@ export default function CreatePropertyDialog({ open = true, onClose, onCreated, 
     }
   }, [ownerInput, selectedClient, doSearchClients]);
 
-  // when picking a client from dropdown, ensure we have client.user (fetch detail if necessary)
   const handlePickClient = React.useCallback(async (c: any) => {
-    // if c already has user -> accept
     if (c && (c.user !== undefined || c.user_id !== undefined || c.userId !== undefined)) {
       setSelectedClient(c);
       const label = c.username ?? `${c.first_name ?? c.firstName ?? ""} ${c.last_name ?? c.lastName ?? ""}`.trim() ?? `#${c.id}`;
@@ -174,7 +168,6 @@ export default function CreatePropertyDialog({ open = true, onClose, onCreated, 
       setShowDropdown(false);
       return;
     }
-    // else fetch client detail
     try {
       setSearchLoading(true);
       const detailed = await getClient(Number(c.id));
@@ -184,16 +177,15 @@ export default function CreatePropertyDialog({ open = true, onClose, onCreated, 
       setShowDropdown(false);
     } catch (err) {
       console.error("getClient failed", err);
-      // still accept c but warn user that client has no user
       setSelectedClient(c);
       const label = c.username ?? `${c.first_name ?? c.firstName ?? ""} ${c.last_name ?? c.lastName ?? ""}`.trim() ?? `#${c.id}`;
       setOwnerInput(label);
       setShowDropdown(false);
-      toast.error("No se pudo obtener detalles del cliente; el cliente podría no tener un 'user' asociado.");
+      toast.error(TEXT.properties?.form?.errorUpdate ?? "No se pudo obtener detalles del cliente; el cliente podría no tener un 'user' asociado.");
     } finally {
       setSearchLoading(false);
     }
-  }, []);
+  }, [TEXT]);
 
   const toggleType = (id: number) => {
     setTypes(prev => prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]);
@@ -204,31 +196,30 @@ export default function CreatePropertyDialog({ open = true, onClose, onCreated, 
     setLoading(true);
     try {
       if (!address || String(address).trim() === "") {
-        toast.error("Address es requerido");
+        toast.error(TEXT.properties?.form?.fields?.address ? `${TEXT.properties.form.fields.address} es requerido` : "Address es requerido");
         setLoading(false);
         return;
       }
 
       if (!selectedClient) {
-        toast.error("Selecciona un cliente del selector.");
+        toast.error(TEXT.properties?.form?.ownerHelp ?? "Selecciona un cliente del selector.");
         setLoading(false);
         return;
       }
 
-      // Prefer selectedClient.user (user id). si no existe, lo rechazamos porque backend pide owner_details.user
       const userId = selectedClient.user ?? selectedClient.user_id ?? selectedClient.userId ?? undefined;
       const ownerClientId = selectedClient.id ?? undefined;
 
       if (typeof userId === "undefined") {
-        toast.error("El cliente seleccionado no tiene user id asociado. No se puede crear la propiedad.");
+        toast.error(TEXT.properties?.form?.errorUpdate ?? "El cliente seleccionado no tiene user id asociado. No se puede crear la propiedad.");
         setLoading(false);
         return;
       }
 
       const payload: any = {
         address,
-        owner: ownerClientId, // enviar client id también (ok si backend lo acepta)
-        owner_details: { user: Number(userId) }, // ENVIAMOS SÓLO user (sin phone)
+        owner: ownerClientId,
+        owner_details: { user: Number(userId) },
       };
 
       if (name) payload.name = name;
@@ -240,7 +231,7 @@ export default function CreatePropertyDialog({ open = true, onClose, onCreated, 
 
       await createProperty(payload);
 
-      toast.success("Propiedad creada");
+      toast.success(TEXT.properties?.form?.createSuccess ?? "Propiedad creada exitosamente");
       if (!mountedRef.current) return;
       if (onCreated) await onCreated();
       onClose?.();
@@ -253,41 +244,64 @@ export default function CreatePropertyDialog({ open = true, onClose, onCreated, 
     }
   }
 
-  // Si se usa en modo dialog y open===false -> no renderizamos
   if (typeof open === "boolean" && open === false) return null;
+
+  // Localized strings / fallbacks
+  const titleText = TEXT.properties?.form?.createTitle ?? "Crear Propiedad";
+  const ownerLabel = TEXT.properties?.form?.fields?.ownerUser ?? "Owner";
+  const ownerPlaceholder = TEXT.properties?.form?.placeholders?.owner ?? "Buscar cliente por nombre/username...";
+  const ownerHelpText = TEXT.properties?.form?.ownerHelp ?? "Selecciona el cliente propietario. Se enviará owner_details.user (user id) del cliente seleccionado.";
+  const nameLabel = TEXT.properties?.form?.fields?.name ?? "Nombre";
+  const namePlaceholder = TEXT.properties?.form?.placeholders?.name ?? "Nombre de la propiedad";
+  const aliasLabel = TEXT.properties?.form?.fields?.alias ?? "Alias";
+  const aliasPlaceholder = TEXT.properties?.form?.placeholders?.alias ?? "Alias o nombre alternativo";
+  const addressLabel = TEXT.properties?.form?.fields?.address ?? "Dirección *";
+  const addressPlaceholder = TEXT.properties?.form?.placeholders?.address ?? "Dirección de la propiedad";
+  const serviceTypesTitle = TEXT.properties?.form?.serviceTypesTitle ?? "Service Types";
+  const typesLoadingText = TEXT.properties?.form?.loadingTypesText ?? "Cargando tipos...";
+  const noTypesText = TEXT.properties?.form?.noTypesText ?? "No hay tipos disponibles";
+  const searchingText = TEXT.properties?.form?.searchingText ?? "Buscando...";
+  const noResultsText = TEXT.properties?.form?.noResultsText ?? "No hay resultados";
+  const monthlyRateLabel = TEXT.properties?.form?.fields?.monthlyRate ?? "Tarifa Mensual";
+  const monthlyRatePlaceholder = TEXT.properties?.form?.placeholders?.monthlyRate ?? "$0.00";
+  const contractStartLabel = TEXT.properties?.form?.fields?.contractStartDate ?? "Fecha de Inicio del Contrato";
+  const totalHoursLabel = TEXT.properties?.form?.fields?.totalHours ?? "Horas Totales";
+  const totalHoursPlaceholder = TEXT.properties?.form?.placeholders?.totalHours ?? "0";
+  const cancelText = TEXT.properties?.form?.buttons?.cancel ?? "Cancelar";
+  const createText = TEXT.properties?.form?.buttons?.create ?? "Crear";
+  const creatingText = TEXT.properties?.form?.buttons?.creating ?? "Creando...";
 
   return (
     <div style={backdropStyle}>
       <div style={modalStyle}>
-        <h3 className="text-lg font-semibold mb-2">Crear Propiedad</h3>
+        <h3 className="text-lg font-semibold mb-2">{titleText}</h3>
 
         <form onSubmit={handleSubmit} className="space-y-3">
-          {/* Owner autocomplete — si clientId fue pasado, mostramos un texto en vez del selector */}
           {clientId ? (
             <div>
-              <label className="block text-sm">Owner</label>
+              <label className="block text-sm">{ownerLabel}</label>
               <div className="p-2 rounded border bg-muted">
                 {ownerInput || `#${clientId}`}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                Se creará la propiedad para este cliente (preseleccionado).
+                {ownerHelpText}
               </p>
             </div>
           ) : (
             <div>
-              <label className="block text-sm">Owner (buscar cliente)</label>
+              <label className="block text-sm">{ownerLabel} ({ownerPlaceholder})</label>
               <div className="relative">
                 <Input
                   value={ownerInput}
                   onChange={(e) => { setOwnerInput(e.target.value); setSelectedClient(null); }}
                   onFocus={() => { if (searchResults.length > 0) setShowDropdown(true); }}
-                  placeholder="Buscar cliente por nombre/username..."
+                  placeholder={ownerPlaceholder}
                   name="ownerInput"
                 />
                 {showDropdown && (searchLoading || searchResults.length > 0) && (
                   <div className="absolute z-50 mt-1 w-full max-h-48 overflow-auto rounded border bg-popover p-1">
-                    {searchLoading && <div className="px-2 py-1 text-sm">Buscando...</div>}
-                    {!searchLoading && searchResults.length === 0 && <div className="px-2 py-1 text-sm">No hay resultados</div>}
+                    {searchLoading && <div className="px-2 py-1 text-sm">{searchingText}</div>}
+                    {!searchLoading && searchResults.length === 0 && <div className="px-2 py-1 text-sm">{noResultsText}</div>}
                     {!searchLoading && searchResults.map((c) => {
                       const label = c.username ?? `${c.first_name ?? c.firstName ?? ""} ${c.last_name ?? c.lastName ?? ""}`.trim() ?? `#${c.id}`;
                       return (
@@ -306,39 +320,37 @@ export default function CreatePropertyDialog({ open = true, onClose, onCreated, 
                 )}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                Selecciona el cliente propietario. Se enviará <code>owner_details.user</code> (user id) del cliente seleccionado.
+                {ownerHelpText}
               </p>
             </div>
           )}
 
-          {/* Name / Alias / Address */}
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="block text-sm">Nombre</label>
-              <Input name="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre de la propiedad" />
+              <label className="block text-sm">{nameLabel}</label>
+              <Input name="name" value={name} onChange={(e) => setName(e.target.value)} placeholder={namePlaceholder} />
             </div>
             <div>
-              <label className="block text-sm">Alias</label>
-              <Input name="alias" value={alias} onChange={(e) => setAlias(e.target.value)} placeholder="Alias o nombre alternativo" />
+              <label className="block text-sm">{aliasLabel}</label>
+              <Input name="alias" value={alias} onChange={(e) => setAlias(e.target.value)} placeholder={aliasPlaceholder} />
             </div>
           </div>
           
           <div className="grid grid-cols-1 gap-2">
             <div>
-              <label className="block text-sm">Dirección *</label>
-              <Input name="address" value={address} onChange={(e) => setAddress(e.target.value)} required placeholder="Dirección de la propiedad" />
+              <label className="block text-sm">{addressLabel}</label>
+              <Input name="address" value={address} onChange={(e) => setAddress(e.target.value)} required placeholder={addressPlaceholder} />
             </div>
           </div>
 
-          {/* Service types as tags */}
           <div>
-            <p className="font-medium mb-2">Service Types</p>
+            <p className="font-medium mb-2">{serviceTypesTitle}</p>
             {typesLoading ? (
-              <p className="text-sm">Cargando tipos...</p>
+              <p className="text-sm">{typesLoadingText}</p>
             ) : (
               <div className="flex flex-wrap gap-2">
                 {availableTypes.length === 0 ? (
-                  <p className="text-sm">No hay tipos disponibles</p>
+                  <p className="text-sm">{noTypesText}</p>
                 ) : (
                   availableTypes.map((t) => {
                     const selected = types.includes(t.id);
@@ -363,22 +375,22 @@ export default function CreatePropertyDialog({ open = true, onClose, onCreated, 
 
           <div className="grid grid-cols-3 gap-2">
             <div>
-              <label className="block text-sm">Tarifa Mensual</label>
-              <Input value={monthlyRate} onChange={(e) => setMonthlyRate(e.target.value)} placeholder="$0.00" />
+              <label className="block text-sm">{monthlyRateLabel}</label>
+              <Input value={monthlyRate} onChange={(e) => setMonthlyRate(e.target.value)} placeholder={monthlyRatePlaceholder} />
             </div>
             <div>
-              <label className="block text-sm">Fecha de Inicio del Contrato</label>
+              <label className="block text-sm">{contractStartLabel}</label>
               <Input type="date" value={contractStartDate} onChange={(e) => setContractStartDate(e.target.value)} />
             </div>
             <div>
-              <label className="block text-sm">Horas Totales</label>
-              <Input type="number" value={totalHours === "" ? "" : String(totalHours)} onChange={(e) => setTotalHours(e.target.value === "" ? "" : Number(e.target.value))} placeholder="0" />
+              <label className="block text-sm">{totalHoursLabel}</label>
+              <Input type="number" value={totalHours === "" ? "" : String(totalHours)} onChange={(e) => setTotalHours(e.target.value === "" ? "" : Number(e.target.value))} placeholder={totalHoursPlaceholder} />
             </div>
           </div>
 
           <div className="flex justify-end gap-2 mt-3">
-            <Button variant="ghost" onClick={onClose} disabled={loading}>Cancelar</Button>
-            <Button type="submit" disabled={loading}>{loading ? "Creando..." : "Crear"}</Button>
+            <Button variant="ghost" onClick={onClose} disabled={loading}>{cancelText}</Button>
+            <Button type="submit" disabled={loading}>{loading ? creatingText : createText}</Button>
           </div>
         </form>
       </div>
@@ -386,13 +398,11 @@ export default function CreatePropertyDialog({ open = true, onClose, onCreated, 
   );
 }
 
-/* helper para manejar fecha nula */
 function contract_start_date_or_null(v: string) {
   if (!v) return null;
   return v;
 }
 
-/* Inline styles para modal simple */
 const backdropStyle: React.CSSProperties = {
   position: "fixed",
   inset: 0,

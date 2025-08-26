@@ -157,6 +157,10 @@ export const ES_TEXT = {
       loadingTypesText: "Cargando tipos de servicio",
       noTypesText: "No hay tipos disponibles",
       success: "Propiedad actualizada",
+      /**
+       * Nueva clave usada al crear una propiedad
+       */
+      createSuccess: "Propiedad creada exitosamente",
       errorUpdate: "Error actualizando propiedad",
       errorRefresh: "Error al refrescar propiedades",
       delete: {
