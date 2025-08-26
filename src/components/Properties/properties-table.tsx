@@ -1,4 +1,3 @@
-// src/components/Properties/PropertiesTable.tsx
 "use client";
 
 import { Pencil, Trash } from "lucide-react";
@@ -163,7 +162,7 @@ export default function PropertiesTable({
   const columns: Column<any>[] = [
     {
       key: "ownerId",
-      label: getText("properties.table.headers.owner", "Propietario"),
+      label: getText("properties.table.headers.owner", "Owner"),
       sortable: true,
       render: (p) => (
         <div className="w-full">
@@ -176,25 +175,25 @@ export default function PropertiesTable({
     },
     {
       key: "alias",
-      label: getText("properties.table.headers.alias", "Alias"),
+      label: getText("properties.table.headers.alias", "Nick"),
       sortable: true,
       render: (p) => <TruncatedText text={p.alias || "-"} maxLength={20} />,
     },
     {
       key: "name",
-      label: getText("properties.table.headers.name", "Nombre"),
+      label: getText("properties.table.headers.name", "Name"),
       sortable: true,
       render: (p) => <TruncatedText text={p.name || ""} maxLength={25} />,
     },
     {
       key: "address",
-      label: getText("properties.table.headers.address", "Dirección"), // Esta columna (índice 3) se truncará
+      label: getText("properties.table.headers.address", "Address"), // Esta columna (índice 3) se truncará
       sortable: true,
       render: (p) => <ClickableAddress address={p.address || ""} />,
     },
     {
       key: "typesOfService",
-      label: getText("properties.table.headers.serviceTypes", "Tipos de Servicio"),
+      label: getText("properties.table.headers.serviceTypes", "Service Types"),
       sortable: false,
       render: (p) => (
         <TruncatedText text={(p as any).typesOfServiceStr || "-"} maxLength={25} />
@@ -202,13 +201,13 @@ export default function PropertiesTable({
     },
     {
       key: "monthlyRate",
-      label: getText("properties.table.headers.monthlyRate", "Tarifa Mensual"),
+      label: getText("properties.table.headers.monthlyRate", "Monthly Rate"),
       sortable: true,
       render: (p) => p.monthlyRate ?? "-",
     },
     {
       key: "totalHours",
-      label: getText("properties.table.headers.totalHours", "Horas Totales"),
+      label: getText("properties.table.headers.totalHours", "Total Hours"),
       sortable: true,
       render: (p) => p.totalHours ?? "-",
     },
@@ -250,9 +249,9 @@ export default function PropertiesTable({
         columns={columns}
         getItemId={(p) => p.id}
         onSelectItem={(id) => onSelectProperty?.(Number(id))}
-        title={getText("properties.table.title", "Lista de Propiedades")}
-        searchPlaceholder={getText("properties.table.searchPlaceholder", "Buscar propiedades...")}
-        addButtonText={getText("properties.table.add", "Agregar")}
+        title={getText("properties.table.title", "Properties List")}
+        searchPlaceholder={getText("properties.table.searchPlaceholder", "Search properties...")}
+        addButtonText={getText("properties.table.add", "Add")}
         onAddClick={() => setCreateOpen(true)}
         serverSide={serverSide}
         currentPage={currentPage}

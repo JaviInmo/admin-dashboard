@@ -12,6 +12,7 @@ import type { SortOrder } from "@/lib/sort";
 import PropertiesTable from "./properties-table";
 import { generateSort } from "@/lib/sort";
 import { toast } from "sonner";
+import { useI18n } from "@/i18n";
 
 const INITIAL_PROPERTY_DATA: PaginatedResult<AppProperty> = {
   items: [],
@@ -48,6 +49,7 @@ function mapPropertySortField(field?: keyof AppProperty | string): string | unde
 
 export default function PropertiesPage() {
   const queryClient = useQueryClient();
+  const { TEXT } = useI18n();
 
   const [page, setPage] = React.useState<number>(1);
   const [search, setSearch] = React.useState<string>("");
@@ -109,11 +111,12 @@ export default function PropertiesPage() {
     }
   }, [error]);
 
+  const title =
+    (TEXT as any)?.properties?.title ?? "Properties Management";
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
-      <h2 className="text-2xl font-bold">Gestión de Propiedades</h2>
-
+      <h2 className="text-2xl font-bold">{title}</h2>
 
       <PropertiesTable
         properties={data?.items ?? []}

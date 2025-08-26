@@ -74,7 +74,6 @@ export const ES_TEXT = {
       statusInactive: "Inactivo",
     },
 
-    // <<< ADDED: form keys for CreateClientDialog >>>
     form: {
       createTitle: "Crear Cliente",
       fields: {
@@ -124,6 +123,7 @@ export const ES_TEXT = {
     propertiesError: "Error al cargar propiedades",
   },
 
+  // <<<< Properties translations (owner and alias) >>>>
   properties: {
     title: "Gestión de Propiedades",
     table: {
@@ -131,7 +131,8 @@ export const ES_TEXT = {
       add: "Agregar",
       searchPlaceholder: "Buscar propiedades...",
       headers: {
-        alias: "Alias",
+        owner: "Propietario",    // added
+        alias: "Alias",         // spanish stays Alias
         name: "Nombre",
         address: "Dirección",
         serviceTypes: "Tipos de servicio",

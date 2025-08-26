@@ -74,7 +74,6 @@ export const EN_TEXT = {
       statusInactive: "Inactive",
     },
 
-    // <<< ADDED: form keys for CreateClientDialog >>>
     form: {
       createTitle: "Create Client",
       fields: {
@@ -124,6 +123,7 @@ export const EN_TEXT = {
     propertiesError: "Error loading properties",
   },
 
+  // <<<< Properties translations (owner and alias updated) >>>>
   properties: {
     title: "Properties Management",
     table: {
@@ -131,7 +131,8 @@ export const EN_TEXT = {
       add: "Add",
       searchPlaceholder: "Search properties...",
       headers: {
-        alias: "Alias",
+        owner: "Owner",          // added
+        alias: "Nick",          // changed from "Alias" to "Nick" (English label requested)
         name: "Name",
         address: "Address",
         serviceTypes: "Service Types",
