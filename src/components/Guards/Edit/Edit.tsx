@@ -43,6 +43,17 @@ export default function EditGuardDialog({ guard, open, onClose, onUpdated }: Pro
   const [address, setAddress] = React.useState<string>(guard.address ?? "");
   const [birthdate, setBirthdate] = React.useState<string>(guard.birthdate ?? "");
 
+  // Control de visibilidad del campo SSN en el formulario — por defecto DESACTIVADO
+  // Si el objeto guard trae un indicador (ssn_visible / ssnVisible / is_ssn_visible) lo respetamos para inicializar,
+  // pero por defecto queda en false (oculto).
+  const initialShowSsn =
+    (guard as any).ssn_visible === true ||
+    (guard as any).ssnVisible === true ||
+    (guard as any).is_ssn_visible === true ||
+    false;
+
+  const [showSsn, setShowSsn] = React.useState<boolean>(initialShowSsn);
+
   const [loading, setLoading] = React.useState<boolean>(false);
   const [error, setError] = React.useState<string | null>(null);
   const mountedRef = React.useRef(true);
@@ -64,6 +75,14 @@ export default function EditGuardDialog({ guard, open, onClose, onUpdated }: Pro
     setAddress(guard.address ?? "");
     setBirthdate(guard.birthdate ?? "");
     setError(null);
+
+    // Recalcular estado inicial de visibilidad al cambiar guard
+    const newInitial =
+      (guard as any).ssn_visible === true ||
+      (guard as any).ssnVisible === true ||
+      (guard as any).is_ssn_visible === true ||
+      false;
+    setShowSsn(newInitial);
   }, [guard]);
 
   const handleSubmit = async (e?: React.FormEvent) => {
@@ -86,23 +105,29 @@ export default function EditGuardDialog({ guard, open, onClose, onUpdated }: Pro
     setLoading(true);
     try {
       // Construimos payload tipado como UpdateGuardPayload y omitimos campos vacíos
-      const payload: UpdateGuardPayload = {
+      const basePayload: UpdateGuardPayload = {
         first_name: firstName.trim(),
         last_name: lastName.trim(),
         email: email.trim(),
       };
 
-      if (phone.trim() !== "") payload.phone = phone.trim();
-      if (ssn.trim() !== "") payload.ssn = ssn.trim();
-      if (address.trim() !== "") payload.address = address.trim();
-      if (birthdate !== "") payload.birth_date = birthdate;
+      if (phone.trim() !== "") (basePayload as any).phone = phone.trim();
+      if (ssn.trim() !== "") (basePayload as any).ssn = ssn.trim();
+      if (address.trim() !== "") (basePayload as any).address = address.trim();
+      if (birthdate !== "") (basePayload as any).birth_date = birthdate;
+
+      // Añadimos la bandera de visibilidad para el servidor en dos formatos por compatibilidad:
+      // 'ssn_visible' y 'is_ssn_visible'. Hacemos un as any para no romper tipado.
+      const payloadAny: any = { ...(basePayload as any) };
+      payloadAny.ssn_visible = showSsn;
+      payloadAny.is_ssn_visible = showSsn;
 
       // Remover `user` defensivamente si alguien lo hubiese agregado por error
-      if ("user" in (payload as any)) {
-        delete (payload as any).user;
+      if ("user" in payloadAny) {
+        delete payloadAny.user;
       }
 
-      await updateGuard(guard.id, payload);
+      await updateGuard(guard.id, payloadAny);
       toast.success(getText("guards.form.success") || getText("guards.form.editTitle") || "Guard updated");
       if (!mountedRef.current) return;
       if (onUpdated) await onUpdated();
@@ -156,7 +181,26 @@ export default function EditGuardDialog({ guard, open, onClose, onUpdated }: Pro
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="block text-sm">{getText("guards.form.fields.ssn")}</label>
-                <Input name="ssn" value={ssn} onChange={(e) => setSsn(e.target.value)} />
+                {/* Tipo dinámico según showSsn: si está oculto, usamos password */}
+                <Input
+                  name="ssn"
+                  type={showSsn ? "text" : "password"}
+                  value={ssn}
+                  onChange={(e) => setSsn(e.target.value)}
+                  placeholder={showSsn ? "" : getText("guards.form.placeholders.ssnHidden") ?? "********"}
+                />
+                <div className="mt-2 flex items-center gap-2">
+                  <input
+                    id={`toggle-ssn-${guard.id}`}
+                    type="checkbox"
+                    checked={showSsn}
+                    onChange={() => setShowSsn((v) => !v)}
+                    className="h-4 w-4 rounded border-gray-300"
+                  />
+                  <label htmlFor={`toggle-ssn-${guard.id}`} className="text-sm">
+                    {getText("guards.form.fields.ssnVisibility") ?? "Mostrar SSN"}
+                  </label>
+                </div>
               </div>
               <div>
                 <label className="block text-sm">{getText("guards.form.fields.birthdate")}</label>

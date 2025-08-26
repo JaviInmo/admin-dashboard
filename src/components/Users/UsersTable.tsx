@@ -253,9 +253,20 @@ export default function UsersTable({
             <TableHead onClick={() => toggleSort("email")} className="cursor-pointer select-none">
               {TEXT.users?.table?.headers?.email ?? getText("users.table.headers.email", lang === "es" ? "Correo" : "Email")} {renderSortIcon("email")}
             </TableHead>
-            <TableHead className="w-[120px]">{getText("users.table.headers.status", lang === "es" ? "Estado" : "Status")}</TableHead>
-            <TableHead className="w-[120px]">{getText("users.table.headers.role", lang === "es" ? "Rol" : "Role")}</TableHead>
-            <TableHead className="w-[140px] text-center">{TEXT.users?.table?.headers?.actions ?? getText("users.table.headers.actions", lang === "es" ? "Acciones" : "Actions")}</TableHead>
+
+            {/* Encabezado de Estado centrado */}
+            <TableHead className="w-[120px] text-center align-middle">
+              {getText("users.table.headers.status", lang === "es" ? "Estado" : "Status")}
+            </TableHead>
+
+            {/* Centrar Rol para alinear con su celda (opcional pero consistente) */}
+            <TableHead className="w-[120px] text-center align-middle">
+              {getText("users.table.headers.role", lang === "es" ? "Rol" : "Role")}
+            </TableHead>
+
+            <TableHead className="w-[140px] text-center align-middle">
+              {TEXT.users?.table?.headers?.actions ?? getText("users.table.headers.actions", lang === "es" ? "Acciones" : "Actions")}
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -269,14 +280,17 @@ export default function UsersTable({
               <TableCell>{user.firstName}</TableCell>
               <TableCell>{user.lastName}</TableCell>
               <TableCell>{user.email ?? "-"}</TableCell>
-              <TableCell className="flex items-center justify-center">
+
+              {/* Celda de Estado centrada para que el icono quede directamente debajo del encabezado */}
+              <TableCell className="text-center align-middle">
                 {((user as any).is_active ?? user.isActive ?? true) ? (
-                  <Check className="h-4 w-4 text-green-600" aria-label={getText("users.status.active", lang === "es" ? "Activo" : "Active")} />
+                  <Check className="h-4 w-4 inline-block text-green-600" aria-label={getText("users.status.active", lang === "es" ? "Activo" : "Active")} />
                 ) : (
-                  <X className="h-4 w-4 text-red-500" aria-label={getText("users.status.inactive", lang === "es" ? "Inactivo" : "Inactive")} />
+                  <X className="h-4 w-4 inline-block text-red-500" aria-label={getText("users.status.inactive", lang === "es" ? "Inactivo" : "Inactive")} />
                 )}
               </TableCell>
-              <TableCell>{renderRoleText(user)}</TableCell>
+
+              <TableCell className="text-center align-middle">{renderRoleText(user)}</TableCell>
               <TableCell className="flex gap-2 justify-center">
                 <Button size="icon" variant="ghost" onClick={() => setShowUser(user)}>
                   <Eye className="h-4 w-4 text-blue-500" />

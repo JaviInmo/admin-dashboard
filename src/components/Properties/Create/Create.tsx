@@ -250,7 +250,6 @@ export default function CreatePropertyDialog({ open = true, onClose, onCreated, 
   const titleText = TEXT.properties?.form?.createTitle ?? "Crear Propiedad";
   const ownerLabel = TEXT.properties?.form?.fields?.ownerUser ?? "Owner";
   const ownerPlaceholder = TEXT.properties?.form?.placeholders?.owner ?? "Buscar cliente por nombre/username...";
-  const ownerHelpText = TEXT.properties?.form?.ownerHelp ?? "Selecciona el cliente propietario. Se enviará owner_details.user (user id) del cliente seleccionado.";
   const nameLabel = TEXT.properties?.form?.fields?.name ?? "Nombre";
   const namePlaceholder = TEXT.properties?.form?.placeholders?.name ?? "Nombre de la propiedad";
   const aliasLabel = TEXT.properties?.form?.fields?.alias ?? "Alias";
@@ -283,13 +282,10 @@ export default function CreatePropertyDialog({ open = true, onClose, onCreated, 
               <div className="p-2 rounded border bg-muted">
                 {ownerInput || `#${clientId}`}
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {ownerHelpText}
-              </p>
             </div>
           ) : (
             <div>
-              <label className="block text-sm">{ownerLabel} ({ownerPlaceholder})</label>
+              <label className="block text-sm">{ownerLabel}</label>
               <div className="relative">
                 <Input
                   value={ownerInput}
@@ -319,9 +315,6 @@ export default function CreatePropertyDialog({ open = true, onClose, onCreated, 
                   </div>
                 )}
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {ownerHelpText}
-              </p>
             </div>
           )}
 

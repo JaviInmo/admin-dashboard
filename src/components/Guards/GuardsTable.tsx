@@ -1,4 +1,3 @@
-// src/components/Guards/GuardsTable.tsx
 "use client";
 
 import { Pencil, Trash, Tag } from "lucide-react";
@@ -43,8 +42,8 @@ export default function GuardsTable({
   totalPages = 1,
   onPageChange,
   pageSize = 5,
-  onSearch,
   onPageSizeChange,
+  onSearch, // <-- AÑADIDO aquí
   isPageLoading = false,
   sortField,
   sortOrder,
@@ -155,7 +154,26 @@ export default function GuardsTable({
       key: "ssn",
       label: guardTable.headers?.ssn ?? getText("guards.table.headers.ssn", "DNI/SSN"),
       sortable: false,
-      render: () => guardTable.ssnHidden ?? "******",
+      render: (guard) => {
+        // Intentar respetar una bandera de visibilidad por guardia si existe.
+        // Buscamos varios nombres posibles para compatibilidad: ssn_visible, ssnVisible, is_ssn_visible
+        const anyGuard = guard as any;
+        const visible =
+          anyGuard.ssn_visible === true ||
+          anyGuard.ssnVisible === true ||
+          anyGuard.is_ssn_visible === true ||
+          false;
+
+        const ssnValue = guard.ssn ?? "";
+        if (!ssnValue) return "-";
+
+        if (visible) {
+          return ssnValue;
+        }
+
+        // Si no está visible, mostramos máscara (por defecto lo que definió i18n o "******")
+        return guardTable.ssnHidden ?? "******";
+      },
     },
     {
       key: "birthdate",

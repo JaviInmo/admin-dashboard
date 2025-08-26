@@ -199,12 +199,16 @@ export default function PropertiesTable({
         <TruncatedText text={(p as any).typesOfServiceStr || "-"} maxLength={25} />
       ),
     },
-    {
-      key: "monthlyRate",
-      label: getText("properties.table.headers.monthlyRate", "Monthly Rate"),
-      sortable: true,
-      render: (p) => p.monthlyRate ?? "-",
-    },
+ {
+  key: "monthlyRate",
+  label: getText("properties.table.headers.monthlyRate", "Monthly Rate"),
+  sortable: true,
+  render: (p) =>
+    p.monthlyRate != null && p.monthlyRate !== ""
+      ? `$ ${p.monthlyRate}`
+      : "-",
+},
+
     {
       key: "totalHours",
       label: getText("properties.table.headers.totalHours", "Total Hours"),

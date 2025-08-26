@@ -23,6 +23,7 @@ interface EditClientFormData {
   phone: string;
   address: string;
   billingAddress: string;
+  isActive: boolean;
 }
 
 export default function EditClientDialog({ client, open, onClose, onUpdated }: Props) {
@@ -42,6 +43,7 @@ export default function EditClientDialog({ client, open, onClose, onUpdated }: P
   const [phone, setPhone] = React.useState(client.phone ?? "");
   const [address, setAddress] = React.useState(client.address ?? "");
   const [billingAddress, setBillingAddress] = React.useState(client.billingAddress ?? "");
+  const [isActive, setIsActive] = React.useState<boolean>(client.isActive ?? false);
   const [loading, setLoading] = React.useState(false);
   const mountedRef = React.useRef(true);
   const { saveToCache, getFromCache, clearCache } = useModalCache<EditClientFormData>();
@@ -65,6 +67,7 @@ export default function EditClientDialog({ client, open, onClose, onUpdated }: P
         setPhone(cachedData.phone ?? "");
         setAddress(cachedData.address ?? "");
         setBillingAddress(cachedData.billingAddress ?? "");
+        setIsActive(typeof cachedData.isActive === "boolean" ? cachedData.isActive : client.isActive ?? false);
       } else {
         // Si no hay caché, usar datos del cliente
         setFirstName(client.firstName ?? "");
@@ -73,6 +76,7 @@ export default function EditClientDialog({ client, open, onClose, onUpdated }: P
         setPhone(client.phone ?? "");
         setAddress(client.address ?? "");
         setBillingAddress(client.billingAddress ?? "");
+        setIsActive(client.isActive ?? false);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -89,9 +93,10 @@ export default function EditClientDialog({ client, open, onClose, onUpdated }: P
         phone,
         address,
         billingAddress,
+        isActive,
       });
     }
-  }, [firstName, lastName, email, phone, address, billingAddress, client.id, open, saveToCache]);
+  }, [firstName, lastName, email, phone, address, billingAddress, isActive, client.id, open, saveToCache]);
 
   function handleClose() {
     // Guardar datos antes de cerrar (para conservar cambios)
@@ -103,6 +108,7 @@ export default function EditClientDialog({ client, open, onClose, onUpdated }: P
       phone,
       address,
       billingAddress,
+      isActive,
     });
     onClose();
   }
@@ -118,6 +124,8 @@ export default function EditClientDialog({ client, open, onClose, onUpdated }: P
         phone: phone || undefined,
         address: address || undefined,
         billing_address: billingAddress || undefined,
+        // enviamos is_active (snake_case) tal como espera el servicio
+        is_active: isActive,
         // No enviamos 'balance' aquí: permanece intacto en el servidor.
       };
 
@@ -190,6 +198,20 @@ export default function EditClientDialog({ client, open, onClose, onUpdated }: P
                   placeholder={(FORM as any)?.placeholders?.billingAddress ?? (lang === "es" ? "Dirección para envío de facturas" : "Address used for invoicing")}
                 />
               </div>
+            </div>
+
+            {/* Campo para marcar activo / inactivo */}
+            <div className="flex items-center gap-3 mt-2">
+              <input
+                id={`client-active-${client.id}`}
+                type="checkbox"
+                checked={isActive}
+                onChange={() => setIsActive((v) => !v)}
+                className="h-4 w-4 rounded border-gray-300"
+              />
+              <label htmlFor={`client-active-${client.id}`} className="text-sm">
+                {(FORM as any)?.fields?.isActive ?? (lang === "es" ? "Activo" : "Active")}
+              </label>
             </div>
 
             <div className="flex justify-end gap-2 mt-3">

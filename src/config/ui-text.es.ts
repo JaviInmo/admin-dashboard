@@ -148,7 +148,7 @@ export const ES_TEXT = {
       editTitle: "Editar Propiedad",
       createTitle: "Crear Propiedad",
       fields: {
-        ownerUser: "Propietario (ID de usuario)",
+        ownerUser: "Propietario ",
         ownerPhone: "Teléfono propietario",
         name: "Nombre",
         alias: "Alias",

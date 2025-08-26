@@ -1,6 +1,6 @@
 "use client";
 
-import { Pencil, Trash } from "lucide-react";
+import { Pencil, Trash, Check, X } from "lucide-react";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { ReusableTable, type Column } from "@/components/ui/reusable-table";
@@ -130,12 +130,15 @@ export default function ClientsTable({
       label: TEXT.clients.list.headers.clientName,
       sortable: true,
       render: (client) => (client as any).clientName || "-",
+      // conservar espaciado consistente
+      cellClassName: "px-3 py-2",
     },
     {
       key: "email",
       label: TEXT.clients.list.headers.email, // Esta columna se sacrificará
       sortable: true,
       render: (client) => <ClickableEmail email={client.email || ""} />,
+      cellClassName: "px-3 py-2",
     },
     {
       key: "phone",
@@ -168,6 +171,7 @@ export default function ClientsTable({
           </a>
         );
       },
+      cellClassName: "px-3 py-2",
     },
   ];
 
@@ -181,22 +185,33 @@ export default function ClientsTable({
         const balance = (client as any).balance ?? 0;
         return typeof balance === "number" ? `$${balance.toFixed(2)}` : String(balance);
       },
+      cellClassName: "px-3 py-2",
     });
   }
-
-  // Agregar columna de status (usa labels i18n)
-  columns.push({
-    key: "status" as keyof (AppClient & { clientName: string }),
-    label: TEXT.clients.list.headers.status,
-    sortable: false,
-    render: (client) => {
-      const status = (client as any).status ?? "active";
-      if (typeof status === "string") {
-        return status.toLowerCase() === "active" ? statusActiveLabel : statusInactiveLabel;
-      }
-      return String(status);
-    },
-  });
+columns.push({
+  key: "status" as keyof (AppClient & { clientName: string }),
+  label: TEXT.clients.list.headers.status,
+  sortable: false,
+  // usa headerStyle para forzar ancho exacto de columna (evita que la estrategia inteligente la haga enorme)
+  headerClassName: "text-center align-middle",
+  headerStyle: { width: "120px", minWidth: "120px", maxWidth: "120px" },
+  // celdas centradas
+  cellClassName: "text-center align-middle",
+  cellStyle: { width: "120px", minWidth: "120px", maxWidth: "120px" },
+  render: (client) => {
+    const status = (client as any).status ?? "active";
+    const isActive = typeof status === "string" ? status.toLowerCase() === "active" : Boolean(status);
+    return (
+      <div>
+        {isActive ? (
+          <Check className="h-4 w-4 inline-block text-green-600" aria-label={statusActiveLabel} />
+        ) : (
+          <X className="h-4 w-4 inline-block text-red-500" aria-label={statusInactiveLabel} />
+        )}
+      </div>
+    );
+  },
+});
 
   // Campos de búsqueda
   const searchFields: (keyof (AppClient & { clientName: string }))[] = [
@@ -207,7 +222,7 @@ export default function ClientsTable({
     "phone",
   ];
 
-  // Acciones de fila (ahora con aria-labels / títulos i18n)
+  // Acciones de fila (ahora con aria-labels / títulos i18n) — envuelto para centrar y gap como en UsersTable
   const renderActions = (client: AppClient & { clientName: string }) => (
     <>
       <Button
@@ -259,7 +274,11 @@ export default function ClientsTable({
         sortField={sortField as keyof (AppClient & { clientName: string })}
         sortOrder={sortOrder}
         toggleSort={toggleSort as (key: keyof (AppClient & { clientName: string })) => void}
-        actions={renderActions}
+        actions={(client) => (
+          // el wrapper que devuelve actions se centrará y tendrá gap 2 por el ReusableTable
+          renderActions(client as AppClient & { clientName: string })
+        )}
+        actionsHeader={TEXT.clients.list.headers.actions ?? "Acciones"}
         isPageLoading={isPageLoading}
       />
 
