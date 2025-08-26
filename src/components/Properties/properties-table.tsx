@@ -29,6 +29,9 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 
+// Nuevo: modal de detalles del propietario
+import OwnerDetailsModal from "@/components/Properties/OwnerDetailsModal";
+
 // Componente helper para texto truncado con tooltip
 function TruncatedText({
   text,
@@ -97,6 +100,11 @@ export default function PropertiesTable({
   const [editProperty, setEditProperty] = React.useState<AppProperty | null>(null);
   const [deleteProperty, setDeleteProperty] = React.useState<AppProperty | null>(null);
   const { TEXT } = useI18n();
+
+  // Estado para el modal de propietario
+  const [ownerModalOpen, setOwnerModalOpen] = React.useState(false);
+  const [ownerToShow, setOwnerToShow] = React.useState<number | null>(null);
+  const [ownerInitialData, setOwnerInitialData] = React.useState<any | undefined>(undefined);
 
   // Safe text getter to avoid TS errors when some keys are missing
   function getText(path: string, fallback?: string) {
@@ -175,14 +183,31 @@ export default function PropertiesTable({
       key: "ownerId",
       label: getText("properties.table.headers.owner", "Owner"),
       sortable: true,
-      render: (p) => (
-        <div className="w-full">
-          <span>
-            {(p as any).ownerName ??
-              `#${(p as any).ownerId ?? (p as any).owner ?? p.id}`}
-          </span>
-        </div>
-      ),
+      render: (p) => {
+        const ownerIdVal = (p as any).ownerId ?? (p as any).owner ?? null;
+        const ownerLabel = (p as any).ownerName ?? (ownerIdVal ? `#${ownerIdVal}` : "-");
+
+        // Al hacer click mostramos modal. Evitamos propagar el evento para que no seleccione la fila.
+        return (
+          <div className="w-full">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (!ownerIdVal) return;
+                setOwnerToShow(Number(ownerIdVal));
+                setOwnerInitialData((p as any).ownerDetails ?? undefined);
+                setOwnerModalOpen(true);
+              }}
+              className="text-left text-blue-600 hover:underline cursor-pointer"
+              title={getText("properties.table.ownerOpenTitle", "Ver propietario")}
+              aria-label={getText("properties.table.ownerOpenAria", "Ver propietario")}
+            >
+              {ownerLabel}
+            </button>
+          </div>
+        );
+      },
     },
     {
       key: "alias",
@@ -349,6 +374,19 @@ export default function PropertiesTable({
           onDeleted={onRefresh}
         />
       )}
+
+      {/* Owner modal: pasa ownerId e initialData (si estaba incluido en la property) */}
+      <OwnerDetailsModal
+        ownerId={ownerToShow ?? undefined}
+        initialData={ownerInitialData}
+        open={ownerModalOpen}
+        onClose={() => {
+          setOwnerModalOpen(false);
+          setOwnerToShow(null);
+          setOwnerInitialData(undefined);
+        }}
+        onUpdated={onRefresh}
+      />
     </>
   );
 }
