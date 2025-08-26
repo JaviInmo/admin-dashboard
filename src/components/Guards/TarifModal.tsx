@@ -22,6 +22,7 @@ import {
   deleteGuardPropertyTariff,
 } from "@/lib/services/guardpt";
 import { Trash, Pencil, Check, X } from "lucide-react";
+import { useI18n } from "@/i18n";
 
 type TariffItem = {
   id: number;
@@ -47,6 +48,24 @@ export default function TariffModal({
   onClose,
   onSaved,
 }: TariffModalProps) {
+  const { TEXT } = useI18n();
+
+  function getText(path: string, fallback?: string, vars?: Record<string, string>) {
+    const parts = path.split(".");
+    let val: any = TEXT;
+    for (const p of parts) {
+      val = val?.[p];
+      if (val == null) break;
+    }
+    let str = typeof val === "string" ? val : fallback ?? path;
+    if (vars && typeof str === "string") {
+      for (const k of Object.keys(vars)) {
+        str = str.replace(new RegExp(`\\{${k}\\}`, "g"), vars[k]);
+      }
+    }
+    return String(str);
+  }
+
   const [allProperties, setAllProperties] = React.useState<
     Array<{ id: number; address?: string }>
   >([]);
@@ -201,19 +220,17 @@ export default function TariffModal({
 
   async function handleSave() {
     if (!selectedProperty) {
-      alert("Selecciona una propiedad primero.");
+      alert(getText("properties.form.ownerHelp", "Selecciona una propiedad primero."));
       return;
     }
     if (!rate || String(rate).trim() === "") {
-      alert("Ingresa una tarifa válida (ej: 15.00).");
+      alert(getText("guards.tariffs.invalidRate", "Ingresa una tarifa válida (ej: 15.00)."));
       return;
     }
 
     const exists = tariffsByProperty.get(Number(selectedProperty.id));
     if (!editingTariff && exists) {
-      alert(
-        "Ya existe una tarifa para esta propiedad. Se cargará para editar."
-      );
+      alert(getText("guards.tariffs.exists", "Ya existe una tarifa para esta propiedad. Se cargará para editar."));
       handleSelectExistingTariff(exists);
       return;
     }
@@ -236,14 +253,14 @@ export default function TariffModal({
       resetForm();
     } catch (err) {
       console.error("handleSave error", err);
-      alert("Error guardando tarifa (ver consola).");
+      alert(getText("guards.tariffs.saveError", "Error guardando tarifa (ver consola)."));
     } finally {
       setSaving(false);
     }
   }
 
   async function handleDelete(id: number) {
-    if (!confirm("¿Eliminar esta tarifa?")) return;
+    if (!confirm(getText("guards.tariffs.confirmDelete", "¿Eliminar esta tarifa?"))) return;
     setDeleting(true);
     try {
       await deleteGuardPropertyTariff(id);
@@ -255,7 +272,7 @@ export default function TariffModal({
       }
     } catch (err) {
       console.error("handleDelete error", err);
-      alert("Error eliminando tarifa (ver consola).");
+      alert(getText("guards.tariffs.deleteError", "Error eliminando tarifa (ver consola)."));
     } finally {
       setDeleting(false);
     }
@@ -277,6 +294,8 @@ export default function TariffModal({
     return String(rate);
   }
 
+  const guardLabel = `${guard.firstName ?? ""} ${guard.lastName ?? ""}`.trim() || `#${guard.id}`;
+
   return (
     <Dialog
       open={open}
@@ -287,7 +306,7 @@ export default function TariffModal({
       <DialogContent className="max-w-3xl w-full">
         <DialogHeader>
           <DialogTitle>
-            Tarifas de {guard.firstName} {guard.lastName}
+            {getText("guards.tariffs.title", `Tarifas de {name}`, { name: guardLabel })}
           </DialogTitle>
         </DialogHeader>
 
@@ -297,33 +316,33 @@ export default function TariffModal({
             <div className="border rounded p-4 bg-card">
               <div className="flex items-center justify-between mb-3">
                 <div>
-                  <Label className="text-sm">Tarifas asignadas</Label>
+                  <Label className="text-sm">{getText("guards.tariffs.assignedLabel", "Tarifas asignadas")}</Label>
                   <div className="text-xs text-muted-foreground">
-                    Una tarifa por propiedad. Haz click para editar.
+                    {getText("guards.tariffs.assignedNote", "Una tarifa por propiedad. Haz click para editar.")}
                   </div>
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  {tariffs.length} propiedad(es) con tarifa
+                  {getText("guards.tariffs.count", "{count} propiedad(es) con tarifa", { count: String(tariffs.length) })}
                 </div>
               </div>
 
               <div className="max-h-60 overflow-auto">
                 {tariffsLoading ? (
                   <div className="p-3 text-sm text-muted-foreground">
-                    Cargando tarifas…
+                    {getText("common.loading", "Cargando tarifas…")}
                   </div>
                 ) : tariffs.length === 0 ? (
                   <div className="p-3 text-sm text-muted-foreground">
-                    Este guard no tiene tarifas asignadas.
+                    {getText("guards.tariffs.empty", "Este guard no tiene tarifas asignadas.")}
                   </div>
                 ) : (
                   <table className="w-full table-fixed text-sm">
                     <thead>
                       <tr className="text-xs text-muted-foreground border-b">
-                        <th className="py-2 px-2 text-left w-2/5">Propiedad</th>
-                        <th className="py-2 px-2 text-left">Tarifa</th>
-                        <th className="py-2 px-2 text-left">Activo</th>
-                        <th className="py-2 px-2 text-right">Acciones</th>
+                        <th className="py-2 px-2 text-left w-2/5">{getText("properties.table.headers.name", "Propiedad")}</th>
+                        <th className="py-2 px-2 text-left">{getText("guards.tariffs.rateHeader", "Tarifa")}</th>
+                        <th className="py-2 px-2 text-left">{getText("guards.tariffs.activeHeader", "Activo")}</th>
+                        <th className="py-2 px-2 text-right">{getText("actions.actions", "Acciones")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -355,12 +374,12 @@ export default function TariffModal({
                             {t.isActive ? (
                               <Check
                                 className="h-4 w-4 text-green-600"
-                                aria-label="Activo"
+                                aria-label={getText("guards.tariffs.active", "Activo")}
                               />
                             ) : (
                               <X
                                 className="h-4 w-4 text-red-500"
-                                aria-label="Inactivo"
+                                aria-label={getText("guards.tariffs.inactive", "Inactivo")}
                               />
                             )}
                           </td>
@@ -374,6 +393,7 @@ export default function TariffModal({
                                   e.stopPropagation();
                                   handleSelectExistingTariff(t);
                                 }}
+                                title={getText("actions.edit", "Editar")}
                               >
                                 <Pencil className="h-4 w-4" />
                               </Button>
@@ -384,6 +404,7 @@ export default function TariffModal({
                                   e.stopPropagation();
                                   void handleDelete(t.id);
                                 }}
+                                title={getText("actions.delete", "Eliminar")}
                               >
                                 <Trash className="h-4 w-4 text-red-500" />
                               </Button>
@@ -403,9 +424,9 @@ export default function TariffModal({
             <div className="flex flex-col md:flex-row gap-6">
               {/* Columna izquierda: Buscar propiedad */}
               <div className="w-full md:w-1/2">
-                <Label className="text-sm">Buscar propiedad</Label>
+                <Label className="text-sm">{getText("properties.table.searchLabel", "Buscar propiedad")}</Label>
                 <Input
-                  placeholder="Filtrar propiedades..."
+                  placeholder={getText("properties.table.searchPlaceholder", "Filtrar propiedades...")}
                   value={searchProp}
                   onChange={(e) => setSearchProp(e.target.value)}
                 />
@@ -413,11 +434,11 @@ export default function TariffModal({
                   <div className="mt-2 max-h-56 overflow-auto border rounded p-1 bg-white">
                     {propsLoading ? (
                       <div className="p-3 text-sm text-muted-foreground">
-                        Cargando propiedades…
+                        {getText("common.loading", "Cargando propiedades…")}
                       </div>
                     ) : filteredProps.length === 0 ? (
                       <div className="p-3 text-sm text-muted-foreground">
-                        Sin resultados
+                        {getText("properties.form.noResultsText", "Sin resultados")}
                       </div>
                     ) : (
                       filteredProps.map((p) => {
@@ -440,7 +461,7 @@ export default function TariffModal({
                               </div>
                             </div>
                             <div className="text-xs text-muted-foreground">
-                              {has ? "⚑ Tarifa" : "—"}
+                              {has ? getText("guards.tariffs.flag", "⚑ Tarifa") : "—"}
                             </div>
                           </div>
                         );
@@ -452,7 +473,7 @@ export default function TariffModal({
 
               {/* Columna derecha: Propiedad seleccionada + tarifa */}
               <div className="w-full md:w-1/2">
-                <Label className="text-sm">Propiedad seleccionada</Label>
+                <Label className="text-sm">{getText("guards.tariffs.selectedPropertyLabel", "Propiedad seleccionada")}</Label>
                 <div className="p-3 rounded border bg-muted/5 mb-3">
                   {selectedProperty ? (
                     <>
@@ -465,23 +486,23 @@ export default function TariffModal({
                     </>
                   ) : (
                     <div className="text-sm text-muted-foreground">
-                      Ninguna propiedad seleccionada
+                      {getText("guards.tariffs.noneSelected", "Ninguna propiedad seleccionada")}
                     </div>
                   )}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
                   <div className="sm:col-span-2">
-                    <Label className="text-sm">Tarifa por hora</Label>
+                    <Label className="text-sm">{getText("guards.tariffs.rateLabel", "Tarifa por hora")}</Label>
                     <Input
                       ref={rateInputRef}
                       value={rate}
                       onChange={(e) => setRate(e.target.value)}
-                      placeholder="Ej: 15.00"
+                      placeholder={getText("guards.tariffs.ratePlaceholder", "Ej: 15.00")}
                     />
                   </div>
                   <div className="flex items-center gap-3">
-                    <Label className="text-sm mb-1">Activo</Label>
+                    <Label className="text-sm mb-1">{getText("guards.tariffs.activeLabel", "Activo")}</Label>
                     <Switch
                       checked={isActive}
                       onCheckedChange={(v) => setIsActive(Boolean(v))}
@@ -496,26 +517,26 @@ export default function TariffModal({
                       variant="ghost"
                       onClick={() => setPropsPanelOpen(true)}
                     >
-                      Cambiar propiedad
+                      {getText("guards.tariffs.changeProperty", "Cambiar propiedad")}
                     </Button>
                   )}
                   <Button variant="secondary" onClick={() => resetForm()}>
-                    Reset
+                    {getText("actions.reset", "Reset")}
                   </Button>
                   <Button
                     onClick={handleSave}
                     disabled={saving || !selectedProperty}
                   >
                     {saving
-                      ? "Guardando..."
+                      ? getText("guards.tariffs.saving", "Guardando...")
                       : editingTariff
-                      ? "Actualizar tarifa"
-                      : "Crear tarifa"}
+                      ? getText("guards.tariffs.update", "Actualizar tarifa")
+                      : getText("guards.tariffs.create", "Crear tarifa")}
                   </Button>
                 </div>
 
                 <div className="mt-3 text-xs text-muted-foreground">
-                  Nota: si la propiedad ya tiene tarifa, al seleccionarla pasarás a editarla; si no, crearás una nueva.
+                  {getText("guards.tariffs.note", "Nota: si la propiedad ya tiene tarifa, al seleccionarla pasarás a editarla; si no, crearás una nueva.")}
                 </div>
               </div>
             </div>
@@ -525,7 +546,7 @@ export default function TariffModal({
         <DialogFooter>
           <div className="flex justify-end w-full">
             <Button variant="destructive" onClick={() => onClose()}>
-              Cerrar
+              {getText("actions.close", "Cerrar")}
             </Button>
           </div>
         </DialogFooter>

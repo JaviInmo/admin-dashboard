@@ -12,8 +12,6 @@ import EditGuardDialog from "./Edit/Edit";
 import type { Guard } from "./types";
 import { ClickableEmail } from "../ui/clickable-email";
 
-/* Servicios que utilizaremos para tarifas y propiedades (solo tipos/llamadas) */
-
 /* Modal separado (import) */
 import TariffModal from "./TarifModal";
 
@@ -52,7 +50,23 @@ export default function GuardsTable({
   toggleSort,
 }: GuardsTableProps) {
   const { TEXT } = useI18n();
-  
+
+  function getText(path: string, fallback?: string, vars?: Record<string, string>) {
+    const parts = path.split(".");
+    let val: any = TEXT;
+    for (const p of parts) {
+      val = val?.[p];
+      if (val == null) break;
+    }
+    let str = typeof val === "string" ? val : fallback ?? path;
+    if (vars && typeof str === "string") {
+      for (const k of Object.keys(vars)) {
+        str = str.replace(new RegExp(`\\{${k}\\}`, "g"), vars[k]);
+      }
+    }
+    return String(str);
+  }
+
   const [createOpen, setCreateOpen] = React.useState(false);
   const [editGuard, setEditGuard] = React.useState<Guard | null>(null);
   const [deleteGuard, setDeleteGuard] = React.useState<Guard | null>(null);
@@ -67,37 +81,37 @@ export default function GuardsTable({
   const columns: Column<Guard>[] = [
     {
       key: "firstName",
-      label: guardTable.headers?.name ?? "Nombre",
+      label: guardTable.headers?.name ?? getText("guards.table.headers.name", "Nombre"),
       sortable: true,
       render: (guard) => guard.firstName ?? "",
     },
     {
-      key: "lastName", 
-      label: guardTable.headers?.lastName ?? "Apellido",
+      key: "lastName",
+      label: guardTable.headers?.lastName ?? getText("guards.table.headers.lastName", "Apellido"),
       sortable: true,
       render: (guard) => guard.lastName ?? "",
     },
     {
       key: "email",
-      label: guardTable.headers?.email ?? "Correo", // Esta columna se sacrificará
+      label: guardTable.headers?.email ?? getText("guards.table.headers.email", "Correo"),
       sortable: true,
       render: (guard) => <ClickableEmail email={guard.email || ""} />,
     },
     {
       key: "phone",
-      label: guardTable.headers?.phone ?? "Teléfono",
+      label: guardTable.headers?.phone ?? getText("guards.table.headers.phone", "Teléfono"),
       sortable: false,
       render: (guard) => guard.phone ?? "-",
     },
     {
       key: "ssn",
-      label: guardTable.headers?.ssn ?? "DNI/SSN",
+      label: guardTable.headers?.ssn ?? getText("guards.table.headers.ssn", "DNI/SSN"),
       sortable: false,
       render: () => guardTable.ssnHidden ?? "******",
     },
     {
       key: "birthdate",
-      label: guardTable.headers?.birthdate ?? "Fecha Nac.",
+      label: guardTable.headers?.birthdate ?? getText("guards.table.headers.birthdate", "Fecha Nac."),
       sortable: false,
       render: (guard) => guard.birthdate ?? "-",
     },
@@ -117,8 +131,8 @@ export default function GuardsTable({
           e.stopPropagation();
           setTariffGuard(guard);
         }}
-        title="Tarifas"
-        aria-label={`Tarifas guard ${guard.firstName ?? ""}`}
+        title={getText("guards.table.tariffsButton", "Tarifas")}
+        aria-label={getText("guards.table.tariffsAria", "Tarifas de {name}", { name: `${guard.firstName ?? ""}` })}
       >
         <Tag className="h-4 w-4" />
       </Button>
@@ -131,6 +145,8 @@ export default function GuardsTable({
           e.stopPropagation();
           setEditGuard(guard);
         }}
+        title={getText("actions.edit", "Editar")}
+        aria-label={getText("actions.edit", "Editar")}
       >
         <Pencil className="h-4 w-4" />
       </Button>
@@ -143,6 +159,8 @@ export default function GuardsTable({
           e.stopPropagation();
           setDeleteGuard(guard);
         }}
+        title={getText("actions.delete", "Eliminar")}
+        aria-label={getText("actions.delete", "Eliminar")}
       >
         <Trash className="h-4 w-4 text-red-500" />
       </Button>
@@ -156,9 +174,9 @@ export default function GuardsTable({
         columns={columns}
         getItemId={(guard) => guard.id}
         onSelectItem={(id) => onSelectGuard(Number(id))}
-        title={guardTable.title ?? "Guards List"}
-        searchPlaceholder={guardTable.searchPlaceholder ?? "Buscar guardias..."}
-        addButtonText={guardTable.addButton ?? "Agregar"}
+        title={guardTable.title ?? getText("guards.table.title", "Guards List")}
+        searchPlaceholder={guardTable.searchPlaceholder ?? getText("guards.table.searchPlaceholder", "Buscar guardias...")}
+        addButtonText={guardTable.add ?? guardTable.addButton ?? getText("guards.table.add", "Agregar")}
         onAddClick={() => setCreateOpen(true)}
         serverSide={serverSide}
         currentPage={currentPage}

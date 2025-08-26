@@ -1,4 +1,3 @@
-// src/components/Guards/guards-page.tsx
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -10,6 +9,7 @@ import type { SortOrder } from "@/lib/sort";
 import { generateSort } from "@/lib/sort";
 import GuardsTable from "./GuardsTable";
 import type { Guard } from "./types";
+import { useI18n } from "@/i18n";
 
 /**
  * Mapear campos frontend -> campos que acepta el API (DRF).
@@ -38,6 +38,7 @@ const INITIAL_GUARD_DATA: PaginatedResult<Guard> = {
 
 export default function GuardsPage() {
   const queryClient = useQueryClient();
+  const { TEXT } = useI18n();
 
   const [page, setPage] = React.useState<number>(1);
   const [pageSize, setPageSize] = React.useState<number>(20);
@@ -97,14 +98,17 @@ export default function GuardsPage() {
           ? error
           : error instanceof Error
           ? error.message
-          : "Error al cargar guardias";
+          : TEXT.guards?.errorLoading ?? "Error loading guards";
       toast.error(errorMessage);
     }
-  }, [error]);
+  }, [error, TEXT]);
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
-      <h2 className="text-2xl font-bold">Gestión de Guardias</h2>
+      {/* Usa la clave i18n para el título (cambia con el idioma) */}
+      <h2 className="text-2xl font-bold">
+        {TEXT.guards?.title ?? "Guards Management"}
+      </h2>
 
       <GuardsTable
         guards={data.items}

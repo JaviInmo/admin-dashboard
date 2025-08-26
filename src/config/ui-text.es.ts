@@ -28,11 +28,17 @@ export const ES_TEXT = {
   common: {
     notFoundTitle: "Contenido no encontrado",
     notFoundDescription: "Selecciona una opción del menú.",
+    loading: "Cargando...",
   },
   actions: {
     refresh: "Actualizar",
     save: "Guardar",
     cancel: "Cancelar",
+    edit: "Editar",
+    delete: "Eliminar",
+    reset: "Resetear",
+    close: "Cerrar",
+    actions: "Acciones",
   },
   dashboard: {
     title: "Resumen del Panel",
@@ -107,6 +113,7 @@ export const ES_TEXT = {
       title: "Lista de Propiedades",
       add: "Agregar",
       searchPlaceholder: "Buscar propiedades...",
+      searchLabel: "Buscar propiedad",
       headers: {
         alias: "Alias",
         name: "Nombre",
@@ -184,6 +191,8 @@ export const ES_TEXT = {
     table: {
       title: "Lista de Guardias",
       add: "Agregar Guardia",
+      addButton: "Agregar Guardia",
+      searchPlaceholder: "Buscar guardias...",
       headers: {
         name: "Nombre",
         firstName: "Nombre",
@@ -203,6 +212,9 @@ export const ES_TEXT = {
       actionDelete: "Eliminar guardia {name}",
       confirmLabel: "Confirmar",
       deleteSuccess: "Guardia {name} eliminado",
+      // Tariff-related small keys for the table row buttons
+      tariffsButton: "Tarifas",
+      tariffsAria: "Abrir tarifas de {name}",
     },
     errorLoading: "Error al cargar guardias",
     form: {
@@ -230,6 +242,43 @@ export const ES_TEXT = {
         saving: "Guardando...",
         delete: "Eliminar",
       },
+    },
+
+    // New block: traducciones para el modal de tarifas
+    tariffs: {
+      title: "Tarifas de {name}",
+      assignedLabel: "Tarifas asignadas",
+      assignedNote: "Una tarifa por propiedad. Haz click para editar.",
+      count: "{count} propiedad(es) con tarifa",
+      empty: "Este guard no tiene tarifas asignadas.",
+      rateHeader: "Tarifa",
+      activeHeader: "Activo",
+      flag: "⚑ Tarifa",
+      active: "Activo",
+      inactive: "Inactivo",
+      // propiedad / area de busqueda
+      selectedPropertyLabel: "Propiedad seleccionada",
+      noneSelected: "Ninguna propiedad seleccionada",
+      rateLabel: "Tarifa por hora",
+      ratePlaceholder: "Ej: 15.00",
+      activeLabel: "Activo",
+      changeProperty: "Cambiar propiedad",
+      create: "Crear tarifa",
+      update: "Actualizar tarifa",
+      saving: "Guardando...",
+      savingShort: "Guardando",
+      savingCreate: "Creando...",
+      savingUpdate: "Actualizando...",
+      savingDelete: "Eliminando...",
+      savingError: "Error guardando tarifa",
+      savingSuccess: "Tarifa guardada",
+      savingDeleteError: "Error eliminando tarifa",
+      note: "Nota: si la propiedad ya tiene tarifa, al seleccionarla pasarás a editarla; si no, crearás una nueva.",
+      invalidRate: "Ingresa una tarifa válida (ej: 15.00).",
+      exists: "Ya existe una tarifa para esta propiedad. Se cargará para editar.",
+      saveError: "Error guardando tarifa (ver consola).",
+      confirmDelete: "¿Eliminar esta tarifa?",
+      deleteError: "Error eliminando tarifa (ver consola).",
     },
   },
 

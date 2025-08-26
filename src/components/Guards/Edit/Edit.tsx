@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import type { Guard } from "../types";
 import { updateGuard, type UpdateGuardPayload } from "@/lib/services/guard";
+import { useI18n } from "@/i18n";
 
 interface Props {
   guard: Guard;
@@ -16,6 +17,24 @@ interface Props {
 }
 
 export default function EditGuardDialog({ guard, open, onClose, onUpdated }: Props) {
+  const { TEXT } = useI18n();
+
+  function getText(path: string, vars?: Record<string, string>) {
+    const parts = path.split(".");
+    let val: any = TEXT;
+    for (const p of parts) {
+      val = val?.[p];
+      if (val == null) break;
+    }
+    let str = typeof val === "string" ? val : path;
+    if (vars) {
+      for (const k of Object.keys(vars)) {
+        str = str.replace(new RegExp(`\\{${k}\\}`, "g"), vars[k]);
+      }
+    }
+    return str;
+  }
+
   const [firstName, setFirstName] = React.useState<string>(guard.firstName ?? "");
   const [lastName, setLastName] = React.useState<string>(guard.lastName ?? "");
   const [email, setEmail] = React.useState<string>(guard.email ?? "");
@@ -52,15 +71,15 @@ export default function EditGuardDialog({ guard, open, onClose, onUpdated }: Pro
     setError(null);
 
     if (email && !/\S+@\S+\.\S+/.test(email)) {
-      setError("Correo inválido");
+      setError(getText("guards.form.validation.invalidEmail"));
       return;
     }
     if (!firstName.trim()) {
-      setError("Nombre es requerido");
+      setError(getText("guards.form.validation.firstNameRequired"));
       return;
     }
     if (!lastName.trim()) {
-      setError("Apellido es requerido");
+      setError(getText("guards.form.validation.lastNameRequired"));
       return;
     }
 
@@ -84,7 +103,7 @@ export default function EditGuardDialog({ guard, open, onClose, onUpdated }: Pro
       }
 
       await updateGuard(guard.id, payload);
-      toast.success("Guardia actualizado");
+      toast.success(getText("guards.form.success") || getText("guards.form.editTitle") || "Guard updated");
       if (!mountedRef.current) return;
       if (onUpdated) await onUpdated();
       onClose();
@@ -105,54 +124,60 @@ export default function EditGuardDialog({ guard, open, onClose, onUpdated }: Pro
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="w-full max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Editar Guardia — {guardLabel}</DialogTitle>
+          <DialogTitle>
+            {getText("guards.form.editTitle")} — {guardLabel}
+          </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-3 p-4">
           <form onSubmit={handleSubmit} className="space-y-3">
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block text-sm">Nombre *</label>
+                <label className="block text-sm">{getText("guards.form.fields.firstName")} *</label>
                 <Input name="firstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
               </div>
               <div>
-                <label className="block text-sm">Apellido *</label>
+                <label className="block text-sm">{getText("guards.form.fields.lastName")} *</label>
                 <Input name="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} required />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block text-sm">Email *</label>
+                <label className="block text-sm">{getText("guards.form.fields.email")} *</label>
                 <Input name="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
               </div>
               <div>
-                <label className="block text-sm">Teléfono</label>
+                <label className="block text-sm">{getText("guards.form.fields.phone")}</label>
                 <Input name="phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block text-sm">DNI / SSN</label>
+                <label className="block text-sm">{getText("guards.form.fields.ssn")}</label>
                 <Input name="ssn" value={ssn} onChange={(e) => setSsn(e.target.value)} />
               </div>
               <div>
-                <label className="block text-sm">Fecha de Nacimiento</label>
+                <label className="block text-sm">{getText("guards.form.fields.birthdate")}</label>
                 <Input name="birthdate" type="date" value={birthdate} onChange={(e) => setBirthdate(e.target.value)} />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm">Dirección</label>
+              <label className="block text-sm">{getText("guards.form.fields.address")}</label>
               <Input name="address" value={address} onChange={(e) => setAddress(e.target.value)} />
             </div>
 
             {error && <p className="text-sm text-red-600">{error}</p>}
 
             <div className="flex justify-end gap-2 mt-3">
-              <Button variant="ghost" onClick={onClose} disabled={loading}>Cancelar</Button>
-              <Button type="submit" disabled={loading}>{loading ? "Guardando..." : "Guardar"}</Button>
+              <Button variant="ghost" onClick={onClose} disabled={loading}>
+                {getText("actions.cancel")}
+              </Button>
+              <Button type="submit" disabled={loading}>
+                {loading ? getText("guards.form.buttons.saving") || "Saving..." : getText("guards.form.buttons.save")}
+              </Button>
             </div>
           </form>
         </div>
