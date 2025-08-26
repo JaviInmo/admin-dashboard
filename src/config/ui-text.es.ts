@@ -41,20 +41,6 @@ export const ES_TEXT = {
     actions: "Acciones",
     create: "Crear",
   },
-  dashboard: {
-    title: "Resumen del Panel",
-    chartHoursTitle: "Horas trabajadas por mes",
-    chartCostsTitle: "Costos por mes",
-    series: {
-      priceTotal: "Precio Total",
-      fuelCost: "Costo de Combustible",
-      guardSalary: "Salario de Guardia",
-    },
-    upcomingShifts: {
-      title: "Próximos turnos",
-      headers: { guard: "Guardia", location: "Lugar", date: "Fecha" },
-    },
-  },
 
   clients: {
     title: "Gestión de Clientes",
@@ -87,6 +73,36 @@ export const ES_TEXT = {
       statusActive: "Activo",
       statusInactive: "Inactivo",
     },
+
+    // <<< ADDED: form keys for CreateClientDialog >>>
+    form: {
+      createTitle: "Crear Cliente",
+      fields: {
+        username: "Usuario",
+        firstName: "Nombre *",
+        lastName: "Apellido *",
+        email: "Correo *",
+        phone: "Teléfono",
+        address: "Dirección",
+        billingAddress: "Dirección de facturación",
+      },
+      placeholders: {
+        address: "Dirección principal del cliente",
+        billingAddress: "Dirección usada para facturación",
+      },
+      buttons: {
+        cancel: "Cancelar",
+        create: "Crear",
+        creating: "Creando...",
+      },
+      validation: {
+        firstNameRequired: "El nombre es requerido",
+        lastNameRequired: "El apellido es requerido",
+        emailRequired: "El correo es requerido",
+      },
+      success: "Cliente creado",
+    },
+
     properties: {
       title: "Propiedades de {clientName}",
       headers: {
@@ -114,7 +130,6 @@ export const ES_TEXT = {
       title: "Lista de Propiedades",
       add: "Agregar",
       searchPlaceholder: "Buscar propiedades...",
-      searchLabel: "Buscar propiedad",
       headers: {
         alias: "Alias",
         name: "Nombre",
@@ -179,7 +194,6 @@ export const ES_TEXT = {
         cancel: "Cancelar",
         errorRefresh: "Error al refrescar propiedades",
       },
-      // Access roles labels used in CreateUserDialog select
       viewer: "Visor",
       editor: "Editor",
       admin: "Admin",
@@ -277,7 +291,6 @@ export const ES_TEXT = {
     selectPrompt: "Selecciona un usuario para ver y editar sus permisos.",
     noPermissions: "Sin permisos",
     permissionsTitle: "Permisos por recurso",
-  
     userTypes: {
       superuser: "Superusuario",
       staff: "Staff",
@@ -333,11 +346,9 @@ export const ES_TEXT = {
       },
       createSuccess: "Usuario creado",
     },
-    
     permissionsHelp: "Los permisos se aplican como resource.action.",
   },
 
-  // top-level permissions translations used by CreateUserDialog's labels
   permissions: {
     resources: {
       guard: { label: "Guardia" },

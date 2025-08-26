@@ -28,33 +28,44 @@ interface ClientFormData {
 export default function CreateClientDialog({ open, onClose, onCreated }: Props) {
   const { TEXT } = useI18n();
 
-  // Texto del formulario (aseguramos que existan las claves en los archivos de texto)
-  const FORM = TEXT?.clients?.form ?? {
-    createTitle: TEXT?.clients?.title ?? "Create Client",
+  // Helper para leer traducciones de forma segura (fallback incluido)
+  function getText(path: string, fallback?: string) {
+    const parts = path.split(".");
+    let val: any = TEXT as any;
+    for (const p of parts) {
+      if (val == null) break;
+      val = val[p];
+    }
+    if (typeof val === "string") return val;
+    return fallback ?? path;
+  }
+
+  const FORM = {
+    createTitle: getText("clients.form.createTitle", getText("clients.title", "Create Client")),
     fields: {
-      username: "Username",
-      firstName: "First name *",
-      lastName: "Last name *",
-      email: "Email *",
-      phone: "Phone",
-      address: "Address",
-      billingAddress: "Billing address",
+      username: getText("clients.form.fields.username", "Username"),
+      firstName: getText("clients.form.fields.firstName", "First name *"),
+      lastName: getText("clients.form.fields.lastName", "Last name *"),
+      email: getText("clients.form.fields.email", "Email *"),
+      phone: getText("clients.form.fields.phone", "Phone"),
+      address: getText("clients.form.fields.address", "Address"),
+      billingAddress: getText("clients.form.fields.billingAddress", "Billing address"),
     },
     placeholders: {
-      address: "Client's primary address",
-      billingAddress: "Address used for invoicing",
+      address: getText("clients.form.placeholders.address", "Client's primary address"),
+      billingAddress: getText("clients.form.placeholders.billingAddress", "Address used for invoicing"),
     },
     buttons: {
-      cancel: "Cancel",
-      create: "Create",
-      creating: "Creating...",
+      cancel: getText("clients.form.buttons.cancel", getText("actions.cancel", "Cancel")),
+      create: getText("clients.form.buttons.create", "Create"),
+      creating: getText("clients.form.buttons.creating", "Creating..."),
     },
     validation: {
-      firstNameRequired: "First name is required",
-      lastNameRequired: "Last name is required",
-      emailRequired: "Email is required",
+      firstNameRequired: getText("clients.form.validation.firstNameRequired", "First name is required"),
+      lastNameRequired: getText("clients.form.validation.lastNameRequired", "Last name is required"),
+      emailRequired: getText("clients.form.validation.emailRequired", "Email is required"),
     },
-    success: "Client created",
+    success: getText("clients.form.success", "Client created"),
   };
 
   const [username, setUsername] = React.useState<string>("");

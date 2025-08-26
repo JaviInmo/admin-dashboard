@@ -41,20 +41,6 @@ export const EN_TEXT = {
     actions: "Actions",
     create: "Create",
   },
-  dashboard: {
-    title: "Dashboard Overview",
-    chartHoursTitle: "Hours worked per month",
-    chartCostsTitle: "Costs per month",
-    series: {
-      priceTotal: "Total Price",
-      fuelCost: "Fuel Cost",
-      guardSalary: "Guard Salary",
-    },
-    upcomingShifts: {
-      title: "Upcoming shifts",
-      headers: { guard: "Guard", location: "Location", date: "Date" },
-    },
-  },
 
   clients: {
     title: "Clients Management",
@@ -87,6 +73,36 @@ export const EN_TEXT = {
       statusActive: "Active",
       statusInactive: "Inactive",
     },
+
+    // <<< ADDED: form keys for CreateClientDialog >>>
+    form: {
+      createTitle: "Create Client",
+      fields: {
+        username: "Username",
+        firstName: "First name *",
+        lastName: "Last name *",
+        email: "Email *",
+        phone: "Phone",
+        address: "Address",
+        billingAddress: "Billing address",
+      },
+      placeholders: {
+        address: "Client's primary address",
+        billingAddress: "Address used for invoicing",
+      },
+      buttons: {
+        cancel: "Cancel",
+        create: "Create",
+        creating: "Creating...",
+      },
+      validation: {
+        firstNameRequired: "First name is required",
+        lastNameRequired: "Last name is required",
+        emailRequired: "Email is required",
+      },
+      success: "Client created",
+    },
+
     properties: {
       title: "Properties of {clientName}",
       headers: {
@@ -114,7 +130,6 @@ export const EN_TEXT = {
       title: "Properties List",
       add: "Add",
       searchPlaceholder: "Search properties...",
-      searchLabel: "Search property",
       headers: {
         alias: "Alias",
         name: "Name",
@@ -179,7 +194,6 @@ export const EN_TEXT = {
         cancel: "Cancel",
         errorRefresh: "Failed to refresh properties",
       },
-      // Access roles labels used in CreateUserDialog select
       viewer: "Viewer",
       editor: "Editor",
       admin: "Admin",
@@ -277,7 +291,6 @@ export const EN_TEXT = {
     selectPrompt: "Select a user to view and edit their permissions.",
     noPermissions: "No permissions",
     permissionsTitle: "Permissions by resource",
-    
     userTypes: {
       superuser: "Superuser",
       staff: "Staff",
@@ -333,11 +346,9 @@ export const EN_TEXT = {
       },
       createSuccess: "User created",
     },
-   
     permissionsHelp: "Permissions are applied as resource.action.",
   },
 
-  // top-level permissions translations used by CreateUserDialog's labels
   permissions: {
     resources: {
       guard: { label: "Guard" },
