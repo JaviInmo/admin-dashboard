@@ -1,3 +1,4 @@
+// src/components/Guards/GuardsTable.tsx
 "use client";
 
 import { Pencil, Trash, Tag } from "lucide-react";
@@ -77,6 +78,28 @@ export default function GuardsTable({
   // Access i18n keys
   const guardTable = (TEXT.guards && (TEXT.guards as any).table) ?? (TEXT.guards as any) ?? {};
 
+  // Normaliza número para usar en enlace de wa.me
+  function normalizePhoneForWhatsapp(raw?: string | null): string {
+    if (!raw) return "";
+    // quitar todo excepto dígitos y + y iniciales 00
+    const trimmed = String(raw).trim();
+    // eliminar paréntesis, espacios, guiones, puntos
+    let cleaned = trimmed.replace(/[\s().\-]/g, "");
+    // si comienza con +, quitar el +
+    if (cleaned.startsWith("+")) {
+      cleaned = cleaned.slice(1);
+      return cleaned.replace(/^0+/, ""); // quitar ceros innecesarios
+    }
+    // si comienza con 00, quitar los 00 (estándar internacional)
+    if (cleaned.startsWith("00")) {
+      cleaned = cleaned.replace(/^00+/, "");
+      return cleaned;
+    }
+    // si contiene sólo dígitos, devolverlos tal cual
+    const digits = cleaned.replace(/\D+/g, "");
+    return digits;
+  }
+
   // Definir las columnas de la tabla - correo (índice 2) será sacrificado
   const columns: Column<Guard>[] = [
     {
@@ -101,7 +124,32 @@ export default function GuardsTable({
       key: "phone",
       label: guardTable.headers?.phone ?? getText("guards.table.headers.phone", "Teléfono"),
       sortable: false,
-      render: (guard) => guard.phone ?? "-",
+      render: (guard) => {
+        const phone = guard.phone ?? "";
+        if (!phone) return "-";
+
+        const normalized = normalizePhoneForWhatsapp(phone);
+        const waUrl = normalized ? `https://wa.me/${encodeURIComponent(normalized)}` : `https://wa.me/${encodeURIComponent(phone)}`;
+        const linkTitle = getText("guards.table.whatsappTitle", "Abrir en WhatsApp", { phone });
+        const ariaLabel = getText("guards.table.whatsappAria", "Abrir chat de WhatsApp con {phone}", { phone });
+
+        return (
+          <a
+            href={waUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => {
+              // Evitar que el clic en el link dispare la selección de fila
+              e.stopPropagation();
+            }}
+            title={linkTitle}
+            aria-label={ariaLabel}
+            className="text-blue-600 hover:underline"
+          >
+            {phone}
+          </a>
+        );
+      },
     },
     {
       key: "ssn",

@@ -54,6 +54,23 @@ export default function ClientsTable({
 }: ClientsTableProps) {
   const { TEXT } = useI18n();
 
+  // helper para acceder seguro a TEXT y permitir fallbacks + reemplazo de vars
+  function getText(path: string, fallback?: string, vars?: Record<string, string>) {
+    const parts = path.split(".");
+    let val: any = TEXT;
+    for (const p of parts) {
+      val = val?.[p];
+      if (val == null) break;
+    }
+    let str = typeof val === "string" ? val : fallback ?? path;
+    if (vars && typeof str === "string") {
+      for (const k of Object.keys(vars)) {
+        str = str.replace(new RegExp(`\\{${k}\\}`, "g"), vars[k]);
+      }
+    }
+    return String(str);
+  }
+
   const [createOpen, setCreateOpen] = React.useState(false);
   const [editClient, setEditClient] = React.useState<AppClient | null>(null);
   const [deleteClient, setDeleteClient] = React.useState<AppClient | null>(null);
@@ -85,6 +102,27 @@ export default function ClientsTable({
     return template.replace("{name}", name);
   }
 
+  // Normaliza número para usar en enlace de wa.me (maneja +, 00, paréntesis, espacios, guiones)
+  function normalizePhoneForWhatsapp(raw?: string | null): string {
+    if (!raw) return "";
+    let trimmed = String(raw).trim();
+    // eliminar paréntesis, espacios, guiones, puntos
+    let cleaned = trimmed.replace(/[\s().\-]/g, "");
+    // si comienza con +, quitar el +
+    if (cleaned.startsWith("+")) {
+      cleaned = cleaned.slice(1);
+      return cleaned.replace(/^0+/, "");
+    }
+    // si comienza con 00, quitar los 00 (prefijo internacional)
+    if (cleaned.startsWith("00")) {
+      cleaned = cleaned.replace(/^00+/, "");
+      return cleaned;
+    }
+    // else devolver sólo dígitos
+    const digits = cleaned.replace(/\D+/g, "");
+    return digits;
+  }
+
   // Definir las columnas de la tabla - email (índice 1) será sacrificado
   const columns: Column<AppClient & { clientName: string }>[] = [
     {
@@ -103,7 +141,33 @@ export default function ClientsTable({
       key: "phone",
       label: TEXT.clients.list.headers.phone,
       sortable: true,
-      render: (client) => client.phone ?? "-",
+      render: (client) => {
+        const phone = client.phone ?? "";
+        if (!phone) return "-";
+
+        const normalized = normalizePhoneForWhatsapp(phone);
+        const waUrl = normalized ? `https://wa.me/${encodeURIComponent(normalized)}` : `https://wa.me/${encodeURIComponent(phone)}`;
+
+        const linkTitle = getText("clients.table.whatsappTitle", "Abrir en WhatsApp", { phone });
+        const ariaLabel = getText("clients.table.whatsappAria", "Abrir chat de WhatsApp con {phone}", { phone });
+
+        return (
+          <a
+            href={waUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => {
+              // Evitar que el clic en el link dispare la selección de fila
+              e.stopPropagation();
+            }}
+            title={linkTitle}
+            aria-label={ariaLabel}
+            className="text-blue-600 hover:underline"
+          >
+            {phone}
+          </a>
+        );
+      },
     },
   ];
 
