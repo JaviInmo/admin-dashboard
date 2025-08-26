@@ -19,6 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { User, Permissions } from "./types";
 import CreateUserDialog from "./Create/Create";
 import EditUserDialog from "./Edit/Edit";
@@ -41,6 +42,9 @@ export interface UsersTableProps {
   sortField: keyof User;
   sortOrder: SortOrder;
   toggleSort: (field: keyof User) => void;
+
+  /** Nueva prop: mostrar skeletons cuando los datos están cargando */
+  isLoading?: boolean;
 }
 
 export default function UsersTable({
@@ -57,6 +61,7 @@ export default function UsersTable({
   sortField,
   sortOrder,
   toggleSort,
+  isLoading = false,
 }: UsersTableProps) {
   const { TEXT, lang } = useI18n();
 
@@ -85,7 +90,7 @@ export default function UsersTable({
 
   const itemsPerPage = pageSize ?? 5;
 
-  // estilos y animación del search
+  // efectos para focus/animación search
   const [highlightSearch, setHighlightSearch] = React.useState(true);
   const searchRef = React.useRef<HTMLInputElement | null>(null);
 
@@ -95,7 +100,7 @@ export default function UsersTable({
         searchRef.current.focus();
       } catch {}
     }
-    const t = setTimeout(() => setHighlightSearch(false), 3500);
+    const t = setTimeout(() => setHighlightSearch(false), 2500);
     return () => clearTimeout(t);
   }, []);
 
@@ -126,7 +131,7 @@ export default function UsersTable({
   const localTotalPages = Math.max(1, Math.ceil(effectiveList.length / itemsPerPage));
   const effectiveTotalPages = serverSide ? Math.max(1, totalPages ?? 1) : localTotalPages;
   const effectivePage = serverSide
-    ? Math.max(1, Math.min(currentPage, effectiveTotalPages))
+    ? Math.max(1, Math.min(currentPage ?? 1, effectiveTotalPages))
     : page;
   const startIndex = (effectivePage - 1) * itemsPerPage;
   const paginatedUsers = serverSide
@@ -137,8 +142,8 @@ export default function UsersTable({
     if (!serverSide) setPage(1);
   }, [users.length, search, serverSide, itemsPerPage]);
 
+  // debounce search solo en serverSide
   const searchTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-
   React.useEffect(() => {
     if (!serverSide) return;
     if (!onSearch) return;
@@ -176,13 +181,14 @@ export default function UsersTable({
   };
 
   const renderRoleText = (u: User) => {
-    // localized role names using users.userTypes.* keys, fallbacks differ by lang
     if ((u as any).is_superuser || u.isSuperuser) return getText("users.userTypes.superuser", lang === "es" ? "Superusuario" : "Superuser");
     if ((u as any).is_staff || u.isStaff) return getText("users.userTypes.staff", lang === "es" ? "Staff" : "Staff");
     return getText("users.userTypes.user", lang === "es" ? "Usuario" : "User");
   };
 
   const perPageLabel = (TEXT.users as any)?.table?.perPage ?? (lang === "es" ? "por página" : "per page");
+
+  const skeletonRows = serverSide ? itemsPerPage : Math.max(1, Math.min(itemsPerPage, paginatedUsers.length || itemsPerPage));
 
   return (
     <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm space-y-4">
@@ -193,10 +199,7 @@ export default function UsersTable({
         </h3>
 
         <div className="flex-1 md:mx-4 w-full max-w-3xl">
-          <div
-            className={`${highlightSearch ? "search-highlight search-pulse" : ""}`}
-            style={{ minWidth: 280 }}
-          >
+          <div className={`${highlightSearch ? "search-highlight search-pulse" : ""}`} style={{ minWidth: 280 }}>
             <Input
               ref={searchRef}
               placeholder={TEXT.users?.table?.searchPlaceholder ?? getText("users.table.searchPlaceholder", lang === "es" ? "Buscar..." : "Search...")}
@@ -204,25 +207,21 @@ export default function UsersTable({
               onChange={(e) => setSearch(e.target.value)}
               className="w-full"
               aria-label={TEXT.users?.table?.searchPlaceholder ?? getText("users.table.searchPlaceholder", lang === "es" ? "Buscar usuarios" : "Search users")}
+              disabled={isLoading}
             />
           </div>
         </div>
 
-        {/* Selector de Page Size */}
         <div className="flex-none">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="min-w-32 justify-between">
+              <Button variant="outline" size="sm" className="min-w-32 justify-between" disabled={isLoading}>
                 {pageSize} {perPageLabel}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-[var(--radix-dropdown-menu-trigger-width)]">
               {[5, 10, 20, 50, 100].map((size) => (
-                <DropdownMenuItem
-                  key={size}
-                  onClick={() => onPageSizeChange?.(size)}
-                  className={pageSize === size ? "bg-accent" : ""}
-                >
+                <DropdownMenuItem key={size} onClick={() => onPageSizeChange?.(size)} className={pageSize === size ? "bg-accent" : ""}>
                   {size} {perPageLabel}
                 </DropdownMenuItem>
               ))}
@@ -231,7 +230,7 @@ export default function UsersTable({
         </div>
 
         <div className="flex-none">
-          <Button onClick={() => setCreateOpen(true)}>
+          <Button onClick={() => setCreateOpen(true)} disabled={isLoading}>
             {TEXT.users?.table?.add ?? getText("users.table.add", lang === "es" ? "Agregar" : "Add")}
           </Button>
         </div>
@@ -254,12 +253,10 @@ export default function UsersTable({
               {TEXT.users?.table?.headers?.email ?? getText("users.table.headers.email", lang === "es" ? "Correo" : "Email")} {renderSortIcon("email")}
             </TableHead>
 
-            {/* Encabezado de Estado centrado */}
             <TableHead className="w-[120px] text-center align-middle">
               {getText("users.table.headers.status", lang === "es" ? "Estado" : "Status")}
             </TableHead>
 
-            {/* Centrar Rol para alinear con su celda (opcional pero consistente) */}
             <TableHead className="w-[120px] text-center align-middle">
               {getText("users.table.headers.role", lang === "es" ? "Rol" : "Role")}
             </TableHead>
@@ -270,44 +267,60 @@ export default function UsersTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {paginatedUsers.map((user) => (
-            <TableRow key={user.id}>
-              <TableCell>
-                <button onClick={() => onSelectUser(user.id)} className="text-blue-600 hover:underline">
-                  {user.username}
-                </button>
-              </TableCell>
-              <TableCell>{user.firstName}</TableCell>
-              <TableCell>{user.lastName}</TableCell>
-              <TableCell>{user.email ?? "-"}</TableCell>
+          {isLoading
+            ? Array.from({ length: skeletonRows }).map((_, i) => (
+                <TableRow key={`skeleton-${i}`}>
+                  <TableCell><Skeleton className="h-4 w-40" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-28" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-28" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-56" /></TableCell>
+                  <TableCell className="text-center"><div className="flex justify-center"><Skeleton className="h-4 w-4 rounded-full" /></div></TableCell>
+                  <TableCell className="text-center"><Skeleton className="h-4 w-20" /></TableCell>
+                  <TableCell className="flex gap-2 justify-center">
+                    <div className="flex items-center gap-2">
+                      <Skeleton className="h-8 w-8 rounded" />
+                      <Skeleton className="h-8 w-8 rounded" />
+                      <Skeleton className="h-8 w-8 rounded" />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            : paginatedUsers.map((user) => (
+                <TableRow key={user.id}>
+                  <TableCell>
+                    <button onClick={() => onSelectUser(user.id)} className="text-blue-600 hover:underline">
+                      {user.username}
+                    </button>
+                  </TableCell>
+                  <TableCell>{user.firstName}</TableCell>
+                  <TableCell>{user.lastName}</TableCell>
+                  <TableCell>{user.email ?? "-"}</TableCell>
 
-              {/* Celda de Estado centrada para que el icono quede directamente debajo del encabezado */}
-              <TableCell className="text-center align-middle">
-                {((user as any).is_active ?? user.isActive ?? true) ? (
-                  <Check className="h-4 w-4 inline-block text-green-600" aria-label={getText("users.status.active", lang === "es" ? "Activo" : "Active")} />
-                ) : (
-                  <X className="h-4 w-4 inline-block text-red-500" aria-label={getText("users.status.inactive", lang === "es" ? "Inactivo" : "Inactive")} />
-                )}
-              </TableCell>
+                  <TableCell className="text-center align-middle">
+                    {((user as any).is_active ?? user.isActive ?? true) ? (
+                      <Check className="h-4 w-4 inline-block text-green-600" aria-label={getText("users.status.active", lang === "es" ? "Activo" : "Active")} />
+                    ) : (
+                      <X className="h-4 w-4 inline-block text-red-500" aria-label={getText("users.status.inactive", lang === "es" ? "Inactivo" : "Inactive")} />
+                    )}
+                  </TableCell>
 
-              <TableCell className="text-center align-middle">{renderRoleText(user)}</TableCell>
-              <TableCell className="flex gap-2 justify-center">
-                <Button size="icon" variant="ghost" onClick={() => setShowUser(user)}>
-                  <Eye className="h-4 w-4 text-blue-500" />
-                </Button>
-                <Button size="icon" variant="ghost" onClick={() => setEditUser(user)}>
-                  <Pencil className="h-4 w-4" />
-                </Button>
-                <Button size="icon" variant="ghost" onClick={() => setDeleteUser(user)}>
-                  <Trash className="h-4 w-4 text-red-500" />
-                </Button>
-              </TableCell>
-            </TableRow>
-          ))}
+                  <TableCell className="text-center align-middle">{renderRoleText(user)}</TableCell>
+                  <TableCell className="flex gap-2 justify-center">
+                    <Button size="icon" variant="ghost" onClick={() => setShowUser(user)} disabled={isLoading}>
+                      <Eye className="h-4 w-4 text-blue-500" />
+                    </Button>
+                    <Button size="icon" variant="ghost" onClick={() => setEditUser(user)} disabled={isLoading}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button size="icon" variant="ghost" onClick={() => setDeleteUser(user)} disabled={isLoading}>
+                      <Trash className="h-4 w-4 text-red-500" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
         </TableBody>
       </Table>
 
-      {/* Paginación */}
       <div className="flex justify-center">
         <ReusablePagination
           currentPage={effectivePage}
@@ -316,7 +329,6 @@ export default function UsersTable({
           showFirstLast={true}
           showPageInfo={true}
           pageInfoText={(current, total) =>
-            // use pagination.pageInfo from TEXT, fallback localized
             getText(
               "pagination.pageInfo",
               lang === "es" ? `Página ${current} de ${total}` : `Page ${current} of ${total}`,
@@ -326,7 +338,6 @@ export default function UsersTable({
         />
       </div>
 
-      {/* Modals */}
       <CreateUserDialog open={createOpen} onClose={() => setCreateOpen(false)} onCreated={onRefresh} />
       {editUser && <EditUserDialog user={editUser} open={!!editUser} onClose={() => setEditUser(null)} onUpdated={onRefresh} />}
       {deleteUser && <DeleteUserDialog user={deleteUser} onClose={() => setDeleteUser(null)} onDeleted={onRefresh} />}

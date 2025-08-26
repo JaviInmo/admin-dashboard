@@ -18,6 +18,17 @@ import CreatePropertyDialog from "./Create/Create";
 import DeletePropertyDialog from "./Delete/Delete";
 import EditPropertyDialog from "./Edit/Edit";
 
+// Table primitives & Skeleton for loading state
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
+
 // Componente helper para texto truncado con tooltip
 function TruncatedText({
   text,
@@ -199,16 +210,15 @@ export default function PropertiesTable({
         <TruncatedText text={(p as any).typesOfServiceStr || "-"} maxLength={25} />
       ),
     },
- {
-  key: "monthlyRate",
-  label: getText("properties.table.headers.monthlyRate", "Monthly Rate"),
-  sortable: true,
-  render: (p) =>
-    p.monthlyRate != null && p.monthlyRate !== ""
-      ? `$ ${p.monthlyRate}`
-      : "-",
-},
-
+    {
+      key: "monthlyRate",
+      label: getText("properties.table.headers.monthlyRate", "Monthly Rate"),
+      sortable: true,
+      render: (p) =>
+        p.monthlyRate != null && p.monthlyRate !== ""
+          ? `$ ${p.monthlyRate}`
+          : "-",
+    },
     {
       key: "totalHours",
       label: getText("properties.table.headers.totalHours", "Total Hours"),
@@ -246,30 +256,77 @@ export default function PropertiesTable({
     </>
   );
 
+  // Número de filas skeleton a mostrar (usa pageSize si está en serverSide)
+  const skeletonRows = Math.max(3, pageSize ?? 5);
+
   return (
     <>
-      <ReusableTable<any>
-        data={normalizedProperties}
-        columns={columns}
-        getItemId={(p) => p.id}
-        onSelectItem={(id) => onSelectProperty?.(Number(id))}
-        title={getText("properties.table.title", "Properties List")}
-        searchPlaceholder={getText("properties.table.searchPlaceholder", "Search properties...")}
-        addButtonText={getText("properties.table.add", "Add")}
-        onAddClick={() => setCreateOpen(true)}
-        serverSide={serverSide}
-        currentPage={currentPage}
-        totalPages={totalPages}
-        onPageChange={onPageChange}
-        pageSize={pageSize}
-        isPageLoading={isPageLoading}
-        onSearch={onSearch}
-        searchFields={searchFields}
-        sortField={sortField as any}
-        sortOrder={sortOrder}
-        toggleSort={toggleSort as any}
-        actions={renderActions}
-      />
+      {/* Si está cargando pagina, renderizamos una tabla-skeleton con la misma cantidad de columnas */}
+      {isPageLoading ? (
+        <div className="rounded-lg border bg-card p-4 text-card-foreground shadow-sm">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-lg font-semibold">{getText("properties.table.title", "Properties List")}</h3>
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-8 w-24 rounded" />
+              <Skeleton className="h-8 w-8 rounded" />
+            </div>
+          </div>
+
+          <Table>
+            <TableHeader>
+              <TableRow>
+                {columns.map((col) => (
+                  <TableHead key={String(col.key)} className="select-none">
+                    {String(col.label)}
+                  </TableHead>
+                ))}
+                <TableHead className="w-[120px] text-center">{getText("properties.table.headers.actions", "Actions")}</TableHead>
+              </TableRow>
+            </TableHeader>
+
+            <TableBody>
+              {Array.from({ length: skeletonRows }).map((_, rIndex) => (
+                <TableRow key={`prop-skel-${rIndex}`}>
+                  {columns.map((_, cIndex) => (
+                    <TableCell key={`c-${cIndex}`}>
+                      <Skeleton className="h-4 w-full max-w-[220px]" />
+                    </TableCell>
+                  ))}
+
+                  <TableCell className="flex gap-2 justify-center">
+                    <Skeleton className="h-8 w-8 rounded" />
+                    <Skeleton className="h-8 w-8 rounded" />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      ) : (
+        // Si no está cargando, usamos el ReusableTable normal
+        <ReusableTable<any>
+          data={normalizedProperties}
+          columns={columns}
+          getItemId={(p) => p.id}
+          onSelectItem={(id) => onSelectProperty?.(Number(id))}
+          title={getText("properties.table.title", "Properties List")}
+          searchPlaceholder={getText("properties.table.searchPlaceholder", "Search properties...")}
+          addButtonText={getText("properties.table.add", "Add")}
+          onAddClick={() => setCreateOpen(true)}
+          serverSide={serverSide}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={onPageChange}
+          pageSize={pageSize}
+          isPageLoading={isPageLoading}
+          onSearch={onSearch}
+          searchFields={searchFields}
+          sortField={sortField as any}
+          sortOrder={sortOrder}
+          toggleSort={toggleSort as any}
+          actions={renderActions}
+        />
+      )}
 
       <CreatePropertyDialog
         open={createOpen}

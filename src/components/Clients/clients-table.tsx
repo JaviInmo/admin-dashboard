@@ -12,12 +12,23 @@ import EditClientDialog from "./Edit/Edit";
 import type { Client as AppClient, Client } from "./types";
 import { ClickableEmail } from "../ui/clickable-email";
 
+/* Table primitives + Skeleton para estado de carga */
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
+
 export interface ClientsTableProps {
   clients: AppClient[];
   onSelectClient: (id: number) => void;
   onRefresh?: () => Promise<void>;
 
-  // server-side pagination (optional)
+  // server-side pagination (opcional)
   serverSide?: boolean;
   currentPage?: number;
   totalPages?: number;
@@ -90,7 +101,7 @@ export default function ClientsTable({
     } as AppClient & { clientName: string };
   });
 
-  // status labels from i18n (fallbacks provided)
+  // status labels from i18n (fallbacks proporcionados)
   const statusActiveLabel = TEXT?.clients?.list?.statusActive ?? "Activo";
   const statusInactiveLabel = TEXT?.clients?.list?.statusInactive ?? "Inactivo";
 
@@ -188,30 +199,31 @@ export default function ClientsTable({
       cellClassName: "px-3 py-2",
     });
   }
-columns.push({
-  key: "status" as keyof (AppClient & { clientName: string }),
-  label: TEXT.clients.list.headers.status,
-  sortable: false,
-  // usa headerStyle para forzar ancho exacto de columna (evita que la estrategia inteligente la haga enorme)
-  headerClassName: "text-center align-middle",
-  headerStyle: { width: "120px", minWidth: "120px", maxWidth: "120px" },
-  // celdas centradas
-  cellClassName: "text-center align-middle",
-  cellStyle: { width: "120px", minWidth: "120px", maxWidth: "120px" },
-  render: (client) => {
-    const status = (client as any).status ?? "active";
-    const isActive = typeof status === "string" ? status.toLowerCase() === "active" : Boolean(status);
-    return (
-      <div>
-        {isActive ? (
-          <Check className="h-4 w-4 inline-block text-green-600" aria-label={statusActiveLabel} />
-        ) : (
-          <X className="h-4 w-4 inline-block text-red-500" aria-label={statusInactiveLabel} />
-        )}
-      </div>
-    );
-  },
-});
+
+  columns.push({
+    key: "status" as keyof (AppClient & { clientName: string }),
+    label: TEXT.clients.list.headers.status,
+    sortable: false,
+    // usa headerStyle para forzar ancho exacto de columna (evita que la estrategia inteligente la haga enorme)
+    headerClassName: "text-center align-middle",
+    headerStyle: { width: "120px", minWidth: "120px", maxWidth: "120px" },
+    // celdas centradas
+    cellClassName: "text-center align-middle",
+    cellStyle: { width: "120px", minWidth: "120px", maxWidth: "120px" },
+    render: (client) => {
+      const status = (client as any).status ?? "active";
+      const isActive = typeof status === "string" ? status.toLowerCase() === "active" : Boolean(status);
+      return (
+        <div>
+          {isActive ? (
+            <Check className="h-4 w-4 inline-block text-green-600" aria-label={statusActiveLabel} />
+          ) : (
+            <X className="h-4 w-4 inline-block text-red-500" aria-label={statusInactiveLabel} />
+          )}
+        </div>
+      );
+    },
+  });
 
   // Campos de búsqueda
   const searchFields: (keyof (AppClient & { clientName: string }))[] = [
@@ -252,35 +264,80 @@ columns.push({
     </>
   );
 
+  // Filas skeleton a renderizar
+  const skeletonRows = Math.max(3, pageSize ?? 5);
+
   return (
     <>
-      <ReusableTable
-        data={normalizedClients}
-        columns={columns}
-        getItemId={(client) => client.id}
-        onSelectItem={(id) => onSelectClient(Number(id))}
-        title={TEXT.clients.list.title}
-        searchPlaceholder={TEXT.clients.list.searchPlaceholder ?? "Buscar clientes..."}
-        addButtonText={TEXT.clients.list.addClient ?? "Agregar"}
-        onAddClick={() => setCreateOpen(true)}
-        serverSide={serverSide}
-        currentPage={currentPage}
-        totalPages={totalPages}
-        onPageChange={onPageChange}
-        pageSize={pageSize}
-        onPageSizeChange={onPageSizeChange}
-        onSearch={onSearch}
-        searchFields={searchFields}
-        sortField={sortField as keyof (AppClient & { clientName: string })}
-        sortOrder={sortOrder}
-        toggleSort={toggleSort as (key: keyof (AppClient & { clientName: string })) => void}
-        actions={(client) => (
-          // el wrapper que devuelve actions se centrará y tendrá gap 2 por el ReusableTable
-          renderActions(client as AppClient & { clientName: string })
-        )}
-        actionsHeader={TEXT.clients.list.headers.actions ?? "Acciones"}
-        isPageLoading={isPageLoading}
-      />
+      {isPageLoading ? (
+        <div className="rounded-lg border bg-card p-4 text-card-foreground shadow-sm">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-lg font-semibold">{TEXT.clients.list.title}</h3>
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-8 w-24 rounded" />
+              <Skeleton className="h-8 w-8 rounded" />
+            </div>
+          </div>
+
+          <Table>
+            <TableHeader>
+              <TableRow>
+                {columns.map((col) => (
+                  <TableHead key={String(col.key)} className="select-none">
+                    {String((col as any).label ?? "")}
+                  </TableHead>
+                ))}
+                <TableHead className="w-[120px] text-center">{TEXT.clients.list.headers.actions ?? "Acciones"}</TableHead>
+              </TableRow>
+            </TableHeader>
+
+            <TableBody>
+              {Array.from({ length: skeletonRows }).map((_, rIndex) => (
+                <TableRow key={`client-skel-${rIndex}`}>
+                  {columns.map((_, cIndex) => (
+                    <TableCell key={`c-${cIndex}`}>
+                      <Skeleton className="h-4 w-full max-w-[220px]" />
+                    </TableCell>
+                  ))}
+
+                  <TableCell className="flex gap-2 justify-center">
+                    <Skeleton className="h-8 w-8 rounded" />
+                    <Skeleton className="h-8 w-8 rounded" />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      ) : (
+        <ReusableTable
+          data={normalizedClients}
+          columns={columns}
+          getItemId={(client) => client.id}
+          onSelectItem={(id) => onSelectClient(Number(id))}
+          title={TEXT.clients.list.title}
+          searchPlaceholder={TEXT.clients.list.searchPlaceholder ?? "Buscar clientes..."}
+          addButtonText={TEXT.clients.list.addClient ?? "Agregar"}
+          onAddClick={() => setCreateOpen(true)}
+          serverSide={serverSide}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={onPageChange}
+          pageSize={pageSize}
+          onPageSizeChange={onPageSizeChange}
+          onSearch={onSearch}
+          searchFields={searchFields}
+          sortField={sortField as keyof (AppClient & { clientName: string })}
+          sortOrder={sortOrder}
+          toggleSort={toggleSort as (key: keyof (AppClient & { clientName: string })) => void}
+          actions={(client) => (
+            // el wrapper que devuelve actions se centrará y tendrá gap 2 por el ReusableTable
+            renderActions(client as AppClient & { clientName: string })
+          )}
+          actionsHeader={TEXT.clients.list.headers.actions ?? "Acciones"}
+          isPageLoading={isPageLoading}
+        />
+      )}
 
       <CreateClientDialog open={createOpen} onClose={() => setCreateOpen(false)} onCreated={onRefresh} />
       {editClient && (

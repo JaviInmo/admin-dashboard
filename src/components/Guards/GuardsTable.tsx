@@ -15,6 +15,17 @@ import { ClickableEmail } from "../ui/clickable-email";
 /* Modal separado (import) */
 import TariffModal from "./TarifModal";
 
+/* Table primitives + Skeleton para estado de carga */
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
+
 export interface GuardsTableProps {
   guards: Guard[];
   onSelectGuard: (id: number) => void;
@@ -43,7 +54,7 @@ export default function GuardsTable({
   onPageChange,
   pageSize = 5,
   onPageSizeChange,
-  onSearch, // <-- AÑADIDO aquí
+  onSearch,
   isPageLoading = false,
   sortField,
   sortOrder,
@@ -80,26 +91,21 @@ export default function GuardsTable({
   // Normaliza número para usar en enlace de wa.me
   function normalizePhoneForWhatsapp(raw?: string | null): string {
     if (!raw) return "";
-    // quitar todo excepto dígitos y + y iniciales 00
     const trimmed = String(raw).trim();
-    // eliminar paréntesis, espacios, guiones, puntos
     let cleaned = trimmed.replace(/[\s().\-]/g, "");
-    // si comienza con +, quitar el +
     if (cleaned.startsWith("+")) {
       cleaned = cleaned.slice(1);
-      return cleaned.replace(/^0+/, ""); // quitar ceros innecesarios
+      return cleaned.replace(/^0+/, "");
     }
-    // si comienza con 00, quitar los 00 (estándar internacional)
     if (cleaned.startsWith("00")) {
       cleaned = cleaned.replace(/^00+/, "");
       return cleaned;
     }
-    // si contiene sólo dígitos, devolverlos tal cual
     const digits = cleaned.replace(/\D+/g, "");
     return digits;
   }
 
-  // Definir las columnas de la tabla - correo (índice 2) será sacrificado
+  // Definir las columnas de la tabla
   const columns: Column<Guard>[] = [
     {
       key: "firstName",
@@ -138,7 +144,6 @@ export default function GuardsTable({
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => {
-              // Evitar que el clic en el link dispare la selección de fila
               e.stopPropagation();
             }}
             title={linkTitle}
@@ -155,8 +160,6 @@ export default function GuardsTable({
       label: guardTable.headers?.ssn ?? getText("guards.table.headers.ssn", "DNI/SSN"),
       sortable: false,
       render: (guard) => {
-        // Intentar respetar una bandera de visibilidad por guardia si existe.
-        // Buscamos varios nombres posibles para compatibilidad: ssn_visible, ssnVisible, is_ssn_visible
         const anyGuard = guard as any;
         const visible =
           anyGuard.ssn_visible === true ||
@@ -171,7 +174,6 @@ export default function GuardsTable({
           return ssnValue;
         }
 
-        // Si no está visible, mostramos máscara (por defecto lo que definió i18n o "******")
         return guardTable.ssnHidden ?? "******";
       },
     },
@@ -186,10 +188,9 @@ export default function GuardsTable({
   // Campos de búsqueda
   const searchFields: (keyof Guard)[] = ["firstName", "lastName", "email", "phone"];
 
-  // Acciones de fila (ahora con icono de tarifas a la izquierda del edit)
+  // Acciones de fila
   const renderActions = (guard: Guard) => (
     <>
-      {/* Tariff button */}
       <Button
         size="icon"
         variant="ghost"
@@ -203,7 +204,6 @@ export default function GuardsTable({
         <Tag className="h-4 w-4" />
       </Button>
 
-      {/* Edit */}
       <Button
         size="icon"
         variant="ghost"
@@ -217,7 +217,6 @@ export default function GuardsTable({
         <Pencil className="h-4 w-4" />
       </Button>
 
-      {/* Delete */}
       <Button
         size="icon"
         variant="ghost"
@@ -233,31 +232,77 @@ export default function GuardsTable({
     </>
   );
 
+  // Filas skeleton a renderizar
+  const skeletonRows = Math.max(3, pageSize ?? 5);
+
   return (
     <>
-      <ReusableTable
-        data={guards}
-        columns={columns}
-        getItemId={(guard) => guard.id}
-        onSelectItem={(id) => onSelectGuard(Number(id))}
-        title={guardTable.title ?? getText("guards.table.title", "Guards List")}
-        searchPlaceholder={guardTable.searchPlaceholder ?? getText("guards.table.searchPlaceholder", "Buscar guardias...")}
-        addButtonText={guardTable.add ?? guardTable.addButton ?? getText("guards.table.add", "Agregar")}
-        onAddClick={() => setCreateOpen(true)}
-        serverSide={serverSide}
-        currentPage={currentPage}
-        totalPages={totalPages}
-        onPageChange={onPageChange}
-        pageSize={pageSize}
-        onPageSizeChange={onPageSizeChange}
-        onSearch={onSearch}
-        searchFields={searchFields}
-        sortField={sortField}
-        sortOrder={sortOrder}
-        toggleSort={toggleSort}
-        actions={renderActions}
-        isPageLoading={isPageLoading}
-      />
+      {isPageLoading ? (
+        <div className="rounded-lg border bg-card p-4 text-card-foreground shadow-sm">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-lg font-semibold">{guardTable.title ?? getText("guards.table.title", "Guards List")}</h3>
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-8 w-24 rounded" />
+              <Skeleton className="h-8 w-8 rounded" />
+            </div>
+          </div>
+
+          <Table>
+            <TableHeader>
+              <TableRow>
+                {columns.map((col) => (
+                  <TableHead key={String(col.key)} className="select-none">
+                    {String(col.label)}
+                  </TableHead>
+                ))}
+                <TableHead className="w-[120px] text-center">{getText("guards.table.headers.actions", "Actions")}</TableHead>
+              </TableRow>
+            </TableHeader>
+
+            <TableBody>
+              {Array.from({ length: skeletonRows }).map((_, rIndex) => (
+                <TableRow key={`guard-skel-${rIndex}`}>
+                  {columns.map((_, cIndex) => (
+                    <TableCell key={`c-${cIndex}`}>
+                      <Skeleton className="h-4 w-full max-w-[220px]" />
+                    </TableCell>
+                  ))}
+
+                  <TableCell className="flex gap-2 justify-center">
+                    <Skeleton className="h-8 w-8 rounded" />
+                    <Skeleton className="h-8 w-8 rounded" />
+                    <Skeleton className="h-8 w-8 rounded" />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      ) : (
+        <ReusableTable
+          data={guards}
+          columns={columns}
+          getItemId={(guard) => guard.id}
+          onSelectItem={(id) => onSelectGuard(Number(id))}
+          title={guardTable.title ?? getText("guards.table.title", "Guards List")}
+          searchPlaceholder={guardTable.searchPlaceholder ?? getText("guards.table.searchPlaceholder", "Buscar guardias...")}
+          addButtonText={guardTable.add ?? guardTable.addButton ?? getText("guards.table.add", "Agregar")}
+          onAddClick={() => setCreateOpen(true)}
+          serverSide={serverSide}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={onPageChange}
+          pageSize={pageSize}
+          onPageSizeChange={onPageSizeChange}
+          onSearch={onSearch}
+          searchFields={searchFields}
+          sortField={sortField}
+          sortOrder={sortOrder}
+          toggleSort={toggleSort}
+          actions={renderActions}
+          isPageLoading={isPageLoading}
+        />
+      )}
 
       <CreateGuardDialog
         open={createOpen}
