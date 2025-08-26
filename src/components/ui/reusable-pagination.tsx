@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { shouldShowPage } from "../_utils/pagination";
+import { useI18n } from "@/i18n";
 
 interface ReusablePaginationProps {
   /** Página actual (1-indexed) */
@@ -38,19 +39,32 @@ export function ReusablePagination({
   className,
   showFirstLast = false,
   showPageInfo = true,
-  pageInfoText = (current, total) => `${current} de ${total}`,
+  pageInfoText,
   size = "sm",
   variant = "outline",
   displayCurrentPage,
   displayTotalPages,
 }: ReusablePaginationProps) {
+  const { TEXT, lang } = useI18n();
+
+  // Textos de paginación desde i18n (fallbacks)
+  const PAG = TEXT?.pagination ?? {
+    goToPlaceholder: lang === "es" ? "Ir a..." : "Go to...",
+    ariaFirst: lang === "es" ? "Ir a la primera página" : "Go to first page",
+    ariaPrev: lang === "es" ? "Página anterior" : "Previous page",
+    ariaNext: lang === "es" ? "Página siguiente" : "Next page",
+    ariaLast: lang === "es" ? "Ir a la última página" : "Go to last page",
+    inputAriaLabel: lang === "es" ? "Ir a página específica" : "Go to specific page",
+    pageInfo: lang === "es" ? "{current} de {total}" : "{current} of {total}",
+  };
+
   // Estado para el campo de búsqueda de páginas
   const [pageInput, setPageInput] = useState("");
-  
+
   // Usar valores de display si están disponibles, sino usar los valores normales
   const effectiveCurrentPage = displayCurrentPage ?? currentPage;
   const effectiveTotalPages = displayTotalPages ?? totalPages;
-  
+
   // Validar props usando los valores efectivos
   const validCurrentPage = Math.max(1, Math.min(effectiveCurrentPage, effectiveTotalPages));
   const validTotalPages = Math.max(1, effectiveTotalPages);
@@ -85,7 +99,7 @@ export function ReusablePagination({
   const handlePageInputSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       let inputPage = parseInt(pageInput);
-      
+
       if (!isNaN(inputPage)) {
         // Validar y corregir el rango si está fuera
         if (inputPage < 1) {
@@ -93,10 +107,10 @@ export function ReusablePagination({
         } else if (inputPage > validTotalPages) {
           inputPage = validTotalPages;
         }
-        
+
         // Navegar a la página (corregida si era necesario)
         goToPage(inputPage);
-        
+
         // Limpiar el input
         setPageInput("");
       }
@@ -108,7 +122,7 @@ export function ReusablePagination({
     // Solo permitir números (incluyendo string vacío para poder borrar)
     if (value === "" || /^\d+$/.test(value)) {
       setPageInput(value);
-      
+
       // Si el valor es un número válido, validar y ajustar si está fuera del rango
       if (value !== "") {
         let inputPage = parseInt(value);
@@ -119,10 +133,10 @@ export function ReusablePagination({
           } else if (inputPage > validTotalPages) {
             inputPage = validTotalPages;
           }
-          
+
           // Cambiar a la página validada
           goToPage(inputPage);
-          
+
           // Actualizar el input con el valor corregido si fue ajustado
           if (inputPage !== parseInt(value)) {
             setPageInput(inputPage.toString());
@@ -143,6 +157,11 @@ export function ReusablePagination({
     return null;
   }
 
+  // Page info formatter: si el usuario pasó pageInfoText lo usamos, si no, usamos la plantilla i18n
+  const defaultPageInfo = (current: number, total: number) =>
+    (PAG.pageInfo ?? "{current} of {total}").replace("{current}", String(current)).replace("{total}", String(total));
+  const pageInfoFormatter = pageInfoText ?? defaultPageInfo;
+
   return (
     <div className={cn("flex items-center justify-center space-x-1 w-full", className)}>
       {/* Campo de búsqueda de páginas */}
@@ -153,9 +172,9 @@ export function ReusablePagination({
           onChange={handlePageInputChange}
           onKeyDown={handlePageInputSubmit}
           onBlur={handlePageInputBlur}
-          placeholder="Ir a..."
+          placeholder={PAG.goToPlaceholder}
           className="w-20 h-8 text-center text-sm"
-          aria-label="Ir a página específica"
+          aria-label={PAG.inputAriaLabel}
         />
       </div>
 
@@ -168,11 +187,10 @@ export function ReusablePagination({
           disabled={validCurrentPage <= 1}
           className={cn(
             "cursor-pointer transition-all duration-200",
-            validCurrentPage <= 1 
-              ? "cursor-not-allowed opacity-50" 
-              : "hover:bg-primary hover:text-primary-foreground"
+            validCurrentPage <= 1 ? "cursor-not-allowed opacity-50" : "hover:bg-primary hover:text-primary-foreground"
           )}
-          aria-label="Ir a la primera página"
+          aria-label={PAG.ariaFirst}
+          title={PAG.ariaFirst}
         >
           <ChevronsLeft className="h-4 w-4" />
         </Button>
@@ -186,11 +204,10 @@ export function ReusablePagination({
         disabled={validCurrentPage <= 1}
         className={cn(
           "cursor-pointer transition-all duration-200",
-          validCurrentPage <= 1 
-            ? "cursor-not-allowed opacity-50" 
-            : "hover:bg-primary hover:text-primary-foreground"
+          validCurrentPage <= 1 ? "cursor-not-allowed opacity-50" : "hover:bg-primary hover:text-primary-foreground"
         )}
-        aria-label="Página anterior"
+        aria-label={PAG.ariaPrev}
+        title={PAG.ariaPrev}
       >
         <ChevronLeft className="h-4 w-4" />
       </Button>
@@ -205,11 +222,9 @@ export function ReusablePagination({
             onClick={() => goToPage(page)}
             className={cn(
               "cursor-pointer transition-all duration-200 min-w-[2.5rem]",
-              page === validCurrentPage
-                ? "bg-primary text-primary-foreground pointer-events-none"
-                : "hover:bg-primary hover:text-primary-foreground"
+              page === validCurrentPage ? "bg-primary text-primary-foreground pointer-events-none" : "hover:bg-primary hover:text-primary-foreground"
             )}
-            aria-label={`Ir a la página ${page}`}
+            aria-label={`${PAG.inputAriaLabel} ${page}`}
             aria-current={page === validCurrentPage ? "page" : undefined}
           >
             {page}
@@ -225,11 +240,10 @@ export function ReusablePagination({
         disabled={validCurrentPage >= validTotalPages}
         className={cn(
           "cursor-pointer transition-all duration-200",
-          validCurrentPage >= validTotalPages
-            ? "cursor-not-allowed opacity-50"
-            : "hover:bg-primary hover:text-primary-foreground"
+          validCurrentPage >= validTotalPages ? "cursor-not-allowed opacity-50" : "hover:bg-primary hover:text-primary-foreground"
         )}
-        aria-label="Página siguiente"
+        aria-label={PAG.ariaNext}
+        title={PAG.ariaNext}
       >
         <ChevronRight className="h-4 w-4" />
       </Button>
@@ -243,11 +257,10 @@ export function ReusablePagination({
           disabled={validCurrentPage >= validTotalPages}
           className={cn(
             "cursor-pointer transition-all duration-200",
-            validCurrentPage >= validTotalPages
-              ? "cursor-not-allowed opacity-50"
-              : "hover:bg-primary hover:text-primary-foreground"
+            validCurrentPage >= validTotalPages ? "cursor-not-allowed opacity-50" : "hover:bg-primary hover:text-primary-foreground"
           )}
-          aria-label="Ir a la última página"
+          aria-label={PAG.ariaLast}
+          title={PAG.ariaLast}
         >
           <ChevronsRight className="h-4 w-4" />
         </Button>
@@ -256,7 +269,7 @@ export function ReusablePagination({
       {/* Información de página */}
       {showPageInfo && (
         <div className="ml-4 text-sm text-muted-foreground whitespace-nowrap">
-          {pageInfoText(validCurrentPage, validTotalPages)}
+          {pageInfoFormatter(validCurrentPage, validTotalPages)}
         </div>
       )}
     </div>

@@ -14,6 +14,17 @@ export const EN_TEXT = {
     users: "Users",
     properties: "Properties",
   },
+
+  pagination: {
+    goToPlaceholder: "Go to...",
+    ariaFirst: "Go to first page",
+    ariaPrev: "Previous page",
+    ariaNext: "Next page",
+    ariaLast: "Go to last page",
+    inputAriaLabel: "Go to specific page",
+    pageInfo: "{current} of {total}",
+  },
+
   common: {
     notFoundTitle: "Content not found",
     notFoundDescription: "Select an option from the menu.",
@@ -37,6 +48,7 @@ export const EN_TEXT = {
       headers: { guard: "Guard", location: "Location", date: "Date" },
     },
   },
+
   clients: {
     title: "Clients Management",
     table: {
@@ -68,11 +80,6 @@ export const EN_TEXT = {
       statusActive: "Active",
       statusInactive: "Inactive",
     },
-    loading: "Loading clients...",
-    selectPrompt: "Select a client to view its properties.",
-    propertiesLoading: "Loading properties...",
-    errorLoading: "Error loading clients",
-    propertiesError: "Error loading properties",
     properties: {
       title: "Properties of {clientName}",
       headers: {
@@ -87,7 +94,85 @@ export const EN_TEXT = {
       actionEdit: "Edit {name}",
       actionDelete: "Delete {name}",
     },
+    loading: "Loading clients...",
+    selectPrompt: "Select a client to view its properties.",
+    propertiesLoading: "Loading properties...",
+    errorLoading: "Error loading clients",
+    propertiesError: "Error loading properties",
   },
+
+  properties: {
+    title: "Properties Management",
+    table: {
+      title: "Properties List",
+      add: "Add",
+      searchPlaceholder: "Search properties...",
+      headers: {
+        alias: "Alias",
+        name: "Name",
+        address: "Address",
+        serviceTypes: "Service Types",
+        monthlyRate: "Monthly Rate",
+        totalHours: "Total Hours",
+        actions: "Actions",
+      },
+      pageSizeLabel: "Rows per page",
+      actionEdit: "Edit {name}",
+      actionDelete: "Delete {name}",
+    },
+    form: {
+      editTitle: "Edit Property",
+      createTitle: "Create Property",
+      fields: {
+        ownerUser: "Owner (user id)",
+        ownerPhone: "Owner phone",
+        name: "Name",
+        alias: "Alias",
+        address: "Address",
+        typesOfService: "Service Types",
+        monthlyRate: "Monthly Rate",
+        contractStartDate: "Contract Start Date",
+        totalHours: "Total Hours",
+      },
+      placeholders: {
+        owner: "Search client by name/username...",
+        name: "Property name",
+        alias: "Alias or alternative name",
+        address: "Property address",
+        monthlyRate: "$0.00",
+        totalHours: "0",
+      },
+      buttons: {
+        cancel: "Cancel",
+        create: "Create",
+        creating: "Creating...",
+        save: "Save",
+        saving: "Saving...",
+        delete: "Delete",
+      },
+      searchingText: "Searching...",
+      noResultsText: "No results",
+      ownerHelp: "Select the owner client. Backend will receive the client id.",
+      serviceTypesTitle: "Service Types",
+      loadingTypesText: "Loading service types",
+      noTypesText: "No types available",
+      success: "Property updated",
+      errorUpdate: "Error updating property",
+      errorRefresh: "Failed to refresh properties",
+      delete: {
+        title: "Delete Property",
+        confirm: "Are you sure you want to delete {name}?",
+        note: "This action cannot be undone.",
+        button: "Delete",
+        deleting: "Deleting...",
+        success: "Property deleted successfully",
+        error: "Error deleting property",
+        cancel: "Cancel",
+        errorRefresh: "Failed to refresh properties",
+      },
+    },
+  },
+
   guards: {
     title: "Guards Management",
     selectPrompt: "Select a guard to view their shifts.",
@@ -143,6 +228,7 @@ export const EN_TEXT = {
       },
     },
   },
+
   users: {
     title: "User Management",
     editTitle: "Edit User",
@@ -154,7 +240,7 @@ export const EN_TEXT = {
     permissionsTitle: "Permissions by resource",
     userTypes: {
       superuser: "Superuser",
-      staff: "Staff", 
+      staff: "Staff",
       user: "User",
     },
     accessTypes: {
@@ -170,7 +256,7 @@ export const EN_TEXT = {
       headers: {
         username: "Username",
         firstName: "First name",
-        lastName: "Last name", 
+        lastName: "Last name",
         email: "Email",
         permissions: "Permissions",
         actions: "Actions",
@@ -205,60 +291,12 @@ export const EN_TEXT = {
       },
     },
     errors: {
-      loadingPermissions: "Error loading permissions/user", 
+      loadingPermissions: "Error loading permissions/user",
       grantingPermissions: "Error granting permissions",
       revokingPermissions: "Error revoking permissions",
     },
   },
-  properties: {
-    title: "Properties Management",
-    table: {
-      title: "Properties List",
-      add: "Add",
-      searchPlaceholder: "Search...",
-      headers: {
-        owner: "Owner (user)",
-        name: "Name",
-        alias: "Alias",
-        address: "Address",
-        serviceTypes: "Service Types",
-        monthlyRate: "Monthly Rate",
-        totalHours: "Total Hours",
-        startDate: "Start Date",
-        actions: "Actions",
-      },
-      pageSizeLabel: "Rows per page",
-      actionEdit: "Edit {name}",
-      actionDelete: "Delete {name}",
-    },
-    form: {
-      createTitle: "Create Property",
-      editTitle: "Edit Property",
-      clientPreselected: "Property will be created for this client (preselected).",
-      noUserIdError: "Selected client has no user id associated. Cannot create property.",
-      fields: {
-        ownerUser: "Owner (user id)",
-        ownerPhone: "Owner phone",
-        name: "Name",
-        address: "Address",
-        typesOfService: "Service Types",
-        monthlyRate: "Monthly Rate",
-        contractStartDate: "Contract Start Date",
-        totalHours: "Total Hours",
-        viewer: "Viewer",
-        manager: "Manager",
-        admin: "Admin",
-      },
-      buttons: {
-        cancel: "Cancel",
-        create: "Create",
-        creating: "Creating...",
-        save: "Save",
-        saving: "Saving...",
-        delete: "Delete",
-      },
-    },
-  },
+
   accountMenu: {
     language: "Language",
     english: "English",
@@ -267,14 +305,15 @@ export const EN_TEXT = {
     support: "Support",
     logout: "Logout",
   },
+
   logoutDialog: {
     title: "Confirm logout",
-    description:
-      "Are you sure you want to log out? You will need to sign in again to access the dashboard.",
+    description: "Are you sure you want to log out? You will need to sign in again to access the dashboard.",
     cancel: "Cancel",
     confirm: "Logout",
     successToast: "Logged out successfully",
   },
+
   login: {
     title: "Login",
     description: "Enter your username and password to access your account.",
@@ -285,4 +324,4 @@ export const EN_TEXT = {
     submitting: "Signing in...",
     errorDefault: "Invalid credentials. Please try again.",
   },
-} as const
+} as const;

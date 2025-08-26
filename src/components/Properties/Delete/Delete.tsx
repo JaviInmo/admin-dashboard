@@ -1,10 +1,12 @@
-"use client"
+"use client";
 
 import * as React from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import type { AppProperty } from "@/lib/services/properties"
 import { deleteProperty } from "@/lib/services/properties"
+import { toast } from "sonner"
+import { useI18n } from "@/i18n"
 
 interface Props {
   property: AppProperty
@@ -14,6 +16,12 @@ interface Props {
 }
 
 export default function DeletePropertyDialog({ property, open, onClose, onDeleted }: Props) {
+  const { TEXT } = useI18n();
+
+  const FORM = TEXT.properties?.form ?? {};
+  const BUTTONS = FORM.buttons ?? {};
+  const DELETE_TXT = FORM.delete ?? {};
+
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
 
@@ -22,39 +30,47 @@ export default function DeletePropertyDialog({ property, open, onClose, onDelete
     setLoading(true)
     try {
       await deleteProperty(property.id)
+      toast.success(DELETE_TXT.success ?? "")
       if (onDeleted) await onDeleted()
       onClose()
     } catch (err: any) {
       const data = err?.response?.data
+      let msg: string | null = null
       if (data) {
-        if (typeof data === "string") setError(data)
-        else if (data.detail) setError(String(data.detail))
-        else setError(JSON.stringify(data))
+        if (typeof data === "string") msg = data
+        else if (data.detail) msg = String(data.detail)
+        else msg = JSON.stringify(data)
       } else {
-        setError("Error eliminando propiedad")
+        msg = DELETE_TXT.error ?? ""
       }
+      setError(msg)
+      toast.error(msg ?? "")
       console.error(err)
     } finally {
       setLoading(false)
     }
   }
 
-  const label = property.name ? `${property.name} (${property.address})` : `${property.address} (#${property.id})`
+  const label = property.name ? `${property.name}${property.address ? ` (${property.address})` : ""}` : `${property.address ?? ""} (#${property.id})`
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Eliminar Propiedad</DialogTitle>
+          <DialogTitle>{DELETE_TXT.title ?? ""}</DialogTitle>
         </DialogHeader>
-        <p>¿Seguro que quieres eliminar <strong>{label}</strong>?</p>
+        <p>
+          {(DELETE_TXT.confirm ?? "").replace("{name}", label)}
+        </p>
 
         {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
 
         <div className="flex justify-end gap-2 mt-4">
-          <Button variant="secondary" onClick={onClose} disabled={loading}>Cancelar</Button>
+          <Button variant="secondary" onClick={onClose} disabled={loading}>
+            {BUTTONS.cancel ?? ""}
+          </Button>
           <Button variant="destructive" onClick={handleDelete} disabled={loading}>
-            {loading ? "Eliminando..." : "Eliminar"}
+            {loading ? (DELETE_TXT.deleting ?? "") : (DELETE_TXT.button ?? "")}
           </Button>
         </div>
       </DialogContent>

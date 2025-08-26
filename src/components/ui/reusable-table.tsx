@@ -15,11 +15,11 @@ export interface Column<T> {
   label: string;
   sortable?: boolean;
   render?: (item: T) => React.ReactNode;
-  width?: string; // Ancho fijo específico (ej: "150px", "20%")
-  minWidth?: string; // Ancho mínimo (ej: "100px")
-  maxWidth?: string; // Ancho máximo (ej: "300px")
-  autoSize?: boolean; // Si debe ajustarse automáticamente al contenido
-  flex?: number; // Factor de crecimiento flex (1, 2, etc.)
+  width?: string;
+  minWidth?: string;
+  maxWidth?: string;
+  autoSize?: boolean;
+  flex?: number;
   className?: string;
 }
 
@@ -45,7 +45,7 @@ export interface ReusableTableProps<T> {
   onPageChange?: (page: number) => void;
   pageSize?: number;
   onPageSizeChange?: (size: number) => void;
-  isPageLoading?: boolean; // Para mantener paginación estable
+  isPageLoading?: boolean;
   
   // Búsqueda
   onSearch?: (term: string) => void;
@@ -58,6 +58,13 @@ export interface ReusableTableProps<T> {
   
   // Acciones de fila
   actions?: (item: T) => React.ReactNode;
+
+  /**
+   * Nuevo: texto del encabezado de la columna de acciones.
+   * Si se omite, intentará obtenerlo de i18n (TEXT.properties.table.headers.actions)
+   * y si tampoco existe, hace fallback a "Actions".
+   */
+  actionsHeader?: string;
   
   // Callbacks
   onRefresh?: () => Promise<void>;
@@ -88,6 +95,7 @@ export function ReusableTable<T extends Record<string, any>>({
   sortOrder = "asc",
   toggleSort,
   actions,
+  actionsHeader,
   className = "",
 }: ReusableTableProps<T>) {
   const { TEXT } = useI18n();
@@ -102,8 +110,6 @@ export function ReusableTable<T extends Record<string, any>>({
   const [stableCurrentPage, setStableCurrentPage] = React.useState<number>(currentPage);
   const [stableTotalPages, setStableTotalPages] = React.useState<number>(totalPages);
 
-  // Actualizar valores estables siempre que los valores cambien y NO estemos cargando
-  // Esto asegura que capturemos los valores finales una vez que la carga termine
   React.useEffect(() => {
     if (!isPageLoading) {
       setStableCurrentPage(currentPage);
@@ -111,54 +117,39 @@ export function ReusableTable<T extends Record<string, any>>({
     }
   }, [currentPage, totalPages, isPageLoading]);
 
-  // Durante la carga, mantener los valores estables anteriores
-  // Cuando no esté cargando, usar los valores actuales
   const displayCurrentPage = isPageLoading ? stableCurrentPage : currentPage;
   const displayTotalPages = isPageLoading ? stableTotalPages : totalPages;
 
   const itemsPerPage = pageSize ?? 5;
 
-  // Hook inteligente para distribución de columnas
   const columnStrategy = useIntelligentColumns(columns, data, tableContainerRef as React.RefObject<HTMLElement>);
 
-  // Función helper para calcular estilos de columna usando estrategia inteligente
   const getColumnStyle = (_column: Column<T>, columnIndex: number) => {
     const styles: React.CSSProperties = {};
-    
-    // Si está en la lista de columnas ocultas, ocultarla
     if (columnStrategy.hiddenColumns.includes(columnIndex)) {
       styles.display = 'none';
       return styles;
     }
-    
-    // Usar el ancho calculado por la estrategia inteligente
     if (columnStrategy.widths[columnIndex]) {
       styles.width = columnStrategy.widths[columnIndex];
       styles.minWidth = columnStrategy.type === 'content-based' ? '80px' : '60px';
     }
-    
-    // Configurar overflow para evitar texto muy largo
     if (columnStrategy.type === 'sacrifice' || columnStrategy.type === 'content-based') {
       styles.overflow = 'hidden';
       styles.textOverflow = 'ellipsis';
       styles.whiteSpace = 'nowrap';
     }
-    
     return styles;
   };
 
-  // Función helper para clases CSS de columna
   const getColumnClasses = (column: Column<T>) => {
     let classes = column.className || "";
-    
     if (column.sortable && toggleSort) {
       classes += " cursor-pointer select-none";
     }
-    
     return classes.trim();
   };
 
-  // Focus en búsqueda al montar
   React.useEffect(() => {
     if (searchRef.current) {
       try {
@@ -169,43 +160,36 @@ export function ReusableTable<T extends Record<string, any>>({
     return () => clearTimeout(t);
   }, []);
 
-  // Filtrado local
   const localFiltered = data.filter((item) => {
     const q = (search ?? "").toLowerCase();
     if (!q) return true;
-    
     return searchFields.some(field => {
       const value = item[field];
       return String(value ?? "").toLowerCase().includes(q);
     });
   });
 
-  // Paginación
   const effectiveList = serverSide ? data : localFiltered;
   const localTotalPages = Math.max(1, Math.ceil(localFiltered.length / itemsPerPage));
   const effectiveTotalPages = serverSide ? Math.max(1, totalPages ?? 1) : localTotalPages;
   const effectivePage = serverSide ? Math.max(1, Math.min(currentPage, effectiveTotalPages)) : page;
   
-  // Para la paginación visual, usar valores estables si estamos cargando
   const displayEffectivePage = serverSide ? Math.max(1, Math.min(displayCurrentPage, displayTotalPages)) : page;
   const displayEffectiveTotalPages = serverSide ? displayTotalPages : localTotalPages;
   
   const startIndex = (effectivePage - 1) * itemsPerPage;
   const paginatedData = serverSide ? effectiveList : effectiveList.slice(startIndex, startIndex + itemsPerPage);
 
-  // Crear filas vacías si no hay suficientes datos para mantener la altura consistente
   const emptyRowsNeeded = Math.max(0, itemsPerPage - paginatedData.length);
   const emptyRows = Array.from({ length: emptyRowsNeeded }, (_, index) => ({
     id: `empty-${index}`,
     isEmpty: true,
   }));
 
-  // Reset página local cuando cambia búsqueda
   React.useEffect(() => {
     if (!serverSide) setPage(1);
   }, [search, serverSide, data.length]);
 
-  // Búsqueda con debounce para server-side
   const searchTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   React.useEffect(() => {
     if (!serverSide) return;
@@ -214,11 +198,9 @@ export function ReusableTable<T extends Record<string, any>>({
       clearTimeout(searchTimerRef.current);
       searchTimerRef.current = null;
     }
-    
     searchTimerRef.current = setTimeout(() => {
       onSearch(search);
     }, 350);
-    
     return () => {
       if (searchTimerRef.current) {
         clearTimeout(searchTimerRef.current);
@@ -244,6 +226,15 @@ export function ReusableTable<T extends Record<string, any>>({
       <ArrowDown className="h-4 w-4 text-primary" />;
   };
 
+  // Use prop first, then i18n path, then fallback
+  const actionsHeaderText = actionsHeader ?? TEXT?.properties?.table?.headers?.actions ?? "Actions";
+
+  const formatPageInfo = (current: number, total: number) => {
+    const tpl = TEXT?.pagination?.pageInfo;
+    if (tpl) return tpl.replace("{current}", String(current)).replace("{total}", String(total));
+    return `Página ${current} de ${total}`;
+  };
+
   return (
     <div className={`rounded-lg border bg-card p-6 text-card-foreground shadow-sm space-y-4 ${className}`}>
       {/* Header */}
@@ -256,7 +247,7 @@ export function ReusableTable<T extends Record<string, any>>({
               ref={searchRef}
               placeholder={searchPlaceholder}
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => setSearch(e.currentTarget.value)}
               className="w-full"
               aria-label={searchPlaceholder}
             />
@@ -317,7 +308,7 @@ export function ReusableTable<T extends Record<string, any>>({
                         className="text-center font-medium text-foreground px-4 py-4"
                         style={{ width: '10%', minWidth: '80px', maxWidth: '120px' }}
                       >
-                        <span className="font-semibold">Acciones</span>
+                        <span className="font-semibold">{actionsHeaderText}</span>
                       </th>
                     )}
                   </tr>
@@ -378,7 +369,7 @@ export function ReusableTable<T extends Record<string, any>>({
                         className="text-center px-4 py-3"
                         style={{ width: '10%', minWidth: '80px', maxWidth: '120px' }}
                       >
-                        <div className="flex gap-1 justify-center">
+                        <div className="flex gap-1 justify-center" onClick={(e) => e.stopPropagation()}>
                           {actions(item)}
                         </div>
                       </td>
@@ -393,7 +384,7 @@ export function ReusableTable<T extends Record<string, any>>({
                     className={`border-b border-border/50 ${
                       (paginatedData.length + emptyIdx) % 2 === 0 ? "bg-transparent" : "bg-muted/10"
                     }`}
-                    style={{ height: "49px" }} // Altura consistente con filas normales
+                    style={{ height: "49px" }}
                   >
                     {columns.map((column, colIndex) => {
                       const isHidden = columnStrategy.hiddenColumns.includes(colIndex);
@@ -406,7 +397,6 @@ export function ReusableTable<T extends Record<string, any>>({
                           style={getColumnStyle(column, colIndex)}
                         >
                           <div className="truncate">
-                            {/* Celda vacía - mantiene espacio */}
                           </div>
                         </td>
                       );
@@ -435,7 +425,7 @@ export function ReusableTable<T extends Record<string, any>>({
           onPageChange={goToPage}
           showFirstLast={true}
           showPageInfo={true}
-          pageInfoText={(current, total) => `Página ${current} de ${total}`}
+          pageInfoText={(current, total) => formatPageInfo(current, total)}
           displayCurrentPage={displayCurrentPage}
           displayTotalPages={displayTotalPages}
         />

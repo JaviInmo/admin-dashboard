@@ -14,6 +14,17 @@ export const ES_TEXT = {
     users: "Usuarios",
     properties: "Propiedades",
   },
+
+  pagination: {
+    goToPlaceholder: "Ir a...",
+    ariaFirst: "Ir a la primera página",
+    ariaPrev: "Página anterior",
+    ariaNext: "Página siguiente",
+    ariaLast: "Ir a la última página",
+    inputAriaLabel: "Ir a página específica",
+    pageInfo: "{current} de {total}",
+  },
+
   common: {
     notFoundTitle: "Contenido no encontrado",
     notFoundDescription: "Selecciona una opción del menú.",
@@ -37,6 +48,7 @@ export const ES_TEXT = {
       headers: { guard: "Guardia", location: "Lugar", date: "Fecha" },
     },
   },
+
   clients: {
     title: "Gestión de Clientes",
     table: {
@@ -68,11 +80,6 @@ export const ES_TEXT = {
       statusActive: "Activo",
       statusInactive: "Inactivo",
     },
-    loading: "Cargando clientes...",
-    selectPrompt: "Selecciona un cliente para ver sus propiedades.",
-    propertiesLoading: "Cargando propiedades...",
-    errorLoading: "Error al cargar clientes",
-    propertiesError: "Error al cargar propiedades",
     properties: {
       title: "Propiedades de {clientName}",
       headers: {
@@ -87,7 +94,85 @@ export const ES_TEXT = {
       actionEdit: "Editar {name}",
       actionDelete: "Eliminar {name}",
     },
+    loading: "Cargando clientes...",
+    selectPrompt: "Selecciona un cliente para ver sus propiedades.",
+    propertiesLoading: "Cargando propiedades...",
+    errorLoading: "Error al cargar clientes",
+    propertiesError: "Error al cargar propiedades",
   },
+
+  properties: {
+    title: "Gestión de Propiedades",
+    table: {
+      title: "Lista de Propiedades",
+      add: "Agregar",
+      searchPlaceholder: "Buscar propiedades...",
+      headers: {
+        alias: "Alias",
+        name: "Nombre",
+        address: "Dirección",
+        serviceTypes: "Tipos de servicio",
+        monthlyRate: "Tarifa Mensual",
+        totalHours: "Horas Totales",
+        actions: "Acciones",
+      },
+      pageSizeLabel: "Filas por página",
+      actionEdit: "Editar {name}",
+      actionDelete: "Eliminar {name}",
+    },
+    form: {
+      editTitle: "Editar Propiedad",
+      createTitle: "Crear Propiedad",
+      fields: {
+        ownerUser: "Propietario (ID de usuario)",
+        ownerPhone: "Teléfono propietario",
+        name: "Nombre",
+        alias: "Alias",
+        address: "Dirección",
+        typesOfService: "Tipos de Servicio",
+        monthlyRate: "Tarifa Mensual",
+        contractStartDate: "Fecha de Inicio del Contrato",
+        totalHours: "Horas Totales",
+      },
+      placeholders: {
+        owner: "Buscar cliente por nombre/username...",
+        name: "Nombre de la propiedad",
+        alias: "Alias o nombre alternativo",
+        address: "Dirección de la propiedad",
+        monthlyRate: "$0.00",
+        totalHours: "0",
+      },
+      buttons: {
+        cancel: "Cancelar",
+        create: "Crear",
+        creating: "Creando...",
+        save: "Guardar",
+        saving: "Guardando...",
+        delete: "Eliminar",
+      },
+      searchingText: "Buscando...",
+      noResultsText: "No hay resultados",
+      ownerHelp: "Selecciona el cliente propietario. El backend recibirá el id del cliente.",
+      serviceTypesTitle: "Tipos de servicio",
+      loadingTypesText: "Cargando tipos de servicio",
+      noTypesText: "No hay tipos disponibles",
+      success: "Propiedad actualizada",
+      errorUpdate: "Error actualizando propiedad",
+      errorRefresh: "Error al refrescar propiedades",
+      delete: {
+        title: "Eliminar Propiedad",
+        confirm: "¿Estás seguro que quieres eliminar {name}?",
+        note: "Esta acción no se puede deshacer.",
+        button: "Eliminar",
+        deleting: "Eliminando...",
+        success: "Propiedad eliminada exitosamente",
+        error: "Error eliminando propiedad",
+        cancel: "Cancelar",
+        errorRefresh: "Error al refrescar propiedades",
+      },
+    },
+  },
+
   guards: {
     title: "Gestión de Guardias",
     selectPrompt: "Selecciona un guardia para ver sus turnos.",
@@ -143,6 +228,7 @@ export const ES_TEXT = {
       },
     },
   },
+
   users: {
     title: "Gestión de Usuarios",
     editTitle: "Editar Usuario",
@@ -210,55 +296,7 @@ export const ES_TEXT = {
       revokingPermissions: "Error revocando permisos",
     },
   },
-  properties: {
-    title: "Gestión de Propiedades",
-    table: {
-      title: "Lista de Propiedades",
-      add: "Agregar",
-      searchPlaceholder: "Buscar...",
-      headers: {
-        owner: "Propietario (usuario)",
-        name: "Nombre",
-        alias: "Alias",
-        address: "Dirección",
-        serviceTypes: "Tipos de Servicio",
-        monthlyRate: "Tarifa Mensual",
-        totalHours: "Horas Totales",
-        startDate: "Fecha de Inicio",
-        actions: "Acciones",
-      },
-      pageSizeLabel: "Filas por página",
-      actionEdit: "Editar {name}",
-      actionDelete: "Eliminar {name}",
-    },
-    form: {
-      createTitle: "Crear Propiedad",
-      editTitle: "Editar Propiedad",
-      clientPreselected: "La propiedad se creará para este cliente (preseleccionado).",
-      noUserIdError: "El cliente seleccionado no tiene un ID de usuario asociado. No se puede crear la propiedad.",
-      fields: {
-        ownerUser: "Propietario (ID de usuario)",
-        ownerPhone: "Teléfono del propietario",
-        name: "Nombre",
-        address: "Dirección",
-        typesOfService: "Tipos de Servicio",
-        monthlyRate: "Tarifa Mensual",
-        contractStartDate: "Fecha de Inicio del Contrato",
-        totalHours: "Horas Totales",
-        viewer: "Observador",
-        manager: "Gerente",
-        admin: "Administrador",
-      },
-      buttons: {
-        cancel: "Cancelar",
-        create: "Crear",
-        creating: "Creando...",
-        save: "Guardar",
-        saving: "Guardando...",
-        delete: "Eliminar",
-      },
-    },
-  },
+
   accountMenu: {
     language: "Idioma",
     english: "Inglés",
@@ -267,14 +305,15 @@ export const ES_TEXT = {
     support: "Soporte",
     logout: "Cerrar sesión",
   },
+
   logoutDialog: {
     title: "Confirmar cierre de sesión",
-    description:
-      "¿Estás seguro de que quieres cerrar sesión? Tendrás que iniciar sesión nuevamente para acceder al panel.",
+    description: "¿Estás seguro de que quieres cerrar sesión? Tendrás que iniciar sesión nuevamente para acceder al panel.",
     cancel: "Cancelar",
     confirm: "Cerrar sesión",
     successToast: "Sesión cerrada exitosamente",
   },
+
   login: {
     title: "Iniciar sesión",
     description: "Ingresa tu usuario y contraseña para acceder a tu cuenta.",
@@ -285,4 +324,4 @@ export const ES_TEXT = {
     submitting: "Iniciando sesión...",
     errorDefault: "Credenciales inválidas. Por favor intenta de nuevo.",
   },
-} as const
+} as const;

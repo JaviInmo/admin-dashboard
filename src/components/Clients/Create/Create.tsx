@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { createClient, type CreateClientPayload } from "@/lib/services/clients";
 import { useModalCache } from "@/hooks/use-modal-cache";
+import { useI18n } from "@/i18n";
 
 type Props = {
   open: boolean;
@@ -25,6 +26,37 @@ interface ClientFormData {
 }
 
 export default function CreateClientDialog({ open, onClose, onCreated }: Props) {
+  const { TEXT } = useI18n();
+
+  // Texto del formulario (aseguramos que existan las claves en los archivos de texto)
+  const FORM = TEXT?.clients?.form ?? {
+    createTitle: TEXT?.clients?.title ?? "Create Client",
+    fields: {
+      username: "Username",
+      firstName: "First name *",
+      lastName: "Last name *",
+      email: "Email *",
+      phone: "Phone",
+      address: "Address",
+      billingAddress: "Billing address",
+    },
+    placeholders: {
+      address: "Client's primary address",
+      billingAddress: "Address used for invoicing",
+    },
+    buttons: {
+      cancel: "Cancel",
+      create: "Create",
+      creating: "Creating...",
+    },
+    validation: {
+      firstNameRequired: "First name is required",
+      lastNameRequired: "Last name is required",
+      emailRequired: "Email is required",
+    },
+    success: "Client created",
+  };
+
   const [username, setUsername] = React.useState<string>("");
   const [firstName, setFirstName] = React.useState<string>("");
   const [lastName, setLastName] = React.useState<string>("");
@@ -47,30 +79,33 @@ export default function CreateClientDialog({ open, onClose, onCreated }: Props) 
   // Cargar datos del caché cuando se abre el modal
   React.useEffect(() => {
     if (open) {
-      const cachedData = getFromCache('create-client');
+      const cachedData = getFromCache("create-client");
       if (cachedData) {
-        setUsername(cachedData.username);
-        setFirstName(cachedData.firstName);
-        setLastName(cachedData.lastName);
-        setEmail(cachedData.email);
-        setPhone(cachedData.phone);
-        setAddress(cachedData.address);
-        setBillingAddress(cachedData.billingAddress);
+        setUsername(cachedData.username ?? "");
+        setFirstName(cachedData.firstName ?? "");
+        setLastName(cachedData.lastName ?? "");
+        setEmail(cachedData.email ?? "");
+        setPhone(cachedData.phone ?? "");
+        setAddress(cachedData.address ?? "");
+        setBillingAddress(cachedData.billingAddress ?? "");
       }
     }
   }, [open, getFromCache]);
 
   // Guardar en caché cuando cambian los valores
   React.useEffect(() => {
-    if (open && (username || firstName || lastName || email || phone || address || billingAddress)) {
-      saveToCache('create-client', {
+    if (
+      open &&
+      (username || firstName || lastName || email || phone || address || billingAddress)
+    ) {
+      saveToCache("create-client", {
         username,
         firstName,
         lastName,
         email,
         phone,
         address,
-        billingAddress
+        billingAddress,
       });
     }
   }, [username, firstName, lastName, email, phone, address, billingAddress, open, saveToCache]);
@@ -83,20 +118,20 @@ export default function CreateClientDialog({ open, onClose, onCreated }: Props) 
     setPhone("");
     setAddress("");
     setBillingAddress("");
-    clearCache('create-client');
+    clearCache("create-client");
   }
 
   function handleClose() {
     // Guardar datos antes de cerrar (para conservar cambios)
     if (username || firstName || lastName || email || phone || address || billingAddress) {
-      saveToCache('create-client', {
+      saveToCache("create-client", {
         username,
         firstName,
         lastName,
         email,
         phone,
         address,
-        billingAddress
+        billingAddress,
       });
     }
     onClose();
@@ -107,25 +142,23 @@ export default function CreateClientDialog({ open, onClose, onCreated }: Props) 
     setLoading(true);
 
     try {
-      // Validaciones básicas
+      // Validaciones básicas con mensajes i18n
       if (!firstName.trim()) {
-        toast.error("Nombre es requerido");
+        toast.error(FORM.validation.firstNameRequired);
         setLoading(false);
         return;
       }
       if (!lastName.trim()) {
-        toast.error("Apellido es requerido");
+        toast.error(FORM.validation.lastNameRequired);
         setLoading(false);
         return;
       }
       if (!email.trim()) {
-        toast.error("Email es requerido");
+        toast.error(FORM.validation.emailRequired);
         setLoading(false);
         return;
       }
 
-      // Construimos payload usando undefined para omitir campos opcionales.
-      // Balance siempre 0 según lo solicitado.
       const payload: CreateClientPayload = {
         username: username.trim() !== "" ? username.trim() : undefined,
         first_name: firstName.trim(),
@@ -144,13 +177,13 @@ export default function CreateClientDialog({ open, onClose, onCreated }: Props) 
 
       await createClient(payload);
 
-      toast.success("Cliente creado");
+      toast.success(FORM.success);
       if (!mountedRef.current) return;
-      
+
       // Limpiar caché después de crear exitosamente
-      clearCache('create-client');
+      clearCache("create-client");
       resetForm();
-      
+
       if (onCreated) await onCreated();
       onClose();
     } catch (err: any) {
@@ -166,14 +199,14 @@ export default function CreateClientDialog({ open, onClose, onCreated }: Props) 
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="w-full max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Crear Cliente</DialogTitle>
+          <DialogTitle>{FORM.createTitle}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-3 p-4">
           <form onSubmit={handleSubmit} className="space-y-3">
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block text-sm">Usuario</label>
+                <label className="block text-sm">{FORM.fields.username}</label>
                 <Input name="username" value={username} onChange={(e) => setUsername(e.target.value)} />
               </div>
               {/* Balance oculto en creación */}
@@ -182,43 +215,73 @@ export default function CreateClientDialog({ open, onClose, onCreated }: Props) 
 
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block text-sm">Nombre *</label>
-                <Input name="firstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
+                <label className="block text-sm">{FORM.fields.firstName}</label>
+                <Input
+                  name="firstName"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  required
+                />
               </div>
               <div>
-                <label className="block text-sm">Apellido *</label>
-                <Input name="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} required />
+                <label className="block text-sm">{FORM.fields.lastName}</label>
+                <Input
+                  name="lastName"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  required
+                />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block text-sm">Correo *</label>
-                <Input name="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                <label className="block text-sm">{FORM.fields.email}</label>
+                <Input
+                  name="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
               </div>
               <div>
-                <label className="block text-sm">Teléfono</label>
+                <label className="block text-sm">{FORM.fields.phone}</label>
                 <Input name="phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
               </div>
             </div>
 
             <div className="grid grid-cols-1 gap-2">
               <div>
-                <label className="block text-sm">Dirección</label>
-                <Input name="address" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Dirección principal del cliente" />
+                <label className="block text-sm">{FORM.fields.address}</label>
+                <Input
+                  name="address"
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  placeholder={FORM.placeholders?.address}
+                />
               </div>
             </div>
 
             <div className="grid grid-cols-1 gap-2">
               <div>
-                <label className="block text-sm">Dirección de facturación</label>
-                <Input name="billingAddress" value={billingAddress} onChange={(e) => setBillingAddress(e.target.value)} placeholder="Dirección para envío de facturas" />
+                <label className="block text-sm">{FORM.fields.billingAddress}</label>
+                <Input
+                  name="billingAddress"
+                  value={billingAddress}
+                  onChange={(e) => setBillingAddress(e.target.value)}
+                  placeholder={FORM.placeholders?.billingAddress}
+                />
               </div>
             </div>
 
             <div className="flex justify-end gap-2 mt-3">
-              <Button variant="ghost" onClick={handleClose} disabled={loading}>Cancelar</Button>
-              <Button type="submit" disabled={loading}>{loading ? "Creando..." : "Crear"}</Button>
+              <Button variant="ghost" onClick={handleClose} disabled={loading}>
+                {FORM.buttons.cancel}
+              </Button>
+              <Button type="submit" disabled={loading}>
+                {loading ? FORM.buttons.creating : FORM.buttons.create}
+              </Button>
             </div>
           </form>
         </div>

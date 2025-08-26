@@ -11,6 +11,7 @@ import {
 } from "@/lib/services/properties";
 import { listClients, getClient } from "@/lib/services/clients";
 import { toast } from "sonner";
+import { useI18n } from "@/i18n";
 
 type Props = {
   property: AppProperty;
@@ -20,6 +21,8 @@ type Props = {
 };
 
 export default function EditPropertyDialog({ property, open, onClose, onUpdated }: Props) {
+  const { TEXT } = useI18n();
+
   const asAny = property as any;
 
   const normalizeInitialTypes = (): number[] => {
@@ -35,13 +38,18 @@ export default function EditPropertyDialog({ property, open, onClose, onUpdated 
       .filter((n) => !Number.isNaN(n));
   };
 
-  // helper para leer diferentes variantes de nombres de campo
   const pick = (...keys: string[]) => {
     for (const k of keys) {
       if (Object.prototype.hasOwnProperty.call(asAny, k)) return asAny[k];
     }
     return undefined;
   };
+
+  // TEXT shortcuts
+  const FORM = TEXT.properties?.form ?? {};
+  const FIELD = FORM.fields ?? {};
+  const PLACEHOLDERS = FORM.placeholders ?? {};
+  const BUTTONS = FORM.buttons ?? {};
 
   const [selectedClient, setSelectedClient] = React.useState<any | null>(null);
   const [ownerInput, setOwnerInput] = React.useState<string>("");
@@ -76,7 +84,6 @@ export default function EditPropertyDialog({ property, open, onClose, onUpdated 
   const [error, setError] = React.useState<string | null>(null);
   const mountedRef = React.useRef(true);
 
-  // debounce timer
   const searchTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   React.useEffect(() => {
@@ -86,7 +93,6 @@ export default function EditPropertyDialog({ property, open, onClose, onUpdated 
     };
   }, []);
 
-  // Cargar lista de tipos
   React.useEffect(() => {
     let mounted = true;
     setTypesLoading(true);
@@ -111,7 +117,6 @@ export default function EditPropertyDialog({ property, open, onClose, onUpdated 
     };
   }, []);
 
-  // Inicializar owner: si property.ownerDetails trae nombre, usarlo; si no, fetch client por id (owner)
   React.useEffect(() => {
     let mounted = true;
     (async () => {
@@ -147,7 +152,7 @@ export default function EditPropertyDialog({ property, open, onClose, onUpdated 
           }
         }
       } catch (err) {
-        // ignore
+        /* ignore */
       }
     })();
     return () => {
@@ -156,7 +161,6 @@ export default function EditPropertyDialog({ property, open, onClose, onUpdated 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [property]);
 
-  // búsqueda de clientes (debounced)
   const doSearchClients = React.useCallback(
     (q: string, page = 1) => {
       if (!q || String(q).trim() === "") {
@@ -170,7 +174,7 @@ export default function EditPropertyDialog({ property, open, onClose, onUpdated 
       searchTimerRef.current = setTimeout(async () => {
         setSearchLoading(true);
         try {
-          const res = await listClients(page, q, 50); // page, search, page_size
+          const res = await listClients(page, q, 50);
           const items: any[] = Array.isArray((res as any).items)
             ? (res as any).items
             : Array.isArray((res as any).results)
@@ -190,7 +194,6 @@ export default function EditPropertyDialog({ property, open, onClose, onUpdated 
     []
   );
 
-  // cuando cambias el texto del owner, lanzas búsqueda
   React.useEffect(() => {
     const label = selectedClient
       ? selectedClient.username ?? `${selectedClient.firstName ?? ""} ${selectedClient.lastName ?? ""}`.trim()
@@ -237,13 +240,14 @@ export default function EditPropertyDialog({ property, open, onClose, onUpdated 
       if (totalHours !== "" && totalHours !== null && totalHours !== undefined) payload.total_hours = Number(totalHours);
 
       await partialUpdateProperty(property.id, payload);
-      toast.success("Propiedad actualizada");
+      toast.success(FORM.success ?? "");
       if (onUpdated) await onUpdated();
       onClose();
     } catch (err: any) {
       console.error("Error actualizando propiedad", err);
-      const msg = err?.response?.data?.detail ?? err?.message ?? "Error actualizando propiedad";
+      const msg = err?.response?.data?.detail ?? err?.message ?? FORM.errorUpdate ?? "";
       setError(String(msg));
+      toast.error(String(msg));
     } finally {
       if (mountedRef.current) setLoading(false);
     }
@@ -253,29 +257,29 @@ export default function EditPropertyDialog({ property, open, onClose, onUpdated 
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="w-full max-w-3xl max-h-[90vh] overflow-hidden">
         <DialogHeader>
-          <DialogTitle>Editar Propiedad</DialogTitle>
+          <DialogTitle>{FORM.editTitle ?? ""}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 p-4 max-h-[82vh] overflow-auto">
           {/* Owner autocomplete */}
           <div>
-            <label className="block text-sm">Owner (buscar cliente)</label>
+            <label className="block text-sm">{FIELD.ownerUser ?? ""}</label>
             <div className="relative">
               <Input
                 value={ownerInput}
                 onChange={(e) => {
                   setOwnerInput(e.target.value);
-                  setSelectedClient(null); // si editas el texto, invalidas selección previa
+                  setSelectedClient(null);
                 }}
                 onFocus={() => {
                   if (searchResults.length > 0) setShowDropdown(true);
                 }}
-                placeholder="Buscar cliente por nombre/username..."
+                placeholder={PLACEHOLDERS.owner ?? ""}
               />
               {showDropdown && (searchLoading || searchResults.length > 0) && (
                 <div className="absolute z-50 mt-1 w-full max-h-48 overflow-auto rounded border bg-popover p-1">
-                  {searchLoading && <div className="px-2 py-1 text-sm">Buscando...</div>}
-                  {!searchLoading && searchResults.length === 0 && <div className="px-2 py-1 text-sm">No hay resultados</div>}
+                  {searchLoading && <div className="px-2 py-1 text-sm">{FORM.searchingText ?? ""}</div>}
+                  {!searchLoading && searchResults.length === 0 && <div className="px-2 py-1 text-sm">{FORM.noResultsText ?? ""}</div>}
                   {!searchLoading &&
                     searchResults.map((c) => {
                       const label = c.username ?? `${c.first_name ?? c.firstName ?? ""} ${c.last_name ?? c.lastName ?? ""}`.trim() ?? `#${c.id}`;
@@ -299,44 +303,43 @@ export default function EditPropertyDialog({ property, open, onClose, onUpdated 
                 </div>
               )}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Selecciona el cliente propietario. El backend recibirá el id del cliente.</p>
+            <p className="text-xs text-muted-foreground mt-1">{FORM.ownerHelp ?? ""}</p>
           </div>
 
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="block text-sm">Owner phone</label>
+              <label className="block text-sm">{FIELD.ownerPhone ?? ""}</label>
               <Input value={ownerPhone} onChange={(e) => setOwnerPhone(e.target.value)} name="ownerPhone" />
             </div>
             <div />
           </div>
 
-          {/* ==== Name, Alias y Address ==== */}
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="block text-sm">Nombre</label>
-              <Input name="name" placeholder="Nombre de la propiedad" value={name} onChange={(e) => setName(e.target.value)} />
+              <label className="block text-sm">{FIELD.name ?? ""}</label>
+              <Input name="name" placeholder={PLACEHOLDERS.name ?? ""} value={name} onChange={(e) => setName(e.target.value)} />
             </div>
             <div>
-              <label className="block text-sm">Alias</label>
-              <Input name="alias" placeholder="Alias o nombre alternativo" value={alias} onChange={(e) => setAlias(e.target.value)} />
+              <label className="block text-sm">{FIELD.alias ?? ""}</label>
+              <Input name="alias" placeholder={PLACEHOLDERS.alias ?? ""} value={alias} onChange={(e) => setAlias(e.target.value)} />
             </div>
           </div>
 
           <div className="grid grid-cols-1 gap-2">
             <div>
-              <label className="block text-sm">Dirección</label>
-              <Input name="address" placeholder="Dirección de la propiedad" value={address} onChange={(e) => setAddress(e.target.value)} />
+              <label className="block text-sm">{FIELD.address ?? ""}</label>
+              <Input name="address" placeholder={PLACEHOLDERS.address ?? ""} value={address} onChange={(e) => setAddress(e.target.value)} />
             </div>
           </div>
 
           <div>
-            <p className="font-medium mb-2">Service Types</p>
+            <p className="font-medium mb-2">{FORM.serviceTypesTitle ?? ""}</p>
             {typesLoading ? (
-              <p className="text-sm">Cargando tipos de servicio</p>
+              <p className="text-sm">{FORM.loadingTypesText ?? ""}</p>
             ) : (
               <div className="flex flex-wrap gap-2">
                 {availableTypes.length === 0 ? (
-                  <p className="text-sm">No hay tipos disponibles</p>
+                  <p className="text-sm">{FORM.noTypesText ?? ""}</p>
                 ) : (
                   availableTypes.map((t) => {
                     const selected = types.includes(t.id);
@@ -361,16 +364,16 @@ export default function EditPropertyDialog({ property, open, onClose, onUpdated 
 
           <div className="grid grid-cols-3 gap-2">
             <div>
-              <label className="block text-sm">Tarifa Mensual</label>
-              <Input placeholder="$0.00" value={monthlyRate ?? ""} onChange={(e) => setMonthlyRate(e.target.value)} name="monthlyRate" />
+              <label className="block text-sm">{FIELD.monthlyRate ?? ""}</label>
+              <Input placeholder={PLACEHOLDERS.monthlyRate ?? ""} value={monthlyRate ?? ""} onChange={(e) => setMonthlyRate(e.target.value)} name="monthlyRate" />
             </div>
             <div>
-              <label className="block text-sm">Fecha de Inicio del Contrato</label>
+              <label className="block text-sm">{FIELD.contractStartDate ?? ""}</label>
               <Input type="date" value={contractStartDate ?? ""} onChange={(e) => setContractStartDate(e.target.value)} name="contractStartDate" />
             </div>
             <div>
-              <label className="block text-sm">Horas Totales</label>
-              <Input type="number" placeholder="0" value={totalHours === "" ? "" : String(totalHours)} onChange={(e) => setTotalHours(e.target.value === "" ? "" : Number(e.target.value))} name="totalHours" />
+              <label className="block text-sm">{FIELD.totalHours ?? ""}</label>
+              <Input type="number" placeholder={PLACEHOLDERS.totalHours ?? ""} value={totalHours === "" ? "" : String(totalHours)} onChange={(e) => setTotalHours(e.target.value === "" ? "" : Number(e.target.value))} name="totalHours" />
             </div>
           </div>
 
@@ -378,10 +381,10 @@ export default function EditPropertyDialog({ property, open, onClose, onUpdated 
 
           <div className="flex justify-end items-center gap-2">
             <Button variant="secondary" onClick={() => onClose()} disabled={loading}>
-              Cancelar
+              {BUTTONS.cancel ?? ""}
             </Button>
             <Button onClick={handleSubmit} className="ml-2" disabled={loading}>
-              {loading ? "Guardando..." : "Guardar"}
+              {loading ? (BUTTONS.saving ?? "") : (BUTTONS.save ?? "")}
             </Button>
           </div>
         </div>
