@@ -39,7 +39,7 @@ export default function ClientPropertiesTable({
   onOpenCreate,
   onRefresh
 }: ClientPropertiesTableProps) {
-  const { TEXT } = useI18n()
+  const { TEXT, lang } = useI18n()
 
   const [editProperty, setEditProperty] = React.useState<Property | null>(null)
   const [deleteProperty, setDeleteProperty] = React.useState<Property | null>(null)
@@ -55,7 +55,8 @@ export default function ClientPropertiesTable({
   const columns: Column<Property>[] = [
     {
       key: "alias",
-      label: H.alias ?? "",
+      // Si el idioma es inglés queremos que muestre "Nick"
+      label: lang === "en" ? "Nick" : (H.alias ?? ""),
       sortable: false,
       render: (property) => property.alias || "-",
     },
@@ -162,7 +163,7 @@ export default function ClientPropertiesTable({
         pageSize={5}
         searchFields={searchFields}
         actions={renderActions}
-        actionsHeader={TEXT.properties?.table?.headers?.actions ?? "Actions"} // <- passed i18n header here
+        actionsHeader={TEXT.properties?.table?.headers?.actions ?? "Actions"}
       />
 
       {editProperty && (

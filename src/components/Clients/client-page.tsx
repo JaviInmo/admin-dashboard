@@ -15,8 +15,9 @@ import type { SortOrder } from "@/lib/sort";
 import ClientPropertiesTable from "./client-properties-table";
 import ClientsTable from "./clients-table";
 import type { Client } from "./types";
-import { generateSort } from "@/lib/sort"; // si no lo usás directo aquí, puedes quitarlo
+import { generateSort } from "@/lib/sort";
 import { toast } from "sonner";
+import { useI18n } from "@/i18n";
 
 const INITIAL_CLIENT_DATA: PaginatedResult<Client> = {
   items: [],
@@ -30,7 +31,6 @@ const INITIAL_CLIENT_DATA: PaginatedResult<Client> = {
  */
 function mapClientSortField(field?: keyof Client | string): string | undefined {
   switch (field) {
-    // nombre completo (cliente) lo mapeo a username/first_name según prefieras
     case "clientName":
       return "user__username";
     case "firstName":
@@ -52,8 +52,22 @@ function mapClientSortField(field?: keyof Client | string): string | undefined {
   }
 }
 
+/**
+ * Helper de plantilla accesible para todo el módulo.
+ * Reemplaza {key} por el valor proporcionado en vars.
+ */
+function formatTemplate(tpl?: string, vars?: Record<string, string>) {
+  if (!tpl) return "";
+  let out = tpl;
+  Object.entries(vars ?? {}).forEach(([k, v]) => {
+    out = out.split(`{${k}}`).join(v);
+  });
+  return out;
+}
+
 export default function ClientsPage() {
   const queryClient = useQueryClient();
+  const { TEXT } = useI18n();
 
   const [page, setPage] = React.useState<number>(1);
   const [pageSize, setPageSize] = React.useState<number>(10);
@@ -74,17 +88,16 @@ export default function ClientsPage() {
     return generateSort(mapped, sortOrder); // string | undefined
   }, [sortField, sortOrder]);
 
-const {
-  data = INITIAL_CLIENT_DATA,
-  isFetching,
-  error,
-} = useQuery<PaginatedResult<Client>, unknown, PaginatedResult<Client>>({
-  queryKey: [CLIENT_KEY, search, page, pageSize, apiOrdering],
-  queryFn: () => listClients(page, search, pageSize, apiOrdering),
-  initialData: INITIAL_CLIENT_DATA,
-  placeholderData: (previousData) => previousData ?? INITIAL_CLIENT_DATA,
-});
-
+  const {
+    data = INITIAL_CLIENT_DATA,
+    isFetching,
+    error,
+  } = useQuery<PaginatedResult<Client>, unknown, PaginatedResult<Client>>({
+    queryKey: [CLIENT_KEY, search, page, pageSize, apiOrdering],
+    queryFn: () => listClients(page, search, pageSize, apiOrdering),
+    initialData: INITIAL_CLIENT_DATA,
+    placeholderData: (previousData) => previousData ?? INITIAL_CLIENT_DATA,
+  });
 
   const totalPages = React.useMemo(() => {
     const newTotalPages = Math.max(1, Math.ceil((data?.count ?? 0) / pageSize));
@@ -128,17 +141,17 @@ const {
           ? error
           : error instanceof Error
           ? error.message
-          : "Error al cargar clientes";
+          : TEXT.clients?.errorLoading ?? "Error al cargar clientes";
       toast.error(errorMessage);
     }
-  }, [error]);
-
+  }, [error, TEXT]);
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
-      <h2 className="text-2xl font-bold">Gestión de Clientes</h2>
+      <h2 className="text-2xl font-bold">
+        {TEXT.clients?.title ?? "Clients Management"}
+      </h2>
 
-     
       <ClientsTable
         clients={data?.items ?? []}
         onSelectClient={(id) => setSelectedClientId(id)}
@@ -175,7 +188,7 @@ const {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  ClientPropertiesPanel (sin cambios funcionales)                           */
+/*  ClientPropertiesPanel (sin cambios funcionales, ahora con i18n)          */
 /* -------------------------------------------------------------------------- */
 function ClientPropertiesPanel({
   selectedClientId,
@@ -185,6 +198,7 @@ function ClientPropertiesPanel({
   onRefreshProperties?: () => Promise<void> | void;
 }>) {
   const queryClient = useQueryClient();
+  const { TEXT } = useI18n();
 
   const [openCreate, setOpenCreate] = React.useState(false);
 
@@ -212,7 +226,7 @@ function ClientPropertiesPanel({
     return (
       <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
         <p className="text-sm text-muted-foreground">
-          Selecciona un cliente para ver sus propiedades.
+          {TEXT.clients?.selectPrompt ?? "Selecciona un cliente para ver sus propiedades."}
         </p>
       </div>
     );
@@ -221,7 +235,7 @@ function ClientPropertiesPanel({
   if (clientError) {
     return (
       <div className="rounded-lg border bg-card p-4 text-red-600">
-        Error cargando cliente: {String(clientError)}
+        {TEXT.clients?.errorLoading ?? "Error cargando cliente"}: {String(clientError)}
       </div>
     );
   }
@@ -229,7 +243,7 @@ function ClientPropertiesPanel({
   if (propsError) {
     return (
       <div className="rounded-lg border bg-card p-4 text-red-600">
-        Error cargando propiedades: {String(propsError)}
+        {TEXT.clients?.propertiesError ?? "Error cargando propiedades"}: {String(propsError)}
       </div>
     );
   }
@@ -242,21 +256,30 @@ function ClientPropertiesPanel({
   if (clientLoading || propsLoading) {
     return (
       <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
-        <p>Cargando propiedades...</p>
+        <p>{TEXT.clients?.propertiesLoading ?? "Cargando propiedades..."}</p>
       </div>
     );
   }
 
   if ((properties ?? []).length === 0) {
+    // TEXT.clients?.properties?.noResultsText no existe en tus ui-text.* -> usar cast any o fallback
+    const noResultsText = (TEXT.clients as any)?.properties?.noResultsText ?? `Puedes crear una propiedad para ${clientLabel}.`;
+
     return (
       <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm space-y-4">
-        <h3 className="text-lg font-semibold">Este cliente no tiene propiedades</h3>
+        <h3 className="text-lg font-semibold">
+          {TEXT.clients?.properties?.title
+            ? formatTemplate(TEXT.clients.properties.title, { clientName: clientLabel })
+            : `Propiedades de ${clientLabel}`}
+        </h3>
         <p className="text-sm text-muted-foreground">
-          Puedes crear una propiedad para <strong>{clientLabel}</strong>.
+          {noResultsText}
         </p>
 
         <div className="flex items-center gap-3">
-          <Button onClick={() => setOpenCreate(true)}>Crear propiedad</Button>
+          <Button onClick={() => setOpenCreate(true)}>
+            {TEXT.properties?.form?.buttons?.create ?? "Crear propiedad"}
+          </Button>
         </div>
 
         <CreatePropertyDialog
@@ -276,7 +299,11 @@ function ClientPropertiesPanel({
 
   return (
     <div>
-      <h3 className="text-lg font-semibold mb-3">Propiedades de {clientLabel}</h3>
+      <h3 className="text-lg font-semibold mb-3">
+        {TEXT.clients?.properties?.title
+          ? formatTemplate(TEXT.clients.properties.title, { clientName: clientLabel })
+          : `Propiedades de ${clientLabel}`}
+      </h3>
 
       <ClientPropertiesTable
         properties={properties ?? []}
