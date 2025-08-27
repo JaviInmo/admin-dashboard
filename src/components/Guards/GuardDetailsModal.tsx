@@ -10,9 +10,11 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Mail, Phone, MapPin, Calendar, User, CreditCard } from "lucide-react";
+import { Mail, Phone, MapPin, Calendar, User, CreditCard, Copy } from "lucide-react";
 import type { Guard } from "./types";
 import { ClickableEmail } from "@/components/ui/clickable-email";
+import { toast } from "sonner";
+import { useI18n } from "@/i18n";
 
 type GuardDetailsModalProps = {
   guard: Guard;
@@ -25,6 +27,8 @@ export default function GuardDetailsModal({
   open,
   onClose,
 }: GuardDetailsModalProps) {
+  const { TEXT } = useI18n();
+
   const fullName = React.useMemo(() => {
     const first = guard.firstName || "";
     const last = guard.lastName || "";
@@ -53,7 +57,6 @@ export default function GuardDetailsModal({
     }
   }
 
-  // Normaliza número para WhatsApp
   function normalizePhoneForWhatsapp(raw?: string | null): string {
     if (!raw) return "";
     const trimmed = String(raw).trim();
@@ -70,13 +73,38 @@ export default function GuardDetailsModal({
     return digits;
   }
 
-  // Verificar si el SSN es visible
+  // bandera que viene del backend (solo para inicializar)
   const anyGuard = guard as any;
-  const ssnVisible =
+  const ssnVisibleFromBackend =
     anyGuard.ssn_visible === true ||
     anyGuard.ssnVisible === true ||
     anyGuard.is_ssn_visible === true ||
     false;
+
+  // Estado local para mostrar/ocultar SSN en la UI (inicializado desde backend flag)
+  const [showSsn, setShowSsn] = React.useState<boolean>(ssnVisibleFromBackend);
+
+  // Sincronizar cuando cambia el guard (por ejemplo abrir modal para otro guard)
+  React.useEffect(() => {
+    setShowSsn(
+      (guard as any).ssn_visible === true ||
+      (guard as any).ssnVisible === true ||
+      (guard as any).is_ssn_visible === true ||
+      false
+    );
+  }, [guard]);
+
+  async function copyToClipboard(text?: string | null) {
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success(TEXT?.actions?.copySuccess ?? "Copied");
+    } catch {
+      toast.error(TEXT?.actions?.copyError ?? "Could not copy");
+    }
+  }
+
+  const checkboxLabel = (TEXT?.guards?.form?.actions?.showSsn as string) ?? "Show SSN";
 
   return (
     <Dialog
@@ -101,7 +129,7 @@ export default function GuardDetailsModal({
                     ID: {guard.id}
                   </div>
                   <Badge variant="secondary" className="text-xs">
-                    Guardia
+                    {TEXT?.guards?.table?.title ? TEXT?.guards?.table?.title.replace(" List", "") : "Guardia"}
                   </Badge>
                 </div>
               </div>
@@ -114,17 +142,17 @@ export default function GuardDetailsModal({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <InfoItem
                 icon={<User className="h-4 w-4" />}
-                label="Nombre"
+                label={TEXT?.guards?.table?.headers?.firstName ?? "Nombre"}
                 value={guard.firstName || "-"}
               />
               <InfoItem
                 icon={<User className="h-4 w-4" />}
-                label="Apellido"
+                label={TEXT?.guards?.table?.headers?.lastName ?? "Apellido"}
                 value={guard.lastName || "-"}
               />
               <InfoItem
                 icon={<Mail className="h-4 w-4" />}
-                label="Correo"
+                label={TEXT?.guards?.table?.headers?.email ?? "Correo"}
                 value={
                   guard.email ? (
                     <ClickableEmail email={guard.email} />
@@ -135,7 +163,7 @@ export default function GuardDetailsModal({
               />
               <InfoItem
                 icon={<Phone className="h-4 w-4" />}
-                label="Teléfono"
+                label={TEXT?.guards?.table?.headers?.phone ?? "Teléfono"}
                 value={
                   guard.phone ? (
                     <a
@@ -154,13 +182,43 @@ export default function GuardDetailsModal({
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
               <InfoItem
                 icon={<CreditCard className="h-4 w-4" />}
-                label="DNI/SSN"
+                label={TEXT?.guards?.table?.headers?.ssn ?? "DNI/SSN"}
                 value={
                   guard.ssn ? (
-                    ssnVisible ? guard.ssn : "******"
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{showSsn ? guard.ssn : (TEXT?.guards?.table?.ssnHidden ?? "******")}</span>
+
+                        {/* botón copiar solo si está visible */}
+                        {showSsn && (
+                          <button
+                            type="button"
+                            onClick={() => copyToClipboard(guard.ssn)}
+                            title={TEXT?.actions?.copy ?? "Copy"}
+                            className="inline-flex items-center rounded px-2 py-1 text-sm hover:bg-muted/30 ml-2"
+                          >
+                            <Copy className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Checkbox igual que en EditGuardDialog */}
+                      <div className="mt-2 sm:mt-0 flex items-center gap-2">
+                        <input
+                          id={`toggle-ssn-${guard.id}`}
+                          type="checkbox"
+                          checked={showSsn}
+                          onChange={() => setShowSsn((v) => !v)}
+                          className="h-4 w-4 rounded border-gray-300"
+                        />
+                        <label htmlFor={`toggle-ssn-${guard.id}`} className="text-sm">
+                          {checkboxLabel}
+                        </label>
+                      </div>
+                    </div>
                   ) : (
                     "-"
                   )
@@ -168,7 +226,7 @@ export default function GuardDetailsModal({
               />
               <InfoItem
                 icon={<Calendar className="h-4 w-4" />}
-                label="Fecha de Nacimiento"
+                label={TEXT?.guards?.table?.headers?.birthdate ?? "Fecha de Nacimiento"}
                 value={formatDateMaybe(guard.birthdate)}
               />
             </div>
@@ -176,7 +234,7 @@ export default function GuardDetailsModal({
             {guard.address && (
               <InfoItem
                 icon={<MapPin className="h-4 w-4" />}
-                label="Dirección"
+                label={TEXT?.guards?.form?.fields?.address ?? "Dirección"}
                 value={guard.address}
               />
             )}
@@ -186,7 +244,7 @@ export default function GuardDetailsModal({
         <DialogFooter>
           <div className="flex justify-end gap-2 w-full">
             <Button variant="outline" onClick={onClose}>
-              Cerrar
+              {TEXT?.actions?.close ?? "Close"}
             </Button>
           </div>
         </DialogFooter>

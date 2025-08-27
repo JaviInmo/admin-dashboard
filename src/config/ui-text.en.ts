@@ -46,6 +46,9 @@ export const EN_TEXT = {
     close: "Close",
     actions: "Actions",
     create: "Create",
+      copy: "Copy",
+    copySuccess: "Copied to clipboard",
+    copyError: "Could not copy",
   },
 
   clients: {
@@ -137,8 +140,8 @@ export const EN_TEXT = {
       add: "Add",
       searchPlaceholder: "Search properties...",
       headers: {
-        owner: "Owner",          // added
-        alias: "Nick",          // changed from "Alias" to "Nick" (English label requested)
+        owner: "Owner",
+        alias: "Nick",
         name: "Name",
         address: "Address",
         serviceTypes: "Service Types",
@@ -264,6 +267,15 @@ export const EN_TEXT = {
         saving: "Saving...",
         delete: "Delete",
       },
+      actions: {
+        cancel: "Cancel",
+        create: "Create",
+        creating: "Creating...",
+        save: "Save",
+        saving: "Saving...",
+        delete: "Delete",
+        showSsn: "Show"
+      }
     },
     tariffs: {
       title: "Tariffs for {name}",

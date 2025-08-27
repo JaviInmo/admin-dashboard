@@ -46,6 +46,9 @@ export const ES_TEXT = {
     close: "Cerrar",
     actions: "Acciones",
     create: "Crear",
+      copy: "Copiar",
+    copySuccess: "Copiado al portapapeles",
+    copyError: "No se pudo copiar",
   },
 
   clients: {
@@ -137,8 +140,8 @@ export const ES_TEXT = {
       add: "Agregar",
       searchPlaceholder: "Buscar propiedades...",
       headers: {
-        owner: "Propietario",    // added
-        alias: "Alias",         // spanish stays Alias
+        owner: "Propietario",
+        alias: "Alias",
         name: "Nombre",
         address: "Dirección",
         serviceTypes: "Tipos de servicio",
@@ -264,6 +267,15 @@ export const ES_TEXT = {
         saving: "Guardando...",
         delete: "Eliminar",
       },
+      actions: {
+        cancel: "Cancelar",
+        create: "Crear",
+        creating: "Creando...",
+        save: "Guardar",
+        saving: "Guardando...",
+        delete: "Eliminar",
+        showSsn: "Mostrar"
+      }
     },
     tariffs: {
       title: "Tarifas de {name}",
