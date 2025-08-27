@@ -38,7 +38,10 @@ export const router = createBrowserRouter([
     path: "/",
     element: (
       <ProtectedRoute>
-        <DashboardLayout />
+        <DashboardLayout onLogout={() => {
+          localStorage.removeItem('authToken');
+          window.location.href = '/login';
+        }} />
       </ProtectedRoute>
     ),
     children: [

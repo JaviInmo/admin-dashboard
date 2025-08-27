@@ -79,8 +79,8 @@ export default function ClientsPage() {
   const [stableTotalPages, setStableTotalPages] = React.useState<number>(1);
 
   const handleSearch = React.useCallback((term: string) => {
-    setPage(1);
     setSearch(term);
+    setPage(1);
   }, []);
 
   // apiOrdering en formato DRF (ej: "-user__first_name" | "user__first_name" | undefined)
