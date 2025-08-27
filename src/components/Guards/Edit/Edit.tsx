@@ -228,7 +228,7 @@ export default function EditGuardDialog({ guard, open, onClose, onUpdated }: Pro
                       className="h-4 w-4 rounded border-gray-300"
                     />
                     <label htmlFor={`toggle-ssn-${guard.id}`} className="text-sm">
-                      {getText("guards.form.fields.ssnVisibility") ?? "Mostrar SSN"}
+                      {getText("Show") ?? "Mostrar SSN"}
                     </label>
                   </div>
                 </div>

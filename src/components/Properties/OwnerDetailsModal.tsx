@@ -129,16 +129,7 @@ export default function OwnerDetailsModal({
               </div>
             </div>
 
-       {/*      <div className="flex items-start gap-2">
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={onClose}
-                aria-label="Cerrar"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div> */}
+     
           </div>
         </DialogHeader>
 
