@@ -139,6 +139,7 @@ export const EN_TEXT = {
     table: {
       title: "Properties List",
       add: "Add",
+      searchLabel: "Search properties",
       searchPlaceholder: "Search properties...",
       headers: {
         owner: "Owner",

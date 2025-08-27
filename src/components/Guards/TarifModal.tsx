@@ -69,7 +69,7 @@ export default function TariffModal({
   }
 
   const [allProperties, setAllProperties] = React.useState<
-    Array<{ id: number; address?: string }>
+    Array<{ id: number; address?: string; alias?: string; owner?: string }>
   >([]);
   const [propsLoading, setPropsLoading] = React.useState(false);
   const [searchProp, setSearchProp] = React.useState<string>("");
@@ -163,10 +163,23 @@ export default function TariffModal({
     try {
       const resp = await listProperties(1, undefined, 500, undefined);
       const items = resp?.items ?? [];
+      
+      // Debug: ver qué campos están disponibles
+      console.log("Properties API response:", items[0]);
+      
       const simple = items.map((p: any) => ({
         id: p.id,
         address: p.address ?? p.name ?? String(p.id),
+        alias: p.alias ?? p.nick ?? "",
+        owner: p.owner_name ?? p.ownerName ?? p.owner ?? p.ownerUser ?? p.owner_user ?? 
+               (p.ownerDetails && p.ownerDetails.username) ?? 
+               (p.owner_details && p.owner_details.username) ?? 
+               (p.user && p.user.username) ?? "",
       }));
+      
+      // Debug: ver qué se está mapeando
+      console.log("Mapped properties:", simple[0]);
+      
       setAllProperties(simple);
     } catch (err) {
       console.error("loadProperties error", err);
@@ -234,8 +247,10 @@ export default function TariffModal({
     if (!q) return allProperties;
     return allProperties.filter((p) => {
       const addr = String(p.address ?? "").toLowerCase();
+      const alias = String(p.alias ?? "").toLowerCase();
+      const owner = String(p.owner ?? "").toLowerCase();
       const id = String(p.id ?? "").toLowerCase();
-      return addr.includes(q) || id.includes(q);
+      return addr.includes(q) || alias.includes(q) || owner.includes(q) || id.includes(q);
     });
   }, [allProperties, q]);
 
@@ -251,14 +266,14 @@ export default function TariffModal({
     setTimeout(() => rateInputRef.current?.focus(), 0);
   }
 
-  function handleChooseProperty(p: { id: number; address?: string }) {
+  function handleChooseProperty(p: { id: number; address?: string; alias?: string; owner?: string }) {
     const existing = tariffsByProperty.get(Number(p.id));
     if (existing) {
       handleSelectExistingTariff(existing);
       return;
     }
     setEditingTariff(null);
-    setSelectedProperty({ id: p.id, address: p.address } as AppProperty);
+    setSelectedProperty({ id: p.id, address: p.address, alias: p.alias, owner: p.owner } as any);
     setRate("");
     setIsActive(true);
     setValidationError("");
@@ -287,19 +302,6 @@ export default function TariffModal({
       const message = getText("guards.tariffs.exists", "Ya existe una tarifa para esta propiedad. Se cargará para editar.");
       toast.info(message);
       handleSelectExistingTariff(exists);
-      return;
-    }
-
-    // Confirmación para cambios importantes
-    const actionKey = editingTariff ? "guards.tariffs.actions.update" : "guards.tariffs.actions.create";
-    const action = getText(actionKey, editingTariff ? "actualizar" : "crear");
-    const confirmMessage = getText(
-      "guards.tariffs.confirmSave", 
-      `¿Estás seguro de ${action} esta tarifa de $${rate} para ${selectedProperty.address}?`,
-      { action, rate, property: selectedProperty.address || "" }
-    );
-    
-    if (!confirm(confirmMessage)) {
       return;
     }
 
@@ -563,58 +565,76 @@ export default function TariffModal({
               <div className="flex flex-col md:flex-row gap-6">
                 {/* Columna izquierda: Buscar propiedad */}
                 <div className="w-full md:w-1/2">
-                  <Label className="text-sm">{getText("properties.table.searchLabel", "Buscar propiedad")}</Label>
+                  <Label className="text-sm">{getText("properties.table.searchLabel", "Buscar propiedades")}</Label>
                   <Input
                     placeholder={getText("properties.table.searchPlaceholder", "Filtrar propiedades...")}
                     value={searchProp}
                     onChange={(e) => setSearchProp(e.target.value)}
                   />
-                  <div className="mt-2 max-h-56 overflow-auto border rounded p-1 bg-background">
-                    {propsLoading ? (
-                      <div className="space-y-2 p-2">
-                        {Array.from({ length: 4 }).map((_, i) => (
-                          <PropItemSkeleton key={i} />
-                        ))}
-                      </div>
-                    ) : filteredProps.length === 0 ? (
-                      <div className="p-3 text-sm text-muted-foreground">
-                        {getText("properties.form.noResultsText", "Sin resultados")}
-                      </div>
-                    ) : (
-                      filteredProps.map((p) => {
-                        const has = tariffsByProperty.has(Number(p.id));
-                        return (
-                          <div
-                            key={p.id}
-                            className={cn(
-                              "p-3 rounded-md cursor-pointer transition-colors border border-transparent hover:border-border hover:bg-accent/50",
-                              selectedProperty?.id === p.id
-                                ? "bg-accent border-border font-medium"
-                                : ""
-                            )}
-                            onClick={() => handleChooseProperty(p)}
-                          >
-                            <div className="flex items-center justify-between">
-                              <div className="flex-1 min-w-0">
-                                <div className="text-sm font-medium truncate">{p.address}</div>
-                                <div className="text-xs text-muted-foreground">
-                                  ID: #{p.id}
+                  <div className="mt-2 max-h-48 overflow-auto border rounded-md bg-card shadow-sm">
+                    <div className="p-1">
+                      {propsLoading ? (
+                        <div className="space-y-1">
+                          {Array.from({ length: 4 }).map((_, i) => (
+                            <PropItemSkeleton key={i} />
+                          ))}
+                        </div>
+                      ) : filteredProps.length === 0 ? (
+                        <div className="p-3 text-sm text-muted-foreground text-center">
+                          {getText("properties.form.noResultsText", "Sin resultados")}
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          {filteredProps.map((p) => {
+                            const has = tariffsByProperty.has(Number(p.id));
+                            return (
+                              <div
+                                key={p.id}
+                                className={cn(
+                                  "p-2 rounded cursor-pointer transition-colors border border-transparent hover:border-border hover:bg-accent/50",
+                                  selectedProperty?.id === p.id
+                                    ? "bg-accent border-border font-medium"
+                                    : ""
+                                )}
+                                onClick={() => handleChooseProperty(p)}
+                              >
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="flex-1 min-w-0 space-y-1">
+                                    {/* Alias */}
+                                    {p.alias && (
+                                      <div className="text-sm font-medium text-primary max-w-[180px] truncate">
+                                        {p.alias}
+                                      </div>
+                                    )}
+                                    
+                                    {/* Owner */}
+                                    <div className="text-xs text-muted-foreground max-w-[180px] truncate">
+                                      👤 {p.owner || "Sin dueño asignado"}
+                                    </div>
+                                    
+                                    {/* Address */}
+                                    <div className="text-xs text-muted-foreground max-w-[180px] truncate">
+                                      📍 {p.address}
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Tariff indicator */}
+                                  <div className="flex-shrink-0">
+                                    {has ? (
+                                      <div className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded text-center">
+                                        ⚑
+                                      </div>
+                                    ) : (
+                                      <div className="w-6 h-6"></div>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
-                              <div className="ml-2 flex-shrink-0">
-                                {has ? (
-                                  <div className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
-                                    {getText("guards.tariffs.flag", "⚑ Tarifa")}
-                                  </div>
-                                ) : (
-                                  <div className="text-xs text-muted-foreground">—</div>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })
-                    )}
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>              {/* Columna derecha: Propiedad seleccionada + tarifa */}
               <div className="w-full md:w-1/2">
@@ -626,14 +646,24 @@ export default function TariffModal({
                       <Skeleton className="h-4 w-1/3 rounded" />
                     </div>
                   ) : selectedProperty ? (
-                    <>
-                      <div className="font-medium">
-                        {selectedProperty.address}
+                    <div className="space-y-1">
+                      {/* Alias */}
+                      {(selectedProperty as any).alias && (
+                        <div className="font-medium text-primary">
+                          {(selectedProperty as any).alias}
+                        </div>
+                      )}
+                      
+                      {/* Owner */}
+                      <div className="text-sm text-muted-foreground">
+                        👤 {(selectedProperty as any).owner || "Sin dueño asignado"}
                       </div>
-                      <div className="text-xs text-muted-foreground">
-                        #{selectedProperty.id}
+                      
+                      {/* Address */}
+                      <div className="text-sm text-muted-foreground">
+                        📍 {selectedProperty.address}
                       </div>
-                    </>
+                    </div>
                   ) : (
                     <div className="text-sm text-muted-foreground">
                       {getText("guards.tariffs.noneSelected", "Ninguna propiedad seleccionada")}
