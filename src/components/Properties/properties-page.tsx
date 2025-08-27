@@ -68,6 +68,8 @@ export default function PropertiesPage() {
     useQuery<PaginatedResult<AppProperty>, unknown, PaginatedResult<AppProperty>>({
       queryKey: [PROPERTY_KEY, search, page, pageSize, apiOrdering],
       queryFn: () => listProperties(page, search, pageSize, apiOrdering),
+      
+      staleTime: 30 * 1000, // 30s (ajusta según necesites)
       initialData: INITIAL_PROPERTY_DATA,
       placeholderData: (previousData) => previousData ?? INITIAL_PROPERTY_DATA,
     });
@@ -114,13 +116,23 @@ export default function PropertiesPage() {
   const title =
     (TEXT as any)?.properties?.title ?? "Properties Management";
 
+  // onRefresh que usan los modales: invalida todas las queries relacionadas con PROPERTY_KEY
+  // y espera a que la invalidación / refetch termine (asi los modales pueden await onCreated/onUpdated).
+  const handleRefresh = React.useCallback(async () => {
+    // invalidar cualquier query cuyo queryKey empiece con PROPERTY_KEY
+    await queryClient.invalidateQueries({ queryKey: [PROPERTY_KEY], exact: false });
+    // opcional: esperar a que las queries se vuelvan a fetch (no siempre necesario)
+    // await queryClient.refetchQueries({ queryKey: [PROPERTY_KEY], exact: false });
+  }, [queryClient]);
+
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
       <h2 className="text-2xl font-bold">{title}</h2>
 
       <PropertiesTable
         properties={data?.items ?? []}
-        onRefresh={() => queryClient.invalidateQueries({ queryKey: [PROPERTY_KEY] })}
+        // ahora pasamos la función async que invalida/refresh correctamente
+        onRefresh={handleRefresh}
         serverSide={true}
         currentPage={page}
         totalPages={totalPages}

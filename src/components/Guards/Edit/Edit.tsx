@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import type { Guard } from "../types";
 import { updateGuard, type UpdateGuardPayload } from "@/lib/services/guard";
 import { useI18n } from "@/i18n";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface Props {
   guard: Guard;
@@ -43,9 +44,6 @@ export default function EditGuardDialog({ guard, open, onClose, onUpdated }: Pro
   const [address, setAddress] = React.useState<string>(guard.address ?? "");
   const [birthdate, setBirthdate] = React.useState<string>(guard.birthdate ?? "");
 
-  // Control de visibilidad del campo SSN en el formulario — por defecto DESACTIVADO
-  // Si el objeto guard trae un indicador (ssn_visible / ssnVisible / is_ssn_visible) lo respetamos para inicializar,
-  // pero por defecto queda en false (oculto).
   const initialShowSsn =
     (guard as any).ssn_visible === true ||
     (guard as any).ssnVisible === true ||
@@ -65,7 +63,6 @@ export default function EditGuardDialog({ guard, open, onClose, onUpdated }: Pro
     };
   }, []);
 
-  // if guard prop changes, update local state
   React.useEffect(() => {
     setFirstName(guard.firstName ?? "");
     setLastName(guard.lastName ?? "");
@@ -76,7 +73,6 @@ export default function EditGuardDialog({ guard, open, onClose, onUpdated }: Pro
     setBirthdate(guard.birthdate ?? "");
     setError(null);
 
-    // Recalcular estado inicial de visibilidad al cambiar guard
     const newInitial =
       (guard as any).ssn_visible === true ||
       (guard as any).ssnVisible === true ||
@@ -104,7 +100,6 @@ export default function EditGuardDialog({ guard, open, onClose, onUpdated }: Pro
 
     setLoading(true);
     try {
-      // Construimos payload tipado como UpdateGuardPayload y omitimos campos vacíos
       const basePayload: UpdateGuardPayload = {
         first_name: firstName.trim(),
         last_name: lastName.trim(),
@@ -116,13 +111,10 @@ export default function EditGuardDialog({ guard, open, onClose, onUpdated }: Pro
       if (address.trim() !== "") (basePayload as any).address = address.trim();
       if (birthdate !== "") (basePayload as any).birth_date = birthdate;
 
-      // Añadimos la bandera de visibilidad para el servidor en dos formatos por compatibilidad:
-      // 'ssn_visible' y 'is_ssn_visible'. Hacemos un as any para no romper tipado.
       const payloadAny: any = { ...(basePayload as any) };
       payloadAny.ssn_visible = showSsn;
       payloadAny.is_ssn_visible = showSsn;
 
-      // Remover `user` defensivamente si alguien lo hubiese agregado por error
       if ("user" in payloadAny) {
         delete payloadAny.user;
       }
@@ -145,6 +137,20 @@ export default function EditGuardDialog({ guard, open, onClose, onUpdated }: Pro
 
   const guardLabel = `${guard.firstName ?? ""} ${guard.lastName ?? ""}`.trim() || `#${guard.id}`;
 
+  const isMissingGuard = !guard || Object.keys(guard).length === 0;
+  const showSkeleton = isMissingGuard || loading;
+
+  const FieldSkeleton = ({ rows = 1 }: { rows?: number }) => (
+    <div className="space-y-2">
+      <Skeleton className="h-4 w-2/5 rounded" />
+      <div className="space-y-2">
+        {Array.from({ length: rows }).map((_, i) => (
+          <Skeleton key={i} className="h-10 w-full rounded" />
+        ))}
+      </div>
+    </div>
+  );
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="w-full max-w-2xl">
@@ -155,75 +161,100 @@ export default function EditGuardDialog({ guard, open, onClose, onUpdated }: Pro
         </DialogHeader>
 
         <div className="space-y-3 p-4">
-          <form onSubmit={handleSubmit} className="space-y-3">
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-sm">{getText("guards.form.fields.firstName")} *</label>
-                <Input name="firstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
+          {showSkeleton ? (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <FieldSkeleton />
+                <FieldSkeleton />
               </div>
-              <div>
-                <label className="block text-sm">{getText("guards.form.fields.lastName")} *</label>
-                <Input name="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} required />
+
+              <div className="grid grid-cols-2 gap-2">
+                <FieldSkeleton />
+                <FieldSkeleton />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <FieldSkeleton />
+                <FieldSkeleton />
+              </div>
+
+              <FieldSkeleton rows={1} />
+
+              <div className="flex justify-end gap-2 mt-3">
+                <Skeleton className="h-10 w-24 rounded" />
+                <Skeleton className="h-10 w-36 rounded" />
               </div>
             </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-sm">{getText("guards.form.fields.email")} *</label>
-                <Input name="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-              </div>
-              <div>
-                <label className="block text-sm">{getText("guards.form.fields.phone")}</label>
-                <Input name="phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-sm">{getText("guards.form.fields.ssn")}</label>
-                {/* Tipo dinámico según showSsn: si está oculto, usamos password */}
-                <Input
-                  name="ssn"
-                  type={showSsn ? "text" : "password"}
-                  value={ssn}
-                  onChange={(e) => setSsn(e.target.value)}
-                  placeholder={showSsn ? "" : getText("guards.form.placeholders.ssnHidden") ?? "********"}
-                />
-                <div className="mt-2 flex items-center gap-2">
-                  <input
-                    id={`toggle-ssn-${guard.id}`}
-                    type="checkbox"
-                    checked={showSsn}
-                    onChange={() => setShowSsn((v) => !v)}
-                    className="h-4 w-4 rounded border-gray-300"
-                  />
-                  <label htmlFor={`toggle-ssn-${guard.id}`} className="text-sm">
-                    {getText("guards.form.fields.ssnVisibility") ?? "Mostrar SSN"}
-                  </label>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-sm">{getText("guards.form.fields.firstName")} *</label>
+                  <Input name="firstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
+                </div>
+                <div>
+                  <label className="block text-sm">{getText("guards.form.fields.lastName")} *</label>
+                  <Input name="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} required />
                 </div>
               </div>
-              <div>
-                <label className="block text-sm">{getText("guards.form.fields.birthdate")}</label>
-                <Input name="birthdate" type="date" value={birthdate} onChange={(e) => setBirthdate(e.target.value)} />
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-sm">{getText("guards.form.fields.email")} *</label>
+                  <Input name="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                </div>
+                <div>
+                  <label className="block text-sm">{getText("guards.form.fields.phone")}</label>
+                  <Input name="phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
+                </div>
               </div>
-            </div>
 
-            <div>
-              <label className="block text-sm">{getText("guards.form.fields.address")}</label>
-              <Input name="address" value={address} onChange={(e) => setAddress(e.target.value)} />
-            </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-sm">{getText("guards.form.fields.ssn")}</label>
+                  <Input
+                    name="ssn"
+                    type={showSsn ? "text" : "password"}
+                    value={ssn}
+                    onChange={(e) => setSsn(e.target.value)}
+                    placeholder={showSsn ? "" : getText("guards.form.placeholders.ssnHidden") ?? "********"}
+                  />
+                  <div className="mt-2 flex items-center gap-2">
+                    <input
+                      id={`toggle-ssn-${guard.id}`}
+                      type="checkbox"
+                      checked={showSsn}
+                      onChange={() => setShowSsn((v) => !v)}
+                      className="h-4 w-4 rounded border-gray-300"
+                    />
+                    <label htmlFor={`toggle-ssn-${guard.id}`} className="text-sm">
+                      {getText("guards.form.fields.ssnVisibility") ?? "Mostrar SSN"}
+                    </label>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm">{getText("guards.form.fields.birthdate")}</label>
+                  <Input name="birthdate" type="date" value={birthdate} onChange={(e) => setBirthdate(e.target.value)} />
+                </div>
+              </div>
 
-            {error && <p className="text-sm text-red-600">{error}</p>}
+              <div>
+                <label className="block text-sm">{getText("guards.form.fields.address")}</label>
+                <Input name="address" value={address} onChange={(e) => setAddress(e.target.value)} />
+              </div>
 
-            <div className="flex justify-end gap-2 mt-3">
-              <Button variant="ghost" onClick={onClose} disabled={loading}>
-                {getText("actions.cancel")}
-              </Button>
-              <Button type="submit" disabled={loading}>
-                {loading ? getText("guards.form.buttons.saving") || "Saving..." : getText("guards.form.buttons.save")}
-              </Button>
-            </div>
-          </form>
+              {error && <p className="text-sm text-red-600">{error}</p>}
+
+              <div className="flex justify-end gap-2 mt-3">
+                <Button variant="ghost" onClick={onClose} disabled={loading}>
+                  {getText("actions.cancel")}
+                </Button>
+                <Button type="submit" disabled={loading}>
+                  {loading ? getText("guards.form.buttons.saving") || "Saving..." : getText("guards.form.buttons.save")}
+                </Button>
+              </div>
+            </form>
+          )}
         </div>
       </DialogContent>
     </Dialog>

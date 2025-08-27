@@ -23,6 +23,7 @@ import {
 } from "@/lib/services/guardpt";
 import { Trash, Pencil, Check, X } from "lucide-react";
 import { useI18n } from "@/i18n";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type TariffItem = {
   id: number;
@@ -100,6 +101,7 @@ export default function TariffModal({
     resetForm();
     void loadProperties();
     void loadTariffs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, guard?.id]);
 
   function resetForm() {
@@ -282,10 +284,8 @@ export default function TariffModal({
     return t.propertyLabel ?? `#${t.propertyId}`;
   }
 
-  // Helper: formatea la tarifa anteponiendo $ y forzando 2 decimales si es número
   function formatRate(rate: string) {
     if (rate === null || rate === undefined) return "";
-    // convertir coma decimal a punto y limpiar espacios
     const cleaned = String(rate).trim().replace(",", ".");
     const n = Number(cleaned);
     if (Number.isFinite(n)) {
@@ -295,6 +295,24 @@ export default function TariffModal({
   }
 
   const guardLabel = `${guard.firstName ?? ""} ${guard.lastName ?? ""}`.trim() || `#${guard.id}`;
+
+  // Small UI helper skeletons
+  const TableRowSkeleton = ({ cols = 4 }: { cols?: number }) => (
+    <tr>
+      {Array.from({ length: cols }).map((_, i) => (
+        <td key={i} className="py-2 px-2 align-top">
+          <Skeleton className="h-6 w-full rounded" />
+        </td>
+      ))}
+    </tr>
+  );
+
+  const PropItemSkeleton = () => (
+    <div className="p-2 rounded">
+      <Skeleton className="h-4 w-3/4 rounded mb-1" />
+      <Skeleton className="h-3 w-1/4 rounded" />
+    </div>
+  );
 
   return (
     <Dialog
@@ -322,15 +340,31 @@ export default function TariffModal({
                   </div>
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  {getText("guards.tariffs.count", "{count} propiedad(es) con tarifa", { count: String(tariffs.length) })}
+                  {tariffsLoading ? (
+                    <Skeleton className="h-4 w-12 rounded" />
+                  ) : (
+                    getText("guards.tariffs.count", "{count} propiedad(es) con tarifa", { count: String(tariffs.length) })
+                  )}
                 </div>
               </div>
 
               <div className="max-h-60 overflow-auto">
                 {tariffsLoading ? (
-                  <div className="p-3 text-sm text-muted-foreground">
-                    {getText("common.loading", "Cargando tarifas…")}
-                  </div>
+                  <table className="w-full table-fixed text-sm">
+                    <thead>
+                      <tr className="text-xs text-muted-foreground border-b">
+                        <th className="py-2 px-2 text-left w-2/5">{getText("properties.table.headers.name", "Propiedad")}</th>
+                        <th className="py-2 px-2 text-left">{getText("guards.tariffs.rateHeader", "Tarifa")}</th>
+                        <th className="py-2 px-2 text-left">{getText("guards.tariffs.activeHeader", "Activo")}</th>
+                        <th className="py-2 px-2 text-right">{getText("actions.actions", "Acciones")}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Array.from({ length: 6 }).map((_, i) => (
+                        <TableRowSkeleton key={i} />
+                      ))}
+                    </tbody>
+                  </table>
                 ) : tariffs.length === 0 ? (
                   <div className="p-3 text-sm text-muted-foreground">
                     {getText("guards.tariffs.empty", "Este guard no tiene tarifas asignadas.")}
@@ -364,12 +398,10 @@ export default function TariffModal({
                             </div>
                           </td>
 
-                          {/* Tarifa: formateada con $ y 2 decimales cuando es número */}
                           <td className="py-2 px-2 align-top">
                             {formatRate(t.rate)}
                           </td>
 
-                          {/* Activo: icono Check/X en vez de Sí/No */}
                           <td className="py-2 px-2 align-top">
                             {t.isActive ? (
                               <Check
@@ -433,8 +465,10 @@ export default function TariffModal({
                 {propsPanelOpen && (
                   <div className="mt-2 max-h-56 overflow-auto border rounded p-1 bg-white">
                     {propsLoading ? (
-                      <div className="p-3 text-sm text-muted-foreground">
-                        {getText("common.loading", "Cargando propiedades…")}
+                      <div className="space-y-2 p-2">
+                        {Array.from({ length: 8 }).map((_, i) => (
+                          <PropItemSkeleton key={i} />
+                        ))}
                       </div>
                     ) : filteredProps.length === 0 ? (
                       <div className="p-3 text-sm text-muted-foreground">
@@ -475,7 +509,12 @@ export default function TariffModal({
               <div className="w-full md:w-1/2">
                 <Label className="text-sm">{getText("guards.tariffs.selectedPropertyLabel", "Propiedad seleccionada")}</Label>
                 <div className="p-3 rounded border bg-muted/5 mb-3">
-                  {selectedProperty ? (
+                  {propsLoading ? (
+                    <div className="space-y-2">
+                      <Skeleton className="h-5 w-2/3 rounded" />
+                      <Skeleton className="h-4 w-1/3 rounded" />
+                    </div>
+                  ) : selectedProperty ? (
                     <>
                       <div className="font-medium">
                         {selectedProperty.address}
@@ -499,6 +538,7 @@ export default function TariffModal({
                       value={rate}
                       onChange={(e) => setRate(e.target.value)}
                       placeholder={getText("guards.tariffs.ratePlaceholder", "Ej: 15.00")}
+                      disabled={saving}
                     />
                   </div>
                   <div className="flex items-center gap-3">
@@ -506,6 +546,7 @@ export default function TariffModal({
                     <Switch
                       checked={isActive}
                       onCheckedChange={(v) => setIsActive(Boolean(v))}
+                      disabled={saving}
                     />
                   </div>
                 </div>
@@ -516,23 +557,28 @@ export default function TariffModal({
                       size="sm"
                       variant="ghost"
                       onClick={() => setPropsPanelOpen(true)}
+                      disabled={saving}
                     >
                       {getText("guards.tariffs.changeProperty", "Cambiar propiedad")}
                     </Button>
                   )}
-                  <Button variant="secondary" onClick={() => resetForm()}>
+                  <Button variant="secondary" onClick={() => resetForm()} disabled={saving}>
                     {getText("actions.reset", "Reset")}
                   </Button>
-                  <Button
-                    onClick={handleSave}
-                    disabled={saving || !selectedProperty}
-                  >
-                    {saving
-                      ? getText("guards.tariffs.saving", "Guardando...")
-                      : editingTariff
-                      ? getText("guards.tariffs.update", "Actualizar tarifa")
-                      : getText("guards.tariffs.create", "Crear tarifa")}
-                  </Button>
+
+                  {/* durante saving mostramos skeletons en vez del botón activo */}
+                  {saving ? (
+                    <Skeleton className="h-10 w-36 rounded" />
+                  ) : (
+                    <Button
+                      onClick={handleSave}
+                      disabled={saving || !selectedProperty}
+                    >
+                      {editingTariff
+                        ? getText("guards.tariffs.update", "Actualizar tarifa")
+                        : getText("guards.tariffs.create", "Crear tarifa")}
+                    </Button>
+                  )}
                 </div>
 
                 <div className="mt-3 text-xs text-muted-foreground">

@@ -1,9 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle,  } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { AppProperty, AppPropertyType } from "@/lib/services/properties";
 import {
   partialUpdateProperty,
@@ -81,6 +82,7 @@ export default function EditPropertyDialog({ property, open, onClose, onUpdated 
   const [loading, setLoading] = React.useState(false);
   const [typesLoading, setTypesLoading] = React.useState(false);
   const [availableTypes, setAvailableTypes] = React.useState<AppPropertyType[]>([]);
+  const [initialOwnerLoading, setInitialOwnerLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const mountedRef = React.useRef(true);
 
@@ -93,6 +95,7 @@ export default function EditPropertyDialog({ property, open, onClose, onUpdated 
     };
   }, []);
 
+  // cargar tipos
   React.useEffect(() => {
     let mounted = true;
     setTypesLoading(true);
@@ -109,14 +112,11 @@ export default function EditPropertyDialog({ property, open, onClose, onUpdated 
         setAvailableTypes(items);
       })
       .catch((err) => console.error("listPropertyTypesOfService failed", err))
-      .finally(() => {
-        if (mounted) setTypesLoading(false);
-      });
-    return () => {
-      mounted = false;
-    };
+      .finally(() => { if (mounted) setTypesLoading(false); });
+    return () => { mounted = false; };
   }, []);
 
+  // cargar owner si no estaba embebido
   React.useEffect(() => {
     let mounted = true;
     (async () => {
@@ -137,6 +137,7 @@ export default function EditPropertyDialog({ property, open, onClose, onUpdated 
           const ownerId = pick("owner", "ownerId", "owner_id") ?? null;
           if (ownerId) {
             try {
+              setInitialOwnerLoading(true);
               const client = await getClient(Number(ownerId));
               if (!mounted) return;
               const cliLabel = client.username ?? `${client.firstName ?? ""} ${client.lastName ?? ""}`.trim() ?? `#${client.id}`;
@@ -146,18 +147,18 @@ export default function EditPropertyDialog({ property, open, onClose, onUpdated 
             } catch (err) {
               if (!mounted) return;
               setOwnerInput(`#${ownerId}`);
+            } finally {
+              if (mounted) setInitialOwnerLoading(false);
             }
           } else {
             if (mounted) setOwnerInput("");
           }
         }
-      } catch (err) {
-        /* ignore */
+      } catch {
+        // ignore
       }
     })();
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [property]);
 
@@ -253,6 +254,8 @@ export default function EditPropertyDialog({ property, open, onClose, onUpdated 
     }
   }
 
+  const isInitialLoading = typesLoading || initialOwnerLoading;
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="w-full max-w-3xl max-h-[90vh] overflow-hidden">
@@ -261,132 +264,150 @@ export default function EditPropertyDialog({ property, open, onClose, onUpdated 
         </DialogHeader>
 
         <div className="space-y-4 p-4 max-h-[82vh] overflow-auto">
-          {/* Owner autocomplete */}
-          <div>
-            <label className="block text-sm">{FIELD.ownerUser ?? ""}</label>
-            <div className="relative">
-              <Input
-                value={ownerInput}
-                onChange={(e) => {
-                  setOwnerInput(e.target.value);
-                  setSelectedClient(null);
-                }}
-                onFocus={() => {
-                  if (searchResults.length > 0) setShowDropdown(true);
-                }}
-                placeholder={PLACEHOLDERS.owner ?? ""}
-              />
-              {showDropdown && (searchLoading || searchResults.length > 0) && (
-                <div className="absolute z-50 mt-1 w-full max-h-48 overflow-auto rounded border bg-popover p-1">
-                  {searchLoading && <div className="px-2 py-1 text-sm">{FORM.searchingText ?? ""}</div>}
-                  {!searchLoading && searchResults.length === 0 && <div className="px-2 py-1 text-sm">{FORM.noResultsText ?? ""}</div>}
-                  {!searchLoading &&
-                    searchResults.map((c) => {
-                      const label = c.username ?? `${c.first_name ?? c.firstName ?? ""} ${c.last_name ?? c.lastName ?? ""}`.trim() ?? `#${c.id}`;
-                      return (
-                        <button
-                          key={c.id}
-                          type="button"
-                          className="block w-full text-left px-2 py-1 hover:bg-muted"
-                          onClick={() => {
-                            setSelectedClient(c);
-                            setOwnerInput(label);
-                            setOwnerPhone(c.phone ?? "");
-                            setShowDropdown(false);
-                          }}
-                        >
-                          <div className="text-sm">{label}</div>
-                          <div className="text-xs text-muted-foreground">#{c.id} • {c.phone ?? "-"}</div>
-                        </button>
-                      );
-                    })}
+          {isInitialLoading ? (
+            <div className="space-y-3">
+              <Skeleton className="h-6 w-1/3" />
+              <div className="grid grid-cols-2 gap-2">
+                <Skeleton className="h-10" />
+                <Skeleton className="h-10" />
+              </div>
+              <Skeleton className="h-10 w-full" />
+              <div className="grid grid-cols-3 gap-2">
+                <Skeleton className="h-10" />
+                <Skeleton className="h-10" />
+                <Skeleton className="h-10" />
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Owner autocomplete */}
+              <div>
+                <label className="block text-sm">{FIELD.ownerUser ?? ""}</label>
+                <div className="relative">
+                  <Input
+                    value={ownerInput}
+                    onChange={(e) => {
+                      setOwnerInput(e.target.value);
+                      setSelectedClient(null);
+                    }}
+                    onFocus={() => {
+                      if (searchResults.length > 0) setShowDropdown(true);
+                    }}
+                    placeholder={PLACEHOLDERS.owner ?? ""}
+                  />
+                  {showDropdown && (searchLoading || searchResults.length > 0) && (
+                    <div className="absolute z-50 mt-1 w-full max-h-48 overflow-auto rounded border bg-popover p-1">
+                      {searchLoading && <div className="px-2 py-1 text-sm">{FORM.searchingText ?? ""}</div>}
+                      {!searchLoading && searchResults.length === 0 && <div className="px-2 py-1 text-sm">{FORM.noResultsText ?? ""}</div>}
+                      {!searchLoading &&
+                        searchResults.map((c) => {
+                          const label = c.username ?? `${c.first_name ?? c.firstName ?? ""} ${c.last_name ?? c.lastName ?? ""}`.trim() ?? `#${c.id}`;
+                          return (
+                            <button
+                              key={c.id}
+                              type="button"
+                              className="block w-full text-left px-2 py-1 hover:bg-muted"
+                              onClick={() => {
+                                setSelectedClient(c);
+                                setOwnerInput(label);
+                                setOwnerPhone(c.phone ?? "");
+                                setShowDropdown(false);
+                              }}
+                            >
+                              <div className="text-sm">{label}</div>
+                              <div className="text-xs text-muted-foreground">#{c.id} • {c.phone ?? "-"}</div>
+                            </button>
+                          );
+                        })}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">{FORM.ownerHelp ?? ""}</p>
-          </div>
+                <p className="text-xs text-muted-foreground mt-1">{FORM.ownerHelp ?? ""}</p>
+              </div>
 
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="block text-sm">{FIELD.ownerPhone ?? ""}</label>
-              <Input value={ownerPhone} onChange={(e) => setOwnerPhone(e.target.value)} name="ownerPhone" />
-            </div>
-            <div />
-          </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-sm">{FIELD.ownerPhone ?? ""}</label>
+                  <Input value={ownerPhone} onChange={(e) => setOwnerPhone(e.target.value)} name="ownerPhone" />
+                </div>
+                <div />
+              </div>
 
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="block text-sm">{FIELD.name ?? ""}</label>
-              <Input name="name" placeholder={PLACEHOLDERS.name ?? ""} value={name} onChange={(e) => setName(e.target.value)} />
-            </div>
-            <div>
-              <label className="block text-sm">{FIELD.alias ?? ""}</label>
-              <Input name="alias" placeholder={PLACEHOLDERS.alias ?? ""} value={alias} onChange={(e) => setAlias(e.target.value)} />
-            </div>
-          </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-sm">{FIELD.name ?? ""}</label>
+                  <Input name="name" placeholder={PLACEHOLDERS.name ?? ""} value={name} onChange={(e) => setName(e.target.value)} />
+                </div>
+                <div>
+                  <label className="block text-sm">{FIELD.alias ?? ""}</label>
+                  <Input name="alias" placeholder={PLACEHOLDERS.alias ?? ""} value={alias} onChange={(e) => setAlias(e.target.value)} />
+                </div>
+              </div>
 
-          <div className="grid grid-cols-1 gap-2">
-            <div>
-              <label className="block text-sm">{FIELD.address ?? ""}</label>
-              <Input name="address" placeholder={PLACEHOLDERS.address ?? ""} value={address} onChange={(e) => setAddress(e.target.value)} />
-            </div>
-          </div>
+              <div className="grid grid-cols-1 gap-2">
+                <div>
+                  <label className="block text-sm">{FIELD.address ?? ""}</label>
+                  <Input name="address" placeholder={PLACEHOLDERS.address ?? ""} value={address} onChange={(e) => setAddress(e.target.value)} />
+                </div>
+              </div>
 
-          <div>
-            <p className="font-medium mb-2">{FORM.serviceTypesTitle ?? ""}</p>
-            {typesLoading ? (
-              <p className="text-sm">{FORM.loadingTypesText ?? ""}</p>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {availableTypes.length === 0 ? (
-                  <p className="text-sm">{FORM.noTypesText ?? ""}</p>
+              <div>
+                <p className="font-medium mb-2">{FORM.serviceTypesTitle ?? ""}</p>
+                {typesLoading ? (
+                  <p className="text-sm">{FORM.loadingTypesText ?? ""}</p>
                 ) : (
-                  availableTypes.map((t) => {
-                    const selected = types.includes(t.id);
-                    return (
-                      <button
-                        key={t.id}
-                        type="button"
-                        onClick={() => toggleType(t.id)}
-                        className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-sm focus:outline-none ${
-                          selected ? "bg-primary text-primary-foreground border-primary" : "bg-transparent text-muted-foreground"
-                        }`}
-                        aria-pressed={selected}
-                      >
-                        <span>{t.name}</span>
-                      </button>
-                    );
-                  })
+                  <div className="flex flex-wrap gap-2">
+                    {availableTypes.length === 0 ? (
+                      <p className="text-sm">{FORM.noTypesText ?? ""}</p>
+                    ) : (
+                      availableTypes.map((t) => {
+                        const selected = types.includes(t.id);
+                        return (
+                          <button
+                            key={t.id}
+                            type="button"
+                            onClick={() => toggleType(t.id)}
+                            className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-sm focus:outline-none ${
+                              selected ? "bg-primary text-primary-foreground border-primary" : "bg-transparent text-muted-foreground"
+                            }`}
+                            aria-pressed={selected}
+                          >
+                            <span>{t.name}</span>
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
                 )}
               </div>
-            )}
-          </div>
 
-          <div className="grid grid-cols-3 gap-2">
-            <div>
-              <label className="block text-sm">{FIELD.monthlyRate ?? ""}</label>
-              <Input placeholder={PLACEHOLDERS.monthlyRate ?? ""} value={monthlyRate ?? ""} onChange={(e) => setMonthlyRate(e.target.value)} name="monthlyRate" />
-            </div>
-            <div>
-              <label className="block text-sm">{FIELD.contractStartDate ?? ""}</label>
-              <Input type="date" value={contractStartDate ?? ""} onChange={(e) => setContractStartDate(e.target.value)} name="contractStartDate" />
-            </div>
-            <div>
-              <label className="block text-sm">{FIELD.totalHours ?? ""}</label>
-              <Input type="number" placeholder={PLACEHOLDERS.totalHours ?? ""} value={totalHours === "" ? "" : String(totalHours)} onChange={(e) => setTotalHours(e.target.value === "" ? "" : Number(e.target.value))} name="totalHours" />
-            </div>
-          </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="block text-sm">{FIELD.monthlyRate ?? ""}</label>
+                  <Input placeholder={PLACEHOLDERS.monthlyRate ?? ""} value={monthlyRate ?? ""} onChange={(e) => setMonthlyRate(e.target.value)} name="monthlyRate" />
+                </div>
+                <div>
+                  <label className="block text-sm">{FIELD.contractStartDate ?? ""}</label>
+                  <Input type="date" value={contractStartDate ?? ""} onChange={(e) => setContractStartDate(e.target.value)} name="contractStartDate" />
+                </div>
+                <div>
+                  <label className="block text-sm">{FIELD.totalHours ?? ""}</label>
+                  <Input type="number" placeholder={PLACEHOLDERS.totalHours ?? ""} value={totalHours === "" ? "" : String(totalHours)} onChange={(e) => setTotalHours(e.target.value === "" ? "" : Number(e.target.value))} name="totalHours" />
+                </div>
+              </div>
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
+              {error && <p className="text-sm text-red-600">{error}</p>}
 
-          <div className="flex justify-end items-center gap-2">
-            <Button variant="secondary" onClick={() => onClose()} disabled={loading}>
-              {BUTTONS.cancel ?? ""}
-            </Button>
-            <Button onClick={handleSubmit} className="ml-2" disabled={loading}>
-              {loading ? (BUTTONS.saving ?? "") : (BUTTONS.save ?? "")}
-            </Button>
-          </div>
+              <div className="flex justify-end items-center gap-2">
+                <Button variant="secondary" onClick={() => onClose()} disabled={loading}>
+                  {BUTTONS.cancel ?? ""}
+                </Button>
+                <Button onClick={handleSubmit} className="ml-2" disabled={loading}>
+                  {loading ? (BUTTONS.saving ?? "") : (BUTTONS.save ?? "")}
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       </DialogContent>
     </Dialog>

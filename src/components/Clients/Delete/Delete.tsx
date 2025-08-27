@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useI18n } from "@/i18n";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type Props = {
   client: AppClient;
@@ -17,7 +18,6 @@ type Props = {
 export default function DeleteClientDialog({ client, open, onClose, onDeleted }: Props) {
   const { TEXT, lang } = useI18n();
 
-  // Try to read delete-specific strings from TEXT; fallback to reasonable defaults
   const FORM = TEXT?.clients?.form ?? ({} as any);
   const DELETE = (FORM as any).delete ?? {
     title: lang === "es" ? "Eliminar Cliente" : "Delete Client",
@@ -69,6 +69,8 @@ export default function DeleteClientDialog({ client, open, onClose, onDeleted }:
     }
   }
 
+  const ButtonSkeleton = () => <Skeleton className="h-10 w-28 rounded" />;
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="w-full max-w-md">
@@ -77,20 +79,33 @@ export default function DeleteClientDialog({ client, open, onClose, onDeleted }:
         </DialogHeader>
 
         <div className="space-y-4 p-4">
-          <p>
-            {format(DELETE.confirm)}{" "}
-            <strong>{getDisplayName()}</strong>
-          </p>
-          <p className="text-sm text-muted-foreground">{DELETE.note}</p>
+          {loading ? (
+            <div className="space-y-3">
+              <Skeleton className="h-4 w-3/4 rounded" />
+              <Skeleton className="h-3 w-2/3 rounded" />
+              <div className="flex justify-end gap-2 mt-4">
+                <ButtonSkeleton />
+                <ButtonSkeleton />
+              </div>
+            </div>
+          ) : (
+            <>
+              <p>
+                {format(DELETE.confirm)}{" "}
+                <strong>{getDisplayName()}</strong>
+              </p>
+              <p className="text-sm text-muted-foreground">{DELETE.note}</p>
 
-          <div className="flex justify-end gap-2 mt-4">
-            <Button variant="ghost" onClick={onClose} disabled={loading}>
-              {DELETE.cancel}
-            </Button>
-            <Button onClick={handleDelete} disabled={loading} variant="destructive">
-              {loading ? DELETE.deleting : DELETE.button}
-            </Button>
-          </div>
+              <div className="flex justify-end gap-2 mt-4">
+                <Button variant="ghost" onClick={onClose} disabled={loading}>
+                  {DELETE.cancel}
+                </Button>
+                <Button onClick={handleDelete} disabled={loading} variant="destructive">
+                  {loading ? DELETE.deleting : DELETE.button}
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       </DialogContent>
     </Dialog>

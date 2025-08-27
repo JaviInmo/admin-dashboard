@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { useModalCache } from "@/hooks/use-modal-cache";
 import { toast } from "sonner";
 import { useI18n } from "@/i18n";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type Props = {
   client: AppClient;
@@ -30,7 +31,6 @@ export default function EditClientDialog({ client, open, onClose, onUpdated }: P
   const { TEXT, lang } = useI18n();
 
   const FORM = TEXT?.clients?.form ?? {};
-  // fallback for updated success message (use created if updated not present)
   const UPDATED_SUCCESS =
     (FORM as any)?.updatedSuccess ??
     (FORM as any)?.updateSuccess ??
@@ -55,7 +55,6 @@ export default function EditClientDialog({ client, open, onClose, onUpdated }: P
     };
   }, []);
 
-  // Cargar datos del caché cuando se abre el modal o cambia el cliente
   React.useEffect(() => {
     const cacheKey = `edit-client-${client.id}`;
     if (open) {
@@ -69,7 +68,6 @@ export default function EditClientDialog({ client, open, onClose, onUpdated }: P
         setBillingAddress(cachedData.billingAddress ?? "");
         setIsActive(typeof cachedData.isActive === "boolean" ? cachedData.isActive : client.isActive ?? false);
       } else {
-        // Si no hay caché, usar datos del cliente
         setFirstName(client.firstName ?? "");
         setLastName(client.lastName ?? "");
         setEmail(client.email ?? "");
@@ -82,7 +80,6 @@ export default function EditClientDialog({ client, open, onClose, onUpdated }: P
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client, open]);
 
-  // Guardar en caché cuando cambian los valores
   React.useEffect(() => {
     if (open) {
       const cacheKey = `edit-client-${client.id}`;
@@ -99,7 +96,6 @@ export default function EditClientDialog({ client, open, onClose, onUpdated }: P
   }, [firstName, lastName, email, phone, address, billingAddress, isActive, client.id, open, saveToCache]);
 
   function handleClose() {
-    // Guardar datos antes de cerrar (para conservar cambios)
     const cacheKey = `edit-client-${client.id}`;
     saveToCache(cacheKey, {
       firstName,
@@ -124,14 +120,11 @@ export default function EditClientDialog({ client, open, onClose, onUpdated }: P
         phone: phone || undefined,
         address: address || undefined,
         billing_address: billingAddress || undefined,
-        // enviamos is_active (snake_case) tal como espera el servicio
         is_active: isActive,
-        // No enviamos 'balance' aquí: permanece intacto en el servidor.
       };
 
       await updateClient(client.id, payload);
 
-      // Limpiar caché después de actualizar exitosamente
       const cacheKey = `edit-client-${client.id}`;
       clearCache(cacheKey);
 
@@ -147,6 +140,19 @@ export default function EditClientDialog({ client, open, onClose, onUpdated }: P
     }
   }
 
+  const FieldSkeleton = ({ rows = 1 }: { rows?: number }) => (
+    <div className="space-y-2">
+      <Skeleton className="h-4 w-2/5 rounded" />
+      {Array.from({ length: rows }).map((_, i) => (
+        <Skeleton key={i} className="h-10 w-full rounded" />
+      ))}
+    </div>
+  );
+
+  const ButtonSkeleton = () => <Skeleton className="h-10 w-28 rounded" />;
+
+  const showSkeleton = loading || !client;
+
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="w-full max-w-2xl">
@@ -155,74 +161,105 @@ export default function EditClientDialog({ client, open, onClose, onUpdated }: P
         </DialogHeader>
 
         <div className="space-y-3 p-4">
-          <form onSubmit={handleSubmit} className="space-y-3">
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-sm">{(FORM as any)?.fields?.firstName ?? (lang === "es" ? "Nombre" : "First name")}</label>
-                <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+          {showSkeleton ? (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <FieldSkeleton />
+                <FieldSkeleton />
               </div>
-              <div>
-                <label className="block text-sm">{(FORM as any)?.fields?.lastName ?? (lang === "es" ? "Apellido" : "Last name")}</label>
-                <Input value={lastName} onChange={(e) => setLastName(e.target.value)} />
+
+              <div className="grid grid-cols-2 gap-2">
+                <FieldSkeleton />
+                <FieldSkeleton />
+              </div>
+
+              <div className="grid grid-cols-1 gap-2">
+                <FieldSkeleton />
+              </div>
+
+              <div className="grid grid-cols-1 gap-2">
+                <FieldSkeleton />
+              </div>
+
+              <div className="flex items-center gap-3 mt-2">
+                <Skeleton className="h-4 w-12 rounded" />
+                <Skeleton className="h-4 w-20 rounded" />
+              </div>
+
+              <div className="flex justify-end gap-2 mt-3">
+                <ButtonSkeleton />
+                <ButtonSkeleton />
               </div>
             </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-sm">{(FORM as any)?.fields?.email ?? (lang === "es" ? "Correo" : "Email")}</label>
-                <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-sm">{(FORM as any)?.fields?.firstName ?? (lang === "es" ? "Nombre" : "First name")}</label>
+                  <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+                </div>
+                <div>
+                  <label className="block text-sm">{(FORM as any)?.fields?.lastName ?? (lang === "es" ? "Apellido" : "Last name")}</label>
+                  <Input value={lastName} onChange={(e) => setLastName(e.target.value)} />
+                </div>
               </div>
-              <div>
-                <label className="block text-sm">{(FORM as any)?.fields?.phone ?? (lang === "es" ? "Teléfono" : "Phone")}</label>
-                <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
-              </div>
-            </div>
 
-            <div className="grid grid-cols-1 gap-2">
-              <div>
-                <label className="block text-sm">{(FORM as any)?.fields?.address ?? (lang === "es" ? "Dirección" : "Address")}</label>
-                <Input
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  placeholder={(FORM as any)?.placeholders?.address ?? (lang === "es" ? "Dirección física del cliente" : "Client's physical address")}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-sm">{(FORM as any)?.fields?.email ?? (lang === "es" ? "Correo" : "Email")}</label>
+                  <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+                </div>
+                <div>
+                  <label className="block text-sm">{(FORM as any)?.fields?.phone ?? (lang === "es" ? "Teléfono" : "Phone")}</label>
+                  <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-2">
+                <div>
+                  <label className="block text-sm">{(FORM as any)?.fields?.address ?? (lang === "es" ? "Dirección" : "Address")}</label>
+                  <Input
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    placeholder={(FORM as any)?.placeholders?.address ?? (lang === "es" ? "Dirección física del cliente" : "Client's physical address")}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-2">
+                <div>
+                  <label className="block text-sm">{(FORM as any)?.fields?.billingAddress ?? (lang === "es" ? "Dirección de facturación" : "Billing address")}</label>
+                  <Input
+                    value={billingAddress}
+                    onChange={(e) => setBillingAddress(e.target.value)}
+                    placeholder={(FORM as any)?.placeholders?.billingAddress ?? (lang === "es" ? "Dirección para envío de facturas" : "Address used for invoicing")}
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 mt-2">
+                <input
+                  id={`client-active-${client.id}`}
+                  type="checkbox"
+                  checked={isActive}
+                  onChange={() => setIsActive((v) => !v)}
+                  className="h-4 w-4 rounded border-gray-300"
                 />
+                <label htmlFor={`client-active-${client.id}`} className="text-sm">
+                  {(FORM as any)?.fields?.isActive ?? (lang === "es" ? "Activo" : "Active")}
+                </label>
               </div>
-            </div>
 
-            <div className="grid grid-cols-1 gap-2">
-              <div>
-                <label className="block text-sm">{(FORM as any)?.fields?.billingAddress ?? (lang === "es" ? "Dirección de facturación" : "Billing address")}</label>
-                <Input
-                  value={billingAddress}
-                  onChange={(e) => setBillingAddress(e.target.value)}
-                  placeholder={(FORM as any)?.placeholders?.billingAddress ?? (lang === "es" ? "Dirección para envío de facturas" : "Address used for invoicing")}
-                />
+              <div className="flex justify-end gap-2 mt-3">
+                <Button variant="ghost" onClick={handleClose} disabled={loading}>
+                  {(FORM as any)?.buttons?.cancel ?? (lang === "es" ? "Cancelar" : "Cancel")}
+                </Button>
+                <Button type="submit" disabled={loading}>
+                  {loading ? ( (FORM as any)?.buttons?.saving ?? (lang === "es" ? "Guardando..." : "Saving...") ) : ( (FORM as any)?.buttons?.save ?? (lang === "es" ? "Guardar" : "Save") )}
+                </Button>
               </div>
-            </div>
-
-            {/* Campo para marcar activo / inactivo */}
-            <div className="flex items-center gap-3 mt-2">
-              <input
-                id={`client-active-${client.id}`}
-                type="checkbox"
-                checked={isActive}
-                onChange={() => setIsActive((v) => !v)}
-                className="h-4 w-4 rounded border-gray-300"
-              />
-              <label htmlFor={`client-active-${client.id}`} className="text-sm">
-                {(FORM as any)?.fields?.isActive ?? (lang === "es" ? "Activo" : "Active")}
-              </label>
-            </div>
-
-            <div className="flex justify-end gap-2 mt-3">
-              <Button variant="ghost" onClick={handleClose} disabled={loading}>
-                {(FORM as any)?.buttons?.cancel ?? (lang === "es" ? "Cancelar" : "Cancel")}
-              </Button>
-              <Button type="submit" disabled={loading}>
-                {loading ? ( (FORM as any)?.buttons?.saving ?? (lang === "es" ? "Guardando..." : "Saving...") ) : ( (FORM as any)?.buttons?.save ?? (lang === "es" ? "Guardar" : "Save") )}
-              </Button>
-            </div>
-          </form>
+            </form>
+          )}
         </div>
       </DialogContent>
     </Dialog>

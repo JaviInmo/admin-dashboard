@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import type { Guard } from "../types";
 import { deleteGuard } from "@/lib/services/guard";
 import { useI18n } from "@/i18n";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface Props {
   guard: Guard;
@@ -57,32 +58,46 @@ export default function DeleteGuardDialog({ guard, onClose, onDeleted }: Props) 
     }
   };
 
-  const guardLabel = `${guard.firstName ?? ""} ${guard.lastName ?? ""}`.trim() || `#${guard.id}`;
+  const guardLabel = `${guard?.firstName ?? ""} ${guard?.lastName ?? ""}`.trim() || `#${guard?.id ?? "?"}`;
 
-  // Use a confirmation text that includes the guard name (prefer table.actionDeleteConfirm if present)
+  const isMissingGuard = !guard || Object.keys(guard).length === 0;
+  const showSkeleton = isMissingGuard || loading;
+
   const confirmTitle = getText("guards.table.actionDeleteConfirm", { name: guardLabel }) || getText("guards.table.actionDelete", { name: guardLabel });
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{confirmTitle}</DialogTitle>
+          <DialogTitle>{showSkeleton ? <Skeleton className="h-6 w-3/5 rounded" /> : confirmTitle}</DialogTitle>
         </DialogHeader>
 
-        <p>
-          {getText("common.notFoundDescription") /* if you want another message, swap this for a more specific key */}
-        </p>
+        {showSkeleton ? (
+          <div className="space-y-3">
+            <Skeleton className="h-4 w-full rounded" />
+            <Skeleton className="h-4 w-5/6 rounded" />
+            <Skeleton className="h-10 w-1/3 rounded mt-4" />
+            <div className="flex justify-end gap-2 mt-4">
+              <Skeleton className="h-10 w-24 rounded" />
+              <Skeleton className="h-10 w-36 rounded" />
+            </div>
+          </div>
+        ) : (
+          <>
+            <p>{getText("common.notFoundDescription")}</p>
 
-        {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
+            {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
 
-        <div className="flex justify-end gap-2 mt-4">
-          <Button variant="secondary" onClick={onClose} disabled={loading}>
-            {getText("actions.cancel")}
-          </Button>
-          <Button variant="destructive" onClick={handleDelete} disabled={loading}>
-            {loading ? getText("guards.form.buttons.deleting") || "Deleting..." : getText("guards.form.buttons.delete")}
-          </Button>
-        </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <Button variant="secondary" onClick={onClose} disabled={loading}>
+                {getText("actions.cancel")}
+              </Button>
+              <Button variant="destructive" onClick={handleDelete} disabled={loading}>
+                {loading ? getText("guards.form.buttons.deleting") || "Deleting..." : getText("guards.form.buttons.delete")}
+              </Button>
+            </div>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );

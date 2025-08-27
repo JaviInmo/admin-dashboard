@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { createClient, type CreateClientPayload } from "@/lib/services/clients";
 import { useModalCache } from "@/hooks/use-modal-cache";
 import { useI18n } from "@/i18n";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type Props = {
   open: boolean;
@@ -28,7 +29,6 @@ interface ClientFormData {
 export default function CreateClientDialog({ open, onClose, onCreated }: Props) {
   const { TEXT } = useI18n();
 
-  // Helper para leer traducciones de forma segura (fallback incluido)
   function getText(path: string, fallback?: string) {
     const parts = path.split(".");
     let val: any = TEXT as any;
@@ -87,7 +87,6 @@ export default function CreateClientDialog({ open, onClose, onCreated }: Props) 
     };
   }, []);
 
-  // Cargar datos del caché cuando se abre el modal
   React.useEffect(() => {
     if (open) {
       const cachedData = getFromCache("create-client");
@@ -103,7 +102,6 @@ export default function CreateClientDialog({ open, onClose, onCreated }: Props) 
     }
   }, [open, getFromCache]);
 
-  // Guardar en caché cuando cambian los valores
   React.useEffect(() => {
     if (
       open &&
@@ -133,7 +131,6 @@ export default function CreateClientDialog({ open, onClose, onCreated }: Props) 
   }
 
   function handleClose() {
-    // Guardar datos antes de cerrar (para conservar cambios)
     if (username || firstName || lastName || email || phone || address || billingAddress) {
       saveToCache("create-client", {
         username,
@@ -153,7 +150,6 @@ export default function CreateClientDialog({ open, onClose, onCreated }: Props) 
     setLoading(true);
 
     try {
-      // Validaciones básicas con mensajes i18n
       if (!firstName.trim()) {
         toast.error(FORM.validation.firstNameRequired);
         setLoading(false);
@@ -181,7 +177,6 @@ export default function CreateClientDialog({ open, onClose, onCreated }: Props) 
         balance: "0",
       };
 
-      // Medida defensiva: nunca enviar key "user"
       if ((payload as any).user) {
         delete (payload as any).user;
       }
@@ -191,7 +186,6 @@ export default function CreateClientDialog({ open, onClose, onCreated }: Props) 
       toast.success(FORM.success);
       if (!mountedRef.current) return;
 
-      // Limpiar caché después de crear exitosamente
       clearCache("create-client");
       resetForm();
 
@@ -206,6 +200,17 @@ export default function CreateClientDialog({ open, onClose, onCreated }: Props) 
     }
   }
 
+  const FieldSkeleton = ({ rows = 1 }: { rows?: number }) => (
+    <div className="space-y-2">
+      <Skeleton className="h-4 w-1/3 rounded" />
+      {Array.from({ length: rows }).map((_, i) => (
+        <Skeleton key={i} className="h-10 w-full rounded" />
+      ))}
+    </div>
+  );
+
+  const ButtonSkeleton = () => <Skeleton className="h-10 w-36 rounded" />;
+
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="w-full max-w-2xl">
@@ -214,87 +219,118 @@ export default function CreateClientDialog({ open, onClose, onCreated }: Props) 
         </DialogHeader>
 
         <div className="space-y-3 p-4">
-          <form onSubmit={handleSubmit} className="space-y-3">
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-sm">{FORM.fields.username}</label>
-                <Input name="username" value={username} onChange={(e) => setUsername(e.target.value)} />
+          {loading ? (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <FieldSkeleton />
+                <div />
               </div>
-              {/* Balance oculto en creación */}
-              <div />
-            </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-sm">{FORM.fields.firstName}</label>
-                <Input
-                  name="firstName"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  required
-                />
+              <div className="grid grid-cols-2 gap-2">
+                <FieldSkeleton />
+                <FieldSkeleton />
               </div>
-              <div>
-                <label className="block text-sm">{FORM.fields.lastName}</label>
-                <Input
-                  name="lastName"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-sm">{FORM.fields.email}</label>
-                <Input
-                  name="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
+              <div className="grid grid-cols-2 gap-2">
+                <FieldSkeleton />
+                <FieldSkeleton />
               </div>
-              <div>
-                <label className="block text-sm">{FORM.fields.phone}</label>
-                <Input name="phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
-              </div>
-            </div>
 
-            <div className="grid grid-cols-1 gap-2">
-              <div>
-                <label className="block text-sm">{FORM.fields.address}</label>
-                <Input
-                  name="address"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  placeholder={FORM.placeholders?.address}
-                />
+              <div className="grid grid-cols-1 gap-2">
+                <FieldSkeleton />
+              </div>
+
+              <div className="grid grid-cols-1 gap-2">
+                <FieldSkeleton />
+              </div>
+
+              <div className="flex justify-end gap-2 mt-3">
+                <ButtonSkeleton />
+                <ButtonSkeleton />
               </div>
             </div>
-
-            <div className="grid grid-cols-1 gap-2">
-              <div>
-                <label className="block text-sm">{FORM.fields.billingAddress}</label>
-                <Input
-                  name="billingAddress"
-                  value={billingAddress}
-                  onChange={(e) => setBillingAddress(e.target.value)}
-                  placeholder={FORM.placeholders?.billingAddress}
-                />
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-sm">{FORM.fields.username}</label>
+                  <Input name="username" value={username} onChange={(e) => setUsername(e.target.value)} />
+                </div>
+                <div />
               </div>
-            </div>
 
-            <div className="flex justify-end gap-2 mt-3">
-              <Button variant="ghost" onClick={handleClose} disabled={loading}>
-                {FORM.buttons.cancel}
-              </Button>
-              <Button type="submit" disabled={loading}>
-                {loading ? FORM.buttons.creating : FORM.buttons.create}
-              </Button>
-            </div>
-          </form>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-sm">{FORM.fields.firstName}</label>
+                  <Input
+                    name="firstName"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm">{FORM.fields.lastName}</label>
+                  <Input
+                    name="lastName"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-sm">{FORM.fields.email}</label>
+                  <Input
+                    name="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm">{FORM.fields.phone}</label>
+                  <Input name="phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-2">
+                <div>
+                  <label className="block text-sm">{FORM.fields.address}</label>
+                  <Input
+                    name="address"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    placeholder={FORM.placeholders?.address}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-2">
+                <div>
+                  <label className="block text-sm">{FORM.fields.billingAddress}</label>
+                  <Input
+                    name="billingAddress"
+                    value={billingAddress}
+                    onChange={(e) => setBillingAddress(e.target.value)}
+                    placeholder={FORM.placeholders?.billingAddress}
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 mt-3">
+                <Button variant="ghost" onClick={handleClose} disabled={loading}>
+                  {FORM.buttons.cancel}
+                </Button>
+                <Button type="submit" disabled={loading}>
+                  {loading ? FORM.buttons.creating : FORM.buttons.create}
+                </Button>
+              </div>
+            </form>
+          )}
         </div>
       </DialogContent>
     </Dialog>

@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 
 import { getClient, CLIENT_KEY, type AppClient } from "@/lib/services/clients";
-import { Mail, Phone, MapPin, Wallet, Calendar, X } from "lucide-react";
+import { Mail, Phone, MapPin, Calendar, } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 /**
@@ -21,6 +21,8 @@ import { Badge } from "@/components/ui/badge";
  * - encabezado limpio con badge de estado
  * - grid con iconos y labels
  * - skeletons con layout similar a datos reales
+ *
+ * Ajustes: ahora sólo hay una X (en el header) y el campo Balance está oculto.
  */
 
 type OwnerDetailsModalProps = {
@@ -40,14 +42,10 @@ export default function OwnerDetailsModal({
 }: OwnerDetailsModalProps) {
   const queryClient = useQueryClient();
 
-  const {
-    data,
-    isLoading,
-    isFetching,
-    isError,
-    error,
-    refetch,
-  } = useQuery<AppClient & { user?: number }, unknown>({
+  const { data, isLoading, isFetching, isError, error, refetch } = useQuery<
+    AppClient & { user?: number },
+    unknown
+  >({
     queryKey: [CLIENT_KEY, ownerId],
     queryFn: async () => {
       if (ownerId == null) throw new Error("ownerId no proporcionado");
@@ -98,7 +96,12 @@ export default function OwnerDetailsModal({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(val) => { if (!val) onClose(); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(val) => {
+        if (!val) onClose();
+      }}
+    >
       <DialogContent className="max-w-xl">
         <DialogHeader>
           <div className="flex items-start justify-between gap-4 w-full">
@@ -107,21 +110,35 @@ export default function OwnerDetailsModal({
                 {initials || "U"}
               </div>
               <div>
-                <DialogTitle className="text-lg leading-5">{name ?? "Propietario"}</DialogTitle>
+                <DialogTitle className="text-lg leading-5">
+                  {name ?? "Propietario"}
+                </DialogTitle>
                 <div className="mt-1 flex items-center gap-2">
-                  {(data as any)?.username && <div className="text-sm text-muted-foreground">@{(data as any).username}</div>}
-                  <Badge variant={(data as any)?.isActive ? "secondary" : "outline"} className="text-xs">
+                  {(data as any)?.username && (
+                    <div className="text-sm text-muted-foreground">
+                      @{(data as any).username}
+                    </div>
+                  )}
+                  <Badge
+                    variant={(data as any)?.isActive ? "secondary" : "outline"}
+                    className="text-xs"
+                  >
                     {(data as any)?.isActive ? "Activo" : "Inactivo"}
                   </Badge>
                 </div>
               </div>
             </div>
 
-            <div className="flex items-start gap-2">
-              <Button size="icon" variant="ghost" onClick={onClose} aria-label="Cerrar">
+       {/*      <div className="flex items-start gap-2">
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={onClose}
+                aria-label="Cerrar"
+              >
                 <X className="h-4 w-4" />
               </Button>
-            </div>
+            </div> */}
           </div>
         </DialogHeader>
 
@@ -140,31 +157,60 @@ export default function OwnerDetailsModal({
           {!isLoading && !isFetching && data && (
             <div className="mt-1 space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <InfoItem icon={<Mail className="h-4 w-4" />} label="Correo" value={data.email ?? "-"} />
-                <InfoItem icon={<Phone className="h-4 w-4" />} label="Teléfono" value={data.phone ?? "-"} />
-                <InfoItem icon={<MapPin className="h-4 w-4" />} label="Dirección" value={(data as any).address ?? "-"} />
-                <InfoItem icon={<Wallet className="h-4 w-4" />} label="Balance" value={typeof data.balance === "number" ? `$ ${data.balance.toFixed(2)}` : (data.balance ?? "-")} />
+                <InfoItem
+                  icon={<Mail className="h-4 w-4" />}
+                  label="Correo"
+                  value={data.email ?? "-"}
+                />
+                <InfoItem
+                  icon={<Phone className="h-4 w-4" />}
+                  label="Teléfono"
+                  value={data.phone ?? "-"}
+                />
+                <InfoItem
+                  icon={<MapPin className="h-4 w-4" />}
+                  label="Dirección"
+                  value={(data as any).address ?? "-"}
+                />
+                {/* Balance oculto a petición */}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <InfoItem icon={<Calendar className="h-4 w-4" />} label="Creado" value={formatDateMaybe((data as any).created_at ?? (data as any).createdAt)} />
-                <InfoItem icon={<Calendar className="h-4 w-4" />} label="Actualizado" value={formatDateMaybe((data as any).updated_at ?? (data as any).updatedAt)} />
+                <InfoItem
+                  icon={<Calendar className="h-4 w-4" />}
+                  label="Creado"
+                  value={formatDateMaybe(
+                    (data as any).created_at ?? (data as any).createdAt
+                  )}
+                />
+                <InfoItem
+                  icon={<Calendar className="h-4 w-4" />}
+                  label="Actualizado"
+                  value={formatDateMaybe(
+                    (data as any).updated_at ?? (data as any).updatedAt
+                  )}
+                />
               </div>
             </div>
           )}
 
           {!isLoading && !isFetching && !data && !isError && (
-            <div className="text-sm text-muted-foreground">No se encontraron datos del propietario.</div>
+            <div className="text-sm text-muted-foreground">
+              No se encontraron datos del propietario.
+            </div>
           )}
 
           {isError && (
-            <div className="text-sm text-red-600">Error al cargar propietario: {(error as any)?.message ?? String(error)}</div>
+            <div className="text-sm text-red-600">
+              Error al cargar propietario:{" "}
+              {(error as any)?.message ?? String(error)}
+            </div>
           )}
         </div>
 
         <DialogFooter>
           <div className="flex justify-end gap-2 w-full">
-            <Button variant="outline" onClick={onClose}>Cerrar</Button>
+            {/* Sólo botón de refrescar (la X en el header cierra) */}
             <Button onClick={handleRefresh}>Refrescar</Button>
           </div>
         </DialogFooter>
@@ -176,7 +222,15 @@ export default function OwnerDetailsModal({
 /**
  * Pequeño subcomponente para mostrar label + icon + value
  */
-function InfoItem({ icon, label, value }: { icon: React.ReactNode; label: string; value: React.ReactNode }) {
+function InfoItem({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: React.ReactNode;
+}) {
   return (
     <div className="flex items-start gap-3">
       <div className="mt-1 text-muted-foreground">{icon}</div>
