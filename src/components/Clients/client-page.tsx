@@ -18,6 +18,7 @@ import type { Client } from "./types";
 import { generateSort } from "@/lib/sort";
 import { toast } from "sonner";
 import { useI18n } from "@/i18n";
+import { usePageSize } from "@/hooks/use-page-size";
 
 const INITIAL_CLIENT_DATA: PaginatedResult<Client> = {
   items: [],
@@ -68,9 +69,9 @@ function formatTemplate(tpl?: string, vars?: Record<string, string>) {
 export default function ClientsPage() {
   const queryClient = useQueryClient();
   const { TEXT } = useI18n();
+  const { pageSize, setPageSize } = usePageSize('clients');
 
   const [page, setPage] = React.useState<number>(1);
-  const [pageSize, setPageSize] = React.useState<number>(10);
   const [search, setSearch] = React.useState<string>("");
   const [sortField, setSortField] = React.useState<keyof Client>("firstName");
   const [sortOrder, setSortOrder] = React.useState<SortOrder>("asc");

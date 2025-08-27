@@ -13,6 +13,7 @@ import PropertiesTable from "./properties-table";
 import { generateSort } from "@/lib/sort";
 import { toast } from "sonner";
 import { useI18n } from "@/i18n";
+import { usePageSize } from "@/hooks/use-page-size";
 
 const INITIAL_PROPERTY_DATA: PaginatedResult<AppProperty> = {
   items: [],
@@ -48,9 +49,9 @@ function mapPropertySortField(field?: keyof AppProperty | string): string | unde
 export default function PropertiesPage() {
   const queryClient = useQueryClient();
   const { TEXT } = useI18n();
+  const { pageSize, setPageSize } = usePageSize('properties');
 
   const [page, setPage] = React.useState<number>(1);
-  const [pageSize, setPageSize] = React.useState<number>(10);
   const [search, setSearch] = React.useState<string>("");
   const [sortField, setSortField] = React.useState<keyof AppProperty>("name");
   const [sortOrder, setSortOrder] = React.useState<SortOrder>("asc");

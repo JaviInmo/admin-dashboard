@@ -10,6 +10,7 @@ import { generateSort } from "@/lib/sort";
 import GuardsTable from "./GuardsTable";
 import type { Guard } from "./types";
 import { useI18n } from "@/i18n";
+import { usePageSize } from "@/hooks/use-page-size";
 
 /**
  * Mapear campos frontend -> campos que acepta el API (DRF).
@@ -39,9 +40,9 @@ const INITIAL_GUARD_DATA: PaginatedResult<Guard> = {
 export default function GuardsPage() {
   const queryClient = useQueryClient();
   const { TEXT } = useI18n();
+  const { pageSize, setPageSize } = usePageSize('guards');
 
   const [page, setPage] = React.useState<number>(1);
-  const [pageSize, setPageSize] = React.useState<number>(20);
   const [search, setSearch] = React.useState<string>("");
   const [sortField, setSortField] = React.useState<keyof Guard>("firstName");
   const [sortOrder, setSortOrder] = React.useState<SortOrder>("asc");
