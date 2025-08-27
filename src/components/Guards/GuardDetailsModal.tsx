@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Mail, Phone, MapPin, Calendar, User, CreditCard, Copy } from "lucide-react";
+import { Mail, Phone, MapPin, Calendar, User, CreditCard, Copy, Eye, EyeOff } from "lucide-react";
 import type { Guard } from "./types";
 import { ClickableEmail } from "@/components/ui/clickable-email";
 import { toast } from "sonner";
@@ -73,25 +73,12 @@ export default function GuardDetailsModal({
     return digits;
   }
 
-  // bandera que viene del backend (solo para inicializar)
-  const anyGuard = guard as any;
-  const ssnVisibleFromBackend =
-    anyGuard.ssn_visible === true ||
-    anyGuard.ssnVisible === true ||
-    anyGuard.is_ssn_visible === true ||
-    false;
+  // Estado local para mostrar/ocultar SSN en la UI (por defecto oculto)
+  const [showSsn, setShowSsn] = React.useState<boolean>(false);
 
-  // Estado local para mostrar/ocultar SSN en la UI (inicializado desde backend flag)
-  const [showSsn, setShowSsn] = React.useState<boolean>(ssnVisibleFromBackend);
-
-  // Sincronizar cuando cambia el guard (por ejemplo abrir modal para otro guard)
+  // Sincronizar cuando cambia el guard (por defecto oculto)
   React.useEffect(() => {
-    setShowSsn(
-      (guard as any).ssn_visible === true ||
-      (guard as any).ssnVisible === true ||
-      (guard as any).is_ssn_visible === true ||
-      false
-    );
+    setShowSsn(false);
   }, [guard]);
 
   async function copyToClipboard(text?: string | null) {
@@ -103,8 +90,6 @@ export default function GuardDetailsModal({
       toast.error(TEXT?.actions?.copyError ?? "Could not copy");
     }
   }
-
-  const checkboxLabel = (TEXT?.guards?.form?.actions?.showSsn as string) ?? "Show SSN";
 
   return (
     <Dialog
@@ -190,6 +175,16 @@ export default function GuardDetailsModal({
                   guard.ssn ? (
                     <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4">
                       <div className="flex items-center gap-2">
+                        {/* Ícono de ojo a la izquierda */}
+                        <button
+                          type="button"
+                          onClick={() => setShowSsn((v) => !v)}
+                          title={showSsn ? "Ocultar SSN" : "Mostrar SSN"}
+                          className="inline-flex items-center rounded px-1 py-1 text-sm hover:bg-muted/30"
+                        >
+                          {showSsn ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                        
                         <span className="font-medium">{showSsn ? guard.ssn : (TEXT?.guards?.table?.ssnHidden ?? "******")}</span>
 
                         {/* botón copiar solo si está visible */}
@@ -198,25 +193,11 @@ export default function GuardDetailsModal({
                             type="button"
                             onClick={() => copyToClipboard(guard.ssn)}
                             title={TEXT?.actions?.copy ?? "Copy"}
-                            className="inline-flex items-center rounded px-2 py-1 text-sm hover:bg-muted/30 ml-2"
+                            className="inline-flex items-center rounded px-2 py-1 text-sm hover:bg-muted/30"
                           >
                             <Copy className="h-4 w-4" />
                           </button>
                         )}
-                      </div>
-
-                      {/* Checkbox igual que en EditGuardDialog */}
-                      <div className="mt-2 sm:mt-0 flex items-center gap-2">
-                        <input
-                          id={`toggle-ssn-${guard.id}`}
-                          type="checkbox"
-                          checked={showSsn}
-                          onChange={() => setShowSsn((v) => !v)}
-                          className="h-4 w-4 rounded border-gray-300"
-                        />
-                        <label htmlFor={`toggle-ssn-${guard.id}`} className="text-sm">
-                          {checkboxLabel}
-                        </label>
                       </div>
                     </div>
                   ) : (
