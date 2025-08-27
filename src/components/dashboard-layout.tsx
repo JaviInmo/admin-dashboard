@@ -11,9 +11,10 @@ import {
   UserRoundCheck,
   Home,
 } from "lucide-react";
-import { useState, type CSSProperties } from "react";
+import { useState, useEffect, type CSSProperties } from "react";
 import { logout as authLogout } from "@/lib/services/auth";
 import { getUser } from "@/lib/auth-storage";
+import { getGeneralSettings } from "@/lib/services/common";
 import {
   Dialog,
   DialogContent,
@@ -57,6 +58,38 @@ export default function DashboardLayout() {
   const navigate = useNavigate();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const { TEXT, lang, setLang } = useI18n();
+  
+  // Hook para obtener el nombre de la aplicación desde la API
+  const [appName, setAppName] = useState<string>("");
+  
+  useEffect(() => {
+    const fetchAppName = async () => {
+      try {
+        console.log("Fetching app name from API...");
+        const settings = await getGeneralSettings();
+        console.log("API response:", settings);
+        if (settings?.app_name) {
+          setAppName(settings.app_name);
+          console.log("App name updated to:", settings.app_name);
+        } else {
+          setAppName("Admin Dashboard"); // Fallback genérico si la API no devuelve app_name
+        }
+      } catch (error) {
+        console.error("Error fetching app name:", error);
+        // Si la API falla completamente, usar un fallback genérico
+        setAppName("Admin Dashboard");
+      }
+    };
+
+    fetchAppName();
+  }, []);
+
+  // Actualizar el título de la pestaña del navegador
+  useEffect(() => {
+    if (appName) {
+      document.title = appName;
+    }
+  }, [appName]);
 
   // Derive cool initials and a unique gradient from saved user claims
   const claims = getUser();
@@ -173,7 +206,7 @@ export default function DashboardLayout() {
             <Link to="#" className="flex items-center gap-2 font-semibold p-2">
               <Package2 className="h-6 w-6" />
               <span className="group-data-[state=collapsed]:hidden">
-                {TEXT.appName}
+                {appName}
               </span>
             </Link>
           </SidebarHeader>
