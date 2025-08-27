@@ -40,9 +40,10 @@ export const ES_TEXT = {
     refresh: "Actualizar",
     save: "Guardar",
     cancel: "Cancelar",
+    cancelEdit: "Cancelar edición",
     edit: "Editar",
     delete: "Eliminar",
-    reset: "Resetear",
+    reset: "Restaurar",
     close: "Cerrar",
     actions: "Acciones",
     create: "Crear",
@@ -298,6 +299,26 @@ export const ES_TEXT = {
       update: "Actualizar tarifa",
       saving: "Guardando...",
       note: "Nota: si la propiedad ya tiene tarifa, al seleccionarla pasarás a editarla; si no, crearás una nueva.",
+      validation: {
+        propertyRequired: "Selecciona una propiedad primero",
+        rateRequired: "La tarifa es requerida",
+        rateInvalid: "La tarifa debe ser un número válido",
+        rateNegative: "La tarifa no puede ser negativa",
+        rateTooHigh: "La tarifa no puede ser mayor a $1000"
+      },
+      actions: {
+        create: "crear",
+        update: "actualizar"
+      },
+      confirmSave: "¿Estás seguro de {action} esta tarifa de ${rate} para {property}?",
+      confirmCancelEdit: "¿Estás seguro de cancelar la edición? Se perderán los cambios no guardados.",
+      confirmDelete: "¿Estás seguro de eliminar la tarifa para {property}?",
+      exists: "Ya existe una tarifa para esta propiedad. Se cargará para editar.",
+      createSuccess: "Tarifa creada exitosamente",
+      updateSuccess: "Tarifa actualizada exitosamente",
+      deleteSuccess: "Tarifa eliminada exitosamente",
+      saveError: "Error guardando tarifa. Verifica los datos e intenta nuevamente.",
+      deleteError: "Error eliminando tarifa. Intenta nuevamente."
     },
   },
 

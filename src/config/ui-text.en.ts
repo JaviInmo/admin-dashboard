@@ -40,6 +40,7 @@ export const EN_TEXT = {
     refresh: "Refresh",
     save: "Save",
     cancel: "Cancel",
+    cancelEdit: "Cancel Edit",
     edit: "Edit",
     delete: "Delete",
     reset: "Reset",
@@ -298,6 +299,26 @@ export const EN_TEXT = {
       update: "Update tariff",
       saving: "Saving...",
       note: "Note: if the property already has a tariff, selecting it will load it for editing; otherwise you'll create a new one.",
+      validation: {
+        propertyRequired: "Select a property first",
+        rateRequired: "Rate is required",
+        rateInvalid: "Rate must be a valid number",
+        rateNegative: "Rate cannot be negative",
+        rateTooHigh: "Rate cannot be greater than $1000"
+      },
+      actions: {
+        create: "create",
+        update: "update"
+      },
+      confirmSave: "Are you sure you want to {action} this ${rate} tariff for {property}?",
+      confirmCancelEdit: "Are you sure you want to cancel editing? Unsaved changes will be lost.",
+      confirmDelete: "Are you sure you want to delete the tariff for {property}?",
+      exists: "A tariff already exists for this property. It will be loaded for editing.",
+      createSuccess: "Tariff created successfully",
+      updateSuccess: "Tariff updated successfully", 
+      deleteSuccess: "Tariff deleted successfully",
+      saveError: "Error saving tariff. Please check the data and try again.",
+      deleteError: "Error deleting tariff. Please try again."
     },
   },
 
