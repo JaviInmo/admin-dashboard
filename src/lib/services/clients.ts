@@ -1,3 +1,4 @@
+// src/lib/services/clients.ts
 import type { Client } from "@/components/Clients/types"; // <-- usar el tipo de la UI
 import { endpoints } from "@/lib/endpoints";
 import { api } from "@/lib/http";
@@ -40,7 +41,7 @@ export type UpdateClientPayload = {
   address?: string;
   billing_address?: string;
   balance?: string;
-  is_active?: boolean;
+  // is_active ya no lo modificamos por PATCH según la API (es readOnly)
 };
 
 export type AppClient = Client;
@@ -113,6 +114,40 @@ export async function updateClient(
   const { data } = await api.patch<ServerClient>(
     `${endpoints.clients}${id}/`,
     payload,
+  );
+  return mapServerClient(data);
+}
+
+/**
+ * Soft delete (desactivar) y restore (reactivar)
+ * Según la documentación del backend estas operaciones se hacen via POST:
+ *   POST /clients/{id}/soft_delete/
+ *   POST /clients/{id}/restore/
+ *
+ * La doc muestra que puede requerir un body con `user` (integer). Pasamos
+ * `{ user: client.user }` cuando esté disponible; si no lo está, enviamos {}
+ * (o puedes adaptar según lo que tu backend realmente espere).
+ */
+export async function softDeleteClient(
+  id: number,
+  payload?: { user?: number; phone?: string },
+): Promise<Client> {
+  const body = payload ?? {};
+  const { data } = await api.post<ServerClient>(
+    `${endpoints.clients}${id}/soft_delete/`,
+    body,
+  );
+  return mapServerClient(data);
+}
+
+export async function restoreClient(
+  id: number,
+  payload?: { user?: number; phone?: string },
+): Promise<Client> {
+  const body = payload ?? {};
+  const { data } = await api.post<ServerClient>(
+    `${endpoints.clients}${id}/restore/`,
+    body,
   );
   return mapServerClient(data);
 }

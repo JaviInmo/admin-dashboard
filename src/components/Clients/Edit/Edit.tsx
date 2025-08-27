@@ -1,7 +1,14 @@
+// src/components/Clients/EditClientDialog.tsx  (o el path donde tengas tu componente)
 "use client";
 
 import * as React from "react";
-import { updateClient, type AppClient, type UpdateClientPayload } from "@/lib/services/clients";
+import {
+  updateClient,
+  softDeleteClient,
+  restoreClient,
+  type AppClient,
+  type UpdateClientPayload,
+} from "@/lib/services/clients";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -120,10 +127,24 @@ export default function EditClientDialog({ client, open, onClose, onUpdated }: P
         phone: phone || undefined,
         address: address || undefined,
         billing_address: billingAddress || undefined,
-        is_active: isActive,
       };
 
+      // 1) Actualizamos los campos editables por PATCH
       await updateClient(client.id, payload);
+
+      // 2) Si cambió el estado isActive, usamos los endpoints POST correspondientes
+      if (isActive !== client.isActive) {
+        // el backend podría requerir `user` en el body; si existe lo pasamos
+        const body = client.user ? { user: client.user } : {};
+
+        if (isActive) {
+          // estamos activando -> restore
+          await restoreClient(client.id, body);
+        } else {
+          // estamos desactivando -> soft_delete
+          await softDeleteClient(client.id, body);
+        }
+      }
 
       const cacheKey = `edit-client-${client.id}`;
       clearCache(cacheKey);

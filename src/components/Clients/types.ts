@@ -1,9 +1,8 @@
-
-
-
+// src/components/Clients/types.ts
 export interface Client {
     id: number;
     username: string;
+    user?: number;      // <-- agregar aquí
     firstName?: string; 
     lastName?: string;
     email: string;
