@@ -21,8 +21,6 @@ const INITIAL_PROPERTY_DATA: PaginatedResult<AppProperty> = {
   previous: null,
 };
 
-const pageSize = 10;
-
 /** Mapea keys del frontend a los campos que entiende DRF */
 function mapPropertySortField(field?: keyof AppProperty | string): string | undefined {
   switch (field) {
@@ -52,6 +50,7 @@ export default function PropertiesPage() {
   const { TEXT } = useI18n();
 
   const [page, setPage] = React.useState<number>(1);
+  const [pageSize, setPageSize] = React.useState<number>(10);
   const [search, setSearch] = React.useState<string>("");
   const [sortField, setSortField] = React.useState<keyof AppProperty>("name");
   const [sortOrder, setSortOrder] = React.useState<SortOrder>("asc");
@@ -68,13 +67,11 @@ export default function PropertiesPage() {
     useQuery<PaginatedResult<AppProperty>, unknown, PaginatedResult<AppProperty>>({
       queryKey: [PROPERTY_KEY, search, page, pageSize, apiOrdering],
       queryFn: () => listProperties(page, search, pageSize, apiOrdering),
-      
-      staleTime: 30 * 1000, // 30s (ajusta según necesites)
       initialData: INITIAL_PROPERTY_DATA,
       placeholderData: (previousData) => previousData ?? INITIAL_PROPERTY_DATA,
     });
 
-  // Actualizar totalPages solo cuando tenemos datos nuevos definitivos
+  // Mantener totalPages estable durante loading
   const totalPages = React.useMemo(() => {
     const newTotalPages = Math.max(1, Math.ceil((data?.count ?? 0) / pageSize));
 
@@ -97,8 +94,8 @@ export default function PropertiesPage() {
   };
 
   const handleSearch = React.useCallback((term: string) => {
+    setPage(1);
     setSearch(term);
-    setPage(1); // reset page cuando cambia búsqueda
   }, []);
 
   React.useEffect(() => {
@@ -138,6 +135,10 @@ export default function PropertiesPage() {
         totalPages={totalPages}
         onPageChange={setPage}
         pageSize={pageSize}
+        onPageSizeChange={(size) => {
+          setPageSize(size);
+          setPage(1);
+        }}
         onSearch={handleSearch}
         toggleSort={toggleSort}
         sortField={sortField}

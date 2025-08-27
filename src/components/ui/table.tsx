@@ -112,3 +112,5 @@ export {
   TableCell,
   TableCaption,
 }
+
+export { TableLoadingCell } from "./table-loading-cell";

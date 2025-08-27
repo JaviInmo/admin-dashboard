@@ -112,9 +112,6 @@ export default function GuardsPage() {
 
       <GuardsTable
         guards={data.items}
-        onSelectGuard={(id: number) => {
-          void id;
-        }}
         onRefresh={() =>
           queryClient.invalidateQueries({
             predicate: (q) =>

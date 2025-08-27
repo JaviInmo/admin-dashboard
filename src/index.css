@@ -219,4 +219,49 @@
   .loading-shimmer {
     animation: tableLoadingShimmer 1.5s ease-in-out infinite;
   }
+
+  /* Enhanced pulse animation for table loading cells */
+  @keyframes enhanced-table-pulse {
+    0%, 100% {
+      opacity: 0.08;
+      transform: scale(0.98);
+      background-color: hsl(var(--muted) / 0.05);
+      box-shadow: none;
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.02);
+      background-color: hsl(var(--muted) / 1);
+      box-shadow: 0 1px 3px hsl(var(--muted) / 0.4);
+    }
+  }
+
+  /* Versión extrema para modo oscuro */
+  .dark .table-loading-pulse {
+    animation: enhanced-table-pulse-dark 1.5s ease-in-out infinite;
+  }
+
+  @keyframes enhanced-table-pulse-dark {
+    0%, 100% {
+      opacity: 0.05;
+      transform: scale(0.98);
+      background-color: hsl(var(--background) / 0.8);
+      box-shadow: none;
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.02);
+      background-color: hsl(var(--muted));
+      box-shadow: 0 1px 4px hsl(var(--foreground) / 0.15);
+    }
+  }
+
+  .table-loading-pulse {
+    animation: enhanced-table-pulse 1.5s ease-in-out infinite;
+  }
+
+  /* Asegurar que funcione en modo oscuro también */
+  .dark .table-loading-pulse {
+    animation: enhanced-table-pulse-dark 1.5s ease-in-out infinite;
+  }
 }

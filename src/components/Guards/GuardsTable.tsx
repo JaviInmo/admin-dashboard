@@ -14,21 +14,10 @@ import { ClickableEmail } from "../ui/clickable-email";
 
 /* Modal separado (import) */
 import TariffModal from "./TarifModal";
-
-/* Table primitives + Skeleton para estado de carga */
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Skeleton } from "@/components/ui/skeleton";
+import GuardDetailsModal from "./GuardDetailsModal";
 
 export interface GuardsTableProps {
   guards: Guard[];
-  onSelectGuard: (id: number) => void;
   onRefresh?: () => Promise<void> | void;
   serverSide?: boolean;
   currentPage?: number;
@@ -46,7 +35,6 @@ export interface GuardsTableProps {
 
 export default function GuardsTable({
   guards,
-  onSelectGuard,
   onRefresh,
   serverSide = false,
   currentPage = 1,
@@ -84,6 +72,9 @@ export default function GuardsTable({
 
   // Nuevo: estado para abrir modal de tarifas
   const [tariffGuard, setTariffGuard] = React.useState<Guard | null>(null);
+
+  // Estado para el modal de detalles del guardia
+  const [detailsGuard, setDetailsGuard] = React.useState<Guard | null>(null);
 
   // Access i18n keys
   const guardTable = (TEXT.guards && (TEXT.guards as any).table) ?? (TEXT.guards as any) ?? {};
@@ -232,77 +223,36 @@ export default function GuardsTable({
     </>
   );
 
-  // Filas skeleton a renderizar
-  const skeletonRows = Math.max(3, pageSize ?? 5);
-
   return (
     <>
-      {isPageLoading ? (
-        <div className="rounded-lg border bg-card p-4 text-card-foreground shadow-sm">
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-lg font-semibold">{guardTable.title ?? getText("guards.table.title", "Guards List")}</h3>
-            <div className="flex items-center gap-2">
-              <Skeleton className="h-8 w-24 rounded" />
-              <Skeleton className="h-8 w-8 rounded" />
-            </div>
-          </div>
-
-          <Table>
-            <TableHeader>
-              <TableRow>
-                {columns.map((col) => (
-                  <TableHead key={String(col.key)} className="select-none">
-                    {String(col.label)}
-                  </TableHead>
-                ))}
-                <TableHead className="w-[120px] text-center">{getText("guards.table.headers.actions", "Actions")}</TableHead>
-              </TableRow>
-            </TableHeader>
-
-            <TableBody>
-              {Array.from({ length: skeletonRows }).map((_, rIndex) => (
-                <TableRow key={`guard-skel-${rIndex}`}>
-                  {columns.map((_, cIndex) => (
-                    <TableCell key={`c-${cIndex}`}>
-                      <Skeleton className="h-4 w-full max-w-[220px]" />
-                    </TableCell>
-                  ))}
-
-                  <TableCell className="flex gap-2 justify-center">
-                    <Skeleton className="h-8 w-8 rounded" />
-                    <Skeleton className="h-8 w-8 rounded" />
-                    <Skeleton className="h-8 w-8 rounded" />
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      ) : (
-        <ReusableTable
-          data={guards}
-          columns={columns}
-          getItemId={(guard) => guard.id}
-          onSelectItem={(id) => onSelectGuard(Number(id))}
-          title={guardTable.title ?? getText("guards.table.title", "Guards List")}
-          searchPlaceholder={guardTable.searchPlaceholder ?? getText("guards.table.searchPlaceholder", "Buscar guardias...")}
-          addButtonText={guardTable.add ?? guardTable.addButton ?? getText("guards.table.add", "Agregar")}
-          onAddClick={() => setCreateOpen(true)}
-          serverSide={serverSide}
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={onPageChange}
-          pageSize={pageSize}
-          onPageSizeChange={onPageSizeChange}
-          onSearch={onSearch}
-          searchFields={searchFields}
-          sortField={sortField}
-          sortOrder={sortOrder}
-          toggleSort={toggleSort}
-          actions={renderActions}
-          isPageLoading={isPageLoading}
-        />
-      )}
+      <ReusableTable
+        data={guards}
+        columns={columns}
+        getItemId={(guard) => guard.id}
+        onSelectItem={(id) => {
+          const guard = guards.find(g => g.id === Number(id));
+          if (guard) {
+            setDetailsGuard(guard);
+          }
+        }}
+        title={guardTable.title ?? getText("guards.table.title", "Guards List")}
+        searchPlaceholder={guardTable.searchPlaceholder ?? getText("guards.table.searchPlaceholder", "Buscar guardias...")}
+        addButtonText={guardTable.add ?? guardTable.addButton ?? getText("guards.table.add", "Agregar")}
+        onAddClick={() => setCreateOpen(true)}
+        serverSide={serverSide}
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPageChange={onPageChange}
+        pageSize={pageSize}
+        onPageSizeChange={onPageSizeChange}
+        onSearch={onSearch}
+        searchFields={searchFields}
+        sortField={sortField}
+        sortOrder={sortOrder}
+        toggleSort={toggleSort}
+        actions={renderActions}
+        isPageLoading={isPageLoading}
+      />
 
       <CreateGuardDialog
         open={createOpen}
@@ -340,6 +290,15 @@ export default function GuardsTable({
             }
             setTariffGuard(null);
           }}
+        />
+      )}
+
+      {/* Guard details modal */}
+      {detailsGuard && (
+        <GuardDetailsModal
+          guard={detailsGuard}
+          open={!!detailsGuard}
+          onClose={() => setDetailsGuard(null)}
         />
       )}
     </>

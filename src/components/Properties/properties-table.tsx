@@ -17,20 +17,11 @@ import { useI18n } from "@/i18n";
 import CreatePropertyDialog from "./Create/Create";
 import DeletePropertyDialog from "./Delete/Delete";
 import EditPropertyDialog from "./Edit/Edit";
-
-// Table primitives & Skeleton for loading state
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Skeleton } from "@/components/ui/skeleton";
+import { User } from "lucide-react";
 
 // Nuevo: modal de detalles del propietario
 import OwnerDetailsModal from "@/components/Properties/OwnerDetailsModal";
+import PropertyDetailsModal from "@/components/Properties/PropertyDetailsModal";
 
 // Componente helper para texto truncado con tooltip
 function TruncatedText({
@@ -62,13 +53,13 @@ function TruncatedText({
 
 export interface PropertiesTableProps {
   properties: AppProperty[];
-  onSelectProperty?: (id: number) => void;
   onRefresh?: () => Promise<void>;
   serverSide?: boolean;
   currentPage?: number;
   totalPages?: number;
   onPageChange?: (page: number) => void;
   pageSize?: number;
+  onPageSizeChange?: (size: number) => void;
   onSearch?: (term: string) => void;
   propertyTypesMap?: Record<number, string>;
 
@@ -82,13 +73,13 @@ export interface PropertiesTableProps {
 
 export default function PropertiesTable({
   properties,
-  onSelectProperty,
   onRefresh,
   serverSide = false,
   currentPage = 1,
   totalPages = 1,
   onPageChange,
   pageSize = 5,
+  onPageSizeChange,
   onSearch,
   propertyTypesMap,
   sortField,
@@ -105,6 +96,10 @@ export default function PropertiesTable({
   const [ownerModalOpen, setOwnerModalOpen] = React.useState(false);
   const [ownerToShow, setOwnerToShow] = React.useState<number | null>(null);
   const [ownerInitialData, setOwnerInitialData] = React.useState<any | undefined>(undefined);
+
+  // Estado para el modal de detalles de la propiedad
+  const [propertyDetailsOpen, setPropertyDetailsOpen] = React.useState(false);
+  const [propertyToShow, setPropertyToShow] = React.useState<any | null>(null);
 
   // Safe text getter to avoid TS errors when some keys are missing
   function getText(path: string, fallback?: string) {
@@ -187,24 +182,12 @@ export default function PropertiesTable({
         const ownerIdVal = (p as any).ownerId ?? (p as any).owner ?? null;
         const ownerLabel = (p as any).ownerName ?? (ownerIdVal ? `#${ownerIdVal}` : "-");
 
-        // Al hacer click mostramos modal. Evitamos propagar el evento para que no seleccione la fila.
+        // Solo mostrar el texto del propietario, sin hacer clickeable
         return (
           <div className="w-full">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (!ownerIdVal) return;
-                setOwnerToShow(Number(ownerIdVal));
-                setOwnerInitialData((p as any).ownerDetails ?? undefined);
-                setOwnerModalOpen(true);
-              }}
-              className="text-left text-blue-600 hover:underline cursor-pointer"
-              title={getText("properties.table.ownerOpenTitle", "Ver propietario")}
-              aria-label={getText("properties.table.ownerOpenAria", "Ver propietario")}
-            >
+            <span className="text-foreground">
               {ownerLabel}
-            </button>
+            </span>
           </div>
         );
       },
@@ -263,6 +246,23 @@ export default function PropertiesTable({
         variant="ghost"
         onClick={(e) => {
           e.stopPropagation();
+          const ownerIdVal = (property as any).ownerId ?? (property as any).owner ?? null;
+          if (ownerIdVal) {
+            setOwnerToShow(Number(ownerIdVal));
+            setOwnerInitialData((property as any).ownerDetails ?? undefined);
+            setOwnerModalOpen(true);
+          }
+        }}
+        title="Ver propietario"
+        aria-label="Ver propietario"
+      >
+        <User className="h-4 w-4" />
+      </Button>
+      <Button
+        size="icon"
+        variant="ghost"
+        onClick={(e) => {
+          e.stopPropagation();
           setEditProperty(property);
         }}
       >
@@ -281,77 +281,39 @@ export default function PropertiesTable({
     </>
   );
 
-  // Número de filas skeleton a mostrar (usa pageSize si está en serverSide)
-  const skeletonRows = Math.max(3, pageSize ?? 5);
-
   return (
     <>
-      {/* Si está cargando pagina, renderizamos una tabla-skeleton con la misma cantidad de columnas */}
-      {isPageLoading ? (
-        <div className="rounded-lg border bg-card p-4 text-card-foreground shadow-sm">
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-lg font-semibold">{getText("properties.table.title", "Properties List")}</h3>
-            <div className="flex items-center gap-2">
-              <Skeleton className="h-8 w-24 rounded" />
-              <Skeleton className="h-8 w-8 rounded" />
-            </div>
-          </div>
-
-          <Table>
-            <TableHeader>
-              <TableRow>
-                {columns.map((col) => (
-                  <TableHead key={String(col.key)} className="select-none">
-                    {String(col.label)}
-                  </TableHead>
-                ))}
-                <TableHead className="w-[120px] text-center">{getText("properties.table.headers.actions", "Actions")}</TableHead>
-              </TableRow>
-            </TableHeader>
-
-            <TableBody>
-              {Array.from({ length: skeletonRows }).map((_, rIndex) => (
-                <TableRow key={`prop-skel-${rIndex}`}>
-                  {columns.map((_, cIndex) => (
-                    <TableCell key={`c-${cIndex}`}>
-                      <Skeleton className="h-4 w-full max-w-[220px]" />
-                    </TableCell>
-                  ))}
-
-                  <TableCell className="flex gap-2 justify-center">
-                    <Skeleton className="h-8 w-8 rounded" />
-                    <Skeleton className="h-8 w-8 rounded" />
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      ) : (
-        // Si no está cargando, usamos el ReusableTable normal
-        <ReusableTable<any>
-          data={normalizedProperties}
-          columns={columns}
-          getItemId={(p) => p.id}
-          onSelectItem={(id) => onSelectProperty?.(Number(id))}
-          title={getText("properties.table.title", "Properties List")}
-          searchPlaceholder={getText("properties.table.searchPlaceholder", "Search properties...")}
-          addButtonText={getText("properties.table.add", "Add")}
-          onAddClick={() => setCreateOpen(true)}
-          serverSide={serverSide}
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={onPageChange}
-          pageSize={pageSize}
-          isPageLoading={isPageLoading}
-          onSearch={onSearch}
-          searchFields={searchFields}
-          sortField={sortField as any}
-          sortOrder={sortOrder}
-          toggleSort={toggleSort as any}
-          actions={renderActions}
-        />
-      )}
+      {/* Usar siempre ReusableTable con loading integrado */}
+      <ReusableTable<any>
+        data={normalizedProperties}
+        columns={columns}
+        getItemId={(p) => p.id}
+        onSelectItem={(id) => {
+          const property = normalizedProperties.find(p => p.id === Number(id));
+          if (property) {
+            setPropertyToShow(property);
+            setPropertyDetailsOpen(true);
+          }
+        }}
+        title={getText("properties.table.title", "Properties List")}
+        searchPlaceholder={getText("properties.table.searchPlaceholder", "Search properties...")}
+        addButtonText={getText("properties.table.add", "Add")}
+        onAddClick={() => setCreateOpen(true)}
+        serverSide={serverSide}
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPageChange={onPageChange}
+        pageSize={pageSize}
+        onPageSizeChange={onPageSizeChange}
+        isPageLoading={isPageLoading}
+        onSearch={onSearch}
+        searchFields={searchFields}
+        sortField={sortField as any}
+        sortOrder={sortOrder}
+        toggleSort={toggleSort as any}
+        actions={renderActions}
+        actionsHeader={getText("properties.table.headers.actions", "Actions")}
+      />
 
       <CreatePropertyDialog
         open={createOpen}
@@ -387,6 +349,18 @@ export default function PropertiesTable({
         }}
         onUpdated={onRefresh}
       />
+
+      {/* Property details modal */}
+      {propertyToShow && (
+        <PropertyDetailsModal
+          property={propertyToShow}
+          open={propertyDetailsOpen}
+          onClose={() => {
+            setPropertyDetailsOpen(false);
+            setPropertyToShow(null);
+          }}
+        />
+      )}
     </>
   );
 }

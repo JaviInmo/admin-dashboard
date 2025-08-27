@@ -9,6 +9,7 @@ import type { SortOrder } from "@/lib/sort";
 import CreateClientDialog from "./Create/Create";
 import DeleteClientDialog from "./Delete/Delete";
 import EditClientDialog from "./Edit/Edit";
+import ClientDetailsModal from "./ClientDetailsModal";
 import type { Client as AppClient, Client } from "./types";
 import { ClickableEmail } from "../ui/clickable-email";
 
@@ -86,6 +87,9 @@ export default function ClientsTable({
   const [editClient, setEditClient] = React.useState<AppClient | null>(null);
   const [deleteClient, setDeleteClient] = React.useState<AppClient | null>(null);
 
+  // Estado para el modal de detalles del cliente
+  const [detailsClient, setDetailsClient] = React.useState<(AppClient & { clientName: string }) | null>(null);
+
   // Normalizar datos del cliente
   const normalizedClients = clients.map((c) => {
     const firstName = c.firstName ?? (c as any).first_name ?? "";
@@ -140,7 +144,23 @@ export default function ClientsTable({
       key: "clientName" as keyof (AppClient & { clientName: string }),
       label: TEXT.clients.list.headers.clientName,
       sortable: true,
-      render: (client) => (client as any).clientName || "-",
+      render: (client) => {
+        const clientName = (client as any).clientName || "-";
+        return (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setDetailsClient(client as AppClient & { clientName: string });
+            }}
+            className="text-left text-blue-600 hover:underline cursor-pointer"
+            title="Ver detalles del cliente"
+            aria-label="Ver detalles del cliente"
+          >
+            {clientName}
+          </button>
+        );
+      },
       // conservar espaciado consistente
       cellClassName: "px-3 py-2",
     },
@@ -354,6 +374,15 @@ export default function ClientsTable({
           open={!!deleteClient}
           onClose={() => setDeleteClient(null)}
           onDeleted={onRefresh}
+        />
+      )}
+
+      {/* Client details modal */}
+      {detailsClient && (
+        <ClientDetailsModal
+          client={detailsClient}
+          open={!!detailsClient}
+          onClose={() => setDetailsClient(null)}
         />
       )}
     </>

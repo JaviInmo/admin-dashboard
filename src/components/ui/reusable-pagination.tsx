@@ -152,11 +152,6 @@ export function ReusablePagination({
     setPageInput("");
   };
 
-  // Si solo hay una página, no mostrar paginación
-  if (validTotalPages <= 1) {
-    return null;
-  }
-
   // Page info formatter: si el usuario pasó pageInfoText lo usamos, si no, usamos la plantilla i18n
   const defaultPageInfo = (current: number, total: number) =>
     (PAG.pageInfo ?? "{current} of {total}").replace("{current}", String(current)).replace("{total}", String(total));

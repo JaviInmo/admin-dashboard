@@ -9,6 +9,7 @@ import type { SortOrder } from "@/lib/sort";
 import PageSizeSelector from "@/components/ui/PageSizeSelector";
 import { useI18n } from "@/i18n";
 import { useIntelligentColumns } from "@/hooks/use-intelligent-columns";
+import { TableLoadingCell } from "./table";
 
 export interface Column<T> {
   key: keyof T;
@@ -327,59 +328,147 @@ export function ReusableTable<T extends Record<string, any>>({
           >
             <table className="w-full" style={{ tableLayout: "fixed" }}>
               <tbody>
-                {paginatedData.map((item, rowIdx) => (
-                  <tr
-                    key={String(getItemId(item))}
-                    className={`cursor-pointer hover:bg-muted/50 transition-colors duration-150 ${rowIdx % 2 === 0 ? "bg-transparent" : "bg-muted/10"} border-b border-border/50`}
-                    onClick={() => onSelectItem?.(getItemId(item))}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        onSelectItem?.(getItemId(item));
-                      }
-                    }}
-                  >
-                    {columns.map((column, colIndex) => {
-                      const isHidden = columnStrategy.hiddenColumns.includes(colIndex);
-                      if (isHidden) return null;
+                {isPageLoading ? (
+                  // Loading rows with pulse effect
+                  Array.from({ length: pageSize }, (_, rowIdx) => (
+                    <tr
+                      key={`loading-row-${rowIdx}`}
+                      className={`border-b border-border/50 ${rowIdx % 2 === 0 ? "bg-transparent" : "bg-muted/10"}`}
+                      style={{ height: "49px" }}
+                    >
+                      {columns.map((column, colIndex) => {
+                        const isHidden = columnStrategy.hiddenColumns.includes(colIndex);
+                        if (isHidden) return null;
 
-                      const hasCellTextAlign = !!(column.cellClassName && /\btext-(left|center|right|start|end)\b/.test(column.cellClassName));
-                      const hasCellCenter = !!(column.cellClassName && /\btext-center\b/.test(column.cellClassName));
+                        const tdClasses = [
+                          "px-4",
+                          "py-3", 
+                          "border-r",
+                          "border-border/20",
+                          "last:border-r-0",
+                          "align-middle",
+                        ]
+                          .filter(Boolean)
+                          .join(" ");
 
-                      const tdClasses = [
-                        hasCellTextAlign ? "" : "text-left",
-                        "px-4",
-                        "py-3",
-                        "border-r",
-                        "border-border/20",
-                        "last:border-r-0",
-                        "align-middle",
-                        column.cellClassName || "",
-                      ]
-                        .filter(Boolean)
-                        .join(" ");
+                        // Vary loading cell widths based on column type/content
+                        let loadingWidth: "short" | "medium" | "long" | "full" = "medium";
+                        const columnKey = String(column.key).toLowerCase();
+                        
+                        if (columnKey.includes('name') || columnKey.includes('title')) {
+                          loadingWidth = "long";
+                        } else if (columnKey.includes('phone') || columnKey.includes('status')) {
+                          loadingWidth = "short";
+                        } else if (columnKey.includes('email') || columnKey.includes('address')) {
+                          loadingWidth = "medium";
+                        }
 
-                      return (
-                        <td key={String(column.key)} className={tdClasses} style={{ ...getColumnStyle(column, colIndex), ...(column.cellStyle || {}) }}>
-                          <div className={`truncate ${hasCellCenter ? "text-center" : ""}`}>
-                            {column.render ? column.render(item) : String(item[column.key] ?? "-")}
+                        return (
+                          <td 
+                            key={String(column.key)} 
+                            className={tdClasses} 
+                            style={getColumnStyle(column, colIndex)}
+                          >
+                            <div className="flex items-center">
+                              <TableLoadingCell width={loadingWidth} />
+                            </div>
+                          </td>
+                        );
+                      })}
+                      {actions && (
+                        <td 
+                          className="text-center px-4 py-3 align-middle" 
+                          style={{ width: "140px", minWidth: "80px", maxWidth: "140px" }}
+                        >
+                          <div className="flex gap-2 justify-center">
+                            <TableLoadingCell width="short" />
+                            <TableLoadingCell width="short" />
                           </div>
                         </td>
-                      );
-                    })}
-                    {actions && (
-                      <td className="text-center px-4 py-3 align-middle" style={{ width: "140px", minWidth: "80px", maxWidth: "140px" }}>
-                        <div className="flex gap-2 justify-center" onClick={(e) => e.stopPropagation()}>
-                          {actions(item)}
+                      )}
+                    </tr>
+                  ))
+                ) : paginatedData.length === 0 ? (
+                  // No data message
+                  <tr>
+                    <td 
+                      colSpan={columns.filter((_, index) => !columnStrategy.hiddenColumns.includes(index)).length + (actions ? 1 : 0)}
+                      className="px-4 py-12 text-center text-muted-foreground"
+                    >
+                      <div className="flex flex-col items-center gap-2">
+                        <div className="w-12 h-12 rounded-full bg-muted/20 flex items-center justify-center mb-2">
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 12h6m-6-4h6m2 5.291A7.962 7.962 0 0112 15c-2.34 0-4.47-.881-6.084-2.334.414-.98.858-1.895 1.39-2.732A9.936 9.936 0 0112 7c.993 0 1.953.138 2.863.395M6.228 6.228L21 21" />
+                          </svg>
                         </div>
-                      </td>
-                    )}
+                        <span className="text-sm font-medium">
+                          {TEXT?.table?.noMatch ?? "No hay coincidencias"}
+                        </span>
+                        <span className="text-xs text-muted-foreground/70">
+                          {search 
+                            ? (TEXT?.table?.noResults?.replace("{search}", search) ?? `No se encontraron resultados para "${search}"`)
+                            : (TEXT?.table?.noData ?? "No hay datos disponibles")
+                          }
+                        </span>
+                      </div>
+                    </td>
                   </tr>
-                ))}
+                ) : (
+                  // Normal data rows
+                  paginatedData.map((item, rowIdx) => (
+                    <tr
+                      key={String(getItemId(item))}
+                      className={`cursor-pointer hover:bg-muted/50 transition-colors duration-150 ${rowIdx % 2 === 0 ? "bg-transparent" : "bg-muted/10"} border-b border-border/50`}
+                      onClick={() => onSelectItem?.(getItemId(item))}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          onSelectItem?.(getItemId(item));
+                        }
+                      }}
+                    >
+                      {columns.map((column, colIndex) => {
+                        const isHidden = columnStrategy.hiddenColumns.includes(colIndex);
+                        if (isHidden) return null;
 
-                {emptyRows.map((emptyRow, emptyIdx) => (
+                        const hasCellTextAlign = !!(column.cellClassName && /\btext-(left|center|right|start|end)\b/.test(column.cellClassName));
+                        const hasCellCenter = !!(column.cellClassName && /\btext-center\b/.test(column.cellClassName));
+
+                        const tdClasses = [
+                          hasCellTextAlign ? "" : "text-left",
+                          "px-4",
+                          "py-3",
+                          "border-r",
+                          "border-border/20",
+                          "last:border-r-0",
+                          "align-middle",
+                          column.cellClassName || "",
+                        ]
+                          .filter(Boolean)
+                          .join(" ");
+
+                        return (
+                          <td key={String(column.key)} className={tdClasses} style={{ ...getColumnStyle(column, colIndex), ...(column.cellStyle || {}) }}>
+                            <div className={`truncate ${hasCellCenter ? "text-center" : ""}`}>
+                              {column.render ? column.render(item) : String(item[column.key] ?? "-")}
+                            </div>
+                          </td>
+                        );
+                      })}
+                      {actions && (
+                        <td className="text-center px-4 py-3 align-middle" style={{ width: "140px", minWidth: "80px", maxWidth: "140px" }}>
+                          <div className="flex gap-2 justify-center" onClick={(e) => e.stopPropagation()}>
+                            {actions(item)}
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+                  ))
+                )}
+
+                {!isPageLoading && emptyRows.map((emptyRow, emptyIdx) => (
                   <tr
                     key={emptyRow.id}
                     className={`border-b border-border/50 ${ (paginatedData.length + emptyIdx) % 2 === 0 ? "bg-transparent" : "bg-muted/10" }`}

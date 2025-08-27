@@ -25,6 +25,12 @@ export const ES_TEXT = {
     pageInfo: "{current} de {total}",
   },
 
+  table: {
+    noMatch: "No hay coincidencias",
+    noResults: "No se encontraron resultados para \"{search}\"",
+    noData: "No hay datos disponibles",
+  },
+
   common: {
     notFoundTitle: "Contenido no encontrado",
     notFoundDescription: "Selecciona una opción del menú.",
