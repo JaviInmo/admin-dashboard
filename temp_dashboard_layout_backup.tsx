@@ -11,10 +11,9 @@ import {
   UserRoundCheck,
   Home,
 } from "lucide-react";
-import { useState, useEffect, type CSSProperties } from "react";
+import { useState, type CSSProperties } from "react";
 import { logout as authLogout } from "@/lib/services/auth";
 import { getUser } from "@/lib/auth-storage";
-import { getGeneralSettings } from "@/lib/services/common";
 import {
   Dialog,
   DialogContent,
@@ -64,27 +63,7 @@ type DashboardLayoutProps = { onLogout: () => void };
 export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
   const [activeMenuItem, setActiveMenuItem] = useState("Dashboard");
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [appName, setAppName] = useState<string>("Admin Dashboard");
   const { TEXT, lang, setLang } = useI18n();
-
-  // Fetch app name from API
-  useEffect(() => {
-    const fetchAppName = async () => {
-      try {
-        const settings = await getGeneralSettings();
-        if (settings.app_name) {
-          setAppName(settings.app_name);
-          // Update browser tab title too
-          document.title = settings.app_name;
-        }
-      } catch (error) {
-        console.warn('Failed to fetch app name from API:', error);
-        // Keep fallback name
-      }
-    };
-
-    fetchAppName();
-  }, []);
 
   // Derive cool initials and a unique gradient from saved user claims
   const claims = getUser();
@@ -196,7 +175,7 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
             <Link to="#" className="flex items-center gap-2 font-semibold p-2">
               <Package2 className="h-6 w-6" />
               <span className="group-data-[state=collapsed]:hidden">
-                {appName}
+                {TEXT.appName}
               </span>
             </Link>
           </SidebarHeader>

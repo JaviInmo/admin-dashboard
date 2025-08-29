@@ -42,6 +42,7 @@ export const EN_TEXT = {
     refresh: "Refresh",
     save: "Save",
     cancel: "Cancel",
+    cancelEdit: "Cancel Edit",
     edit: "Edit",
     delete: "Delete",
     reset: "Reset",
@@ -141,6 +142,7 @@ export const EN_TEXT = {
     table: {
       title: "Properties List",
       add: "Add",
+      searchLabel: "Search properties",
       searchPlaceholder: "Search properties...",
       headers: {
         owner: "Owner",
@@ -301,6 +303,26 @@ export const EN_TEXT = {
       update: "Update tariff",
       saving: "Saving...",
       note: "Note: if the property already has a tariff, selecting it will load it for editing; otherwise you'll create a new one.",
+      validation: {
+        propertyRequired: "Select a property first",
+        rateRequired: "Rate is required",
+        rateInvalid: "Rate must be a valid number",
+        rateNegative: "Rate cannot be negative",
+        rateTooHigh: "Rate cannot be greater than $1000"
+      },
+      actions: {
+        create: "create",
+        update: "update"
+      },
+      confirmSave: "Are you sure you want to {action} this ${rate} tariff for {property}?",
+      confirmCancelEdit: "Are you sure you want to cancel editing? Unsaved changes will be lost.",
+      confirmDelete: "Are you sure you want to delete the tariff for {property}?",
+      exists: "A tariff already exists for this property. It will be loaded for editing.",
+      createSuccess: "Tariff created successfully",
+      updateSuccess: "Tariff updated successfully", 
+      deleteSuccess: "Tariff deleted successfully",
+      saveError: "Error saving tariff. Please check the data and try again.",
+      deleteError: "Error deleting tariff. Please try again."
     },
   },
 
@@ -449,6 +471,115 @@ export const EN_TEXT = {
       updated: "Shift updated",
       deleted: "Shift deleted",
       softDeleted: "Shift soft-deleted",
+    },
+  },
+
+  dashboard: {
+    title: "Dashboard",
+    kpis: {
+      clients: "Clients",
+      activeClients: "active",
+      properties: "Properties", 
+      registeredTotal: "Registered in total",
+      guards: "Guards",
+      inService: "In service",
+      monthlyRevenue: "Monthly Revenue",
+      currentEstimate: "Current estimate",
+      fuelCost: "Fuel Cost",
+      thisMonth: "This month",
+      guardSalaries: "Guard Salaries",
+      projected: "Projected"
+    },
+    chartHoursTitle: "Working Hours by Guard",
+    chartCostsTitle: "Cost Analysis",
+    series: {
+      priceTotal: "Total Price",
+      fuelCost: "Fuel Cost",
+      guardSalary: "Guard Salary",
+    },
+    upcomingShifts: {
+      title: "Upcoming Shifts",
+      headers: {
+        guard: "Guard",
+        location: "Location",
+        date: "Date",
+        schedule: "Schedule",
+      },
+      noShifts: "No upcoming shifts scheduled",
+    },
+    tabs: {
+      overview: "Overview",
+      advanced: "Advanced Metrics",
+      reports: "Reports",
+    },
+    metrics: {
+      operational: {
+        title: "📊 Operational Metrics",
+        activeGuards: "Active Guards",
+        guardsOnDuty: "on duty now",
+        shiftsThisMonth: "Shifts This Month",
+        attendance: "attendance",
+        overtime: "Overtime",
+        averageShift: "avg per shift",
+      },
+      financial: {
+        title: "💰 Financial Metrics",
+        monthlyRevenue: "Monthly Revenue",
+        margin: "Margin",
+        costPerHour: "Cost per Hour",
+        perGuard: "/guard",
+        pendingPayments: "Pending Payments",
+        overdue: "overdue",
+        revenuePerProperty: "Revenue per Property",
+        monthlyAverage: "Monthly average",
+      },
+      security: {
+        title: "🛡️ Security Metrics",
+        incidentsThisMonth: "Incidents This Month",
+        vsLastMonth: "vs last month",
+        responseTime: "Response Time",
+        incidentsResolved: "incidents resolved",
+        preventionScore: "Prevention Score",
+        highPriority: "high priority",
+      },
+      efficiency: {
+        title: "⚡ Efficiency Metrics",
+        propertyUtilization: "Property Utilization",
+        fullCoverage: "Full coverage",
+        guardEfficiency: "Guard Efficiency",
+        productiveTime: "Productive time",
+        clientSatisfaction: "Client Satisfaction",
+        evaluationAverage: "Evaluation average",
+        renewalRate: "Renewal Rate",
+        contractsRenewed: "Contracts renewed",
+      },
+    },
+    reports: {
+      title: "📊 Reports and Analysis",
+      monthlyOperations: {
+        title: "Monthly Operations Report",
+        description: "Complete summary of month activities",
+      },
+      incidentAnalysis: {
+        title: "Incident Analysis",
+        description: "Security trends and patterns",
+      },
+      financialReport: {
+        title: "Financial Report",
+        description: "Revenue, expenses and profitability",
+      },
+      guardPerformance: {
+        title: "Guard Performance",
+        description: "Staff evaluation and metrics",
+      },
+      clientSatisfaction: {
+        title: "Client Satisfaction",
+        description: "Surveys and feedback",
+      },
+      geographicAnalysis: {
+        title: "Geographic Analysis",
+        description: "Distribution and coverage by zones",
+      },
     },
   },
 } as const;

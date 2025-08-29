@@ -21,9 +21,10 @@ import {
   updateGuardPropertyTariff,
   deleteGuardPropertyTariff,
 } from "@/lib/services/guardpt";
-import { Trash, Pencil, Check, X } from "lucide-react";
+import { Trash, Pencil, Check, X, AlertCircle } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
 
 type TariffItem = {
   id: number;
@@ -68,12 +69,10 @@ export default function TariffModal({
   }
 
   const [allProperties, setAllProperties] = React.useState<
-    Array<{ id: number; address?: string }>
+    Array<{ id: number; address?: string; alias?: string; owner?: string }>
   >([]);
   const [propsLoading, setPropsLoading] = React.useState(false);
   const [searchProp, setSearchProp] = React.useState<string>("");
-
-  const [propsPanelOpen, setPropsPanelOpen] = React.useState<boolean>(true);
 
   const [tariffs, setTariffs] = React.useState<TariffItem[]>([]);
   const [tariffsLoading, setTariffsLoading] = React.useState(false);
@@ -87,6 +86,7 @@ export default function TariffModal({
   const [isActive, setIsActive] = React.useState<boolean>(true);
   const [saving, setSaving] = React.useState(false);
   const [, setDeleting] = React.useState(false);
+  const [validationError, setValidationError] = React.useState<string>("");
 
   const tariffsByProperty = React.useMemo(() => {
     const map = new Map<number, TariffItem>();
@@ -110,7 +110,52 @@ export default function TariffModal({
     setRate("");
     setIsActive(true);
     setSearchProp("");
-    setPropsPanelOpen(true);
+    setValidationError("");
+  }
+
+  function validateRate(rateValue: string): string | null {
+    if (!rateValue || rateValue.trim() === "") {
+      return getText("guards.tariffs.validation.rateRequired", "La tarifa es requerida");
+    }
+    
+    const cleaned = rateValue.trim().replace(",", ".");
+    const numValue = Number(cleaned);
+    
+    if (isNaN(numValue)) {
+      return getText("guards.tariffs.validation.rateInvalid", "La tarifa debe ser un número válido");
+    }
+    
+    if (numValue < 0) {
+      return getText("guards.tariffs.validation.rateNegative", "La tarifa no puede ser negativa");
+    }
+    
+    if (numValue > 1000) {
+      return getText("guards.tariffs.validation.rateTooHigh", "La tarifa no puede ser mayor a $1000");
+    }
+    
+    return null;
+  }
+
+  function handleRateChange(value: string) {
+    setRate(value);
+    // Limpiar error de validación si el usuario está escribiendo
+    if (validationError) {
+      setValidationError("");
+    }
+  }
+
+  function handleCancelEdit() {
+    if (editingTariff) {
+      const confirmMessage = getText(
+        "guards.tariffs.confirmCancelEdit", 
+        "¿Estás seguro de cancelar la edición? Se perderán los cambios no guardados."
+      );
+      if (confirm(confirmMessage)) {
+        resetForm();
+      }
+    } else {
+      resetForm();
+    }
   }
 
   async function loadProperties() {
@@ -118,10 +163,23 @@ export default function TariffModal({
     try {
       const resp = await listProperties(1, undefined, 500, undefined);
       const items = resp?.items ?? [];
+      
+      // Debug: ver qué campos están disponibles
+      console.log("Properties API response:", items[0]);
+      
       const simple = items.map((p: any) => ({
         id: p.id,
         address: p.address ?? p.name ?? String(p.id),
+        alias: p.alias ?? p.nick ?? "",
+        owner: p.owner_name ?? p.ownerName ?? p.owner ?? p.ownerUser ?? p.owner_user ?? 
+               (p.ownerDetails && p.ownerDetails.username) ?? 
+               (p.owner_details && p.owner_details.username) ?? 
+               (p.user && p.user.username) ?? "",
       }));
+      
+      // Debug: ver qué se está mapeando
+      console.log("Mapped properties:", simple[0]);
+      
       setAllProperties(simple);
     } catch (err) {
       console.error("loadProperties error", err);
@@ -189,8 +247,10 @@ export default function TariffModal({
     if (!q) return allProperties;
     return allProperties.filter((p) => {
       const addr = String(p.address ?? "").toLowerCase();
+      const alias = String(p.alias ?? "").toLowerCase();
+      const owner = String(p.owner ?? "").toLowerCase();
       const id = String(p.id ?? "").toLowerCase();
-      return addr.includes(q) || id.includes(q);
+      return addr.includes(q) || alias.includes(q) || owner.includes(q) || id.includes(q);
     });
   }, [allProperties, q]);
 
@@ -202,79 +262,116 @@ export default function TariffModal({
     } as AppProperty);
     setRate(String(t.rate ?? ""));
     setIsActive(Boolean(t.isActive));
-    setPropsPanelOpen(false);
+    setValidationError("");
     setTimeout(() => rateInputRef.current?.focus(), 0);
   }
 
-  function handleChooseProperty(p: { id: number; address?: string }) {
+  function handleChooseProperty(p: { id: number; address?: string; alias?: string; owner?: string }) {
     const existing = tariffsByProperty.get(Number(p.id));
     if (existing) {
       handleSelectExistingTariff(existing);
       return;
     }
     setEditingTariff(null);
-    setSelectedProperty({ id: p.id, address: p.address } as AppProperty);
+    setSelectedProperty({ id: p.id, address: p.address, alias: p.alias, owner: p.owner } as any);
     setRate("");
     setIsActive(true);
-    setPropsPanelOpen(false);
+    setValidationError("");
     setTimeout(() => rateInputRef.current?.focus(), 0);
   }
 
   async function handleSave() {
+    setValidationError("");
+    
     if (!selectedProperty) {
-      alert(getText("properties.form.ownerHelp", "Selecciona una propiedad primero."));
+      const error = getText("guards.tariffs.validation.propertyRequired", "Selecciona una propiedad primero.");
+      setValidationError(error);
+      toast.error(error);
       return;
     }
-    if (!rate || String(rate).trim() === "") {
-      alert(getText("guards.tariffs.invalidRate", "Ingresa una tarifa válida (ej: 15.00)."));
+
+    const rateValidation = validateRate(rate);
+    if (rateValidation) {
+      setValidationError(rateValidation);
+      toast.error(rateValidation);
       return;
     }
 
     const exists = tariffsByProperty.get(Number(selectedProperty.id));
     if (!editingTariff && exists) {
-      alert(getText("guards.tariffs.exists", "Ya existe una tarifa para esta propiedad. Se cargará para editar."));
+      const message = getText("guards.tariffs.exists", "Ya existe una tarifa para esta propiedad. Se cargará para editar.");
+      toast.info(message);
       handleSelectExistingTariff(exists);
       return;
     }
 
     setSaving(true);
     try {
-      editingTariff && editingTariff.id
-        ? await updateGuardPropertyTariff(editingTariff.id, {
-            rate: String(rate),
-            is_active: isActive,
-          })
-        : await createGuardPropertyTariff({
-            guard: guard.id,
-            property: selectedProperty.id,
-            rate: String(rate),
-            is_active: isActive,
-          });
+      if (editingTariff && editingTariff.id) {
+        await updateGuardPropertyTariff(editingTariff.id, {
+          rate: String(rate),
+          is_active: isActive,
+        });
+        toast.success(getText("guards.tariffs.updateSuccess", "Tarifa actualizada exitosamente"));
+      } else {
+        await createGuardPropertyTariff({
+          guard: guard.id,
+          property: selectedProperty.id,
+          rate: String(rate),
+          is_active: isActive,
+        });
+        toast.success(getText("guards.tariffs.createSuccess", "Tarifa creada exitosamente"));
+      }
 
       await loadTariffs();
       resetForm();
+      
+      // Llamar callback onSaved si existe
+      if (onSaved) {
+        const maybe = onSaved();
+        if (maybe && typeof (maybe as any).then === "function") await maybe;
+      }
     } catch (err) {
       console.error("handleSave error", err);
-      alert(getText("guards.tariffs.saveError", "Error guardando tarifa (ver consola)."));
+      const errorMsg = getText("guards.tariffs.saveError", "Error guardando tarifa. Verifica los datos e intenta nuevamente.");
+      setValidationError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setSaving(false);
     }
   }
 
   async function handleDelete(id: number) {
-    if (!confirm(getText("guards.tariffs.confirmDelete", "¿Eliminar esta tarifa?"))) return;
+    const tariffToDelete = tariffs.find(t => t.id === id);
+    const propertyName = tariffToDelete ? propLabel(tariffToDelete) : `#${id}`;
+    
+    const confirmMessage = getText(
+      "guards.tariffs.confirmDelete", 
+      `¿Estás seguro de eliminar la tarifa para ${propertyName}?`
+    );
+    
+    if (!confirm(confirmMessage)) return;
+    
     setDeleting(true);
     try {
       await deleteGuardPropertyTariff(id);
       await loadTariffs();
-      if (editingTariff?.id === id) resetForm();
+      
+      if (editingTariff?.id === id) {
+        resetForm();
+      }
+      
+      toast.success(getText("guards.tariffs.deleteSuccess", "Tarifa eliminada exitosamente"));
+      
+      // Llamar callback onSaved
       if (onSaved) {
         const maybe = onSaved();
         if (maybe && typeof (maybe as any).then === "function") await maybe;
       }
     } catch (err) {
       console.error("handleDelete error", err);
-      alert(getText("guards.tariffs.deleteError", "Error eliminando tarifa (ver consola)."));
+      const errorMsg = getText("guards.tariffs.deleteError", "Error eliminando tarifa. Intenta nuevamente.");
+      toast.error(errorMsg);
     } finally {
       setDeleting(false);
     }
@@ -296,12 +393,24 @@ export default function TariffModal({
 
   const guardLabel = `${guard.firstName ?? ""} ${guard.lastName ?? ""}`.trim() || `#${guard.id}`;
 
-  // Small UI helper skeletons
+  // Small UI helper skeletons optimizados para no agrandar el modal
   const TableRowSkeleton = ({ cols = 4 }: { cols?: number }) => (
     <tr>
       {Array.from({ length: cols }).map((_, i) => (
         <td key={i} className="py-2 px-2 align-top">
-          <Skeleton className="h-6 w-full rounded" />
+          {i === 0 ? (
+            // Columna de propiedad (más ancha)
+            <Skeleton className="h-6 w-32 rounded" />
+          ) : i === 1 ? (
+            // Columna de tarifa
+            <Skeleton className="h-6 w-16 rounded" />
+          ) : i === 2 ? (
+            // Columna de activo
+            <Skeleton className="h-6 w-8 rounded" />
+          ) : (
+            // Columna de acciones
+            <Skeleton className="h-6 w-20 rounded" />
+          )}
         </td>
       ))}
     </tr>
@@ -309,8 +418,8 @@ export default function TariffModal({
 
   const PropItemSkeleton = () => (
     <div className="p-2 rounded">
-      <Skeleton className="h-4 w-3/4 rounded mb-1" />
-      <Skeleton className="h-3 w-1/4 rounded" />
+      <Skeleton className="h-4 w-24 rounded mb-1" />
+      <Skeleton className="h-3 w-12 rounded" />
     </div>
   );
 
@@ -360,7 +469,7 @@ export default function TariffModal({
                       </tr>
                     </thead>
                     <tbody>
-                      {Array.from({ length: 6 }).map((_, i) => (
+                      {Array.from({ length: 3 }).map((_, i) => (
                         <TableRowSkeleton key={i} />
                       ))}
                     </tbody>
@@ -453,59 +562,81 @@ export default function TariffModal({
 
           {/* ABAJO: buscador + formulario */}
           <div className="border rounded p-4 bg-card">
-            <div className="flex flex-col md:flex-row gap-6">
-              {/* Columna izquierda: Buscar propiedad */}
-              <div className="w-full md:w-1/2">
-                <Label className="text-sm">{getText("properties.table.searchLabel", "Buscar propiedad")}</Label>
-                <Input
-                  placeholder={getText("properties.table.searchPlaceholder", "Filtrar propiedades...")}
-                  value={searchProp}
-                  onChange={(e) => setSearchProp(e.target.value)}
-                />
-                {propsPanelOpen && (
-                  <div className="mt-2 max-h-56 overflow-auto border rounded p-1 bg-white">
-                    {propsLoading ? (
-                      <div className="space-y-2 p-2">
-                        {Array.from({ length: 8 }).map((_, i) => (
-                          <PropItemSkeleton key={i} />
-                        ))}
-                      </div>
-                    ) : filteredProps.length === 0 ? (
-                      <div className="p-3 text-sm text-muted-foreground">
-                        {getText("properties.form.noResultsText", "Sin resultados")}
-                      </div>
-                    ) : (
-                      filteredProps.map((p) => {
-                        const has = tariffsByProperty.has(Number(p.id));
-                        return (
-                          <div
-                            key={p.id}
-                            className={cn(
-                              "p-2 rounded cursor-pointer hover:bg-muted/30 flex items-center justify-between",
-                              selectedProperty?.id === p.id
-                                ? "bg-muted/20 font-semibold"
-                                : ""
-                            )}
-                            onClick={() => handleChooseProperty(p)}
-                          >
-                            <div>
-                              <div className="text-sm">{p.address}</div>
-                              <div className="text-xs text-muted-foreground">
-                                #{p.id}
+              <div className="flex flex-col md:flex-row gap-6">
+                {/* Columna izquierda: Buscar propiedad */}
+                <div className="w-full md:w-1/2">
+                  <Label className="text-sm">{getText("properties.table.searchLabel", "Buscar propiedades")}</Label>
+                  <Input
+                    placeholder={getText("properties.table.searchPlaceholder", "Filtrar propiedades...")}
+                    value={searchProp}
+                    onChange={(e) => setSearchProp(e.target.value)}
+                  />
+                  <div className="mt-2 max-h-48 overflow-auto border rounded-md bg-card shadow-sm">
+                    <div className="p-1">
+                      {propsLoading ? (
+                        <div className="space-y-1">
+                          {Array.from({ length: 4 }).map((_, i) => (
+                            <PropItemSkeleton key={i} />
+                          ))}
+                        </div>
+                      ) : filteredProps.length === 0 ? (
+                        <div className="p-3 text-sm text-muted-foreground text-center">
+                          {getText("properties.form.noResultsText", "Sin resultados")}
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          {filteredProps.map((p) => {
+                            const has = tariffsByProperty.has(Number(p.id));
+                            return (
+                              <div
+                                key={p.id}
+                                className={cn(
+                                  "p-2 rounded cursor-pointer transition-colors border border-transparent hover:border-border hover:bg-accent/50",
+                                  selectedProperty?.id === p.id
+                                    ? "bg-accent border-border font-medium"
+                                    : ""
+                                )}
+                                onClick={() => handleChooseProperty(p)}
+                              >
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="flex-1 min-w-0 space-y-1">
+                                    {/* Alias */}
+                                    {p.alias && (
+                                      <div className="text-sm font-medium text-primary max-w-[180px] truncate">
+                                        {p.alias}
+                                      </div>
+                                    )}
+                                    
+                                    {/* Owner */}
+                                    <div className="text-xs text-muted-foreground max-w-[180px] truncate">
+                                      👤 {p.owner || "Sin dueño asignado"}
+                                    </div>
+                                    
+                                    {/* Address */}
+                                    <div className="text-xs text-muted-foreground max-w-[180px] truncate">
+                                      📍 {p.address}
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Tariff indicator */}
+                                  <div className="flex-shrink-0">
+                                    {has ? (
+                                      <div className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded text-center">
+                                        ⚑
+                                      </div>
+                                    ) : (
+                                      <div className="w-6 h-6"></div>
+                                    )}
+                                  </div>
+                                </div>
                               </div>
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              {has ? getText("guards.tariffs.flag", "⚑ Tarifa") : "—"}
-                            </div>
-                          </div>
-                        );
-                      })
-                    )}
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                )}
-              </div>
-
-              {/* Columna derecha: Propiedad seleccionada + tarifa */}
+                </div>              {/* Columna derecha: Propiedad seleccionada + tarifa */}
               <div className="w-full md:w-1/2">
                 <Label className="text-sm">{getText("guards.tariffs.selectedPropertyLabel", "Propiedad seleccionada")}</Label>
                 <div className="p-3 rounded border bg-muted/5 mb-3">
@@ -515,14 +646,24 @@ export default function TariffModal({
                       <Skeleton className="h-4 w-1/3 rounded" />
                     </div>
                   ) : selectedProperty ? (
-                    <>
-                      <div className="font-medium">
-                        {selectedProperty.address}
+                    <div className="space-y-1">
+                      {/* Alias */}
+                      {(selectedProperty as any).alias && (
+                        <div className="font-medium text-primary">
+                          {(selectedProperty as any).alias}
+                        </div>
+                      )}
+                      
+                      {/* Owner */}
+                      <div className="text-sm text-muted-foreground">
+                        👤 {(selectedProperty as any).owner || "Sin dueño asignado"}
                       </div>
-                      <div className="text-xs text-muted-foreground">
-                        #{selectedProperty.id}
+                      
+                      {/* Address */}
+                      <div className="text-sm text-muted-foreground">
+                        📍 {selectedProperty.address}
                       </div>
-                    </>
+                    </div>
                   ) : (
                     <div className="text-sm text-muted-foreground">
                       {getText("guards.tariffs.noneSelected", "Ninguna propiedad seleccionada")}
@@ -536,10 +677,17 @@ export default function TariffModal({
                     <Input
                       ref={rateInputRef}
                       value={rate}
-                      onChange={(e) => setRate(e.target.value)}
+                      onChange={(e) => handleRateChange(e.target.value)}
                       placeholder={getText("guards.tariffs.ratePlaceholder", "Ej: 15.00")}
                       disabled={saving}
+                      className={validationError ? "border-red-500" : ""}
                     />
+                    {validationError && (
+                      <div className="mt-1 text-xs text-red-600 flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        {validationError}
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-3">
                     <Label className="text-sm mb-1">{getText("guards.tariffs.activeLabel", "Activo")}</Label>
@@ -552,19 +700,23 @@ export default function TariffModal({
                 </div>
 
                 <div className="mt-4 flex justify-end gap-2">
-                  {!propsPanelOpen && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setPropsPanelOpen(true)}
+                  {editingTariff ? (
+                    <Button 
+                      variant="outline" 
+                      onClick={handleCancelEdit} 
                       disabled={saving}
                     >
-                      {getText("guards.tariffs.changeProperty", "Cambiar propiedad")}
+                      {getText("actions.cancelEdit", "Cancelar edición")}
+                    </Button>
+                  ) : (
+                    <Button 
+                      variant="outline" 
+                      onClick={() => resetForm()} 
+                      disabled={saving}
+                    >
+                      {getText("actions.reset", "Limpiar")}
                     </Button>
                   )}
-                  <Button variant="secondary" onClick={() => resetForm()} disabled={saving}>
-                    {getText("actions.reset", "Reset")}
-                  </Button>
 
                   {/* durante saving mostramos skeletons en vez del botón activo */}
                   {saving ? (
@@ -572,7 +724,7 @@ export default function TariffModal({
                   ) : (
                     <Button
                       onClick={handleSave}
-                      disabled={saving || !selectedProperty}
+                      disabled={saving || !selectedProperty || !!validationError}
                     >
                       {editingTariff
                         ? getText("guards.tariffs.update", "Actualizar tarifa")
@@ -591,7 +743,7 @@ export default function TariffModal({
 
         <DialogFooter>
           <div className="flex justify-end w-full">
-            <Button variant="destructive" onClick={() => onClose()}>
+            <Button variant="outline" onClick={() => onClose()}>
               {getText("actions.close", "Cerrar")}
             </Button>
           </div>

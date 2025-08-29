@@ -1,12 +1,10 @@
 "use client"
 
 import { useQuery } from "@tanstack/react-query"
-import { useI18n } from "@/i18n"
 import { DashboardCard } from "./DashboardCard"
 import { getDashboardStats, DASHBOARD_KEY } from "@/lib/services/dashboard"
 
 export function DashboardKPISection() {
-  const { TEXT } = useI18n()
   const { data: stats, isLoading } = useQuery({
     queryKey: [DASHBOARD_KEY, 'stats'],
     queryFn: getDashboardStats,
@@ -26,39 +24,39 @@ export function DashboardKPISection() {
   const kpis = [
     {
       key: 'clients',
-      title: TEXT.dashboard.kpis.clients,
+      title: 'Clientes',
       value: stats?.totalClients || 0,
-      description: `${stats?.activeClients || 0} ${TEXT.dashboard.kpis.activeClients}`,
+      description: `${stats?.activeClients || 0} activos`,
     },
     {
       key: 'properties',
-      title: TEXT.dashboard.kpis.properties,
+      title: 'Propiedades',
       value: stats?.totalProperties || 0,
-      description: TEXT.dashboard.kpis.registeredTotal,
+      description: 'Registradas en total',
     },
     {
       key: 'guards',
-      title: TEXT.dashboard.kpis.guards,
+      title: 'Guardias',
       value: stats?.totalGuards || 0,
-      description: TEXT.dashboard.kpis.inService,
+      description: 'En servicio',
     },
     {
       key: 'revenue',
-      title: TEXT.dashboard.kpis.monthlyRevenue,
+      title: 'Ingresos Mensuales',
       value: `$${stats?.monthlyRevenue?.toLocaleString() || '0'}`,
-      description: TEXT.dashboard.kpis.currentEstimate,
+      description: 'Estimado actual',
     },
     {
       key: 'fuel',
-      title: TEXT.dashboard.kpis.fuelCost,
+      title: 'Costo Combustible',
       value: `$${stats?.monthlyFuelCosts?.toLocaleString() || '0'}`,
-      description: TEXT.dashboard.kpis.thisMonth,
+      description: 'Este mes',
     },
     {
       key: 'salaries',
-      title: TEXT.dashboard.kpis.guardSalaries,
+      title: 'Salarios Guardias',
       value: `$${stats?.monthlyGuardSalaries?.toLocaleString() || '0'}`,
-      description: TEXT.dashboard.kpis.projected,
+      description: 'Proyectados',
     },
   ]
 

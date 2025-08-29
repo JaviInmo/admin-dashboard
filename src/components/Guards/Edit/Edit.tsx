@@ -9,6 +9,7 @@ import type { Guard } from "../types";
 import { updateGuard, type UpdateGuardPayload } from "@/lib/services/guard";
 import { useI18n } from "@/i18n";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Eye, EyeOff } from "lucide-react";
 
 interface Props {
   guard: Guard;
@@ -44,13 +45,8 @@ export default function EditGuardDialog({ guard, open, onClose, onUpdated }: Pro
   const [address, setAddress] = React.useState<string>(guard.address ?? "");
   const [birthdate, setBirthdate] = React.useState<string>(guard.birthdate ?? "");
 
-  const initialShowSsn =
-    (guard as any).ssn_visible === true ||
-    (guard as any).ssnVisible === true ||
-    (guard as any).is_ssn_visible === true ||
-    false;
-
-  const [showSsn, setShowSsn] = React.useState<boolean>(initialShowSsn);
+  // Estado local para mostrar/ocultar SSN en la UI (por defecto oculto)
+  const [showSsn, setShowSsn] = React.useState<boolean>(false);
 
   const [loading, setLoading] = React.useState<boolean>(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -73,12 +69,8 @@ export default function EditGuardDialog({ guard, open, onClose, onUpdated }: Pro
     setBirthdate(guard.birthdate ?? "");
     setError(null);
 
-    const newInitial =
-      (guard as any).ssn_visible === true ||
-      (guard as any).ssnVisible === true ||
-      (guard as any).is_ssn_visible === true ||
-      false;
-    setShowSsn(newInitial);
+    // Por defecto siempre oculto
+    setShowSsn(false);
   }, [guard]);
 
   const handleSubmit = async (e?: React.FormEvent) => {
@@ -212,24 +204,23 @@ export default function EditGuardDialog({ guard, open, onClose, onUpdated }: Pro
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-sm">{getText("guards.form.fields.ssn")}</label>
-                  <Input
-                    name="ssn"
-                    type={showSsn ? "text" : "password"}
-                    value={ssn}
-                    onChange={(e) => setSsn(e.target.value)}
-                    placeholder={showSsn ? "" : getText("guards.form.placeholders.ssnHidden") ?? "********"}
-                  />
-                  <div className="mt-2 flex items-center gap-2">
-                    <input
-                      id={`toggle-ssn-${guard.id}`}
-                      type="checkbox"
-                      checked={showSsn}
-                      onChange={() => setShowSsn((v) => !v)}
-                      className="h-4 w-4 rounded border-gray-300"
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowSsn((v) => !v)}
+                      title={showSsn ? "Ocultar SSN" : "Mostrar SSN"}
+                      className="inline-flex items-center rounded px-2 py-1 text-sm hover:bg-muted/30"
+                    >
+                      {showSsn ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                    <Input
+                      name="ssn"
+                      type={showSsn ? "text" : "password"}
+                      value={ssn}
+                      onChange={(e) => setSsn(e.target.value)}
+                      placeholder={showSsn ? "" : getText("guards.form.placeholders.ssnHidden") ?? "********"}
+                      className="flex-1"
                     />
-                    <label htmlFor={`toggle-ssn-${guard.id}`} className="text-sm">
-                      {getText("Show") ?? "Mostrar SSN"}
-                    </label>
                   </div>
                 </div>
                 <div>

@@ -36,7 +36,7 @@ export function DashboardTable() {
             <TableHead>{TEXT.dashboard.upcomingShifts.headers.guard}</TableHead>
             <TableHead>{TEXT.dashboard.upcomingShifts.headers.location}</TableHead>
             <TableHead>{TEXT.dashboard.upcomingShifts.headers.date}</TableHead>
-            <TableHead>{TEXT.dashboard.upcomingShifts.headers.schedule}</TableHead>
+            <TableHead>Horario</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -52,7 +52,7 @@ export function DashboardTable() {
           ) : (
             <TableRow>
               <TableCell colSpan={4} className="text-center text-muted-foreground">
-                {TEXT.dashboard.upcomingShifts.noShifts}
+                No hay turnos próximos programados
               </TableCell>
             </TableRow>
           )}

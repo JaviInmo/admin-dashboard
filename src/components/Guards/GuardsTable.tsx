@@ -69,7 +69,7 @@ export default function GuardsTable({
   const [createOpen, setCreateOpen] = React.useState(false);
   const [editGuard, setEditGuard] = React.useState<Guard | null>(null);
   const [deleteGuard, setDeleteGuard] = React.useState<Guard | null>(null);
-
+  
   // Nuevo: estado para abrir modal de tarifas
   const [tariffGuard, setTariffGuard] = React.useState<Guard | null>(null);
 
