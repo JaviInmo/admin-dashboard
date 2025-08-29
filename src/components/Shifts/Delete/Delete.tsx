@@ -1,4 +1,3 @@
-// src/components/Shifts/Delete.tsx
 "use client";
 
 import React from "react";
@@ -12,8 +11,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { deleteShift, softDeleteShift, getShift } from "@/lib/services/shifts";
+import { getGuard } from "@/lib/services/guard";
+import { getProperty } from "@/lib/services/properties";
 import type { Shift } from "../types";
 import { useI18n } from "@/i18n";
+import type { Guard } from "@/components/Guards/types";
+import type { AppProperty } from "@/lib/services/properties";
 
 type DeleteShiftProps = {
   open: boolean;
@@ -29,10 +32,17 @@ export default function DeleteShift({ open, onClose, shiftId, onDeleted }: Delet
   const [shift, setShift] = React.useState<Shift | null>(null);
   const [loadingShift, setLoadingShift] = React.useState(false);
 
+  // Estados para mostrar nombres en lugar de ids
+  const [guardObj, setGuardObj] = React.useState<Guard | null>(null);
+  const [propertyObj, setPropertyObj] = React.useState<AppProperty | null>(null);
+  const [loadingNames, setLoadingNames] = React.useState(false);
+
   React.useEffect(() => {
     if (!open) return;
     setHardDelete(false);
     setShift(null);
+    setGuardObj(null);
+    setPropertyObj(null);
     setLoadingShift(true);
     getShift(shiftId)
       .then((s) => setShift(s as Shift))
@@ -44,6 +54,43 @@ export default function DeleteShift({ open, onClose, shiftId, onDeleted }: Delet
       .finally(() => setLoadingShift(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, shiftId]);
+
+  // cuando shift cambia, intentar obtener guard y property para mostrar names
+  React.useEffect(() => {
+    if (!shift) return;
+    let mounted = true;
+    setLoadingNames(true);
+    (async () => {
+      try {
+        // Guard
+        try {
+          if (shift.guard != null) {
+            const g = await getGuard(Number(shift.guard));
+            if (mounted) setGuardObj(g ?? null);
+          }
+        } catch (e) {
+          console.error("getGuard failed", e);
+          if (mounted) setGuardObj(null);
+        }
+
+        // Property
+        try {
+          if (shift.property != null) {
+            const p = await getProperty(Number(shift.property));
+            if (mounted) setPropertyObj(p ?? null);
+          }
+        } catch (e) {
+          console.error("getProperty failed", e);
+          if (mounted) setPropertyObj(null);
+        }
+      } finally {
+        if (mounted) setLoadingNames(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [shift]);
 
   async function confirmDelete() {
     setLoading(true);
@@ -64,6 +111,20 @@ export default function DeleteShift({ open, onClose, shiftId, onDeleted }: Delet
       setLoading(false);
     }
   }
+
+  const renderGuardLabel = () => {
+    if (loadingNames) return "Cargando...";
+    if (guardObj) return `${guardObj.firstName} ${guardObj.lastName}${guardObj.email ? ` (${guardObj.email})` : ""}`;
+    if (shift?.guard != null) return String(shift.guard);
+    return "-";
+  };
+
+  const renderPropertyLabel = () => {
+    if (loadingNames) return "Cargando...";
+    if (propertyObj) return `${propertyObj.name ?? propertyObj.alias ?? propertyObj.address} #${propertyObj.id}`;
+    if (shift?.property != null) return String(shift.property);
+    return "-";
+  };
 
   return (
     <Dialog
@@ -88,11 +149,21 @@ export default function DeleteShift({ open, onClose, shiftId, onDeleted }: Delet
 
               {shift ? (
                 <div className="space-y-2 mb-4">
-                  <div><strong>ID:</strong> {shift.id}</div>
-                  <div><strong>Guard:</strong> {shift.guard}</div>
-                  <div><strong>Property:</strong> {shift.property}</div>
-                  <div><strong>Start:</strong> {new Date(shift.startTime).toLocaleString()}</div>
-                  <div><strong>End:</strong> {new Date(shift.endTime).toLocaleString()}</div>
+                  <div>
+                    <strong>ID:</strong> {shift.id}
+                  </div>
+                  <div>
+                    <strong>Guard:</strong> {renderGuardLabel()}
+                  </div>
+                  <div>
+                    <strong>Property:</strong> {renderPropertyLabel()}
+                  </div>
+                  <div>
+                    <strong>Start:</strong> {new Date(shift.startTime).toLocaleString()}
+                  </div>
+                  <div>
+                    <strong>End:</strong> {new Date(shift.endTime).toLocaleString()}
+                  </div>
                 </div>
               ) : null}
 

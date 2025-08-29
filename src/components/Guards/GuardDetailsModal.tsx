@@ -1,4 +1,4 @@
-// src/components/Guards/GuardDetailsModal.tsx
+// src/components/Guards/GuardDetailsAndShiftsModals.tsx
 "use client";
 
 import * as React from "react";
@@ -11,7 +11,17 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Mail, Phone, MapPin, Calendar, User, CreditCard, Copy, Eye, EyeOff } from "lucide-react";
+import {
+  Mail,
+  Phone,
+  MapPin,
+  Calendar,
+  User,
+  CreditCard,
+  Copy,
+  Eye,
+  EyeOff,
+} from "lucide-react";
 import type { Guard } from "./types";
 import { ClickableEmail } from "@/components/ui/clickable-email";
 import { toast } from "sonner";
@@ -24,22 +34,55 @@ import DeleteShift from "@/components/Shifts/Delete/Delete";
 import type { Shift } from "@/components/Shifts/types";
 import { listShiftsByGuard } from "@/lib/services/shifts";
 
+/**
+ * Normaliza la respuesta del backend a la forma `Shift` que espera la UI.
+ * Soporta: array directo, { results: [...] }, { items: [...] }, items con snake_case o camelCase,
+ * y campos anidados como guard_details / property_details.
+ */
+function normalizeShiftsArray(input: any): Shift[] {
+  if (!input) return [];
+  const arr = Array.isArray(input)
+    ? input
+    : Array.isArray(input?.results)
+    ? input.results
+    : Array.isArray(input?.items)
+    ? input.items
+    : null;
+  if (!arr) return [];
+  return arr.map((s: any) => {
+    const guardId =
+      s.guard ??
+      s.guard_id ??
+      (s.guard_details ? s.guard_details.id ?? s.guard_details.pk ?? undefined : undefined) ??
+      (s.guard && typeof s.guard === "object" ? s.guard.id : undefined);
+
+    const propertyId =
+      s.property ??
+      s.property_id ??
+      (s.property_details ? s.property_details.id ?? s.property_details.pk ?? undefined : undefined) ??
+      (s.property && typeof s.property === "object" ? s.property.id : undefined);
+
+    return {
+      id: s.id ?? s.pk ?? 0,
+      guard: guardId,
+      property: propertyId,
+      startTime: s.start_time ?? s.startTime ?? s.start ?? null,
+      endTime: s.end_time ?? s.endTime ?? s.end ?? null,
+      status: s.status ?? "scheduled",
+      hoursWorked: s.hours_worked ?? s.hoursWorked ?? s.hours ?? 0,
+      isActive: s.is_active ?? s.isActive ?? true,
+      // mantengo el raw por si quieres leer property_details/guard_details en la UI
+      __raw: s,
+    } as Shift;
+  });
+}
+
 type GuardDetailsModalProps = {
   guard: Guard;
   open: boolean;
   onClose: () => void;
 };
 
-/**
- * Modal de detalles de guardia + integración completa de turnos:
- * - ver (ShowShift)
- * - crear (CreateShift)
- * - editar (EditShift)
- * - borrar (DeleteShift)
- *
- * UX: lista compacta de turnos (paginada por "Cargar más"), botones para acciones por turno,
- * y modales independientes que actualizan la lista en cuanto ocurre la acción.
- */
 export default function GuardDetailsModal({
   guard,
   open,
@@ -94,10 +137,46 @@ export default function GuardDetailsModal({
   // Estado local para mostrar/ocultar SSN en la UI (por defecto oculto)
   const [showSsn, setShowSsn] = React.useState<boolean>(false);
 
-  // Sincronizar cuando cambia el guard (por defecto oculto)
+  // Estado preview de turnos para mostrar lista inmediatamente al abrir el modal de Shifts
+  const [previewShifts, setPreviewShifts] = React.useState<Shift[]>([]);
+  const [previewLoading, setPreviewLoading] = React.useState<boolean>(false);
+  const [previewHasNext, setPreviewHasNext] = React.useState<boolean>(false);
+
+  // Abrir modal de turnos (separado)
+  const [openShifts, setOpenShifts] = React.useState<boolean>(false);
+
+  // Reset cuando cambia el guard (se usa para resetear UI)
   React.useEffect(() => {
     setShowSsn(false);
+    setPreviewShifts([]);
+    setPreviewHasNext(false);
   }, [guard]);
+
+  // Prefetch de la primera página de turnos cuando se abre el Details (mini-preview)
+  React.useEffect(() => {
+    if (!open) return;
+    let mounted = true;
+    async function fetchPreview() {
+      setPreviewLoading(true);
+      try {
+        const res = await listShiftsByGuard(guard.id, 1, 10, "-start_time");
+        console.log("[Preview] listShiftsByGuard response:", res);
+        const normalized = normalizeShiftsArray(res);
+        if (!mounted) return;
+        setPreviewShifts(normalized);
+        // detectar next en varias formas (next o previous-style)
+        setPreviewHasNext(Boolean(res?.next ?? res?.previous ?? false));
+      } catch (err) {
+        console.error("[Preview] error fetching shifts:", err);
+      } finally {
+        if (mounted) setPreviewLoading(false);
+      }
+    }
+    fetchPreview();
+    return () => {
+      mounted = false;
+    };
+  }, [open, guard.id]);
 
   async function copyToClipboard(text?: string | null) {
     if (!text) return;
@@ -109,94 +188,6 @@ export default function GuardDetailsModal({
     }
   }
 
-  // ---------------- Shifts state & handlers ----------------
-  const [shifts, setShifts] = React.useState<Shift[]>([]);
-  const [shiftsPage, setShiftsPage] = React.useState<number>(1);
-  const [shiftsLoading, setShiftsLoading] = React.useState<boolean>(false);
-  const [shiftsHasNext, setShiftsHasNext] = React.useState<boolean>(false);
-
-  // Modales de shifts
-  const [openCreate, setOpenCreate] = React.useState<boolean>(false);
-  const [openShowShiftId, setOpenShowShiftId] = React.useState<number | null>(null);
-  const [openEditShiftId, setOpenEditShiftId] = React.useState<number | null>(null);
-  const [openDeleteShiftId, setOpenDeleteShiftId] = React.useState<number | null>(null);
-
-  // Cargar la primera página de turnos cuando se abre el modal
-  React.useEffect(() => {
-    if (!open) return;
-    let mounted = true;
-
-    async function fetchFirst() {
-      setShiftsLoading(true);
-      setShifts([]);
-      setShiftsPage(1);
-      try {
-        const res = await listShiftsByGuard(guard.id, 1, 5, "-start_time");
-        const results = (res as any)?.results ?? (res as any) ?? [];
-        const next = (res as any)?.next ?? null;
-        if (!mounted) return;
-        setShifts(Array.isArray(results) ? results : []);
-        setShiftsHasNext(Boolean(next));
-      } catch (err) {
-        console.error(err);
-        toast.error(TEXT?.shifts?.errors?.fetchFailed ?? "Could not load shifts");
-      } finally {
-        if (mounted) setShiftsLoading(false);
-      }
-    }
-
-    fetchFirst();
-    return () => {
-      mounted = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, guard.id]);
-
-  // Cargar página siguiente
-  async function loadMoreShifts() {
-    const nextPage = shiftsPage + 1;
-    setShiftsLoading(true);
-    try {
-      const res = await listShiftsByGuard(guard.id, nextPage, 5, "-start_time");
-      const results = (res as any)?.results ?? [];
-      const next = (res as any)?.next ?? null;
-      setShifts((prev) => [...prev, ...(Array.isArray(results) ? results : [])]);
-      setShiftsPage(nextPage);
-      setShiftsHasNext(Boolean(next));
-    } catch (err) {
-      console.error(err);
-      toast.error(TEXT?.shifts?.errors?.fetchFailed ?? "Could not load shifts");
-    } finally {
-      setShiftsLoading(false);
-    }
-  }
-
-  // Cuando se crea un turno (desde CreateShift), lo añadimos arriba
-  function handleShiftCreated(newShift: Shift) {
-    setShifts((prev) => [newShift, ...prev]);
-    setOpenCreate(false);
-    toast.success(TEXT?.shifts?.messages?.created ?? "Shift created");
-  }
-
-  // Cuando se actualiza un turno (desde Show/Edit), actualizamos la lista
-  function handleShiftUpdated(updated: Shift) {
-    setShifts((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
-    setOpenShowShiftId(null);
-    setOpenEditShiftId(null);
-    setOpenDeleteShiftId(null);
-    toast.success(TEXT?.shifts?.messages?.updated ?? "Shift updated");
-  }
-
-  // Cuando se elimina un turno (desde Delete o Show), lo quitamos
-  function handleShiftDeleted(id: number) {
-    setShifts((prev) => prev.filter((s) => s.id !== id));
-    setOpenShowShiftId(null);
-    setOpenEditShiftId(null);
-    setOpenDeleteShiftId(null);
-    toast.success(TEXT?.shifts?.messages?.deleted ?? "Shift deleted");
-  }
-
-  // ---------------- UI ----------------
   return (
     <>
       <Dialog
@@ -222,7 +213,6 @@ export default function GuardDetailsModal({
                   </div>
                 </div>
               </div>
-
             </div>
           </DialogHeader>
 
@@ -242,9 +232,7 @@ export default function GuardDetailsModal({
                 <InfoItem
                   icon={<Mail className="h-4 w-4" />}
                   label={TEXT?.guards?.table?.headers?.email ?? "Correo"}
-                  value={
-                    guard.email ? <ClickableEmail email={guard.email} /> : "-"
-                  }
+                  value={guard.email ? <ClickableEmail email={guard.email} /> : "-"}
                 />
                 <InfoItem
                   icon={<Phone className="h-4 w-4" />}
@@ -277,7 +265,6 @@ export default function GuardDetailsModal({
                     guard.ssn ? (
                       <div className="flex items-center justify-between gap-4">
                         <div className="flex items-center gap-2">
-                          {/* Ícono de ojo a la izquierda */}
                           <button
                             type="button"
                             onClick={() => setShowSsn((v) => !v)}
@@ -291,7 +278,6 @@ export default function GuardDetailsModal({
                             {showSsn ? guard.ssn : (TEXT?.guards?.table?.ssnHidden ?? "******")}
                           </span>
 
-                          {/* botón copiar solo si está visible */}
                           {showSsn && (
                             <button
                               type="button"
@@ -325,144 +311,240 @@ export default function GuardDetailsModal({
               )}
             </div>
 
-            {/* ---------------- Shifts list ---------------- */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
+            {/* Mini-card resumen de turnos: muestra preview y botón para abrir modal de turnos */}
+            <div className="rounded border p-4 bg-card">
+              <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-semibold">
-                    {TEXT?.shifts?.show?.title ?? "Turnos"}
-                  </h3>
+                  <h3 className="text-sm font-semibold">{TEXT?.shifts?.show?.title ?? "Turnos"}</h3>
                   <div className="text-xs text-muted-foreground">
-                    {shifts.length > 0 ? `${shifts.length}` : TEXT?.table?.noData}
+                    {previewLoading ? (TEXT?.common?.loading ?? "Loading...") : `${previewShifts.length} ${TEXT?.table?.items ?? "items"}`}
                   </div>
                 </div>
-
                 <div className="flex items-center gap-2">
-                  <Button size="sm" onClick={() => setOpenCreate(true)}>
-                    {TEXT?.shifts?.create?.title ?? TEXT?.actions?.create ?? "Asignar"}
+                  <Button size="sm" onClick={() => setOpenShifts(true)}>
+                    {TEXT?.shifts?.show?.open ?? "Ver turnos"}
                   </Button>
                 </div>
               </div>
-
-              <div className="space-y-3">
-                {shiftsLoading ? (
-                  <div className="text-sm text-muted-foreground">{TEXT?.common?.loading ?? "Loading..."}</div>
-                ) : shifts.length === 0 ? (
-                  <div className="rounded border border-dashed border-muted/50 p-4 text-sm text-muted-foreground">
-                    {TEXT?.table?.noData ?? "No hay turnos"}
-                  </div>
-                ) : (
-                  shifts.map((s) => (
-                    <div
-                      key={s.id}
-                      className="flex items-center justify-between gap-4 rounded-md border p-3 shadow-sm bg-card"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="mt-1 text-muted-foreground">
-                          <Calendar className="h-5 w-5" />
-                        </div>
-                        <div>
-                          <div className="text-sm font-medium">
-                            {new Date(s.startTime).toLocaleString()} — {new Date(s.endTime).toLocaleString()}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {s.status} · {s.hoursWorked}h · Property: {s.property}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        {/* Editar (abre EditShift) */}
-                        <Button size="sm" variant="outline" onClick={() => setOpenEditShiftId(s.id)}>
-                          {TEXT?.actions?.save ?? "Editar"}
-                        </Button>
-
-                        {/* Eliminar (abre DeleteShift) */}
-                        <Button size="sm" variant="destructive" onClick={() => setOpenDeleteShiftId(s.id)}>
-                          {TEXT?.actions?.delete ?? "Eliminar"}
-                        </Button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-
-              {shiftsHasNext && (
-                <div className="mt-3 flex justify-center">
-                  <Button size="sm" variant="outline" onClick={loadMoreShifts} disabled={shiftsLoading}>
-                    {shiftsLoading ? (TEXT?.common?.loading ?? "Loading...") : (TEXT?.actions?.refresh ?? "Cargar más")}
-                  </Button>
-                </div>
-              )}
             </div>
           </div>
 
           <DialogFooter>
             <div className="flex justify-end gap-2 w-full">
-              <Button variant="outline" onClick={onClose}>
-                {TEXT?.actions?.close ?? "Close"}
-              </Button>
+              <Button variant="outline" onClick={onClose}>{TEXT?.actions?.close ?? "Close"}</Button>
             </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* ---------------- Modales independientes ---------------- */}
-
-      {/* Create Shift modal */}
-      <CreateShift
-        open={openCreate}
-        onClose={() => setOpenCreate(false)}
+      {/* Modal de Turnos separado. Le pasamos el preview (si existe) */}
+      <GuardShiftsModal
         guardId={guard.id}
-        onCreated={handleShiftCreated}
+        guardName={fullName}
+        open={openShifts}
+        onClose={() => setOpenShifts(false)}
+        initialShifts={previewShifts}
+        initialHasNext={previewHasNext}
       />
-
-      {/* Show / Edit / Delete via ShowShift (ShowShift includes Edit/Delete inside it) */}
-      {openShowShiftId !== null && (
-        <ShowShift
-          open={openShowShiftId !== null}
-          onClose={() => setOpenShowShiftId(null)}
-          shiftId={openShowShiftId as number}
-          onUpdated={handleShiftUpdated}
-          onDeleted={handleShiftDeleted}
-        />
-      )}
-
-      {/* Edit modal direct */}
-      {openEditShiftId !== null && (
-        <EditShift
-          open={openEditShiftId !== null}
-          onClose={() => setOpenEditShiftId(null)}
-          shiftId={openEditShiftId as number}
-          onUpdated={handleShiftUpdated}
-        />
-      )}
-
-      {/* Delete modal direct */}
-      {openDeleteShiftId !== null && (
-        <DeleteShift
-          open={openDeleteShiftId !== null}
-          onClose={() => setOpenDeleteShiftId(null)}
-          shiftId={openDeleteShiftId as number}
-          onDeleted={handleShiftDeleted}
-        />
-      )}
     </>
   );
 }
 
-/**
- * Componente helper para mostrar label + icon + value
- */
-function InfoItem({
-  icon,
-  label,
-  value,
+function GuardShiftsModal({
+  guardId,
+  guardName,
+  open,
+  onClose,
+  initialShifts,
+  initialHasNext,
 }: {
-  icon: React.ReactNode;
-  label: string;
-  value: React.ReactNode;
+  guardId: number;
+  guardName?: string;
+  open: boolean;
+  onClose: () => void;
+  initialShifts?: Shift[];
+  initialHasNext?: boolean;
 }) {
+  const { TEXT } = useI18n();
+
+  const [shifts, setShifts] = React.useState<Shift[]>(initialShifts ?? []);
+  const [page, setPage] = React.useState<number>(1);
+  const [loading, setLoading] = React.useState<boolean>(false);
+  const [hasNext, setHasNext] = React.useState<boolean>(initialHasNext ?? false);
+
+  const [openCreate, setOpenCreate] = React.useState(false);
+  const [openShowId, setOpenShowId] = React.useState<number | null>(null);
+  const [openEditId, setOpenEditId] = React.useState<number | null>(null);
+  const [openDeleteId, setOpenDeleteId] = React.useState<number | null>(null);
+
+  // Al abrir: usa initialShifts (si hay) para prefill, y luego hace fetch real
+  React.useEffect(() => {
+    if (!open) return;
+    let mounted = true;
+
+    // prefill inmediato si existen
+    if (initialShifts && initialShifts.length) {
+      setShifts(initialShifts);
+      setHasNext(Boolean(initialHasNext));
+    }
+
+    async function fetchFirst() {
+      setLoading(true);
+      try {
+        const res = await listShiftsByGuard(guardId, 1, 10, "-start_time");
+        console.log("[Modal] listShiftsByGuard response:", res);
+        const normalized = normalizeShiftsArray(res);
+        if (!mounted) return;
+        setShifts(normalized);
+        setPage(1);
+        setHasNext(Boolean(res?.next ?? res?.previous ?? res?.items ?? false));
+      } catch (err) {
+        console.error("[Modal] error fetching shifts:", err);
+        toast.error(TEXT?.shifts?.errors?.fetchFailed ?? "Could not load shifts");
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+
+    fetchFirst();
+
+    return () => {
+      mounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, guardId]);
+
+  async function loadMore() {
+    const nextPage = page + 1;
+    setLoading(true);
+    try {
+      const res = await listShiftsByGuard(guardId, nextPage, 10, "-start_time");
+      console.log("[LoadMore] response:", res);
+      const newItems = normalizeShiftsArray(res);
+      setShifts((p) => [...p, ...newItems]);
+      setPage(nextPage);
+      setHasNext(Boolean(res?.next ?? res?.previous ?? res?.items ?? false));
+    } catch (err) {
+      console.error("[LoadMore] error:", err);
+      toast.error(TEXT?.shifts?.errors?.fetchFailed ?? "Could not load shifts");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleCreated(s: Shift) {
+    setShifts((p) => [s, ...p]);
+    setOpenCreate(false);
+    toast.success(TEXT?.shifts?.messages?.created ?? "Shift created");
+  }
+  function handleUpdated(s: Shift) {
+    setShifts((p) => p.map((x) => (x.id === s.id ? s : x)));
+    setOpenShowId(null);
+    setOpenEditId(null);
+    setOpenDeleteId(null);
+    toast.success(TEXT?.shifts?.messages?.updated ?? "Shift updated");
+  }
+  function handleDeleted(id: number) {
+    setShifts((p) => p.filter((x) => x.id !== id));
+    setOpenShowId(null);
+    setOpenEditId(null);
+    setOpenDeleteId(null);
+    toast.success(TEXT?.shifts?.messages?.deleted ?? "Shift deleted");
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(val) => { if (!val) onClose(); }}>
+      <DialogContent className="max-w-3xl">
+        <DialogHeader>
+          <div className="flex items-center justify-between w-full pt-3.5">
+            <div >
+              <DialogTitle className="text-lg">{guardName ? `${TEXT?.shifts?.show?.title ?? "Turnos"} — ${guardName}` : (TEXT?.shifts?.show?.title ?? "Turnos")}</DialogTitle>
+              <div className="text-xs text-muted-foreground">{TEXT?.shifts?.show?.subtitle ?? "Lista de turnos (scrollable)"}</div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button size="sm" onClick={() => setOpenCreate(true)}>{TEXT?.shifts?.create?.title ?? TEXT?.actions?.create ?? "Asignar"}</Button>
+            </div>
+          </div>
+        </DialogHeader>
+
+        {/* Scrollable container for the list */}
+        <div className="max-h-[60vh] overflow-auto p-2 space-y-3">
+          {loading ? (
+            <div className="text-sm text-muted-foreground">{TEXT?.common?.loading ?? "Loading..."}</div>
+          ) : shifts.length === 0 ? (
+            <div className="rounded border border-dashed border-muted/50 p-4 text-sm text-muted-foreground">{TEXT?.table?.noData ?? "No hay turnos"}</div>
+          ) : (
+            shifts.map((s) => {
+              const raw = (s as any).__raw;
+              const propertyLabel = raw?.property_details?.name ?? raw?.property_details?.alias ?? s.property;
+              return (
+                <div key={s.id} className="flex items-center justify-between gap-4 rounded-md border p-3 shadow-sm bg-card">
+                  <div className="flex items-start gap-3">
+                    <div className="mt-1 text-muted-foreground"><Calendar className="h-5 w-5" /></div>
+                    <div>
+                      <div className="text-sm font-medium">
+                        {s.startTime ? new Date(s.startTime).toLocaleString() : "—"} — {s.endTime ? new Date(s.endTime).toLocaleString() : "—"}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {s.status} · {s.hoursWorked}h · {propertyLabel}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {/* Ver / Show */}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setOpenShowId(s.id)}
+                      title={TEXT?.actions?.view ?? "Ver"}
+                    >
+                      {TEXT?.actions?.view ?? "Ver"}
+                    </Button>
+
+                    {/* Edit */}
+                    <Button size="sm" variant="outline" onClick={() => setOpenEditId(s.id)}>{TEXT?.actions?.edit ?? "Editar"}</Button>
+                    {/* Delete */}
+                    <Button size="sm" variant="destructive" onClick={() => setOpenDeleteId(s.id)}>{TEXT?.actions?.delete ?? "Eliminar"}</Button>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {hasNext && (
+          <div className="mt-3 flex justify-center">
+            <Button size="sm" variant="outline" onClick={loadMore} disabled={loading}>{loading ? (TEXT?.common?.loading ?? "Loading...") : (TEXT?.actions?.refresh ?? "Cargar más")}</Button>
+          </div>
+        )}
+
+        <DialogFooter>
+          <div className="flex justify-end gap-2 w-full">
+            <Button variant="outline" onClick={onClose}>{TEXT?.actions?.close ?? "Close"}</Button>
+          </div>
+        </DialogFooter>
+      </DialogContent>
+
+      {/* Child modals for create/show/edit/delete */}
+      <CreateShift open={openCreate} onClose={() => setOpenCreate(false)} guardId={guardId} onCreated={handleCreated} />
+
+      {openShowId !== null && (
+        <ShowShift open={openShowId !== null} onClose={() => setOpenShowId(null)} shiftId={openShowId as number} onUpdated={handleUpdated} onDeleted={handleDeleted} />
+      )}
+
+      {openEditId !== null && (
+        <EditShift open={openEditId !== null} onClose={() => setOpenEditId(null)} shiftId={openEditId as number} onUpdated={handleUpdated} />
+      )}
+
+      {openDeleteId !== null && (
+        <DeleteShift open={openDeleteId !== null} onClose={() => setOpenDeleteId(null)} shiftId={openDeleteId as number} onDeleted={handleDeleted} />
+      )}
+    </Dialog>
+  );
+}
+
+function InfoItem({ icon, label, value }: { icon: React.ReactNode; label: string; value: React.ReactNode; }) {
   return (
     <div className="flex items-start gap-3">
       <div className="mt-1 text-muted-foreground">{icon}</div>

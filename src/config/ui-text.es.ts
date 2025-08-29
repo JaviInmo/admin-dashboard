@@ -1,4 +1,3 @@
-// src/config/ui-text.es.ts
 export const ES_TEXT = {
   appName: "Texas Counties Division Patrol LLC",
   header: {
@@ -30,6 +29,7 @@ export const ES_TEXT = {
     noMatch: "No hay coincidencias",
     noResults: "No se encontraron resultados para \"{search}\"",
     noData: "No hay datos disponibles",
+    items: "elementos", // <--- agregado
   },
 
   common: {
@@ -54,6 +54,7 @@ export const ES_TEXT = {
     copyError: "No se pudo copiar",
     saving: "Guardando...",
     deleting: "Eliminando...",
+    view: "Ver", // <--- agregado
   },
 
   clients: {
@@ -454,6 +455,8 @@ export const ES_TEXT = {
     },
     show: {
       title: "Detalles del Turno",
+      subtitle: "Lista de turnos (scrollable)", // <--- agregado
+      open: "Ver turnos", // <--- agregado
     },
     errors: {
       missingDates: "Fecha de inicio y fin son requeridas",

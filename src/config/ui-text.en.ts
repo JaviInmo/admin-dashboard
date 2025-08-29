@@ -1,4 +1,3 @@
-// src/config/ui-text.en.ts
 export const EN_TEXT = {
   appName: "Texas Counties Division Patrol LLC",
   header: {
@@ -30,6 +29,7 @@ export const EN_TEXT = {
     noMatch: "No match",
     noResults: "No results found for \"{search}\"",
     noData: "No data available",
+    items: "items", // <--- agregado
   },
 
   common: {
@@ -54,6 +54,7 @@ export const EN_TEXT = {
     copyError: "Could not copy",
     saving: "Saving...",
     deleting: "Deleting...",
+    view: "View", // <--- agregado
   },
 
   clients: {
@@ -302,7 +303,7 @@ export const EN_TEXT = {
       create: "Create tariff",
       update: "Update tariff",
       saving: "Saving...",
-      note: "Note: if the property already has a tariff, selecting it will load it for editing; otherwise you'll create a new one.",
+      note: "Note: if the property already has tariff, selecting it will load it for editing; otherwise you'll create a new one.",
       validation: {
         propertyRequired: "Select a property first",
         rateRequired: "Rate is required",
@@ -454,6 +455,8 @@ export const EN_TEXT = {
     },
     show: {
       title: "Shift Details",
+      subtitle: "Scrollable list of shifts", // <--- agregado
+      open: "View shifts", // <--- agregado
     },
     errors: {
       missingDates: "Start and end are required",
