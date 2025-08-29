@@ -8,11 +8,16 @@ import GuardsPage from "../pages/GuardsPage";
 import PropertiesPage from "../pages/PropertiesPage";
 import UsersPage from "../pages/UsersPage";
 import ClientDetailPage from "../pages/ClientDetailPage";
+import { getAccessToken } from "@/lib/auth-storage";
 
 // Función helper para verificar si el usuario está autenticado
 const isAuthenticated = () => {
   try {
-    return typeof window !== 'undefined' && localStorage.getItem("isLoggedIn") === "true";
+    if (typeof window === 'undefined') return false;
+    // Verificar tanto el token como el flag de autenticación
+    const hasToken = !!getAccessToken();
+    const isLoggedIn = localStorage.getItem("isLoggedIn") === "true";
+    return hasToken && isLoggedIn;
   } catch {
     return false;
   }
@@ -40,6 +45,10 @@ export const router = createBrowserRouter([
       <ProtectedRoute>
         <DashboardLayout onLogout={() => {
           localStorage.removeItem('authToken');
+          localStorage.removeItem('isLoggedIn');
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('refresh_token');
+          localStorage.removeItem('auth_user');
           window.location.href = '/login';
         }} />
       </ProtectedRoute>

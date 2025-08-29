@@ -90,6 +90,11 @@ export async function logout(): Promise<void> {
   } catch {}
   clearAllTokens()
   clearUser()
+  // Asegurar que se limpie también el flag de login
+  try {
+    localStorage.removeItem('isLoggedIn')
+    localStorage.removeItem('authToken')
+  } catch {}
 }
 
 export async function getCurrentUser(): Promise<AuthUser> {

@@ -1,6 +1,6 @@
 "use client";
 
-import { Link } from "react-router-dom";
+import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   Bell,
   LogOut,
@@ -53,19 +53,25 @@ import {
   SidebarInset,
 } from "@/components/ui/sidebar";
 
-import DashboardContent from "@/components/Dashboard/dashboard-content";
-import SalesRegistrationContent from "@/components/Clients/client-page";
-import GuardsContent from "./Guards/guards-page";
-import UserPage from "./Users/UsersPage";
-import PropertiesContent from "./Properties/properties-page";
-
 type DashboardLayoutProps = { onLogout: () => void };
 
 export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
-  const [activeMenuItem, setActiveMenuItem] = useState("Dashboard");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [appName, setAppName] = useState<string>("Admin Dashboard");
   const { TEXT, lang, setLang } = useI18n();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Get current active menu item from URL
+  const getActiveMenuFromPath = (pathname: string) => {
+    if (pathname.startsWith('/clients')) return 'Clients';
+    if (pathname.startsWith('/guards')) return 'Guards';
+    if (pathname.startsWith('/users')) return 'Users';
+    if (pathname.startsWith('/properties')) return 'Properties';
+    return 'Dashboard';
+  };
+
+  const activeMenuItem = getActiveMenuFromPath(location.pathname);
 
   // Fetch app name from API
   useEffect(() => {
@@ -145,46 +151,37 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
       key: "Dashboard",
       label: TEXT.menu.dashboard,
       icon: LayoutDashboard,
-      component: <DashboardContent />,
+      path: "/dashboard",
     },
     {
       key: "Clients",
       label: TEXT.menu.clients,
       icon: Briefcase,
-      component: <SalesRegistrationContent />,
+      path: "/clients",
     },
     {
       key: "Guards",
       label: TEXT.menu.guards,
       icon: Users,
-      component: <GuardsContent />,
+      path: "/guards",
     },
     {
       key: "Users",
       label: TEXT.menu.users,
       icon: UserRoundCheck,
-      component: <UserPage />,
+      path: "/users",
     },
     {
       key: "Properties",
       label: TEXT.menu.properties,
       icon: Home,
-      component: <PropertiesContent />,
+      path: "/properties",
     },
   ];
 
   const renderMainContent = () => {
-    const selected = menuItems.find((item) => item.key === activeMenuItem);
-    return selected ? (
-      selected.component
-    ) : (
-      <div className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-6">
-        <h2 className="text-2xl font-bold">{TEXT.common.notFoundTitle}</h2>
-        <p className="text-muted-foreground">
-          {TEXT.common.notFoundDescription}
-        </p>
-      </div>
-    );
+    // Use React Router's Outlet to render the current route content
+    return <Outlet />;
   };
 
   return (
@@ -208,10 +205,10 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
               </SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {menuItems.map(({ key, label, icon: Icon }) => (
+                  {menuItems.map(({ key, label, icon: Icon, path }) => (
                     <SidebarMenuItem key={key}>
                       <SidebarMenuButton
-                        onClick={() => setActiveMenuItem(key)}
+                        onClick={() => navigate(path)}
                         className={activeMenuItem === key ? "bg-muted" : ""}
                       >
                         <Icon className="h-4 w-4" />
