@@ -109,8 +109,6 @@ export default function GuardDetailsModal({
     }
   }
 
-  const checkboxLabel = (TEXT?.guards?.form?.actions?.showSsn as string) ?? "Show SSN";
-
   // ---------------- Shifts state & handlers ----------------
   const [shifts, setShifts] = React.useState<Shift[]>([]);
   const [shiftsPage, setShiftsPage] = React.useState<number>(1);
@@ -305,19 +303,6 @@ export default function GuardDetailsModal({
                             </button>
                           )}
                         </div>
-
-                        <div className="mt-0 sm:mt-0 flex items-center gap-2">
-                          <input
-                            id={`toggle-ssn-${guard.id}`}
-                            type="checkbox"
-                            checked={showSsn}
-                            onChange={() => setShowSsn((v) => !v)}
-                            className="h-4 w-4 rounded border-gray-300"
-                          />
-                          <label htmlFor={`toggle-ssn-${guard.id}`} className="text-sm">
-                            {checkboxLabel}
-                          </label>
-                        </div>
                       </div>
                     ) : (
                       "-"
@@ -387,11 +372,6 @@ export default function GuardDetailsModal({
                       </div>
 
                       <div className="flex items-center gap-2">
-                        {/* Ver (abre ShowShift) */}
-                        <Button size="sm" variant="ghost" onClick={() => setOpenShowShiftId(s.id)}>
-                          {TEXT?.actions?.edit ?? "Ver"}
-                        </Button>
-
                         {/* Editar (abre EditShift) */}
                         <Button size="sm" variant="outline" onClick={() => setOpenEditShiftId(s.id)}>
                           {TEXT?.actions?.save ?? "Editar"}
