@@ -1,3 +1,4 @@
+// src/config/ui-text.es.ts
 export const ES_TEXT = {
   appName: "Texas Counties Division Patrol LLC",
   header: {
@@ -36,6 +37,7 @@ export const ES_TEXT = {
     notFoundDescription: "Selecciona una opción del menú.",
     loading: "Cargando...",
   },
+
   actions: {
     refresh: "Actualizar",
     save: "Guardar",
@@ -46,9 +48,11 @@ export const ES_TEXT = {
     close: "Cerrar",
     actions: "Acciones",
     create: "Crear",
-      copy: "Copiar",
+    copy: "Copiar",
     copySuccess: "Copiado al portapapeles",
     copyError: "No se pudo copiar",
+    saving: "Guardando...",
+    deleting: "Eliminando...",
   },
 
   clients: {
@@ -132,7 +136,6 @@ export const ES_TEXT = {
     propertiesError: "Error al cargar propiedades",
   },
 
-  // <<<< Properties translations (owner and alias) >>>>
   properties: {
     title: "Gestión de Propiedades",
     table: {
@@ -411,5 +414,41 @@ export const ES_TEXT = {
     submit: "Iniciar sesión",
     submitting: "Iniciando sesión...",
     errorDefault: "Credenciales inválidas. Por favor intenta de nuevo.",
+  },
+
+  // ------------- SHIFTS -------------
+  shifts: {
+    create: {
+      title: "Crear Turno",
+      propertyPlaceholder: "ID de propiedad (número)",
+    },
+    edit: {
+      title: "Editar Turno",
+    },
+    delete: {
+      title: "Eliminar Turno",
+      confirm: "¿Estás seguro que quieres eliminar este turno?",
+      hardDeleteLabel: "Eliminar permanentemente (hard delete)",
+    },
+    show: {
+      title: "Detalles del Turno",
+    },
+    errors: {
+      missingDates: "Fecha de inicio y fin son requeridas",
+      endBeforeStart: "La fecha de fin debe ser posterior a la de inicio",
+      missingProperty: "ID de propiedad requerido",
+      missingGuard: "ID de guardia requerido",
+      createFailed: "No se pudo crear el turno",
+      fetchFailed: "No se pudo cargar el turno",
+      updateFailed: "No se pudo actualizar el turno",
+      deleteFailed: "No se pudo eliminar el turno",
+      noShift: "No hay turno cargado",
+    },
+    messages: {
+      created: "Turno creado",
+      updated: "Turno actualizado",
+      deleted: "Turno eliminado",
+      softDeleted: "Turno eliminado (soft)",
+    },
   },
 } as const;

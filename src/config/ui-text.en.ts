@@ -1,3 +1,4 @@
+// src/config/ui-text.en.ts
 export const EN_TEXT = {
   appName: "Texas Counties Division Patrol LLC",
   header: {
@@ -36,6 +37,7 @@ export const EN_TEXT = {
     notFoundDescription: "Select an option from the menu.",
     loading: "Loading...",
   },
+
   actions: {
     refresh: "Refresh",
     save: "Save",
@@ -46,9 +48,11 @@ export const EN_TEXT = {
     close: "Close",
     actions: "Actions",
     create: "Create",
-      copy: "Copy",
+    copy: "Copy",
     copySuccess: "Copied to clipboard",
     copyError: "Could not copy",
+    saving: "Saving...",
+    deleting: "Deleting...",
   },
 
   clients: {
@@ -132,7 +136,6 @@ export const EN_TEXT = {
     propertiesError: "Error loading properties",
   },
 
-  // <<<< Properties translations (owner and alias updated) >>>>
   properties: {
     title: "Properties Management",
     table: {
@@ -411,5 +414,41 @@ export const EN_TEXT = {
     submit: "Sign in",
     submitting: "Signing in...",
     errorDefault: "Invalid credentials. Please try again.",
+  },
+
+  // ------------- SHIFTS -------------
+  shifts: {
+    create: {
+      title: "Create Shift",
+      propertyPlaceholder: "Property ID (number)",
+    },
+    edit: {
+      title: "Edit Shift",
+    },
+    delete: {
+      title: "Delete Shift",
+      confirm: "Are you sure you want to delete this shift?",
+      hardDeleteLabel: "Hard delete (permanently remove)",
+    },
+    show: {
+      title: "Shift Details",
+    },
+    errors: {
+      missingDates: "Start and end are required",
+      endBeforeStart: "End must be after start",
+      missingProperty: "Property ID required",
+      missingGuard: "Guard ID required",
+      createFailed: "Could not create shift",
+      fetchFailed: "Could not load shift",
+      updateFailed: "Could not update shift",
+      deleteFailed: "Could not delete shift",
+      noShift: "No shift loaded",
+    },
+    messages: {
+      created: "Shift created",
+      updated: "Shift updated",
+      deleted: "Shift deleted",
+      softDeleted: "Shift soft-deleted",
+    },
   },
 } as const;

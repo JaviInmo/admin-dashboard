@@ -13,6 +13,7 @@ export const endpoints = {
   permissions: 'api/v1/permissions/admin',
   properties: 'api/properties/',
   propertyTypesOfService: 'api/property-types-of-service/',
+   shifts: 'api/shifts/',
 
   common: {
     generalSettings: 'api/common/general-settings/',
