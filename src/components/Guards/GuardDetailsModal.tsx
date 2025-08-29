@@ -225,12 +225,6 @@ export default function GuardDetailsModal({
                 </div>
               </div>
 
-              {/* Quick actions (right side) */}
-              <div className="flex items-center gap-2">
-                <Button size="sm" onClick={() => setOpenCreate(true)}>
-                  {TEXT?.shifts?.create?.title ?? TEXT?.actions?.create ?? "Asignar turno"}
-                </Button>
-              </div>
             </div>
           </DialogHeader>
 
