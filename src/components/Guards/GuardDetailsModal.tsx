@@ -283,59 +283,36 @@ export default function GuardDetailsModal({
                   label={TEXT?.guards?.table?.headers?.ssn ?? "DNI/SSN"}
                   value={
                     guard.ssn ? (
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4">
+                      <div className="flex items-center justify-between gap-4">
                         <div className="flex items-center gap-2">
-                        {/* Ícono de ojo a la izquierda */}
-                        <button
-                          type="button"
-                          onClick={() => setShowSsn((v) => !v)}
-                          title={showSsn ? "Ocultar SSN" : "Mostrar SSN"}
-                          className="inline-flex items-center rounded px-1 py-1 text-sm hover:bg-muted/30"
-                        >
-                          {showSsn ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </button>
-                        
+                          {/* Ícono de ojo a la izquierda */}
+                          <button
+                            type="button"
+                            onClick={() => setShowSsn((v) => !v)}
+                            title={showSsn ? "Ocultar SSN" : "Mostrar SSN"}
+                            className="inline-flex items-center rounded px-1 py-1 text-sm hover:bg-muted/30"
+                          >
+                            {showSsn ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </button>
+
                           <span className="font-medium">
                             {showSsn ? guard.ssn : (TEXT?.guards?.table?.ssnHidden ?? "******")}
                           </span>
 
-                        {/* botón copiar solo si está visible */}
-                        {showSsn && (
-                          <button
-                            type="button"
-                            onClick={() => copyToClipboard(guard.ssn)}
-                            title={TEXT?.actions?.copy ?? "Copy"}
-                            className="inline-flex items-center rounded px-2 py-1 text-sm hover:bg-muted/30"
-                          >
-                            <Copy className="h-4 w-4" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ) : (
-                    "-"
-                  )
-                }
-              />
-              <InfoItem
-                icon={<Calendar className="h-4 w-4" />}
-                label={TEXT?.guards?.table?.headers?.birthdate ?? "Fecha de Nacimiento"}
-                value={formatDateMaybe(guard.birthdate)}
-              />
-            </div>
+                          {/* botón copiar solo si está visible */}
                           {showSsn && (
                             <button
                               type="button"
                               onClick={() => copyToClipboard(guard.ssn)}
                               title={TEXT?.actions?.copy ?? "Copy"}
-                              className="inline-flex items-center rounded px-2 py-1 text-sm hover:bg-muted/30 ml-2"
+                              className="inline-flex items-center rounded px-2 py-1 text-sm hover:bg-muted/30"
                             >
                               <Copy className="h-4 w-4" />
                             </button>
                           )}
                         </div>
 
-                        <div className="mt-2 sm:mt-0 flex items-center gap-2">
+                        <div className="mt-0 sm:mt-0 flex items-center gap-2">
                           <input
                             id={`toggle-ssn-${guard.id}`}
                             type="checkbox"
