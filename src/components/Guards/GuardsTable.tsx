@@ -1,6 +1,6 @@
 "use client";
 
-import { Pencil, Trash, Tag } from "lucide-react";
+import { Pencil, Trash, Tag, Calendar } from "lucide-react";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { ReusableTable, type Column } from "@/components/ui/reusable-table";
@@ -15,6 +15,7 @@ import { ClickableEmail } from "../ui/clickable-email";
 /* Modal separado (import) */
 import TariffModal from "./TarifModal";
 import GuardDetailsModal from "./GuardDetailsModal";
+import GuardsShiftsModal from "./GuardsShiftsModal"; // <-- si lo tienes
 
 export interface GuardsTableProps {
   guards: Guard[];
@@ -24,8 +25,10 @@ export interface GuardsTableProps {
   totalPages?: number;
   onPageChange?: (page: number) => void;
   pageSize?: number;
-  onSearch?: (term: string) => void;
   onPageSizeChange?: (size: number) => void;
+
+  onSearch?: (term: string) => void;
+
   isPageLoading?: boolean;
 
   sortField: keyof Guard;
@@ -69,17 +72,14 @@ export default function GuardsTable({
   const [createOpen, setCreateOpen] = React.useState(false);
   const [editGuard, setEditGuard] = React.useState<Guard | null>(null);
   const [deleteGuard, setDeleteGuard] = React.useState<Guard | null>(null);
-  
-  // Nuevo: estado para abrir modal de tarifas
   const [tariffGuard, setTariffGuard] = React.useState<Guard | null>(null);
-
-  // Estado para el modal de detalles del guardia
   const [detailsGuard, setDetailsGuard] = React.useState<Guard | null>(null);
 
-  // Access i18n keys
+  // Nuevo estado: guard para abrir modal de Shifts
+  const [shiftGuard, setShiftGuard] = React.useState<Guard | null>(null);
+
   const guardTable = (TEXT.guards && (TEXT.guards as any).table) ?? (TEXT.guards as any) ?? {};
 
-  // Normaliza número para usar en enlace de wa.me
   function normalizePhoneForWhatsapp(raw?: string | null): string {
     if (!raw) return "";
     const trimmed = String(raw).trim();
@@ -96,25 +96,30 @@ export default function GuardsTable({
     return digits;
   }
 
-  // Definir las columnas de la tabla
   const columns: Column<Guard>[] = [
     {
       key: "firstName",
       label: guardTable.headers?.name ?? getText("guards.table.headers.name", "Nombre"),
       sortable: true,
       render: (guard) => guard.firstName ?? "",
+      headerClassName: "px-2 py-1 text-sm",
+      cellClassName: "px-2 py-1 text-sm",
     },
     {
       key: "lastName",
       label: guardTable.headers?.lastName ?? getText("guards.table.headers.lastName", "Apellido"),
       sortable: true,
       render: (guard) => guard.lastName ?? "",
+      headerClassName: "px-2 py-1 text-sm",
+      cellClassName: "px-2 py-1 text-sm",
     },
     {
       key: "email",
       label: guardTable.headers?.email ?? getText("guards.table.headers.email", "Correo"),
       sortable: true,
       render: (guard) => <ClickableEmail email={guard.email || ""} />,
+      headerClassName: "px-2 py-1 text-sm",
+      cellClassName: "px-2 py-1 text-sm",
     },
     {
       key: "phone",
@@ -139,12 +144,16 @@ export default function GuardsTable({
             }}
             title={linkTitle}
             aria-label={ariaLabel}
-            className="text-blue-600 hover:underline"
+            className="text-blue-600 hover:underline text-sm"
           >
             {phone}
           </a>
         );
       },
+      headerClassName: "px-2 py-1 text-sm",
+      cellClassName: "px-2 py-1 text-sm",
+      headerStyle: { width: "140px", minWidth: "120px", maxWidth: "180px" },
+      cellStyle: { width: "140px", minWidth: "120px", maxWidth: "180px" },
     },
     {
       key: "ssn",
@@ -162,26 +171,47 @@ export default function GuardsTable({
         if (!ssnValue) return "-";
 
         if (visible) {
-          return ssnValue;
+          return <span className="text-sm">{ssnValue}</span>;
         }
 
-        return guardTable.ssnHidden ?? "******";
+        return <span className="text-sm">{guardTable.ssnHidden ?? "******"}</span>;
       },
+      headerClassName: "px-2 py-1 text-sm",
+      cellClassName: "px-2 py-1 text-sm",
+      headerStyle: { width: "110px", minWidth: "90px", maxWidth: "140px" },
+      cellStyle: { width: "110px", minWidth: "90px", maxWidth: "140px" },
     },
     {
       key: "birthdate",
       label: guardTable.headers?.birthdate ?? getText("guards.table.headers.birthdate", "Fecha Nac."),
       sortable: false,
-      render: (guard) => guard.birthdate ?? "-",
+      render: (guard) => <span className="text-sm">{guard.birthdate ?? "-"}</span>,
+      headerClassName: "px-2 py-1 text-sm",
+      cellClassName: "px-2 py-1 text-sm",
+      headerStyle: { width: "110px", minWidth: "90px", maxWidth: "140px" },
+      cellStyle: { width: "110px", minWidth: "90px", maxWidth: "140px" },
     },
   ];
 
-  // Campos de búsqueda
   const searchFields: (keyof Guard)[] = ["firstName", "lastName", "email", "phone"];
 
-  // Acciones de fila
   const renderActions = (guard: Guard) => (
-    <>
+    <div className="flex items-center gap-1"> {/* gap reducido */}
+      {/* Turnos */}
+      <Button
+        size="icon"
+        variant="ghost"
+        onClick={(e) => {
+          e.stopPropagation();
+          setShiftGuard(guard);
+        }}
+        title={getText("guards.table.shiftsButton", "Turnos")}
+        aria-label={getText("guards.table.shiftsAria", "Gestionar turnos de {name}", { name: `${guard.firstName ?? ""}` })}
+      >
+        <Calendar className="h-4 w-4" />
+      </Button>
+
+      {/* Tarifas */}
       <Button
         size="icon"
         variant="ghost"
@@ -195,6 +225,7 @@ export default function GuardsTable({
         <Tag className="h-4 w-4" />
       </Button>
 
+      {/* Edit */}
       <Button
         size="icon"
         variant="ghost"
@@ -208,6 +239,7 @@ export default function GuardsTable({
         <Pencil className="h-4 w-4" />
       </Button>
 
+      {/* Delete */}
       <Button
         size="icon"
         variant="ghost"
@@ -220,12 +252,13 @@ export default function GuardsTable({
       >
         <Trash className="h-4 w-4 text-red-500" />
       </Button>
-    </>
+    </div>
   );
 
   return (
     <>
       <ReusableTable
+        className="text-sm" // más compacto
         data={guards}
         columns={columns}
         getItemId={(guard) => guard.id}
@@ -275,7 +308,6 @@ export default function GuardsTable({
         />
       )}
 
-      {/* Tariff modal (componente importado) */}
       {tariffGuard && (
         <TariffModal
           guard={tariffGuard}
@@ -293,12 +325,21 @@ export default function GuardsTable({
         />
       )}
 
-      {/* Guard details modal */}
       {detailsGuard && (
         <GuardDetailsModal
           guard={detailsGuard}
           open={!!detailsGuard}
           onClose={() => setDetailsGuard(null)}
+        />
+      )}
+
+      {/* Nuevo: modal de Shifts */}
+      {shiftGuard && (
+        <GuardsShiftsModal
+          guardId={shiftGuard.id}
+          guardName={`${shiftGuard.firstName ?? ""} ${shiftGuard.lastName ?? ""}`.trim()}
+          open={!!shiftGuard}
+          onClose={() => setShiftGuard(null)}
         />
       )}
     </>
