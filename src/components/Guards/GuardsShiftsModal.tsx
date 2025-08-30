@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   CalendarIcon,
   Loader2,
@@ -368,9 +369,8 @@ export default function GuardsShiftsModal({
         if (!val) onClose();
       }}
     >
-      <DialogContent size="xl" className=" max-h-[90vh]">
-        {" "}
-        {/* Increased width for two-column layout */}
+      {/* Hacemos el DialogContent un flex column para que el footer quede fuera del área scrolleable */}
+      <DialogContent size="xl" className="max-h-[90vh] flex flex-col">
         <DialogHeader>
           <div className="flex items-center justify-between w-full pt-4">
             <div>
@@ -399,7 +399,9 @@ export default function GuardsShiftsModal({
             </div>
           </div>
         </DialogHeader>
-        <div className="flex gap-6 h-[60vh]">
+
+        {/* Área principal: le damos flex-1 y min-h-0 para que el ScrollArea pueda controlar el scroll */}
+        <div className="flex gap-6 flex-1 min-h-0">
           {/* Left column: Calendar */}
           <div className="w-80 flex-shrink-0">
             <div className="border rounded-lg p-4">
@@ -442,132 +444,136 @@ export default function GuardsShiftsModal({
             </div>
           </div>
 
-          {/* Right column: Shifts list */}
-          <div className="flex-1 flex flex-col">
-            <div className="flex-1 overflow-auto space-y-3">
-              {/* Skeleton cuando cargan la lista (primer fetch) */}
-              {loading && shifts.length === 0 ? (
-                <div className="space-y-3">
-                  {[1, 2, 3].map((i) => (
-                    <div
-                      key={i}
-                      className="flex items-center justify-between gap-4 rounded-md border p-3 shadow-sm bg-card"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="mt-1 text-muted-foreground">
-                          <div className="h-5 w-5 rounded bg-muted/30 animate-pulse" />
+          {/* Right column: Shifts list (ScrollArea integrado) */}
+          <div className="flex-1 flex flex-col min-h-0">
+            {/* ScrollArea ocupa todo el espacio disponible y no empuja el footer */}
+            <ScrollArea className="flex-1 min-h-0">
+              <div className="space-y-3 pr-4 p-3">
+                {/* Skeleton cuando cargan la lista (primer fetch) */}
+                {loading && shifts.length === 0 ? (
+                  <div className="space-y-3">
+                    {[1, 2, 3].map((i) => (
+                      <div
+                        key={i}
+                        className="flex items-center justify-between gap-4 rounded-md border p-3 shadow-sm bg-card"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="mt-1 text-muted-foreground">
+                            <div className="h-5 w-5 rounded bg-muted/30 animate-pulse" />
+                          </div>
+                          <div className="w-full">
+                            <div className="h-3 w-24 rounded bg-muted/30 animate-pulse mb-2"></div>
+                            <div className="h-4 w-40 rounded bg-muted/30 animate-pulse mb-1"></div>
+                            <div className="h-3 w-28 rounded bg-muted/30 animate-pulse"></div>
+                          </div>
                         </div>
-                        <div className="w-full">
-                          <div className="h-3 w-24 rounded bg-muted/30 animate-pulse mb-2"></div>
-                          <div className="h-4 w-40 rounded bg-muted/30 animate-pulse mb-1"></div>
-                          <div className="h-3 w-28 rounded bg-muted/30 animate-pulse"></div>
+                        <div className="flex items-center gap-2">
+                          <div className="h-8 w-8 rounded-full bg-muted/30 animate-pulse" />
+                          <div className="h-8 w-8 rounded-full bg-muted/30 animate-pulse" />
+                          <div className="h-8 w-8 rounded-full bg-muted/30 animate-pulse" />
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <div className="h-8 w-8 rounded-full bg-muted/30 animate-pulse" />
-                        <div className="h-8 w-8 rounded-full bg-muted/30 animate-pulse" />
-                        <div className="h-8 w-8 rounded-full bg-muted/30 animate-pulse" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : filteredShifts.length === 0 ? (
-                <div className="rounded border border-dashed border-muted/50 p-4 text-sm text-muted-foreground text-center">
-                  {selectedDate
-                    ? `No hay turnos para ${selectedDate.toLocaleDateString()}`
-                    : "No hay turnos para este guardia"}
-                </div>
-              ) : (
-                filteredShifts.map((s) => {
-                  const propertyLabel = getPropertyLabelForShift(s);
-                  return (
-                    <div
-                      key={s.id}
-                      className="flex items-center justify-between gap-4 rounded-md border p-3 shadow-sm bg-card"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="mt-1 text-muted-foreground">
-                          <CalendarIcon className="h-5 w-5" />
-                        </div>
-                        <div>
-                          {!selectedDate && s.startTime && (
-                            <div className="text-xs text-muted-foreground mb-1">
-                              {new Date(s.startTime).toLocaleDateString()}
-                            </div>
-                          )}
-
-                          {/* Nombre de la propiedad destacado / skeleton si está cargando */}
-                          <div className="text-sm font-semibold">
-                            {propertyLabel !== null ? (
-                              propertyLabel
-                            ) : loadingProps ? (
-                              <span className="inline-block h-4 w-44 rounded bg-muted/30 animate-pulse" />
-                            ) : s.property != null ? (
-                              `Property ID: ${s.property}`
-                            ) : (
-                              "-"
+                    ))}
+                  </div>
+                ) : filteredShifts.length === 0 ? (
+                  <div className="rounded border border-dashed border-muted/50 p-4 text-sm text-muted-foreground text-center">
+                    {selectedDate
+                      ? `No hay turnos para ${selectedDate.toLocaleDateString()}`
+                      : "No hay turnos para este guardia"}
+                  </div>
+                ) : (
+                  filteredShifts.map((s) => {
+                    const propertyLabel = getPropertyLabelForShift(s);
+                    return (
+                      <div
+                        key={s.id}
+                        className="flex items-center justify-between gap-4 rounded-md border p-3 shadow-sm bg-card"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="mt-1 text-muted-foreground">
+                            <CalendarIcon className="h-5 w-5" />
+                          </div>
+                          <div>
+                            {!selectedDate && s.startTime && (
+                              <div className="text-xs text-muted-foreground mb-1">
+                                {new Date(s.startTime).toLocaleDateString()}
+                              </div>
                             )}
-                          </div>
 
-                          {/* Rango horario */}
-                          <div className="text-sm">
-                            {s.startTime
-                              ? new Date(s.startTime).toLocaleTimeString([], {
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                })
-                              : "—"}{" "}
-                            —{" "}
-                            {s.endTime
-                              ? new Date(s.endTime).toLocaleTimeString([], {
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                })
-                              : "—"}
-                          </div>
+                            {/* Nombre de la propiedad destacado / skeleton si está cargando */}
+                            <div className="text-sm font-semibold">
+                              {propertyLabel !== null ? (
+                                propertyLabel
+                              ) : loadingProps ? (
+                                <span className="inline-block h-4 w-44 rounded bg-muted/30 animate-pulse" />
+                              ) : s.property != null ? (
+                                `Property ID: ${s.property}`
+                              ) : (
+                                "-"
+                              )}
+                            </div>
 
-                          {/* Estado y horas trabajadas */}
-                          <div className="text-xs text-muted-foreground">
-                            {s.status} · {s.hoursWorked}h
+                            {/* Rango horario */}
+                            <div className="text-sm">
+                              {s.startTime
+                                ? new Date(s.startTime).toLocaleTimeString([], {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })
+                                : "—"}{" "}
+                              —{" "}
+                              {s.endTime
+                                ? new Date(s.endTime).toLocaleTimeString([], {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })
+                                : "—"}
+                            </div>
+
+                            {/* Estado y horas trabajadas */}
+                            <div className="text-xs text-muted-foreground">
+                              {s.status} · {s.hoursWorked}h
+                            </div>
                           </div>
                         </div>
+
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => setOpenShowId(s.id)}
+                            title={TEXT?.actions?.view ?? "Ver"}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+
+                          <Button
+                            size="icon"
+                            variant="outline"
+                            onClick={() => setOpenEditId(s.id)}
+                            title={TEXT?.actions?.edit ?? "Editar"}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+
+                          <Button
+                            size="icon"
+                            variant="destructive"
+                            onClick={() => setOpenDeleteId(s.id)}
+                            title={TEXT?.actions?.delete ?? "Eliminar"}
+                          >
+                            <Trash className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
-
-                      <div className="flex items-center gap-2">
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => setOpenShowId(s.id)}
-                          title={TEXT?.actions?.view ?? "Ver"}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-
-                        <Button
-                          size="icon"
-                          variant="outline"
-                          onClick={() => setOpenEditId(s.id)}
-                          title={TEXT?.actions?.edit ?? "Editar"}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-
-                        <Button
-                          size="icon"
-                          variant="destructive"
-                          onClick={() => setOpenDeleteId(s.id)}
-                          title={TEXT?.actions?.delete ?? "Eliminar"}
-                        >
-                          <Trash className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
+                    );
+                  })
+                )}
+              </div>
+            </ScrollArea>
           </div>
         </div>
+
         <DialogFooter>
           <div className="flex items-center w-full gap-2">
             {hasNext ? (
@@ -630,7 +636,7 @@ export default function GuardsShiftsModal({
         open={openCreate}
         onClose={() => setOpenCreate(false)}
         guardId={guardId}
-        selectedDate={selectedDate} // Pass selected date to create component
+        selectedDate={selectedDate}
         onCreated={handleCreated}
       />
 
