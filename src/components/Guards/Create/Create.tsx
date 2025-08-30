@@ -1,218 +1,427 @@
-"use client";
+"use client"
 
-import * as React from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
-import { createGuard, type CreateGuardPayload } from "@/lib/services/guard";
-import { useI18n } from "@/i18n";
-import { Skeleton } from "@/components/ui/skeleton";
+import React from "react"
+import type { Shift } from "../../Shifts/types"
+import { useI18n } from "@/i18n" // Fixed import path
+import type { Guard } from "@/components/Guards/types"
+import type { AppProperty } from "@/lib/services/properties"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
 
-type Props = {
-  open: boolean;
-  onClose: () => void;
-  onCreated?: () => Promise<void> | void;
-};
+import { getGuard, listGuards } from "@/lib/services/guard"
+import { listProperties } from "@/lib/services/properties"
+import { createShift } from "@/lib/services/shifts" // Declared the createShift variable
+import { toast } from "sonner"
 
-export default function CreateGuardDialog({ open, onClose, onCreated }: Props) {
-  const { TEXT } = useI18n();
+type CreateShiftProps = {
+  open: boolean
+  onClose: () => void
+  guardId: number
+  selectedDate?: Date
+  onCreated: (shift: Shift) => void
+}
 
-  function getText(path: string, vars?: Record<string, string>) {
-    const parts = path.split(".");
-    let val: any = TEXT;
-    for (const p of parts) {
-      val = val?.[p];
-      if (val == null) break;
-    }
-    let str = typeof val === "string" ? val : path;
-    if (vars) {
-      for (const k of Object.keys(vars)) {
-        str = str.replace(new RegExp(`\\{${k}\\}`, "g"), vars[k]);
-      }
-    }
-    return str;
-  }
+function toIsoFromDatetimeLocal(value: string) {
+  const d = new Date(value)
+  return d.toISOString()
+}
 
-  const [firstName, setFirstName] = React.useState<string>("");
-  const [lastName, setLastName] = React.useState<string>("");
-  const [email, setEmail] = React.useState<string>("");
-  const [phone, setPhone] = React.useState<string>("");
-  const [ssn, setSsn] = React.useState<string>("");
-  const [address, setAddress] = React.useState<string>("");
-  const [birthdate, setBirthdate] = React.useState<string>(""); // ISO date yyyy-mm-dd
-
-  const [loading, setLoading] = React.useState<boolean>(false);
-  const mountedRef = React.useRef(true);
-
+function useDebouncedValue<T>(value: T, delay = 300) {
+  const [v, setV] = React.useState(value)
   React.useEffect(() => {
-    mountedRef.current = true;
+    const t = setTimeout(() => setV(value), delay)
+    return () => clearTimeout(t)
+  }, [value, delay])
+  return v
+}
+
+/**
+ * Extrae array de distintos shapes de respuesta paginada:
+ * - T[]
+ * - { results: T[] }
+ * - { items: T[] }
+ * - { data: { results: T[] } }
+ */
+function extractItems<T>(maybe: any): T[] {
+  if (!maybe) return []
+  if (Array.isArray(maybe)) return maybe as T[]
+  if (Array.isArray(maybe.results)) return maybe.results as T[]
+  if (Array.isArray(maybe.items)) return maybe.items as T[]
+  if (Array.isArray(maybe.data?.results)) return maybe.data.results as T[]
+  return []
+}
+
+function formatDateForInput(date: Date, hour = 9): string {
+  const pad = (n: number) => String(n).padStart(2, "0")
+  const year = date.getFullYear()
+  const month = pad(date.getMonth() + 1)
+  const day = pad(date.getDate())
+  const hourStr = pad(hour)
+  return `${year}-${month}-${day}T${hourStr}:00`
+}
+
+export default function CreateShift({ open, onClose, guardId, selectedDate, onCreated }: CreateShiftProps) {
+  const { TEXT } = useI18n()
+
+  // placeholders usando las claves existentes en tus i18n
+  const guardPlaceholder = (TEXT as any)?.guards?.table?.searchPlaceholder ?? "Buscar guard por nombre o email..."
+  const propertyPlaceholder = (TEXT as any)?.properties?.table?.searchPlaceholder ?? "Buscar propiedades..."
+
+  const [selectedGuard, setSelectedGuard] = React.useState<Guard | null>(null)
+  const [guardQuery, setGuardQuery] = React.useState<string>("")
+  const debouncedGuardQuery = useDebouncedValue(guardQuery, 300)
+  const [guardResults, setGuardResults] = React.useState<Guard[]>([])
+  const [guardsLoading, setGuardsLoading] = React.useState(false)
+  const [guardDropdownOpen, setGuardDropdownOpen] = React.useState(false)
+
+  const [selectedProperty, setSelectedProperty] = React.useState<AppProperty | null>(null)
+  const [propertyQuery, setPropertyQuery] = React.useState<string>("")
+  const debouncedPropertyQuery = useDebouncedValue(propertyQuery, 300)
+  const [propertyResults, setPropertyResults] = React.useState<AppProperty[]>([])
+  const [propertiesLoading, setPropertiesLoading] = React.useState(false)
+  const [propertyDropdownOpen, setPropertyDropdownOpen] = React.useState(false)
+
+  const [start, setStart] = React.useState<string>("")
+  const [end, setEnd] = React.useState<string>("")
+  const [status, setStatus] = React.useState<Shift["status"]>("scheduled")
+  const [loading, setLoading] = React.useState(false)
+
+  // reset cuando se cierra el dialog
+  React.useEffect(() => {
+    if (!open) {
+      setSelectedGuard(null)
+      setGuardQuery("")
+      setGuardResults([])
+      setGuardsLoading(false)
+      setGuardDropdownOpen(false)
+
+      setSelectedProperty(null)
+      setPropertyQuery("")
+      setPropertyResults([])
+      setPropertiesLoading(false)
+      setPropertyDropdownOpen(false)
+
+      setStart("")
+      setEnd("")
+      setStatus("scheduled")
+    } else if (selectedDate) {
+      setStart(formatDateForInput(selectedDate, 9)) // 9 AM start
+      setEnd(formatDateForInput(selectedDate, 17)) // 5 PM end
+    }
+  }, [open, selectedDate])
+
+  // prefill si recibes guardId (mantiene el id internamente pero no muestra "#id")
+  React.useEffect(() => {
+    if (!open) return
+    if (!guardId) return
+    let mounted = true;
+    (async () => {
+      try {
+        const g = await getGuard(guardId)
+        if (!mounted) return
+        setSelectedGuard(g)
+        // ahora sin "#id"
+        setGuardQuery(`${g.firstName} ${g.lastName} (${g.email ?? ""})`)
+      } catch (err) {
+        console.error("prefill guard failed", err)
+      }
+    })()
     return () => {
-      mountedRef.current = false;
-    };
-  }, []);
+      mounted = false
+    }
+  }, [guardId, open])
 
+  // buscar guards con debounce
   React.useEffect(() => {
-    if (!open) resetForm();
-  }, [open]);
+    let mounted = true
+    const q = (debouncedGuardQuery ?? "").trim()
+    if (q === "") {
+      setGuardResults([])
+      return
+    }
+    setGuardsLoading(true)
+    ;(async () => {
+      try {
+        const res = await listGuards(1, q, 10)
+        if (!mounted) return
+        const items = extractItems<Guard>(res)
+        setGuardResults(items)
+        setGuardDropdownOpen(true)
+      } catch (err) {
+        console.error("listGuards error", err)
+        setGuardResults([])
+      } finally {
+        if (mounted) setGuardsLoading(false)
+      }
+    })()
+    return () => {
+      mounted = false
+    }
+  }, [debouncedGuardQuery])
 
-  function resetForm() {
-    setFirstName("");
-    setLastName("");
-    setEmail("");
-    setPhone("");
-    setSsn("");
-    setAddress("");
-    setBirthdate("");
+  // buscar properties con debounce
+  React.useEffect(() => {
+    let mounted = true
+    const q = (debouncedPropertyQuery ?? "").trim()
+    if (q === "") {
+      setPropertyResults([])
+      return
+    }
+    setPropertiesLoading(true)
+    ;(async () => {
+      try {
+        const res = await listProperties(1, q, 10)
+        if (!mounted) return
+        const items = extractItems<AppProperty>(res)
+        setPropertyResults(items)
+        setPropertyDropdownOpen(true)
+      } catch (err) {
+        console.error("listProperties error", err)
+        setPropertyResults([])
+      } finally {
+        if (mounted) setPropertiesLoading(false)
+      }
+    })()
+    return () => {
+      mounted = false
+    }
+  }, [debouncedPropertyQuery])
+
+  // etiqueta para mostrar (sin id)
+  const guardLabel = (g?: Guard | null) => {
+    if (!g) return ""
+    return `${g.firstName} ${g.lastName} (${g.email ?? ""})`
+  }
+  const propertyLabel = (p?: AppProperty | null) => {
+    if (!p) return ""
+    return `${p.name ?? p.alias ?? p.address} #${p.id}`
   }
 
-  async function handleSubmit(e?: React.FormEvent) {
-    if (e) e.preventDefault();
-    setLoading(true);
+  async function onSubmit(e?: React.FormEvent) {
+    e?.preventDefault?.()
+    if (!start || !end) {
+      toast.error((TEXT as any)?.shifts?.errors?.missingDates ?? "Start and end are required")
+      return
+    }
+    const startIso = toIsoFromDatetimeLocal(start)
+    const endIso = toIsoFromDatetimeLocal(end)
 
+    if (new Date(endIso) <= new Date(startIso)) {
+      toast.error((TEXT as any)?.shifts?.errors?.endBeforeStart ?? "End must be after start")
+      return
+    }
+
+    if (!selectedProperty) {
+      toast.error((TEXT as any)?.shifts?.errors?.missingProperty ?? "Property required")
+      return
+    }
+
+    if (!selectedGuard) {
+      toast.error((TEXT as any)?.shifts?.errors?.missingGuard ?? "Guard required")
+      return
+    }
+
+    setLoading(true)
     try {
-      if (!firstName.trim()) {
-        toast.error(getText("guards.form.validation.firstNameRequired"));
-        setLoading(false);
-        return;
-      }
-      if (!lastName.trim()) {
-        toast.error(getText("guards.form.validation.lastNameRequired"));
-        setLoading(false);
-        return;
-      }
-      if (!email.trim()) {
-        toast.error(getText("guards.form.validation.invalidEmail") || getText("users.form.validation.emailRequired"));
-        setLoading(false);
-        return;
-      }
-
-      const payload: CreateGuardPayload = {
-        first_name: firstName.trim(),
-        last_name: lastName.trim(),
-        email: email.trim(),
-        phone: phone.trim() !== "" ? phone.trim() : undefined,
-        ssn: ssn.trim() !== "" ? ssn.trim() : undefined,
-        address: address.trim() !== "" ? address.trim() : undefined,
-        birth_date: birthdate !== "" ? birthdate : undefined,
-      };
-
-      await createGuard(payload);
-
-      const successMsg =
-        (getText("guards.form.createSuccess") as string) ||
-        (getText("guards.form.success") as string) ||
-        `${getText("guards.form.createTitle")} ${getText("actions.save")}`;
-      toast.success(successMsg || "Guard created");
-
-      if (!mountedRef.current) return;
-      if (onCreated) await onCreated();
-      onClose();
-    } catch (err: any) {
-      console.error("Error creando guardia:", err);
-      const server = err?.response?.data ?? err?.message ?? String(err);
-      toast.error(typeof server === "object" ? JSON.stringify(server) : String(server));
+      const created = await createShift({
+        guard: selectedGuard.id, // id sigue usándose internamente
+        property: Number(selectedProperty.id),
+        start_time: startIso,
+        end_time: endIso,
+        status,
+      })
+      toast.success((TEXT as any)?.shifts?.messages?.created ?? "Shift created")
+      onCreated?.(created as Shift)
+      onClose()
+    } catch (err) {
+      console.error(err)
+      toast.error((TEXT as any)?.shifts?.errors?.createFailed ?? "Could not create shift")
     } finally {
-      if (mountedRef.current) setLoading(false);
+      setLoading(false)
     }
   }
-
-  const FieldSkeleton = ({ rows = 1 }: { rows?: number }) => (
-    <div className="space-y-2">
-      <Skeleton className="h-4 w-2/5 rounded" />
-      <div className="space-y-2">
-        {Array.from({ length: rows }).map((_, i) => (
-          <Skeleton key={i} className="h-10 w-full rounded" />
-        ))}
-      </div>
-    </div>
-  );
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="w-full max-w-2xl">
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        if (!v) onClose()
+      }}
+    >
+      <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>{getText("guards.form.createTitle")}</DialogTitle>
+          <div className="flex items-center justify-between w-full">
+            <DialogTitle>{(TEXT as any)?.shifts?.create?.title ?? "Crear Turno"}</DialogTitle>
+          </div>
         </DialogHeader>
 
-        <div className="space-y-3 p-4">
-          {/* Si está enviando el formulario mostramos skeleton para que el usuario vea feedback */}
-          {loading ? (
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-2">
-                <FieldSkeleton />
-                <FieldSkeleton />
-              </div>
+        <form onSubmit={onSubmit} className="space-y-4 mt-4">
+          {/* Guard select-search */}
+          <div className="relative">
+            <label className="text-sm text-muted-foreground block mb-1">Guard</label>
+            <input
+              type="text"
+              className="w-full rounded border px-3 py-2"
+              value={selectedGuard ? guardLabel(selectedGuard) : guardQuery}
+              onChange={(e) => {
+                if (selectedGuard) setSelectedGuard(null)
+                setGuardQuery(e.target.value)
+              }}
+              onFocus={() => {
+                if (guardResults.length > 0) setGuardDropdownOpen(true)
+              }}
+              placeholder={guardPlaceholder}
+              aria-label="Buscar guard"
+            />
+            {selectedGuard && (
+              <button
+                type="button"
+                className="absolute right-2 top-2 text-xs text-muted-foreground"
+                onClick={() => {
+                  setSelectedGuard(null)
+                  setGuardQuery("")
+                }}
+              >
+                Clear
+              </button>
+            )}
 
-              <div className="grid grid-cols-2 gap-2">
-                <FieldSkeleton />
-                <FieldSkeleton />
+            {guardDropdownOpen && (guardResults.length > 0 || guardsLoading) && (
+              <div className="absolute z-50 left-0 right-0 mt-1 bg-white border rounded shadow max-h-56 overflow-auto">
+                {guardsLoading && <div className="p-2 text-xs text-muted-foreground">Buscando...</div>}
+                {!guardsLoading && guardResults.length === 0 && (
+                  <div className="p-2 text-xs text-muted-foreground">No matches.</div>
+                )}
+                {!guardsLoading &&
+                  guardResults.map((g) => (
+                    <button
+                      key={g.id}
+                      type="button"
+                      className="w-full text-left px-3 py-2 hover:bg-muted/10"
+                      onClick={() => {
+                        setSelectedGuard(g)
+                        // guardQuery sin "#id"
+                        setGuardQuery(`${g.firstName} ${g.lastName} (${g.email ?? ""})`)
+                        setGuardDropdownOpen(false)
+                      }}
+                    >
+                      <div className="flex flex-col">
+                        <div className="text-sm truncate">{`${g.firstName} ${g.lastName}`}</div>
+                        <div className="text-[11px] text-muted-foreground truncate">{g.email}</div>
+                      </div>
+                    </button>
+                  ))}
               </div>
+            )}
+          </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <FieldSkeleton />
-                <FieldSkeleton />
+          {/* Property select-search */}
+          <div className="relative">
+            <label className="text-sm text-muted-foreground block mb-1">Property</label>
+            <input
+              type="text"
+              className="w-full rounded border px-3 py-2"
+              value={selectedProperty ? propertyLabel(selectedProperty) : propertyQuery}
+              onChange={(e) => {
+                if (selectedProperty) setSelectedProperty(null)
+                setPropertyQuery(e.target.value)
+              }}
+              onFocus={() => {
+                if (propertyResults.length > 0) setPropertyDropdownOpen(true)
+              }}
+              placeholder={propertyPlaceholder}
+              aria-label="Buscar propiedad"
+            />
+            {selectedProperty && (
+              <button
+                type="button"
+                className="absolute right-2 top-2 text-xs text-muted-foreground"
+                onClick={() => {
+                  setSelectedProperty(null)
+                  setPropertyQuery("")
+                }}
+              >
+                Clear
+              </button>
+            )}
+
+            {propertyDropdownOpen && (propertyResults.length > 0 || propertiesLoading) && (
+              <div className="absolute z-50 left-0 right-0 mt-1 bg-white border rounded shadow max-h-56 overflow-auto">
+                {propertiesLoading && <div className="p-2 text-xs text-muted-foreground">Buscando...</div>}
+                {!propertiesLoading && propertyResults.length === 0 && (
+                  <div className="p-2 text-xs text-muted-foreground">No matches.</div>
+                )}
+                {!propertiesLoading &&
+                  propertyResults.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      className="w-full text-left px-3 py-2 hover:bg-muted/10"
+                      onClick={() => {
+                        setSelectedProperty(p)
+                        setPropertyQuery(propertyLabel(p))
+                        setPropertyDropdownOpen(false)
+                      }}
+                    >
+                      <div className="flex justify-between items-center">
+                        <div className="text-sm truncate">{p.name ?? p.alias ?? p.address}</div>
+                        <div className="text-xs text-muted-foreground">#{p.id}</div>
+                      </div>
+                      <div className="text-[11px] text-muted-foreground truncate">{p.address}</div>
+                    </button>
+                  ))}
               </div>
+            )}
+          </div>
 
-              <FieldSkeleton rows={1} />
-
-              <div className="flex justify-end gap-2 mt-3">
-                <Skeleton className="h-10 w-24 rounded" />
-                <Skeleton className="h-10 w-36 rounded" />
-              </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-sm text-muted-foreground block mb-1">Start</label>
+              <input
+                type="datetime-local"
+                className="w-full rounded border px-3 py-2"
+                value={start}
+                onChange={(e) => setStart(e.target.value)}
+              />
             </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-3">
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-sm">{getText("guards.form.fields.firstName")} *</label>
-                  <Input name="firstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
-                </div>
-                <div>
-                  <label className="block text-sm">{getText("guards.form.fields.lastName")} *</label>
-                  <Input name="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} required />
-                </div>
-              </div>
+            <div>
+              <label className="text-sm text-muted-foreground block mb-1">End</label>
+              <input
+                type="datetime-local"
+                className="w-full rounded border px-3 py-2"
+                value={end}
+                onChange={(e) => setEnd(e.target.value)}
+              />
+            </div>
+          </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-sm">{getText("guards.form.fields.email")} *</label>
-                  <Input name="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-                </div>
-                <div>
-                  <label className="block text-sm">{getText("guards.form.fields.phone")}</label>
-                  <Input name="phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
-                </div>
-              </div>
+          <div>
+            <label className="text-sm text-muted-foreground block mb-1">Status</label>
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value as Shift["status"])}
+              className="w-full rounded border px-3 py-2"
+            >
+              <option value="scheduled">scheduled</option>
+              <option value="completed">completed</option>
+              <option value="voided">voided</option>
+            </select>
+          </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-sm">{getText("guards.form.fields.ssn")}</label>
-                  <Input name="ssn" value={ssn} onChange={(e) => setSsn(e.target.value)} />
-                </div>
-                <div>
-                  <label className="block text-sm">{getText("guards.form.fields.birthdate")}</label>
-                  <Input name="birthdate" type="date" value={birthdate} onChange={(e) => setBirthdate(e.target.value)} />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm">{getText("guards.form.fields.address")}</label>
-                <Input name="address" value={address} onChange={(e) => setAddress(e.target.value)} />
-              </div>
-
-              <div className="flex justify-end gap-2 mt-3">
-                <Button variant="ghost" onClick={onClose} disabled={loading}>
-                  {getText("actions.cancel")}
-                </Button>
-                <Button type="submit" disabled={loading}>
-                  {loading ? getText("guards.form.buttons.creating") || "Creating..." : getText("guards.form.buttons.create")}
-                </Button>
-              </div>
-            </form>
-          )}
-        </div>
+          <DialogFooter>
+            <div className="flex justify-end gap-2 w-full">
+              <Button variant="ghost" onClick={onClose} type="button">
+                {(TEXT as any)?.actions?.close ?? "Close"}
+              </Button>
+              <Button type="submit" disabled={loading}>
+                {loading
+                  ? ((TEXT as any)?.actions?.saving ?? "Saving...")
+                  : ((TEXT as any)?.actions?.create ?? "Create")}
+              </Button>
+            </div>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
-  );
+  )
 }

@@ -24,6 +24,7 @@ type CreateShiftProps = {
   open: boolean;
   onClose: () => void;
   guardId?: number;
+  selectedDate?: Date;
   onCreated?: (shift: Shift) => void;
 };
 
