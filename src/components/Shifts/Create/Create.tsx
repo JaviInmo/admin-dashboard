@@ -27,6 +27,7 @@ type CreateShiftProps = {
   guardId?: number;
   selectedDate?: Date;
   propertyId?: number | null;
+  preselectedProperty?: AppProperty | null; // Propiedad ya disponible
   preloadedProperties?: AppProperty[]; // Cache de propiedades
   preloadedGuard?: Guard | null; // Cache del guardia actual
   onCreated?: (shift: Shift) => void;
@@ -68,6 +69,7 @@ export default function CreateShift({
   guardId, 
   selectedDate, 
   propertyId, 
+  preselectedProperty = null,
   preloadedProperties = [], 
   preloadedGuard = null,
   onCreated 
@@ -182,18 +184,32 @@ export default function CreateShift({
     setEnd(endString);
   }, [open, selectedDate]);
 
-  // prefill propiedad si recibes propertyId
+  // prefill propiedad si recibes propertyId o preselectedProperty
   React.useEffect(() => {
     if (!open) return;
+    
+    // Prioridad 1: Si viene preselectedProperty (desde botón +), usarla directamente
+    if (preselectedProperty) {
+      setSelectedProperty(preselectedProperty);
+      setPropertyQuery(""); // Limpiar query para que use propertyLabel
+      return;
+    }
+    
+    // Prioridad 2: Si viene propertyId, buscar en cache o API
     if (!propertyId) return;
+    
     
     // Primero intentar desde el cache
     if (preloadedProperties.length > 0) {
-      const property = preloadedProperties.find(p => Number(p.id) === propertyId);
+      // Buscar por ID con conversión flexible
+      const property = preloadedProperties.find(p => 
+        Number(p.id) === Number(propertyId) || 
+        String(p.id) === String(propertyId)
+      );
+      
       if (property) {
-        // console.log("✅ Propiedad encontrada en cache:", property.name);
         setSelectedProperty(property);
-        setPropertyQuery(`${property.name ?? property.alias ?? property.address} #${property.id}`);
+        setPropertyQuery(""); // Limpiar query para que use propertyLabel
         return;
       }
     }
@@ -212,7 +228,7 @@ export default function CreateShift({
         if (property) {
           // console.log("✅ Propiedad encontrada en API:", property.name);
           setSelectedProperty(property);
-          setPropertyQuery(`${property.name ?? property.alias ?? property.address} #${property.id}`);
+          setPropertyQuery(""); // Limpiar query para que use propertyLabel
         }
       } catch (err) {
         console.error("❌ Error al consultar propiedad:", err);
@@ -221,7 +237,7 @@ export default function CreateShift({
     return () => {
       mounted = false;
     };
-  }, [propertyId, open, preloadedProperties]);
+  }, [propertyId, open, preloadedProperties, preselectedProperty]);
 
   // buscar guards con debounce
   React.useEffect(() => {
@@ -591,7 +607,7 @@ export default function CreateShift({
                       className="w-full text-left px-3 py-2 hover:bg-muted/10"
                       onClick={() => {
                         setSelectedProperty(p);
-                        setPropertyQuery(propertyLabel(p));
+                        setPropertyQuery(""); // Limpiar para que use propertyLabel
                         setPropertyDropdownOpen(false);
                       }}
                     >

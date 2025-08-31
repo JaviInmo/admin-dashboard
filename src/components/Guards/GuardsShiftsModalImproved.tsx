@@ -725,6 +725,7 @@ export default function GuardsShiftsModalImproved({
   
   // Estado para propiedad preseleccionada en crear turno
   const [createShiftPropertyId, setCreateShiftPropertyId] = React.useState<number | null>(null);
+  const [createShiftPreselectedProperty, setCreateShiftPreselectedProperty] = React.useState<AppProperty | null>(null);
 
   return (
     <Dialog
@@ -796,6 +797,7 @@ export default function GuardsShiftsModalImproved({
                 size="sm"
                 onClick={() => {
                   setCreateShiftPropertyId(null); // No preseleccionar propiedad desde header
+                  setCreateShiftPreselectedProperty(null); // No preseleccionar propiedad desde header
                   setOpenCreate(true);
                 }}
                 className="h-8"
@@ -896,7 +898,7 @@ export default function GuardsShiftsModalImproved({
                                       {/* Círculos de propiedades en la parte inferior */}
                                       {properties.length > 0 && (
                                         <div className="absolute bottom-0.5 flex justify-center gap-0.5 flex-wrap max-w-full">
-                                          {properties.slice(0, 6).map((prop, idx) => (
+                                          {properties.slice(0, properties.length > 3 ? 3 : properties.length).map((prop, idx) => (
                                             <div
                                               key={`${prop.propertyId}-${idx}`}
                                               className={cn(
@@ -909,10 +911,10 @@ export default function GuardsShiftsModalImproved({
                                               title={`Property ${prop.propertyId}`}
                                             />
                                           ))}
-                                          {properties.length > 6 && (
+                                          {properties.length > 3 && (
                                             <div 
                                               className="w-1.5 h-1.5 rounded-full bg-gray-500 border border-white/30 flex items-center justify-center shadow-sm"
-                                              title={`+${properties.length - 6} more properties`}
+                                              title={`+${properties.length - 3} more properties`}
                                             >
                                               <span className="text-[6px] text-white leading-none font-bold">+</span>
                                             </div>
@@ -1124,6 +1126,7 @@ export default function GuardsShiftsModalImproved({
                                     onClick={(e) => {
                                       e.stopPropagation(); // Evitar que se active el click de la propiedad
                                       setCreateShiftPropertyId(propData.property.id);
+                                      setCreateShiftPreselectedProperty(propData.property);
                                       setOpenCreate(true);
                                     }}
                                     className="h-6 w-6 p-0 flex-shrink-0 hover:bg-primary/10 hover:text-primary"
@@ -1426,10 +1429,12 @@ export default function GuardsShiftsModalImproved({
         onClose={() => {
           setOpenCreate(false);
           setCreateShiftPropertyId(null); // Limpiar propiedad preseleccionada
+          setCreateShiftPreselectedProperty(null); // Limpiar propiedad preseleccionada
         }}
         guardId={guardId}
         selectedDate={selectedDate}
         propertyId={createShiftPropertyId}
+        preselectedProperty={createShiftPreselectedProperty}
         preloadedProperties={allPropertiesCache}
         preloadedGuard={currentGuardCache}
         onCreated={handleCreated}
