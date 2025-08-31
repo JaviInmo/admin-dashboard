@@ -4,7 +4,7 @@ import * as React from "react";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 
-type OptionItem<T> = T;
+// type OptionItem<T> = T; // Currently unused
 
 type SelectSearchProps<T> = {
   value?: T | null;

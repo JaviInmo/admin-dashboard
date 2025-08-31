@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ReusableTable, type Column } from "@/components/ui/reusable-table";
 import { useI18n } from "@/i18n";
 import type { SortOrder } from "@/lib/sort";
-import CreateGuardDialog from "./Create/Create";
+// import CreateGuardDialog from "./Create/Create"; // TODO: Implement proper CreateGuardDialog
 import DeleteGuardDialog from "./Delete/Delete";
 import EditGuardDialog from "./Edit/Edit";
 import type { Guard } from "./types";
@@ -15,7 +15,7 @@ import { ClickableEmail } from "../ui/clickable-email";
 /* Modal separado (import) */
 import TariffModal from "./TarifModal";
 import GuardDetailsModal from "./GuardDetailsModal";
-import GuardsShiftsModal from "./GuardsShiftsModal"; // <-- si lo tienes
+import GuardsShiftsModal from "./GuardsShiftsModalImproved"; // Modal mejorado
 
 export interface GuardsTableProps {
   guards: Guard[];
@@ -69,7 +69,7 @@ export default function GuardsTable({
     return String(str);
   }
 
-  const [createOpen, setCreateOpen] = React.useState(false);
+  // const [createOpen, setCreateOpen] = React.useState(false); // TODO: Implement CreateGuardDialog
   const [editGuard, setEditGuard] = React.useState<Guard | null>(null);
   const [deleteGuard, setDeleteGuard] = React.useState<Guard | null>(null);
   const [tariffGuard, setTariffGuard] = React.useState<Guard | null>(null);
@@ -271,7 +271,7 @@ export default function GuardsTable({
         title={guardTable.title ?? getText("guards.table.title", "Guards List")}
         searchPlaceholder={guardTable.searchPlaceholder ?? getText("guards.table.searchPlaceholder", "Buscar guardias...")}
         addButtonText={guardTable.add ?? guardTable.addButton ?? getText("guards.table.add", "Agregar")}
-        onAddClick={() => setCreateOpen(true)}
+        // onAddClick={() => setCreateOpen(true)} // TODO: Implement CreateGuardDialog
         serverSide={serverSide}
         currentPage={currentPage}
         totalPages={totalPages}
@@ -287,11 +287,12 @@ export default function GuardsTable({
         isPageLoading={isPageLoading}
       />
 
-      <CreateGuardDialog
+      {/* TODO: Implement CreateGuardDialog component */}
+      {/* <CreateGuardDialog
         open={createOpen}
         onClose={() => setCreateOpen(false)}
         onCreated={onRefresh}
-      />
+      /> */}
       {editGuard && (
         <EditGuardDialog
           guard={editGuard}
