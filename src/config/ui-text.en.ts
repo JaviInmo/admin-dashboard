@@ -512,6 +512,7 @@ export const EN_TEXT = {
     },
     tabs: {
       overview: "Overview",
+      timeline: "Timeline",
       advanced: "Advanced Metrics",
       reports: "Reports",
     },

@@ -6,7 +6,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -24,14 +23,20 @@ import {
   Clock,
   BarChart3,
   Download,
-  Grid3X3,
-  Calendar as CalendarViewIcon,
+  Search,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useI18n } from "@/i18n";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 import CreateShift from "@/components/Shifts/Create/Create";
 import ShowShift from "@/components/Shifts/Show/Show";
@@ -40,20 +45,22 @@ import DeleteShift from "@/components/Shifts/Delete/Delete";
 import type { Shift } from "@/components/Shifts/types";
 import { listShiftsByGuard } from "@/lib/services/shifts";
 import { getProperty } from "@/lib/services/properties";
+import { getGuard } from "@/lib/services/guard";
 import type { AppProperty } from "@/lib/services/properties";
+import { cn } from "@/lib/utils";
 
-// Colores para propiedades - estilo Windows
+// Colores para propiedades - paleta de 50 colores únicos
 const PROPERTY_COLORS = [
-  "#3B82F6", // blue-500
-  "#EF4444", // red-500
-  "#10B981", // emerald-500
-  "#F59E0B", // amber-500
-  "#8B5CF6", // violet-500
-  "#EC4899", // pink-500
-  "#14B8A6", // teal-500
-  "#F97316", // orange-500
-  "#6366F1", // indigo-500
-  "#84CC16", // lime-500
+  "#3B82F6", "#EF4444", "#10B981", "#F59E0B", "#8B5CF6", // 1-5: azul, rojo, verde, ámbar, violeta
+  "#EC4899", "#14B8A6", "#F97316", "#6366F1", "#84CC16", // 6-10: rosa, teal, naranja, índigo, lima
+  "#DC2626", "#059669", "#D97706", "#7C3AED", "#BE185D", // 11-15: rojo oscuro, esmeralda oscuro, ámbar oscuro, violeta oscuro, rosa oscuro
+  "#0891B2", "#EA580C", "#4F46E5", "#65A30D", "#B91C1C", // 16-20: cian, naranja oscuro, índigo oscuro, lima oscuro, rojo muy oscuro
+  "#047857", "#92400E", "#5B21B6", "#A21CAF", "#0E7490", // 21-25: esmeralda muy oscuro, ámbar muy oscuro, violeta muy oscuro, rosa muy oscuro, cian oscuro
+  "#C2410C", "#3730A3", "#4D7C0F", "#991B1B", "#064E3B", // 26-30: naranja muy oscuro, índigo muy oscuro, lima muy oscuro, rojo extremo, esmeralda extremo
+  "#78350F", "#581C87", "#86198F", "#155E75", "#9A3412", // 31-35: ámbar extremo, violeta extremo, rosa extremo, cian muy oscuro, naranja extremo
+  "#312E81", "#365314", "#7F1D1D", "#052E16", "#451A03", // 36-40: índigo extremo, lima extremo, rojo final, esmeralda final, ámbar final
+  "#2E1065", "#701A75", "#164E63", "#7C2D12", "#1E1B4B", // 41-45: violeta final, rosa final, cian final, naranja final, índigo final
+  "#1A2E05", "#450A0A", "#0C2D12", "#431407", "#0F172A"  // 46-50: lima final, rojo absoluto, esmeralda absoluto, ámbar absoluto, slate muy oscuro
 ];
 
 // Estados con colores
@@ -146,15 +153,12 @@ export default function GuardsShiftsModalImproved({
   const { TEXT } = useI18n();
 
   const [shifts, setShifts] = React.useState<Shift[]>([]);
-  const [page, setPage] = React.useState<number>(1);
   const [loading, setLoading] = React.useState<boolean>(false);
-  const [hasNext, setHasNext] = React.useState<boolean>(false);
 
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(
     undefined
   );
   const [selectedPropertyId, setSelectedPropertyId] = React.useState<number | null>(null);
-  const [viewMode, setViewMode] = React.useState<"calendar" | "timeline">("calendar");
 
   // Cache de propiedades { [id]: AppProperty | null }
   const [propertyMap, setPropertyMap] = React.useState<
@@ -162,6 +166,24 @@ export default function GuardsShiftsModalImproved({
   >({});
   const [propertyColors, setPropertyColors] = React.useState<Record<number, string>>({});
   const [loadingProps, setLoadingProps] = React.useState<boolean>(false);
+  
+  // Estados para filtrado de propiedades
+  const [propertyTimeFilter, setPropertyTimeFilter] = React.useState<string>("all");
+  const [propertySearchQuery, setPropertySearchQuery] = React.useState<string>("");
+  
+  // Cache de todas las propiedades para mejorar rendimiento
+  const [allPropertiesCache, setAllPropertiesCache] = React.useState<AppProperty[]>([]);
+  const [propertiesCacheLoaded, setPropertiesCacheLoaded] = React.useState<boolean>(false);
+  
+  // Cache del guardia actual para evitar llamadas repetidas
+  const [currentGuardCache, setCurrentGuardCache] = React.useState<any | null>(null);
+  const [guardCacheLoaded, setGuardCacheLoaded] = React.useState<boolean>(false);
+
+  // Estados para manejo de solapamientos
+  const [overlapDays, setOverlapDays] = React.useState<Set<string>>(new Set());
+  const [overlapAlert, setOverlapAlert] = React.useState<string>("");
+  const [overlapShifts, setOverlapShifts] = React.useState<Set<number>>(new Set());
+  const [overlapProperties, setOverlapProperties] = React.useState<Set<number>>(new Set());
 
   // Datos procesados para el calendario estilo Windows
   const processedData = React.useMemo(() => {
@@ -222,6 +244,91 @@ export default function GuardsShiftsModalImproved({
     return Object.values(processedData).map(day => day.date);
   }, [processedData]);
 
+  // Detectar días con solapamientos
+  const overlapDetection = React.useMemo(() => {
+    const overlaps = new Set<string>();
+    const overlapMessages: string[] = [];
+    const overlappingShifts = new Set<number>();
+    const overlappingProperties = new Set<number>();
+
+    // Función para verificar solapamiento entre dos turnos
+    const checkTimeOverlap = (start1: string, end1: string, start2: string, end2: string): boolean => {
+      const startDate1 = new Date(start1);
+      const endDate1 = new Date(end1);
+      const startDate2 = new Date(start2);
+      const endDate2 = new Date(end2);
+      return startDate1 < endDate2 && startDate2 < endDate1;
+    };
+
+    // Verificar solapamientos día por día
+    Object.values(processedData).forEach((dayData) => {
+      const dayShifts = dayData.shifts;
+      if (dayShifts.length < 2) return; // No puede haber solapamiento con menos de 2 turnos
+
+      for (let i = 0; i < dayShifts.length; i++) {
+        for (let j = i + 1; j < dayShifts.length; j++) {
+          const shift1 = dayShifts[i];
+          const shift2 = dayShifts[j];
+
+          if (shift1.startTime && shift1.endTime && shift2.startTime && shift2.endTime) {
+            if (checkTimeOverlap(shift1.startTime, shift1.endTime, shift2.startTime, shift2.endTime)) {
+              const dateKey = dayData.date.toLocaleDateString();
+              overlaps.add(dateKey);
+              
+              // Marcar turnos específicos con solapamiento
+              overlappingShifts.add(shift1.id);
+              overlappingShifts.add(shift2.id);
+              
+              // Marcar propiedades afectadas
+              if (shift1.property) overlappingProperties.add(Number(shift1.property));
+              if (shift2.property) overlappingProperties.add(Number(shift2.property));
+              
+              if (!overlapMessages.some(msg => msg.includes(dateKey))) {
+                overlapMessages.push(`${dateKey}`);
+              }
+            }
+          }
+        }
+      }
+    });
+
+    return { 
+      overlaps, 
+      overlappingShifts,
+      overlappingProperties,
+      message: overlapMessages.length > 0 ? `Solapamientos detectados en: ${overlapMessages.join(', ')}` : '' 
+    };
+  }, [processedData]);
+
+  // Actualizar estados de solapamiento
+  React.useEffect(() => {
+    setOverlapDays(overlapDetection.overlaps);
+    setOverlapAlert(overlapDetection.message);
+    setOverlapShifts(overlapDetection.overlappingShifts);
+    setOverlapProperties(overlapDetection.overlappingProperties);
+  }, [overlapDetection]);
+
+  // Mapa de fecha -> propiedades con turnos para mostrar círculos
+  const datePropertyMap = React.useMemo(() => {
+    const map: Record<string, Array<{propertyId: number, color: string}>> = {};
+    
+    shifts.forEach(shift => {
+      if (!shift.startTime) return;
+      const dateKey = new Date(shift.startTime).toDateString();
+      const propertyId = Number(shift.property);
+      const color = propertyColors[propertyId] || PROPERTY_COLORS[propertyId % PROPERTY_COLORS.length];
+      
+      if (!map[dateKey]) map[dateKey] = [];
+      
+      // Evitar duplicados de la misma propiedad
+      if (!map[dateKey].find(p => p.propertyId === propertyId)) {
+        map[dateKey].push({ propertyId, color });
+      }
+    });
+    
+    return map;
+  }, [shifts, propertyColors]);
+
   // Propiedades filtradas - SIEMPRE mostrar todas las propiedades del guardia
   const allProperties = React.useMemo(() => {
     // Mostrar todas las propiedades únicas donde el guardia tiene turnos
@@ -251,6 +358,58 @@ export default function GuardsShiftsModalImproved({
     
     return Object.values(propertyGroups);
   }, [shifts, propertyMap, propertyColors]);
+
+  // Propiedades filtradas por búsqueda y tiempo
+  const filteredProperties = React.useMemo(() => {
+    let result = allProperties;
+    
+    // Filtro por búsqueda de texto
+    if (propertySearchQuery.trim()) {
+      const query = propertySearchQuery.toLowerCase();
+      result = result.filter(prop => 
+        prop.property.name?.toLowerCase().includes(query) ||
+        prop.property.alias?.toLowerCase().includes(query) ||
+        prop.property.address?.toLowerCase().includes(query)
+      );
+    }
+    
+    // Filtro temporal
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    switch (propertyTimeFilter) {
+      case 'future':
+        result = result.filter(prop => 
+          prop.shifts.some(shift => 
+            shift.startTime && new Date(shift.startTime) > now
+          )
+        );
+        break;
+      case 'current':
+        result = result.filter(prop => 
+          prop.shifts.some(shift => 
+            shift.startTime && isSameDay(new Date(shift.startTime), today)
+          )
+        );
+        break;
+      case 'past':
+        result = result.filter(prop => 
+          prop.shifts.length > 0 && prop.shifts.every(shift => 
+            shift.startTime && new Date(shift.startTime) < today
+          )
+        );
+        break;
+      case 'no-shifts':
+        result = result.filter(prop => prop.shifts.length === 0);
+        break;
+      case 'all':
+      default:
+        // No filtrar, mostrar todas
+        break;
+    }
+    
+    return result;
+  }, [allProperties, propertySearchQuery, propertyTimeFilter]);
 
   // Shifts filtrados por propiedad seleccionada, ordenados por fecha (más recientes primero)
   const filteredShifts = React.useMemo(() => {
@@ -347,8 +506,6 @@ export default function GuardsShiftsModalImproved({
         const normalized = normalizeShiftsArray(res);
         if (!mounted) return;
         setShifts(normalized);
-        setPage(1);
-        setHasNext(Boolean(res?.next ?? res?.previous ?? res?.items ?? false));
 
         // cargar propiedades faltantes
         const propIds = Array.from(
@@ -380,20 +537,102 @@ export default function GuardsShiftsModalImproved({
     };
   }, [open, guardId]);
 
-  async function loadMore() {
-    const nextPage = page + 1;
+  // Precargar cache de propiedades al abrir el modal (solo las usadas por este guardia)
+  React.useEffect(() => {
+    if (!open || propertiesCacheLoaded) return;
+    
+    let mounted = true;
+    const loadGuardProperties = async () => {
+      try {
+        console.log("Precargando propiedades específicas del guardia...");
+        
+        // Primero obtener los turnos del guardia para ver qué propiedades usa
+        const shiftsResponse = await listShiftsByGuard(guardId, 1, 500); // Obtener suficientes turnos para ver todas las propiedades
+        const shiftsData = Array.isArray(shiftsResponse) ? shiftsResponse : (shiftsResponse as any)?.results || [];
+        
+        // Extraer IDs únicos de propiedades usadas por este guardia
+        const propertyIds = Array.from(
+          new Set(
+            shiftsData
+              .map((shift: any) => shift.property || shift.property_id)
+              .filter((id: any) => id != null)
+              .map((id: any) => Number(id))
+          )
+        ).filter((id) => !Number.isNaN(id)) as number[];
+        
+        if (!mounted) return;
+        
+        if (propertyIds.length === 0) {
+          console.log("✅ Guardia sin propiedades asignadas");
+          setAllPropertiesCache([]);
+          setPropertiesCacheLoaded(true);
+          return;
+        }
+        
+        // Cargar solo las propiedades específicas que usa este guardia
+        console.log(`Cargando ${propertyIds.length} propiedades específicas:`, propertyIds);
+        const propertyPromises = propertyIds.map((id: number) => getProperty(id).catch(err => {
+          console.warn(`Error cargando propiedad ${id}:`, err);
+          return null;
+        }));
+        
+        const properties = (await Promise.all(propertyPromises)).filter(p => p !== null);
+        
+        if (!mounted) return;
+          
+        setAllPropertiesCache(properties);
+        setPropertiesCacheLoaded(true);
+        console.log(`✅ Precargadas ${properties.length} propiedades específicas del guardia en cache`);
+      } catch (error) {
+        console.error("❌ Error precargando propiedades del guardia:", error);
+      }
+    };
+    
+    loadGuardProperties();
+    
+    return () => {
+      mounted = false;
+    };
+  }, [open, propertiesCacheLoaded, guardId]);
+
+  // Precargar datos del guardia actual al abrir el modal
+  React.useEffect(() => {
+    if (!open || guardCacheLoaded || !guardId) return;
+    
+    let mounted = true;
+    const loadCurrentGuard = async () => {
+      try {
+        console.log(`Precargando datos del guardia ${guardId}...`);
+        const guardData = await getGuard(guardId);
+        if (!mounted) return;
+        
+        setCurrentGuardCache(guardData);
+        setGuardCacheLoaded(true);
+        console.log(`✅ Precargados datos del guardia:`, guardData);
+      } catch (error) {
+        console.error("❌ Error precargando datos del guardia:", error);
+      }
+    };
+    
+    loadCurrentGuard();
+    
+    return () => {
+      mounted = false;
+    };
+  }, [open, guardCacheLoaded, guardId]);
+
+  // Función para refrescar/actualizar datos (no duplicar)
+  async function refresh() {
     setLoading(true);
     try {
-      const res = await listShiftsByGuard(guardId, nextPage, 50, "-start_time");
-      const newItems = normalizeShiftsArray(res);
-      setShifts((p) => [...p, ...newItems]);
-      setPage(nextPage);
-      setHasNext(Boolean(res?.next ?? res?.previous ?? res?.items ?? false));
+      const res = await listShiftsByGuard(guardId, 1, 100, "-start_time");
+      const normalized = normalizeShiftsArray(res);
+      setShifts(normalized); // Reemplazar, no agregar
 
-      // fetch propiedades de nuevos items si faltan
+      // cargar propiedades faltantes
       const propIds = Array.from(
         new Set(
-          newItems
+          normalized
             .map((s) => s.property)
             .filter((id) => id != null)
             .map((id) => Number(id))
@@ -403,9 +642,11 @@ export default function GuardsShiftsModalImproved({
       if (propIds.length > 0) {
         await fetchAndCacheProperties(propIds);
       }
+      
+      toast.success("Datos actualizados");
     } catch (err) {
-      console.error("[LoadMore] error:", err);
-      toast.error(TEXT?.shifts?.errors?.fetchFailed ?? "Could not load shifts");
+      console.error("[Refresh] error:", err);
+      toast.error("Error al actualizar datos");
     } finally {
       setLoading(false);
     }
@@ -481,6 +722,9 @@ export default function GuardsShiftsModalImproved({
   const [openShowId, setOpenShowId] = React.useState<number | null>(null);
   const [openEditId, setOpenEditId] = React.useState<number | null>(null);
   const [openDeleteId, setOpenDeleteId] = React.useState<number | null>(null);
+  
+  // Estado para propiedad preseleccionada en crear turno
+  const [createShiftPropertyId, setCreateShiftPropertyId] = React.useState<number | null>(null);
 
   return (
     <Dialog
@@ -522,50 +766,56 @@ export default function GuardsShiftsModalImproved({
             </div>
             
             <div className="flex items-center gap-2 pr-1 flex-shrink-0">
-              <div className="flex rounded-md border">
-                <Button
-                  size="sm"
-                  variant={viewMode === "calendar" ? "default" : "ghost"}
-                  onClick={() => setViewMode("calendar")}
-                  className="rounded-r-none h-8 px-2"
-                >
-                  <CalendarViewIcon className="h-3 w-3" />
-                </Button>
-                <Button
-                  size="sm"
-                  variant={viewMode === "timeline" ? "default" : "ghost"}
-                  onClick={() => setViewMode("timeline")}
-                  className="rounded-l-none h-8 px-2"
-                >
-                  <Grid3X3 className="h-3 w-3" />
-                </Button>
-              </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={refresh}
+                disabled={loading}
+                className="h-8 w-8 p-0"
+              >
+                {loading ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-3 w-3" />
+                )}
+              </Button>
               
               <Button
                 size="sm"
-                onClick={() => setOpenCreate(true)}
-                disabled={!selectedDate}
+                variant="ghost"
+                onClick={() => {
+                  // TODO: Implementar exportación
+                  toast.info("Función de exportar en desarrollo");
+                }}
+                className="h-8 w-8 p-0"
+              >
+                <Download className="h-3 w-3" />
+              </Button>
+              
+              <Button
+                size="sm"
+                onClick={() => {
+                  setCreateShiftPropertyId(null); // No preseleccionar propiedad desde header
+                  setOpenCreate(true);
+                }}
                 className="h-8"
+                disabled={!propertiesCacheLoaded}
               >
                 <Plus className="h-3 w-3 mr-1" />
-                {TEXT?.shifts?.create?.title ?? "Crear"}
+                {!propertiesCacheLoaded ? "Cargando..." : (TEXT?.shifts?.create?.title ?? "Crear")}
               </Button>
             </div>
           </div>
         </DialogHeader>
 
-        {/* Área principal con tabs */}
-        <div className="flex-1 min-h-0">
-          <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)} className="h-full flex flex-col">
-            
-            <TabsContent value="calendar" className="flex-1 min-h-0">
-              <div 
-                className="grid grid-cols-12 gap-6 h-full overflow-hidden" 
-                style={{ 
-                  gap: 'calc(var(--spacing) * 1)',
-                  height: 'calc(95vh - 200px)'
-                }}
-              >
+        {/* Área principal */}
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <div 
+            className="grid grid-cols-12 gap-6 h-full overflow-hidden" 
+            style={{ 
+              gap: 'calc(var(--spacing) * 1)'
+            }}
+          >
                 {/* IZQUIERDA: Calendario con scroll vertical - 4 columnas */}
                 <div className="col-span-4">
                   <Card className="h-full flex flex-col gap-0 py-2">
@@ -583,30 +833,121 @@ export default function GuardsShiftsModalImproved({
                             }}
                             modifiers={{
                               hasShifts: daysWithShifts,
-                              selectedProperty: selectedPropertyId ? 
-                                shifts
-                                  .filter(s => s.property === selectedPropertyId && s.startTime)
-                                  .map(s => new Date(s.startTime!))
-                                : []
                             }}
                             modifiersStyles={{
                               hasShifts: {
-                                backgroundColor: "hsl(var(--primary))",
-                                color: "hsl(var(--primary-foreground))",
                                 fontWeight: "bold",
-                              },
-                              selectedProperty: {
-                                backgroundColor: selectedPropertyId ? 
-                                  propertyColors[selectedPropertyId] || "hsl(var(--primary))" : 
-                                  "hsl(var(--primary))",
-                                color: "white",
-                                fontWeight: "bold",
-                                border: "2px solid white",
+                              }
+                            }}
+                            components={{
+                              DayButton: (props: any) => {
+                                const dateKey = props.day.date.toDateString();
+                                const properties = datePropertyMap[dateKey] || [];
+                                const hasShifts = properties.length > 0;
+                                
+                                // Verificar si este día tiene solapamientos
+                                const hasOverlap = overlapDays.has(props.day.date.toLocaleDateString());
+                                
+                                // Verificar si este día tiene turnos de la propiedad seleccionada
+                                const hasSelectedPropertyShift = selectedPropertyId ? 
+                                  properties.some(p => p.propertyId === selectedPropertyId) : false;
+                                
+                                // Color de la propiedad seleccionada para el sombreado
+                                const selectedPropertyColor = selectedPropertyId ? 
+                                  (propertyColors[selectedPropertyId] || PROPERTY_COLORS[selectedPropertyId % PROPERTY_COLORS.length]) : null;
+                                
+                                return (
+                                  <button
+                                    {...props}
+                                    className={cn(
+                                      "relative group/day aspect-square size-auto w-full min-w-(--cell-size) flex-col gap-1 leading-none font-normal text-sm p-1 transition-all duration-200",
+                                      "hover:bg-accent hover:text-accent-foreground rounded-md",
+                                      // Estilos para día seleccionado
+                                      props.modifiers?.selected && "bg-primary text-primary-foreground ring-2 ring-primary/20",
+                                      // Estilos para día de hoy
+                                      props.modifiers?.today && !props.modifiers?.selected && "bg-accent text-accent-foreground font-bold ring-1 ring-accent",
+                                      // Estilo para días con solapamientos (prioridad alta)
+                                      hasOverlap && !props.modifiers?.selected && "bg-red-100 border-2 border-red-400 shadow-lg ring-2 ring-red-200",
+                                      // Sombra sutil para días con guardias (cualquier guardia) - solo si no hay solapamiento
+                                      hasShifts && !props.modifiers?.selected && !hasSelectedPropertyShift && !hasOverlap && "shadow-sm bg-blue-50/60 border border-blue-100/80",
+                                      // Sombreado del color de la propiedad seleccionada - solo si no hay solapamiento
+                                      hasSelectedPropertyShift && !props.modifiers?.selected && !hasOverlap && "shadow-md border-2",
+                                      props.className
+                                    )}
+                                    style={{
+                                      ...props.style,
+                                      // Aplicar color de fondo y borde cuando hay propiedad seleccionada
+                                      ...(hasSelectedPropertyShift && selectedPropertyColor && !props.modifiers?.selected && {
+                                        backgroundColor: `${selectedPropertyColor}15`, // 15 es ~8% opacity en hex
+                                        borderColor: `${selectedPropertyColor}80`, // 80 es ~50% opacity en hex
+                                        boxShadow: `0 2px 4px ${selectedPropertyColor}25` // 25 es ~15% opacity en hex
+                                      })
+                                    }}
+                                  >
+                                    <div className="relative w-full h-full flex flex-col items-center justify-center">
+                                      {/* Número del día */}
+                                      <span className={cn(
+                                        "text-sm",
+                                        hasShifts && "font-semibold"
+                                      )}>
+                                        {props.day.date.getDate()}
+                                      </span>
+                                      
+                                      {/* Círculos de propiedades en la parte inferior */}
+                                      {properties.length > 0 && (
+                                        <div className="absolute bottom-0.5 flex justify-center gap-0.5 flex-wrap max-w-full">
+                                          {properties.slice(0, 6).map((prop, idx) => (
+                                            <div
+                                              key={`${prop.propertyId}-${idx}`}
+                                              className={cn(
+                                                "w-1.5 h-1.5 rounded-full border transition-all duration-200",
+                                                selectedPropertyId === prop.propertyId 
+                                                  ? "border-white/90 shadow-sm ring-1 ring-white/30 scale-110" 
+                                                  : "border-white/30"
+                                              )}
+                                              style={{ backgroundColor: prop.color }}
+                                              title={`Property ${prop.propertyId}`}
+                                            />
+                                          ))}
+                                          {properties.length > 6 && (
+                                            <div 
+                                              className="w-1.5 h-1.5 rounded-full bg-gray-500 border border-white/30 flex items-center justify-center shadow-sm"
+                                              title={`+${properties.length - 6} more properties`}
+                                            >
+                                              <span className="text-[6px] text-white leading-none font-bold">+</span>
+                                            </div>
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </button>
+                                );
                               }
                             }}
                             numberOfMonths={1}
                           />
                         </div>
+
+                        {/* Alerta de solapamientos */}
+                        {overlapAlert && (
+                          <div className="mt-3 bg-red-50 border border-red-200 rounded-md p-3">
+                            <div className="flex items-center">
+                              <div className="flex-shrink-0">
+                                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                </svg>
+                              </div>
+                              <div className="ml-3">
+                                <h3 className="text-sm font-medium text-red-800">
+                                  ⚠️ Solapamientos Detectados
+                                </h3>
+                                <div className="mt-1 text-sm text-red-700">
+                                  {overlapAlert}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -615,97 +956,190 @@ export default function GuardsShiftsModalImproved({
                 {/* CENTRO: Lista de Propiedades - 4 columnas */}
                 <div className="col-span-4">
                   <Card className="h-full flex flex-col">
-                    <CardHeader className="pb-0 flex-shrink-0">
-                      <CardTitle className="text-sm flex items-center gap-2">
-                        <MapPin className="h-4 w-4" />
-                        Propiedades
-                        {selectedPropertyId && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => setSelectedPropertyId(null)}
-                            className="h-6 px-2 text-xs ml-auto"
-                          >
-                            <Filter className="h-3 w-3 mr-1" />
-                            Limpiar
-                          </Button>
-                        )}
-                      </CardTitle>
+                    <CardHeader className="pb-2 flex-shrink-0">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-sm flex items-center gap-2">
+                          <MapPin className="h-4 w-4" />
+                          Propiedades ({filteredProperties.length})
+                        </CardTitle>
+                        
+                        <div className="flex items-center gap-2">
+                          {/* Botón de limpiar filtros cuando hay filtros activos */}
+                          {(selectedPropertyId || propertyTimeFilter !== "all" || propertySearchQuery.trim()) && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                setSelectedPropertyId(null);
+                                setPropertyTimeFilter("all");
+                                setPropertySearchQuery("");
+                              }}
+                              className="h-6 px-2 text-xs"
+                            >
+                              <Filter className="h-3 w-3 mr-1" />
+                              Limpiar
+                            </Button>
+                          )}
+                          
+                          {/* Dropdown de filtros temporales */}
+                          <Select value={propertyTimeFilter} onValueChange={setPropertyTimeFilter}>
+                            <SelectTrigger className="w-32 h-8">
+                              <SelectValue placeholder="Filtrar" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">Todos</SelectItem>
+                              <SelectItem value="future">Futuros</SelectItem>
+                              <SelectItem value="current">Actuales</SelectItem>
+                              <SelectItem value="past">Pasados</SelectItem>
+                              <SelectItem value="no-shifts">Sin turnos</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
                     </CardHeader>
-                    <CardContent className="p-0 flex-1 min-h-0">
-                      <ScrollArea className="h-full w-full" style={{ maxHeight: 'calc(95vh - 250px)' }}>
-                        <div className="space-y-2 p-2 pt-1">
-                          {allProperties.length === 0 ? (
-                            <div className="text-center text-sm text-muted-foreground py-8" style={{ paddingBlock: 'calc(var(--spacing) * 3)' }}>
-                              No hay propiedades con turnos
+                    <CardContent className="p-0 flex-1 min-h-0 overflow-hidden">
+                      {/* Campo de búsqueda */}
+                      <div className="px-3 pb-2">
+                        <div className="relative">
+                          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            placeholder="Buscar por nombre o alias..."
+                            value={propertySearchQuery}
+                            onChange={(e) => setPropertySearchQuery(e.target.value)}
+                            className="pl-9 h-9 text-sm"
+                          />
+                          {propertySearchQuery && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setPropertySearchQuery("")}
+                              className="absolute right-1 top-1 h-7 w-7 p-0 hover:bg-muted"
+                            >
+                              ✕
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Lista de propiedades filtradas */}
+                      <ScrollArea className="h-[calc(95vh-360px)] w-full">
+                        <div className="space-y-2 px-3 pb-2">
+                          {filteredProperties.length === 0 ? (
+                            <div className="text-center text-sm text-muted-foreground py-8">
+                              {propertySearchQuery.trim() ? 
+                                "No se encontraron propiedades" : 
+                                propertyTimeFilter === 'no-shifts' ? 
+                                  "No hay propiedades sin turnos" :
+                                  "No hay propiedades con turnos"
+                              }
                             </div>
                           ) : (
-                            allProperties.map((propData) => (
+                            filteredProperties.map((propData) => {
+                              const hasPropertyOverlap = overlapProperties.has(propData.property.id);
+                              
+                              return (
                               <div
                                 key={propData.property.id}
-                                className={`p-2 rounded border cursor-pointer transition-all hover:shadow-sm ${
-                                  selectedPropertyId === propData.property.id
-                                    ? "border-primary bg-primary/10 shadow-sm"
-                                    : "border-transparent bg-muted/50 hover:bg-muted"
-                                }`}
-                                onClick={() => {
-                                  setSelectedPropertyId(
-                                    selectedPropertyId === propData.property.id 
-                                      ? null 
-                                      : propData.property.id
-                                  );
-                                  // Limpiar selección de fecha al seleccionar propiedad
-                                  setSelectedDate(undefined);
-                                }}
+                                className={cn(
+                                  "p-2 rounded border transition-all hover:shadow-sm",
+                                  // Estilo para solapamiento (prioridad alta)
+                                  hasPropertyOverlap 
+                                    ? "border-red-400 bg-red-50 shadow-md ring-2 ring-red-200" 
+                                    : selectedPropertyId === propData.property.id
+                                      ? "border-primary bg-primary/10 shadow-sm"
+                                      : "border-transparent bg-muted/50 hover:bg-muted"
+                                )}
                               >
-                                <div className="flex items-start gap-2">
-                                  <div
-                                    className="w-4 h-4 rounded-full mt-0.5 flex-shrink-0 border border-white shadow-sm"
-                                    style={{ backgroundColor: propData.color }}
-                                  />
-                                  <div className="flex-1 min-w-0">
-                                    <div className="font-medium text-xs mb-1">
-                                      {propData.property.name || propData.property.alias || `Propiedad ${propData.property.id}`}
+                                <div className="flex items-start justify-between gap-2">
+                                  {/* Indicador de solapamiento */}
+                                  {hasPropertyOverlap && (
+                                    <div className="flex-shrink-0 mt-1">
+                                      <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" title="Propiedad con solapamientos" />
                                     </div>
-                                    
-                                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                      <span className="flex items-center gap-1">
-                                        <CalendarIcon className="h-3 w-3" />
-                                        {propData.shifts.length}
-                                      </span>
-                                      {propData.totalHours > 0 && (
+                                  )}
+                                  
+                                  {/* Contenido principal de la propiedad */}
+                                  <div 
+                                    className="flex items-start gap-2 flex-1 min-w-0 cursor-pointer"
+                                    onClick={() => {
+                                      setSelectedPropertyId(
+                                        selectedPropertyId === propData.property.id 
+                                          ? null 
+                                          : propData.property.id
+                                      );
+                                      // Limpiar selección de fecha al seleccionar propiedad
+                                      setSelectedDate(undefined);
+                                    }}
+                                  >
+                                    <div
+                                      className="w-4 h-4 rounded-full mt-0.5 flex-shrink-0 border border-white shadow-sm"
+                                      style={{ backgroundColor: propData.color }}
+                                    />
+                                    <div className="flex-1 min-w-0">
+                                      <div className="font-medium text-xs mb-1">
+                                        {propData.property.name || propData.property.alias || `Propiedad ${propData.property.id}`}
+                                      </div>
+                                      
+                                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                         <span className="flex items-center gap-1">
-                                          <Clock className="h-3 w-3" />
-                                          {propData.totalHours}h
+                                          <CalendarIcon className="h-3 w-3" />
+                                          {propData.shifts.length}
                                         </span>
+                                        {propData.totalHours > 0 && (
+                                          <span className="flex items-center gap-1">
+                                            <Clock className="h-3 w-3" />
+                                            {propData.totalHours}h
+                                          </span>
+                                        )}
+                                      </div>
+                                      
+                                      {/* Siguiente turno */}
+                                      {propData.shifts.length > 0 && (
+                                        <div className="text-xs text-muted-foreground pt-1 border-t mt-1">
+                                          {(() => {
+                                            const now = new Date();
+                                            const nextShift = propData.shifts
+                                              .filter((s: Shift) => s.startTime && new Date(s.startTime) > now)
+                                              .sort((a: Shift, b: Shift) => new Date(a.startTime!).getTime() - new Date(b.startTime!).getTime())[0];
+                                            
+                                            if (nextShift) {
+                                              const startDate = new Date(nextShift.startTime!);
+                                              return `Siguiente: ${startDate.toLocaleDateString()} ${startDate.toLocaleTimeString([], {
+                                                hour: "2-digit",
+                                                minute: "2-digit"
+                                              })}`;
+                                            } else {
+                                              return "Sin turnos programados";
+                                            }
+                                          })()}
+                                        </div>
                                       )}
                                     </div>
-                                    
-                                    {/* Siguiente turno */}
-                                    {propData.shifts.length > 0 && (
-                                      <div className="text-xs text-muted-foreground pt-1 border-t mt-1">
-                                        {(() => {
-                                          const now = new Date();
-                                          const nextShift = propData.shifts
-                                            .filter((s: Shift) => s.startTime && new Date(s.startTime) > now)
-                                            .sort((a: Shift, b: Shift) => new Date(a.startTime!).getTime() - new Date(b.startTime!).getTime())[0];
-                                          
-                                          if (nextShift) {
-                                            const startDate = new Date(nextShift.startTime!);
-                                            return `Siguiente: ${startDate.toLocaleDateString()} ${startDate.toLocaleTimeString([], {
-                                              hour: "2-digit",
-                                              minute: "2-digit"
-                                            })}`;
-                                          } else {
-                                            return "Sin turnos programados";
-                                          }
-                                        })()}
-                                      </div>
-                                    )}
                                   </div>
+                                  
+                                  {/* Botón + para crear turno */}
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={(e) => {
+                                      e.stopPropagation(); // Evitar que se active el click de la propiedad
+                                      setCreateShiftPropertyId(propData.property.id);
+                                      setOpenCreate(true);
+                                    }}
+                                    className="h-6 w-6 p-0 flex-shrink-0 hover:bg-primary/10 hover:text-primary"
+                                    title={`Crear turno para ${propData.property.name || propData.property.alias || `Propiedad ${propData.property.id}`}`}
+                                    disabled={!propertiesCacheLoaded}
+                                  >
+                                    {!propertiesCacheLoaded ? (
+                                      <Loader2 className="h-3 w-3 animate-spin" />
+                                    ) : (
+                                      <Plus className="h-4 w-4" />
+                                    )}
+                                  </Button>
                                 </div>
                               </div>
-                            ))
+                            );
+                            })
                           )}
                         </div>
                       </ScrollArea>
@@ -735,8 +1169,8 @@ export default function GuardsShiftsModalImproved({
                         }
                       </div>
                     </CardHeader>
-                    <CardContent className="p-0 flex-1 min-h-0">
-                      <ScrollArea className="h-full w-full" style={{ maxHeight: 'calc(95vh - 250px)' }}>
+                    <CardContent className="p-0 flex-1 min-h-0 overflow-hidden">
+                      <ScrollArea className="h-[calc(95vh-280px)] w-full">
                         <div className="space-y-2 p-2 pt-1">
                           {loading && filteredShifts.length === 0 ? (
                             <div className="space-y-2">
@@ -801,11 +1235,26 @@ export default function GuardsShiftsModalImproved({
                                       </div>
                                       
                                       <div className="space-y-2">
-                                        {propData.shifts.map((shift: Shift) => (
-                                          <div key={shift.id} className="flex items-center justify-between text-xs">
+                                        {propData.shifts.map((shift: Shift) => {
+                                          const hasShiftOverlap = overlapShifts.has(shift.id);
+                                          
+                                          return (
+                                          <div 
+                                            key={shift.id} 
+                                            className={cn(
+                                              "flex items-center justify-between text-xs p-2 rounded",
+                                              hasShiftOverlap 
+                                                ? "bg-red-100 border border-red-300 shadow-sm" 
+                                                : "hover:bg-muted/30"
+                                            )}
+                                          >
                                             <div className="flex items-center gap-2">
-                                              <Clock className="h-3 w-3" />
-                                              <span>
+                                              {/* Indicador de solapamiento */}
+                                              {hasShiftOverlap && (
+                                                <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse flex-shrink-0" title="Turno con solapamiento" />
+                                              )}
+                                              <Clock className={cn("h-3 w-3", hasShiftOverlap && "text-red-600")} />
+                                              <span className={hasShiftOverlap ? "text-red-800 font-medium" : ""}>
                                                 {shift.startTime
                                                   ? new Date(shift.startTime).toLocaleTimeString([], {
                                                       hour: "2-digit",
@@ -832,7 +1281,8 @@ export default function GuardsShiftsModalImproved({
                                               {shift.status}
                                             </Badge>
                                           </div>
-                                        ))}
+                                          );
+                                        })}
                                       </div>
                                       
                                       <div className="mt-2 pt-2 border-t text-xs text-muted-foreground">
@@ -855,13 +1305,23 @@ export default function GuardsShiftsModalImproved({
                               const propertyLabel = getPropertyLabelForShift(s);
                               const propId = s.property ? Number(s.property) : -1;
                               const propColor = propertyColors[propId] || "#6B7280";
+                              const hasShiftOverlap = overlapShifts.has(s.id);
                               
                               return (
                                 <div
                                   key={s.id}
-                                  className="flex items-center justify-between gap-2 rounded border p-2 shadow-sm bg-card hover:shadow-sm transition-shadow"
+                                  className={cn(
+                                    "flex items-center justify-between gap-2 rounded border p-2 shadow-sm transition-shadow",
+                                    hasShiftOverlap 
+                                      ? "bg-red-50 border-red-300 shadow-md" 
+                                      : "bg-card hover:shadow-sm"
+                                  )}
                                 >
                                   <div className="flex items-start gap-3">
+                                    {/* Indicador de solapamiento */}
+                                    {hasShiftOverlap && (
+                                      <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse mt-2 flex-shrink-0" title="Turno con solapamiento" />
+                                    )}
                                     <div
                                       className="w-5 h-5 rounded-full mt-1 flex-shrink-0 border-2 border-white shadow-sm"
                                       style={{ backgroundColor: propColor }}
@@ -873,7 +1333,7 @@ export default function GuardsShiftsModalImproved({
                                         </div>
                                       )}
 
-                                      <div className="text-sm font-semibold">
+                                      <div className={cn("text-sm font-semibold", hasShiftOverlap && "text-red-800")}>
                                         {propertyLabel !== null ? (
                                           propertyLabel
                                         ) : loadingProps ? (
@@ -885,8 +1345,8 @@ export default function GuardsShiftsModalImproved({
                                         )}
                                       </div>
 
-                                      <div className="text-sm flex items-center gap-2">
-                                        <Clock className="h-3 w-3" />
+                                      <div className={cn("text-sm flex items-center gap-2", hasShiftOverlap && "text-red-700")}>
+                                        <Clock className={cn("h-3 w-3", hasShiftOverlap && "text-red-600")} />
                                         {s.startTime
                                           ? new Date(s.startTime).toLocaleTimeString([], {
                                               hour: "2-digit",
@@ -958,80 +1418,20 @@ export default function GuardsShiftsModalImproved({
                   </Card>
                 </div>
               </div>
-            </TabsContent>
-
-            <TabsContent value="timeline" className="flex-1 min-h-0">
-              <div className="text-center text-muted-foreground py-8">
-                Vista de timeline en desarrollo...
-              </div>
-            </TabsContent>
-          </Tabs>
         </div>
-
-        <DialogFooter>
-          <div className="flex items-center w-full gap-2">
-            {hasNext ? (
-              <>
-                <div className="flex-1">
-                  <Button
-                    variant="outline"
-                    onClick={loadMore}
-                    disabled={loading}
-                    className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 text-sm"
-                  >
-                    {loading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <RefreshCw className="h-4 w-4" />
-                    )}
-                    <span>
-                      {loading
-                        ? TEXT?.common?.loading ?? "Cargando..."
-                        : TEXT?.actions?.refresh ?? "Cargar más"}
-                    </span>
-                  </Button>
-                </div>
-                <div>
-                  <Button
-                    variant="outline"
-                    onClick={onClose}
-                    className="text-sm px-3 py-2"
-                  >
-                    {TEXT?.actions?.close ?? "Cerrar"}
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <div className="ml-auto flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    // TODO: Implementar exportación
-                    toast.info("Función de exportar en desarrollo");
-                  }}
-                >
-                  <Download className="h-4 w-4 mr-1" />
-                  Exportar
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={onClose}
-                  className="text-sm px-3 py-2"
-                >
-                  {TEXT?.actions?.close ?? "Cerrar"}
-                </Button>
-              </div>
-            )}
-          </div>
-        </DialogFooter>
       </DialogContent>
 
       <CreateShift
         open={openCreate}
-        onClose={() => setOpenCreate(false)}
+        onClose={() => {
+          setOpenCreate(false);
+          setCreateShiftPropertyId(null); // Limpiar propiedad preseleccionada
+        }}
         guardId={guardId}
         selectedDate={selectedDate}
+        propertyId={createShiftPropertyId}
+        preloadedProperties={allPropertiesCache}
+        preloadedGuard={currentGuardCache}
         onCreated={handleCreated}
       />
 
