@@ -185,30 +185,38 @@ export default function PropertiesTable({
         // Solo mostrar el texto del propietario, sin hacer clickeable
         return (
           <div className="w-full">
-            <span className="text-foreground">
+            <span className="text-foreground text-sm">
               {ownerLabel}
             </span>
           </div>
         );
       },
+      headerClassName: "px-2 py-1 text-sm",
+      cellClassName: "px-2 py-1 text-sm",
     },
     {
       key: "alias",
       label: getText("properties.table.headers.alias", "Nick"),
       sortable: true,
       render: (p) => <TruncatedText text={p.alias || "-"} maxLength={20} />,
+      headerClassName: "px-2 py-1 text-sm",
+      cellClassName: "px-2 py-1 text-sm",
     },
     {
       key: "name",
       label: getText("properties.table.headers.name", "Name"),
       sortable: true,
       render: (p) => <TruncatedText text={p.name || ""} maxLength={25} />,
+      headerClassName: "px-2 py-1 text-sm",
+      cellClassName: "px-2 py-1 text-sm",
     },
     {
       key: "address",
       label: getText("properties.table.headers.address", "Address"), // Esta columna (índice 3) se truncará
       sortable: true,
       render: (p) => <ClickableAddress address={p.address || ""} />,
+      headerClassName: "px-2 py-1 text-sm",
+      cellClassName: "px-2 py-1 text-sm",
     },
     {
       key: "typesOfService",
@@ -217,21 +225,30 @@ export default function PropertiesTable({
       render: (p) => (
         <TruncatedText text={(p as any).typesOfServiceStr || "-"} maxLength={25} />
       ),
+      headerClassName: "px-2 py-1 text-sm",
+      cellClassName: "px-2 py-1 text-sm",
     },
     {
       key: "monthlyRate",
       label: getText("properties.table.headers.monthlyRate", "Monthly Rate"),
       sortable: true,
-      render: (p) =>
-        p.monthlyRate != null && p.monthlyRate !== ""
-          ? `$ ${p.monthlyRate}`
-          : "-",
+      render: (p) => (
+        <span className="text-sm">
+          {p.monthlyRate != null && p.monthlyRate !== ""
+            ? `$ ${p.monthlyRate}`
+            : "-"}
+        </span>
+      ),
+      headerClassName: "px-2 py-1 text-sm",
+      cellClassName: "px-2 py-1 text-sm",
     },
     {
       key: "totalHours",
       label: getText("properties.table.headers.totalHours", "Total Hours"),
       sortable: true,
-      render: (p) => p.totalHours ?? "-",
+      render: (p) => <span className="text-sm">{p.totalHours ?? "-"}</span>,
+      headerClassName: "px-2 py-1 text-sm",
+      cellClassName: "px-2 py-1 text-sm",
     },
   ];
 
@@ -285,6 +302,7 @@ export default function PropertiesTable({
     <>
       {/* Usar siempre ReusableTable con loading integrado */}
       <ReusableTable<any>
+        className="text-sm" // más compacto
         data={normalizedProperties}
         columns={columns}
         getItemId={(p) => p.id}
@@ -305,14 +323,13 @@ export default function PropertiesTable({
         onPageChange={onPageChange}
         pageSize={pageSize}
         onPageSizeChange={onPageSizeChange}
-        isPageLoading={isPageLoading}
         onSearch={onSearch}
         searchFields={searchFields}
         sortField={sortField as any}
         sortOrder={sortOrder}
         toggleSort={toggleSort as any}
         actions={renderActions}
-        actionsHeader={getText("properties.table.headers.actions", "Actions")}
+        isPageLoading={isPageLoading}
       />
 
       <CreatePropertyDialog

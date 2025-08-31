@@ -330,64 +330,79 @@ export function ReusableTable<T extends Record<string, any>>({
               <tbody>
                 {isPageLoading ? (
                   // Loading rows with pulse effect
-                  Array.from({ length: pageSize }, (_, rowIdx) => (
-                    <tr
-                      key={`loading-row-${rowIdx}`}
-                      className={`border-b border-border/50 ${rowIdx % 2 === 0 ? "bg-transparent" : "bg-muted/10"}`}
-                      style={{ height: "49px" }}
-                    >
-                      {columns.map((column, colIndex) => {
-                        const isHidden = columnStrategy.hiddenColumns.includes(colIndex);
-                        if (isHidden) return null;
+                  (() => {
+                    // Detectar el tipo de padding que usan las columnas para ajustar altura
+                    const hasSmallPadding = columns.some(col => col.cellClassName?.includes('py-1'));
+                    const hasMediumPadding = columns.some(col => col.cellClassName?.includes('py-2'));
+                    
+                    let rowHeight: string;
+                    if (hasSmallPadding) {
+                      rowHeight = "49px"; // Para guards (py-1)
+                    } else if (hasMediumPadding) {
+                      rowHeight = "53px"; // Para clients (py-2)
+                    } else {
+                      rowHeight = "57px"; // Para properties/users (py-3 default)
+                    }
+                    
+                    return Array.from({ length: pageSize }, (_, rowIdx) => (
+                      <tr
+                        key={`loading-row-${rowIdx}`}
+                        className={`border-b border-border/50 ${rowIdx % 2 === 0 ? "bg-transparent" : "bg-muted/10"}`}
+                        style={{ height: rowHeight }}
+                      >
+                        {columns.map((column, colIndex) => {
+                          const isHidden = columnStrategy.hiddenColumns.includes(colIndex);
+                          if (isHidden) return null;
 
-                        const tdClasses = [
-                          "px-4",
-                          "py-3", 
-                          "border-r",
-                          "border-border/20",
-                          "last:border-r-0",
-                          "align-middle",
-                        ]
-                          .filter(Boolean)
-                          .join(" ");
+                          const tdClasses = [
+                            "px-4",
+                            "py-3", 
+                            "border-r",
+                            "border-border/20",
+                            "last:border-r-0",
+                            "align-middle",
+                          ]
+                            .filter(Boolean)
+                            .join(" ");
 
-                        // Vary loading cell widths based on column type/content
-                        let loadingWidth: "short" | "medium" | "long" | "full" = "medium";
-                        const columnKey = String(column.key).toLowerCase();
-                        
-                        if (columnKey.includes('name') || columnKey.includes('title')) {
-                          loadingWidth = "long";
-                        } else if (columnKey.includes('phone') || columnKey.includes('status')) {
-                          loadingWidth = "short";
-                        } else if (columnKey.includes('email') || columnKey.includes('address')) {
-                          loadingWidth = "medium";
-                        }
+                          // Vary loading cell widths based on column type/content
+                          let loadingWidth: "short" | "medium" | "long" | "full" = "medium";
+                          const columnKey = String(column.key).toLowerCase();
+                          
+                          if (columnKey.includes('name') || columnKey.includes('title')) {
+                            loadingWidth = "long";
+                          } else if (columnKey.includes('phone') || columnKey.includes('status')) {
+                            loadingWidth = "short";
+                          } else if (columnKey.includes('email') || columnKey.includes('address')) {
+                            loadingWidth = "medium";
+                          }
 
-                        return (
+                          return (
+                            <td 
+                              key={String(column.key)} 
+                              className={tdClasses} 
+                              style={getColumnStyle(column, colIndex)}
+                            >
+                              <div className="truncate">
+                                <TableLoadingCell width={loadingWidth} />
+                              </div>
+                            </td>
+                          );
+                        })}
+                        {actions && (
                           <td 
-                            key={String(column.key)} 
-                            className={tdClasses} 
-                            style={getColumnStyle(column, colIndex)}
+                            className="text-center px-4 py-3 align-middle" 
+                            style={{ width: "140px", minWidth: "80px", maxWidth: "140px" }}
                           >
-                            <div className="flex items-center">
-                              <TableLoadingCell width={loadingWidth} />
+                            <div className="flex gap-2 justify-center">
+                              <TableLoadingCell width="short" />
+                              <TableLoadingCell width="short" />
                             </div>
                           </td>
-                        );
-                      })}
-                      {actions && (
-                        <td 
-                          className="text-center px-4 py-3 align-middle" 
-                          style={{ width: "140px", minWidth: "80px", maxWidth: "140px" }}
-                        >
-                          <div className="flex gap-2 justify-center">
-                            <TableLoadingCell width="short" />
-                            <TableLoadingCell width="short" />
-                          </div>
-                        </td>
-                      )}
-                    </tr>
-                  ))
+                        )}
+                      </tr>
+                    ));
+                  })()
                 ) : paginatedData.length === 0 ? (
                   // No data message
                   <tr>

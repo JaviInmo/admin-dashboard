@@ -7,9 +7,9 @@ interface TableLoadingCellProps {
 
 export function TableLoadingCell({ className, width = "medium" }: TableLoadingCellProps) {
   const widthClasses = {
-    short: "w-16",
-    medium: "w-24", 
-    long: "w-32",
+    short: "w-3/5 min-w-12 max-w-16",
+    medium: "w-4/5 min-w-16 max-w-24", 
+    long: "w-5/6 min-w-20 max-w-32",
     full: "w-full"
   };
 

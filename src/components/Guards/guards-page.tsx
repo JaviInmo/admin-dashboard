@@ -11,6 +11,7 @@ import GuardsTable from "./GuardsTable";
 import type { Guard } from "./types";
 import { useI18n } from "@/i18n";
 import { usePageSize } from "@/hooks/use-page-size";
+import { useVisitedPagesCache } from "@/hooks/use-visited-pages-cache";
 
 /**
  * Mapear campos frontend -> campos que acepta el API (DRF).
@@ -41,6 +42,9 @@ export default function GuardsPage() {
   const queryClient = useQueryClient();
   const { TEXT } = useI18n();
   const { pageSize, setPageSize } = usePageSize('guards');
+  
+  // Hook para cachear páginas visitadas
+  const visitedCache = useVisitedPagesCache<PaginatedResult<Guard>>();
 
   const [page, setPage] = React.useState<number>(1);
   const [search, setSearch] = React.useState<string>("");
@@ -59,16 +63,56 @@ export default function GuardsPage() {
     return generateSort(mapped, sortOrder); // string | undefined
   }, [sortField, sortOrder]);
 
+  // Query key para el caché
+  const queryKey = [GUARDS_KEY, search, page, pageSize, apiOrdering];
+
   const {
     data = INITIAL_GUARD_DATA,
     isFetching,
     error,
   } = useQuery<PaginatedResult<Guard>, unknown, PaginatedResult<Guard>>({
-    queryKey: [GUARDS_KEY, search, page, pageSize, apiOrdering],
+    queryKey,
     queryFn: () => listGuards(page, search, pageSize, apiOrdering),
     initialData: INITIAL_GUARD_DATA,
-    placeholderData: INITIAL_GUARD_DATA,
+    placeholderData: (previousData) => {
+      // Usar datos de páginas visitadas si existen, sino usar datos anteriores
+      const cachedData = visitedCache.get(queryKey);
+      if (cachedData) {
+        // Verificar que los datos cached sean válidos para la página actual
+        const maxPage = Math.max(1, Math.ceil(cachedData.count / pageSize));
+        if (page <= maxPage) {
+          return cachedData;
+        }
+      }
+      return previousData || INITIAL_GUARD_DATA;
+    },
+    // Si tenemos datos en caché válidos, no mostrar loading
+    refetchOnMount: () => {
+      const cachedData = visitedCache.get(queryKey);
+      if (cachedData) {
+        const maxPage = Math.max(1, Math.ceil(cachedData.count / pageSize));
+        return page > maxPage; // Solo refetch si la página es inválida
+      }
+      return true; // Refetch si no hay datos cached
+    },
   });
+
+  // Guardar datos cuando se cargan exitosamente
+  React.useEffect(() => {
+    if (!isFetching && data && data !== INITIAL_GUARD_DATA) {
+      visitedCache.set(queryKey, data);
+    }
+  }, [data, isFetching, queryKey, visitedCache]);
+
+  // Determinar si mostrar loading basado en si tenemos datos cached válidos
+  const shouldShowLoading = isFetching && (() => {
+    const cachedData = visitedCache.get(queryKey);
+    if (cachedData) {
+      const maxPage = Math.max(1, Math.ceil(cachedData.count / pageSize));
+      return page > maxPage; // Mostrar loading si la página es inválida
+    }
+    return true; // Mostrar loading si no hay datos cached
+  })();
 
   // Mantener totalPages estable durante loading
   const totalPages = React.useMemo(() => {
@@ -81,6 +125,13 @@ export default function GuardsPage() {
 
     return stableTotalPages;
   }, [data?.count, isFetching, stableTotalPages, pageSize]);
+
+  // Verificar si la página actual es mayor que el total y ajustar
+  React.useEffect(() => {
+    if (!isFetching && totalPages > 0 && page > totalPages) {
+      setPage(Math.max(1, totalPages));
+    }
+  }, [page, totalPages, isFetching]);
 
   const toggleSort = (field: keyof Guard) => {
     if (sortField === field) {
@@ -132,7 +183,7 @@ export default function GuardsPage() {
         toggleSort={toggleSort}
         sortField={sortField}
         sortOrder={sortOrder}
-        isPageLoading={isFetching}
+        isPageLoading={shouldShowLoading}
       />
     </div>
   );

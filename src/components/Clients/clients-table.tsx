@@ -13,17 +13,6 @@ import ClientDetailsModal from "./ClientDetailsModal";
 import type { Client as AppClient, Client } from "./types";
 import { ClickableEmail } from "../ui/clickable-email";
 
-/* Table primitives + Skeleton para estado de carga */
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Skeleton } from "@/components/ui/skeleton";
-
 export interface ClientsTableProps {
   clients: AppClient[];
   onSelectClient: (id: number) => void;
@@ -153,7 +142,7 @@ export default function ClientsTable({
               e.stopPropagation();
               setDetailsClient(client as AppClient & { clientName: string });
             }}
-            className="text-left text-blue-600 hover:underline cursor-pointer"
+            className="text-left text-blue-600 hover:underline cursor-pointer text-sm"
             title="Ver detalles del cliente"
             aria-label="Ver detalles del cliente"
           >
@@ -161,15 +150,17 @@ export default function ClientsTable({
           </button>
         );
       },
-      // conservar espaciado consistente
-      cellClassName: "px-3 py-2",
+      // espaciado compacto como Guards
+      headerClassName: "px-2 py-1 text-sm",
+      cellClassName: "px-2 py-1 text-sm",
     },
     {
       key: "email",
       label: TEXT.clients.list.headers.email, // Esta columna se sacrificará
       sortable: true,
       render: (client) => <ClickableEmail email={client.email || ""} />,
-      cellClassName: "px-3 py-2",
+      headerClassName: "px-2 py-1 text-sm",
+      cellClassName: "px-2 py-1 text-sm",
     },
     {
       key: "phone",
@@ -196,13 +187,14 @@ export default function ClientsTable({
             }}
             title={linkTitle}
             aria-label={ariaLabel}
-            className="text-blue-600 hover:underline"
+            className="text-blue-600 hover:underline text-sm"
           >
             {phone}
           </a>
         );
       },
-      cellClassName: "px-3 py-2",
+      headerClassName: "px-2 py-1 text-sm",
+      cellClassName: "px-2 py-1 text-sm",
     },
   ];
 
@@ -214,9 +206,10 @@ export default function ClientsTable({
       sortable: true,
       render: (client) => {
         const balance = (client as any).balance ?? 0;
-        return typeof balance === "number" ? `$${balance.toFixed(2)}` : String(balance);
+        return <span className="text-sm">{typeof balance === "number" ? `$${balance.toFixed(2)}` : String(balance)}</span>;
       },
-      cellClassName: "px-3 py-2",
+      headerClassName: "px-2 py-1 text-sm",
+      cellClassName: "px-2 py-1 text-sm",
     });
   }
 
@@ -225,10 +218,10 @@ export default function ClientsTable({
     label: TEXT.clients.list.headers.status,
     sortable: false,
     // usa headerStyle para forzar ancho exacto de columna (evita que la estrategia inteligente la haga enorme)
-    headerClassName: "text-center align-middle",
+    headerClassName: "text-center align-middle px-2 py-1 text-sm",
     headerStyle: { width: "120px", minWidth: "120px", maxWidth: "120px" },
     // celdas centradas
-    cellClassName: "text-center align-middle",
+    cellClassName: "text-center align-middle px-2 py-1 text-sm",
     cellStyle: { width: "120px", minWidth: "120px", maxWidth: "120px" },
     render: (client) => {
       const status = (client as any).status ?? "active";
@@ -284,80 +277,36 @@ export default function ClientsTable({
     </>
   );
 
-  // Filas skeleton a renderizar
-  const skeletonRows = Math.max(3, pageSize ?? 5);
-
   return (
     <>
-      {isPageLoading ? (
-        <div className="rounded-lg border bg-card p-4 text-card-foreground shadow-sm">
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-lg font-semibold">{TEXT.clients.list.title}</h3>
-            <div className="flex items-center gap-2">
-              <Skeleton className="h-8 w-24 rounded" />
-              <Skeleton className="h-8 w-8 rounded" />
-            </div>
-          </div>
-
-          <Table>
-            <TableHeader>
-              <TableRow>
-                {columns.map((col) => (
-                  <TableHead key={String(col.key)} className="select-none">
-                    {String((col as any).label ?? "")}
-                  </TableHead>
-                ))}
-                <TableHead className="w-[120px] text-center">{TEXT.clients.list.headers.actions ?? "Acciones"}</TableHead>
-              </TableRow>
-            </TableHeader>
-
-            <TableBody>
-              {Array.from({ length: skeletonRows }).map((_, rIndex) => (
-                <TableRow key={`client-skel-${rIndex}`}>
-                  {columns.map((_, cIndex) => (
-                    <TableCell key={`c-${cIndex}`}>
-                      <Skeleton className="h-4 w-full max-w-[220px]" />
-                    </TableCell>
-                  ))}
-
-                  <TableCell className="flex gap-2 justify-center">
-                    <Skeleton className="h-8 w-8 rounded" />
-                    <Skeleton className="h-8 w-8 rounded" />
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      ) : (
-        <ReusableTable
-          data={normalizedClients}
-          columns={columns}
-          getItemId={(client) => client.id}
-          onSelectItem={(id) => onSelectClient(Number(id))}
-          title={TEXT.clients.list.title}
-          searchPlaceholder={TEXT.clients.list.searchPlaceholder ?? "Buscar clientes..."}
-          addButtonText={TEXT.clients.list.addClient ?? "Agregar"}
-          onAddClick={() => setCreateOpen(true)}
-          serverSide={serverSide}
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={onPageChange}
-          pageSize={pageSize}
-          onPageSizeChange={onPageSizeChange}
-          onSearch={onSearch}
-          searchFields={searchFields}
-          sortField={sortField as keyof (AppClient & { clientName: string })}
-          sortOrder={sortOrder}
-          toggleSort={toggleSort as (key: keyof (AppClient & { clientName: string })) => void}
-          actions={(client) => (
-            // el wrapper que devuelve actions se centrará y tendrá gap 2 por el ReusableTable
-            renderActions(client as AppClient & { clientName: string })
-          )}
-          actionsHeader={TEXT.clients.list.headers.actions ?? "Acciones"}
-          isPageLoading={isPageLoading}
-        />
-      )}
+      <ReusableTable
+        className="text-sm" // más compacto como Guards
+        data={normalizedClients}
+        columns={columns}
+        getItemId={(client) => client.id}
+        onSelectItem={(id) => onSelectClient(Number(id))}
+        title={TEXT.clients.list.title}
+        searchPlaceholder={TEXT.clients.list.searchPlaceholder ?? "Buscar clientes..."}
+        addButtonText={TEXT.clients.list.addClient ?? "Agregar"}
+        onAddClick={() => setCreateOpen(true)}
+        serverSide={serverSide}
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPageChange={onPageChange}
+        pageSize={pageSize}
+        onPageSizeChange={onPageSizeChange}
+        onSearch={onSearch}
+        searchFields={searchFields}
+        sortField={sortField as keyof (AppClient & { clientName: string })}
+        sortOrder={sortOrder}
+        toggleSort={toggleSort as (key: keyof (AppClient & { clientName: string })) => void}
+        actions={(client) => (
+          // el wrapper que devuelve actions se centrará y tendrá gap 2 por el ReusableTable
+          renderActions(client as AppClient & { clientName: string })
+        )}
+        actionsHeader={TEXT.clients.list.headers.actions ?? "Acciones"}
+        isPageLoading={isPageLoading}
+      />
 
       <CreateClientDialog open={createOpen} onClose={() => setCreateOpen(false)} onCreated={onRefresh} />
       {editClient && (
