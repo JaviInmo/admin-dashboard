@@ -102,7 +102,6 @@ export default function CreateShift({
   // Estados para detección de solapamientos
   const [hasOverlap, setHasOverlap] = React.useState<boolean>(false);
   const [overlapMessage, setOverlapMessage] = React.useState<string>("");
-  const [existingShifts, setExistingShifts] = React.useState<Shift[]>([]);
 
   // reset cuando se cierra el dialog
   React.useEffect(() => {
@@ -126,7 +125,6 @@ export default function CreateShift({
       // Limpiar estados de solapamiento
       setHasOverlap(false);
       setOverlapMessage("");
-      setExistingShifts([]);
     }
   }, [open]);
 
@@ -137,7 +135,7 @@ export default function CreateShift({
     
     // Si tenemos el guardia preloaded, usarlo directamente
     if (preloadedGuard && preloadedGuard.id === guardId) {
-      console.log("✅ Usando guardia desde cache");
+      // console.log("✅ Usando guardia desde cache");
       setSelectedGuard(preloadedGuard);
       setGuardQuery(""); // Limpiar query para que use guardLabel
       return;
@@ -147,7 +145,7 @@ export default function CreateShift({
     let mounted = true;
     (async () => {
       try {
-        console.log("⚠️ Cargando guardia desde API (sin cache)");
+        // console.log("⚠️ Cargando guardia desde API (sin cache)");
         const g = await getGuard(guardId);
         if (!mounted) return;
         setSelectedGuard(g);
@@ -193,7 +191,7 @@ export default function CreateShift({
     if (preloadedProperties.length > 0) {
       const property = preloadedProperties.find(p => Number(p.id) === propertyId);
       if (property) {
-        console.log("✅ Propiedad encontrada en cache:", property.name);
+        // console.log("✅ Propiedad encontrada en cache:", property.name);
         setSelectedProperty(property);
         setPropertyQuery(`${property.name ?? property.alias ?? property.address} #${property.id}`);
         return;
@@ -201,7 +199,7 @@ export default function CreateShift({
     }
     
     // Si no está en cache, hacer llamada a la API
-    console.log("🔄 Propiedad no encontrada en cache, consultando API...");
+    // console.log("🔄 Propiedad no encontrada en cache, consultando API...");
     let mounted = true;
     (async () => {
       try {
@@ -212,7 +210,7 @@ export default function CreateShift({
         const property = items.find(p => Number(p.id) === propertyId);
         
         if (property) {
-          console.log("✅ Propiedad encontrada en API:", property.name);
+          // console.log("✅ Propiedad encontrada en API:", property.name);
           setSelectedProperty(property);
           setPropertyQuery(`${property.name ?? property.alias ?? property.address} #${property.id}`);
         }
@@ -266,7 +264,7 @@ export default function CreateShift({
     
     // Intentar buscar en cache primero si está disponible
     if (preloadedProperties.length > 0) {
-      console.log("🔍 Buscando en cache de propiedades...");
+      // console.log("🔍 Buscando en cache de propiedades...");
       const filtered = preloadedProperties.filter(prop => 
         prop.name?.toLowerCase().includes(q.toLowerCase()) ||
         prop.alias?.toLowerCase().includes(q.toLowerCase()) ||
@@ -277,11 +275,11 @@ export default function CreateShift({
         setPropertyResults(filtered);
         setPropertyDropdownOpen(true);
         setPropertiesLoading(false);
-        console.log(`✅ Encontrados ${filtered.length} resultados en cache`);
+        // console.log(`✅ Encontrados ${filtered.length} resultados en cache`);
         
         // Si hay pocos resultados en cache, complementar con búsqueda API
         if (filtered.length < 3 && q.length >= 2) {
-          console.log("🔄 Pocos resultados en cache, complementando con API...");
+          // console.log("🔄 Pocos resultados en cache, complementando con API...");
           (async () => {
             try {
               const res = await listProperties(1, q, 10);
@@ -294,7 +292,7 @@ export default function CreateShift({
               const combinedResults = [...filtered, ...newItems];
               
               setPropertyResults(combinedResults);
-              console.log(`✅ Combinados: ${filtered.length} cache + ${newItems.length} API = ${combinedResults.length} total`);
+              // console.log(`✅ Combinados: ${filtered.length} cache + ${newItems.length} API = ${combinedResults.length} total`);
             } catch (err) {
               console.error("Error en búsqueda complementaria:", err);
               setPropertyResults(filtered); // Usar solo resultados del cache
@@ -306,7 +304,7 @@ export default function CreateShift({
     }
     
     // Si no hay cache, hacer llamada a la API
-    console.log("🔄 Cache no disponible, consultando API...");
+    // console.log("🔄 Cache no disponible, consultando API...");
     (async () => {
       try {
         const res = await listProperties(1, q, 10);
@@ -314,7 +312,7 @@ export default function CreateShift({
         const items = extractItems<AppProperty>(res);
         setPropertyResults(items);
         setPropertyDropdownOpen(true);
-        console.log(`✅ Encontrados ${items.length} resultados en API`);
+        // console.log(`✅ Encontrados ${items.length} resultados en API`);
       } catch (err) {
         console.error("listProperties error", err);
         setPropertyResults([]);
@@ -361,8 +359,6 @@ export default function CreateShift({
       const response = await listShiftsByGuard(selectedGuard.id);
       const shifts = Array.isArray(response) ? response : (response as any)?.results || [];
       
-      setExistingShifts(shifts);
-
       // Verificar solapamientos
       const overlappingShifts = shifts.filter((shift: any) => {
         const shiftStart = shift.start_time || shift.startTime || shift.start;

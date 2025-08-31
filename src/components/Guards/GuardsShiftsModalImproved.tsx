@@ -544,7 +544,7 @@ export default function GuardsShiftsModalImproved({
     let mounted = true;
     const loadGuardProperties = async () => {
       try {
-        console.log("Precargando propiedades específicas del guardia...");
+        // console.log("Precargando propiedades específicas del guardia...");
         
         // Primero obtener los turnos del guardia para ver qué propiedades usa
         const shiftsResponse = await listShiftsByGuard(guardId, 1, 500); // Obtener suficientes turnos para ver todas las propiedades
@@ -563,14 +563,14 @@ export default function GuardsShiftsModalImproved({
         if (!mounted) return;
         
         if (propertyIds.length === 0) {
-          console.log("✅ Guardia sin propiedades asignadas");
+          // console.log("✅ Guardia sin propiedades asignadas");
           setAllPropertiesCache([]);
           setPropertiesCacheLoaded(true);
           return;
         }
         
         // Cargar solo las propiedades específicas que usa este guardia
-        console.log(`Cargando ${propertyIds.length} propiedades específicas:`, propertyIds);
+        // console.log(`Cargando ${propertyIds.length} propiedades específicas:`, propertyIds);
         const propertyPromises = propertyIds.map((id: number) => getProperty(id).catch(err => {
           console.warn(`Error cargando propiedad ${id}:`, err);
           return null;
@@ -582,7 +582,7 @@ export default function GuardsShiftsModalImproved({
           
         setAllPropertiesCache(properties);
         setPropertiesCacheLoaded(true);
-        console.log(`✅ Precargadas ${properties.length} propiedades específicas del guardia en cache`);
+        // console.log(`✅ Precargadas ${properties.length} propiedades específicas del guardia en cache`);
       } catch (error) {
         console.error("❌ Error precargando propiedades del guardia:", error);
       }
@@ -602,13 +602,13 @@ export default function GuardsShiftsModalImproved({
     let mounted = true;
     const loadCurrentGuard = async () => {
       try {
-        console.log(`Precargando datos del guardia ${guardId}...`);
+        // console.log(`Precargando datos del guardia ${guardId}...`);
         const guardData = await getGuard(guardId);
         if (!mounted) return;
         
         setCurrentGuardCache(guardData);
         setGuardCacheLoaded(true);
-        console.log(`✅ Precargados datos del guardia:`, guardData);
+        // console.log(`✅ Precargados datos del guardia:`, guardData);
       } catch (error) {
         console.error("❌ Error precargando datos del guardia:", error);
       }
