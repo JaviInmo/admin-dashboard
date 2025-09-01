@@ -968,6 +968,7 @@ export default function PropertyShiftsModalImproved({
   const [draftTimes, setDraftTimes] = React.useState<Record<number, { startMs: number; endMs: number }>>({});
   // Drag & Drop state for creating shifts from guard list
   const [isDragOverTimeline, setIsDragOverTimeline] = React.useState<boolean>(false);
+  const [dndPreviewLabel, setDndPreviewLabel] = React.useState<string | null>(null);
 
   const STEP_MINUTES = 15;
   const MIN_DURATION_MIN = 15;
@@ -1122,16 +1123,32 @@ export default function PropertyShiftsModalImproved({
     e.preventDefault();
     e.dataTransfer.dropEffect = "copy";
     if (!isDragOverTimeline) setIsDragOverTimeline(true);
-  }, [selectedDate, isDragOverTimeline]);
+    // Build a preview label based on cursor time
+    const container = timelineRef.current;
+    if (container) {
+      const rect = container.getBoundingClientRect();
+      const relY = Math.max(0, Math.min(e.clientY - rect.top, rect.height));
+      const minutes = (relY / rect.height) * 24 * 60;
+      const snappedMin = Math.round(minutes / STEP_MINUTES) * STEP_MINUTES;
+      const sod = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+      const startMs = sod.getTime() + snappedMin * 60000;
+      const endMs = startMs + 6 * 60 * 60 * 1000; // default 6h
+      const startLbl = new Date(startMs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const endLbl = new Date(endMs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      setDndPreviewLabel(`${startLbl} – ${endLbl}`);
+    }
+  }, [selectedDate, isDragOverTimeline, STEP_MINUTES]);
 
   const handleTimelineDragLeave = React.useCallback(() => {
     if (isDragOverTimeline) setIsDragOverTimeline(false);
+    setDndPreviewLabel(null);
   }, [isDragOverTimeline]);
 
   const handleTimelineDrop = React.useCallback(async (e: React.DragEvent<HTMLDivElement>) => {
     if (!selectedDate) return;
     e.preventDefault();
-    setIsDragOverTimeline(false);
+  setIsDragOverTimeline(false);
+  setDndPreviewLabel(null);
 
     let guardIdStr = e.dataTransfer.getData("text/plain");
     if (!guardIdStr) {
@@ -1147,25 +1164,36 @@ export default function PropertyShiftsModalImproved({
     }
 
     try {
-      // Default 12:00 to 18:00 on selectedDate (local time)
-      const startLocal = new Date(
-        selectedDate.getFullYear(),
-        selectedDate.getMonth(),
-        selectedDate.getDate(),
-        12,
-        0,
-        0,
-        0
-      );
-      const endLocal = new Date(
-        selectedDate.getFullYear(),
-        selectedDate.getMonth(),
-        selectedDate.getDate(),
-        18,
-        0,
-        0,
-        0
-      );
+      // Compute start based on drop Y position (snap to 15m), default duration 6h
+      const container = timelineRef.current;
+      let startLocal: Date;
+      if (container) {
+        const rect = container.getBoundingClientRect();
+        const relY = Math.max(0, Math.min(e.clientY - rect.top, rect.height));
+        const minutes = (relY / rect.height) * 24 * 60;
+        const snappedMin = Math.round(minutes / STEP_MINUTES) * STEP_MINUTES;
+        startLocal = new Date(
+          selectedDate.getFullYear(),
+          selectedDate.getMonth(),
+          selectedDate.getDate(),
+          0,
+          0,
+          0,
+          0
+        );
+        startLocal = new Date(startLocal.getTime() + snappedMin * 60000);
+      } else {
+        startLocal = new Date(
+          selectedDate.getFullYear(),
+          selectedDate.getMonth(),
+          selectedDate.getDate(),
+          12,
+          0,
+          0,
+          0
+        );
+      }
+      const endLocal = new Date(startLocal.getTime() + 6 * 60 * 60 * 1000);
 
       const created = await createShift({
         guard: guardId,
@@ -1702,7 +1730,7 @@ export default function PropertyShiftsModalImproved({
                               <div className="absolute inset-0 z-40 pointer-events-none flex items-center justify-center">
                                 <div className="absolute inset-1 rounded-md border-2 border-dashed border-primary/60 bg-primary/5" />
                                 <div className="relative z-50 text-xs px-2 py-1 rounded bg-primary text-primary-foreground shadow">
-                                  Suelta para crear turno 12:00–18:00
+                                  {dndPreviewLabel ? `Suelta para crear ${dndPreviewLabel}` : 'Suelta para crear turno'}
                                 </div>
                               </div>
                             )}
