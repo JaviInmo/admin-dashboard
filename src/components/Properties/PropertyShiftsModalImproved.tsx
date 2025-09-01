@@ -49,36 +49,59 @@ import { listGuards } from "@/lib/services/guard";
 import type { Guard } from "@/components/Guards/types";
 import { cn } from "@/lib/utils";
 
-// Colores para propiedades y guardias con prioridad: tonos "normales" primero; rojos/marrones al final
-const PROPERTY_COLORS = [
-  // Prioridad alta (legibles/neutros)
-  "#3B82F6", "#10B981", "#14B8A6", "#6366F1", "#8B5CF6",
-  "#F59E0B", "#F97316", "#84CC16", "#0891B2", "#4F46E5",
-  "#059669", "#65A30D", "#155E75", "#0E7490", "#312E81",
-  "#3730A3", "#4D7C0F", "#581C87", "#2E1065", "#701A75",
-  "#164E63", "#1E1B4B", "#1A2E05", "#365314", "#052E16",
-  "#0C2D12", "#064E3B", "#047857", "#0F172A", "#EC4899",
-  // Fallback intensos (naranjas/marrones/rojos)
-  "#D97706", "#EA580C", "#C2410C", "#92400E", "#7C2D12",
-  "#9A3412", "#78350F", "#451A03", "#431407",
-  "#7C3AED", "#A21CAF", "#BE185D",
-  "#EF4444", "#DC2626", "#B91C1C", "#991B1B", "#7F1D1D", "#450A0A",
+// Paletas: vivos primero, luego los restantes; se asignan evitando repetir hasta agotar
+const VIBRANT_COLORS = [
+  "#22C55E", // green
+  "#EAB308", // yellow
+  "#3B82F6", // blue
+  "#EC4899", // pink
+  "#EF4444", // red
+  // luego variaciones muy distinguibles
+  "#F97316", // orange
+  "#A855F7", // purple
+  "#06B6D4", // cyan
+  "#84CC16", // lime
+  "#6366F1", // indigo
+  "#0EA5E9", // sky
+  "#F59E0B", // amber
+  "#8B5CF6", // violet
+  "#10B981", // emerald
 ];
 
-const GUARD_COLORS = [
-  // Prioridad alta (legibles/neutros)
-  "#3B82F6", "#10B981", "#14B8A6", "#6366F1", "#8B5CF6",
-  "#F59E0B", "#F97316", "#84CC16", "#0891B2", "#4F46E5",
-  "#059669", "#65A30D", "#155E75", "#0E7490", "#312E81",
-  "#3730A3", "#4D7C0F", "#581C87", "#2E1065", "#701A75",
-  "#164E63", "#1E1B4B", "#1A2E05", "#365314", "#052E16",
-  "#0C2D12", "#064E3B", "#047857", "#0F172A", "#EC4899",
-  // Fallback intensos (naranjas/marrones/rojos)
-  "#D97706", "#EA580C", "#C2410C", "#92400E", "#7C2D12",
-  "#9A3412", "#78350F", "#451A03", "#431407",
-  "#7C3AED", "#A21CAF", "#BE185D",
-  "#EF4444", "#DC2626", "#B91C1C", "#991B1B", "#7F1D1D", "#450A0A",
+const FALLBACK_COLORS = [
+  "#14B8A6", "#0891B2", "#4F46E5", "#059669", "#65A30D",
+  "#155E75", "#0E7490", "#312E81", "#3730A3", "#4D7C0F",
+  "#581C87", "#2E1065", "#701A75", "#164E63", "#1E1B4B",
+  "#1A2E05", "#365314", "#052E16", "#0C2D12", "#064E3B",
+  "#047857", "#0F172A", "#D97706", "#EA580C", "#C2410C",
+  "#92400E", "#7C2D12", "#9A3412", "#78350F", "#451A03",
+  "#431407", "#7C3AED", "#A21CAF", "#BE185D", "#DC2626",
+  "#B91C1C", "#991B1B", "#7F1D1D", "#450A0A",
 ];
+
+// (No direct use of combined arrays; colors are assigned via maps)
+
+function assignColorsForIds(
+  existing: Record<number, string>,
+  ids: number[],
+  vibrant: string[],
+  fallback: string[],
+): Record<number, string> {
+  const used = new Set(Object.values(existing));
+  const next = { ...existing };
+  ids.forEach((id) => {
+    if (next[id]) return;
+    let color = vibrant.find((c) => !used.has(c));
+    if (!color) color = fallback.find((c) => !used.has(c));
+    if (!color) {
+      const all = [...vibrant, ...fallback];
+      color = all[id % all.length];
+    }
+    next[id] = color!;
+    used.add(color!);
+  });
+  return next;
+}
 
 // Estados con colores
 const STATUS_COLORS = {
@@ -190,7 +213,7 @@ export default function PropertyShiftsModalImproved({
     Record<number, AppProperty | null>
   >({});
   const [propertyColors, setPropertyColors] = React.useState<Record<number, string>>({});
-  const [guardColors] = React.useState<Record<number, string>>({});
+  const [guardColors, setGuardColors] = React.useState<Record<number, string>>({});
   const [loadingProps, setLoadingProps] = React.useState<boolean>(false);
   
   // Estados para filtrado de propiedades
@@ -258,7 +281,7 @@ export default function PropertyShiftsModalImproved({
               address: '' 
             } as AppProperty,
             shifts: [],
-            color: propertyColors[propId] || PROPERTY_COLORS[propId % PROPERTY_COLORS.length],
+            color: propertyColors[propId] || VIBRANT_COLORS[propId % VIBRANT_COLORS.length] || FALLBACK_COLORS[propId % FALLBACK_COLORS.length],
             totalHours: 0,
           };
         }
@@ -436,7 +459,7 @@ export default function PropertyShiftsModalImproved({
       const st = new Date(shift.startTime);
       const et = shift.endTime ? new Date(shift.endTime) : new Date(st.getTime() + 60 * 60 * 1000);
       const guardId = Number(shift.guard);
-      const color = guardColors[guardId] || GUARD_COLORS[guardId % GUARD_COLORS.length];
+  const color = guardColors[guardId] || VIBRANT_COLORS[guardId % VIBRANT_COLORS.length] || FALLBACK_COLORS[guardId % FALLBACK_COLORS.length];
 
       // Iterate every day touched by the shift (cross-midnight support)
       let dayCursor = startOfDay(st);
@@ -471,7 +494,7 @@ export default function PropertyShiftsModalImproved({
             address: '' 
           } as AppProperty,
           shifts: [],
-          color: propertyColors[propId] || PROPERTY_COLORS[propId % PROPERTY_COLORS.length],
+          color: propertyColors[propId] || VIBRANT_COLORS[propId % VIBRANT_COLORS.length] || FALLBACK_COLORS[propId % FALLBACK_COLORS.length],
           totalHours: 0,
         };
       }
@@ -513,7 +536,7 @@ export default function PropertyShiftsModalImproved({
               email: '' 
             } as Guard,
             shifts: [],
-            color: guardColors[guardId] || GUARD_COLORS[guardId % GUARD_COLORS.length],
+            color: guardColors[guardId] || VIBRANT_COLORS[guardId % VIBRANT_COLORS.length] || FALLBACK_COLORS[guardId % FALLBACK_COLORS.length],
             totalHours: 0,
           };
         }
@@ -675,15 +698,25 @@ export default function PropertyShiftsModalImproved({
       )
     );
 
-    setPropertyColors((prev) => {
-      const next = { ...prev };
-      uniquePropertyIds.forEach((id, index) => {
-        if (!next[id]) {
-          next[id] = PROPERTY_COLORS[index % PROPERTY_COLORS.length];
-        }
-      });
-      return next;
-    });
+    setPropertyColors((prev) =>
+      assignColorsForIds(prev, uniquePropertyIds, VIBRANT_COLORS, FALLBACK_COLORS),
+    );
+  }, [shifts]);
+
+  // Asignar colores vivos a guardias primero, luego fallback
+  React.useEffect(() => {
+    const uniqueGuardIds = Array.from(
+      new Set(
+        shifts
+          .map((s) => s.guard)
+          .filter((id): id is number => id != null)
+          .map((id) => Number(id))
+      )
+    );
+    if (uniqueGuardIds.length === 0) return;
+    setGuardColors((prev) =>
+      assignColorsForIds(prev, uniqueGuardIds, VIBRANT_COLORS, FALLBACK_COLORS),
+    );
   }, [shifts]);
 
   // Cargar shifts (primera página o cuando se abre)
@@ -1340,7 +1373,7 @@ export default function PropertyShiftsModalImproved({
                                 
                                 // Color del guardia seleccionado para el sombreado
                                 const selectedGuardColor = selectedGuardId ?
-                                  (guardColors[selectedGuardId] || GUARD_COLORS[selectedGuardId % GUARD_COLORS.length]) : null;                                return (
+                                  (guardColors[selectedGuardId] || VIBRANT_COLORS[selectedGuardId % VIBRANT_COLORS.length] || FALLBACK_COLORS[selectedGuardId % FALLBACK_COLORS.length]) : null;                                return (
                                   <button
                                     {...props}
                                     className={cn(
@@ -1816,7 +1849,7 @@ export default function PropertyShiftsModalImproved({
                                   const guardId = shift.guard ? Number(shift.guard) : -1;
                                   const guard = allGuardsCache.find((g) => g.id === guardId);
                                   const guardName = guard ? `${guard.firstName} ${guard.lastName}` : (guardId !== -1 ? `Guardia ${guardId}` : "Sin guardia");
-                                  const color = GUARD_COLORS[guardId % GUARD_COLORS.length] || "#6B7280";
+                                  const color = guardColors[guardId] || VIBRANT_COLORS[guardId % VIBRANT_COLORS.length] || FALLBACK_COLORS[guardId % FALLBACK_COLORS.length] || "#6B7280";
                                   const rawPhone = getGuardPhone(guard);
                                   const wa = rawPhone ? normalizePhoneForWhatsapp(rawPhone) : null;
 
