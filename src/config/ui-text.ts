@@ -76,7 +76,7 @@ export const UI_TEXT = {
       add: "Agregar",
       headers: {
         name: "Nombre",
-        totalHours: "Horas Totales",
+        totalHours: "Horas",
         totalSalary: "Salario Total ($)",
         actions: "Acciones",
       },
@@ -117,7 +117,7 @@ export const UI_TEXT = {
         address: "Dirección",
         serviceTypes: "Tipos de Servicio",
         monthlyRate: "Tarifa Mensual",
-        totalHours: "Horas Totales",
+        totalHours: "Horas",
         startDate: "Fecha Inicio",
         actions: "Acciones",
       },
@@ -136,7 +136,7 @@ export const UI_TEXT = {
         typesOfService: "Tipos de Servicio",
         monthlyRate: "Tarifa Mensual",
         contractStartDate: "Fecha de inicio del contrato",
-        totalHours: "Horas Totales",
+        totalHours: "Horas",
       },
       buttons: {
         cancel: "Cancelar",

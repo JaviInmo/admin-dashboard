@@ -290,8 +290,8 @@ export function ReusableTable<T extends Record<string, any>>({
                         .join(" ");
 
                       // if header wants center, center label+icon; else justify-between (label left, icon right)
-                      const headerInnerClass = hasHeaderCenter ? "flex items-center justify-center gap-2 min-h-[1.5rem]" : "flex items-center justify-between min-h-[1.5rem]";
-                      const iconWrapperClass = hasHeaderCenter ? "flex-shrink-0" : "flex-shrink-0 ml-2";
+                      const headerInnerClass = hasHeaderCenter ? "flex items-center justify-center gap-1 min-h-[1.5rem]" : "flex items-center justify-between min-h-[1.5rem]";
+                      const iconWrapperClass = hasHeaderCenter ? "flex-shrink-0" : "flex-shrink-0 ml-1";
 
                       return (
                         <th key={String(column.key)} onClick={column.sortable && toggleSort ? () => toggleSort(column.key) : undefined} className={thClasses} style={{ ...getColumnStyle(column, index), ...(column.headerStyle || {}) }}>

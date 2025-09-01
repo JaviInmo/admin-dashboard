@@ -1,6 +1,6 @@
 "use client";
 
-import { Pencil, Trash } from "lucide-react";
+import { Pencil, Trash, User, Calendar } from "lucide-react";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { ReusableTable, type Column } from "@/components/ui/reusable-table";
@@ -17,11 +17,13 @@ import { useI18n } from "@/i18n";
 import CreatePropertyDialog from "./Create/Create";
 import DeletePropertyDialog from "./Delete/Delete";
 import EditPropertyDialog from "./Edit/Edit";
-import { User } from "lucide-react";
 
 // Nuevo: modal de detalles del propietario
 import OwnerDetailsModal from "@/components/Properties/OwnerDetailsModal";
 import PropertyDetailsModal from "@/components/Properties/PropertyDetailsModal";
+
+// Nuevo: modal de turnos para propiedades - versión corregida
+import PropertyShiftsModalImproved from "@/components/Properties/PropertyShiftsModalImproved";
 
 // Componente helper para texto truncado con tooltip
 function TruncatedText({
@@ -100,6 +102,9 @@ export default function PropertiesTable({
   // Estado para el modal de detalles de la propiedad
   const [propertyDetailsOpen, setPropertyDetailsOpen] = React.useState(false);
   const [propertyToShow, setPropertyToShow] = React.useState<any | null>(null);
+
+  // Nuevo estado: property para abrir modal de Shifts
+  const [shiftProperty, setShiftProperty] = React.useState<AppProperty | null>(null);
 
   // Safe text getter to avoid TS errors when some keys are missing
   function getText(path: string, fallback?: string) {
@@ -191,42 +196,52 @@ export default function PropertiesTable({
           </div>
         );
       },
-      headerClassName: "px-2 py-1 text-sm",
-      cellClassName: "px-2 py-1 text-sm",
+      headerClassName: "px-1 py-1 text-sm",
+      cellClassName: "px-1 py-1 text-sm",
+      headerStyle: { width: "120px", minWidth: "100px", maxWidth: "140px" },
+      cellStyle: { width: "120px", minWidth: "100px", maxWidth: "140px" },
     },
     {
       key: "alias",
       label: getText("properties.table.headers.alias", "Nick"),
       sortable: true,
-      render: (p) => <TruncatedText text={p.alias || "-"} maxLength={20} />,
-      headerClassName: "px-2 py-1 text-sm",
-      cellClassName: "px-2 py-1 text-sm",
+      render: (p) => <TruncatedText text={p.alias || "-"} maxLength={15} />,
+      headerClassName: "px-1 py-1 text-sm",
+      cellClassName: "px-1 py-1 text-sm",
+      headerStyle: { width: "100px", minWidth: "80px", maxWidth: "120px" },
+      cellStyle: { width: "100px", minWidth: "80px", maxWidth: "120px" },
     },
     {
       key: "name",
       label: getText("properties.table.headers.name", "Name"),
       sortable: true,
-      render: (p) => <TruncatedText text={p.name || ""} maxLength={25} />,
-      headerClassName: "px-2 py-1 text-sm",
-      cellClassName: "px-2 py-1 text-sm",
+      render: (p) => <TruncatedText text={p.name || ""} maxLength={20} />,
+      headerClassName: "px-1 py-1 text-sm",
+      cellClassName: "px-1 py-1 text-sm",
+      headerStyle: { width: "120px", minWidth: "100px", maxWidth: "150px" },
+      cellStyle: { width: "120px", minWidth: "100px", maxWidth: "150px" },
     },
     {
       key: "address",
       label: getText("properties.table.headers.address", "Address"), // Esta columna (índice 3) se truncará
       sortable: true,
       render: (p) => <ClickableAddress address={p.address || ""} />,
-      headerClassName: "px-2 py-1 text-sm",
-      cellClassName: "px-2 py-1 text-sm",
+      headerClassName: "px-1 py-1 text-sm",
+      cellClassName: "px-1 py-1 text-sm",
+      headerStyle: { width: "150px", minWidth: "120px", maxWidth: "200px" },
+      cellStyle: { width: "150px", minWidth: "120px", maxWidth: "200px" },
     },
     {
       key: "typesOfService",
       label: getText("properties.table.headers.serviceTypes", "Service Types"),
       sortable: false,
       render: (p) => (
-        <TruncatedText text={(p as any).typesOfServiceStr || "-"} maxLength={25} />
+        <TruncatedText text={(p as any).typesOfServiceStr || "-"} maxLength={20} />
       ),
-      headerClassName: "px-2 py-1 text-sm",
-      cellClassName: "px-2 py-1 text-sm",
+      headerClassName: "px-1 py-1 text-sm",
+      cellClassName: "px-1 py-1 text-sm",
+      headerStyle: { width: "120px", minWidth: "100px", maxWidth: "140px" },
+      cellStyle: { width: "120px", minWidth: "100px", maxWidth: "140px" },
     },
     {
       key: "monthlyRate",
@@ -239,16 +254,20 @@ export default function PropertiesTable({
             : "-"}
         </span>
       ),
-      headerClassName: "px-2 py-1 text-sm",
-      cellClassName: "px-2 py-1 text-sm",
+      headerClassName: "px-1 py-1 text-sm text-center",
+      cellClassName: "px-1 py-1 text-sm text-right",
+      headerStyle: { width: "100px", minWidth: "80px", maxWidth: "120px" },
+      cellStyle: { width: "100px", minWidth: "80px", maxWidth: "120px" },
     },
     {
       key: "totalHours",
       label: getText("properties.table.headers.totalHours", "Total Hours"),
       sortable: true,
-      render: (p) => <span className="text-sm">{p.totalHours ?? "-"}</span>,
-      headerClassName: "px-2 py-1 text-sm",
-      cellClassName: "px-2 py-1 text-sm",
+      render: (p) => <span className="text-xs">{p.totalHours ?? "-"}</span>,
+      headerClassName: "px-1 py-1 text-xs text-center",
+      cellClassName: "px-1 py-1 text-xs text-center",
+      headerStyle: { width: "60px", minWidth: "50px", maxWidth: "70px" },
+      cellStyle: { width: "60px", minWidth: "50px", maxWidth: "70px" },
     },
   ];
 
@@ -257,7 +276,21 @@ export default function PropertiesTable({
 
   // Acciones de fila
   const renderActions = (property: AppProperty) => (
-    <>
+    <div className="flex items-center gap-1"> {/* gap reducido como en guardias */}
+      {/* Turnos */}
+      <Button
+        size="icon"
+        variant="ghost"
+        onClick={(e) => {
+          e.stopPropagation();
+          setShiftProperty(property);
+        }}
+        title={getText("properties.table.shiftsButton", "Turnos")}
+        aria-label={getText("properties.table.shiftsAria", "Gestionar turnos de la propiedad")}
+      >
+        <Calendar className="h-4 w-4" />
+      </Button>
+      
       <Button
         size="icon"
         variant="ghost"
@@ -295,7 +328,7 @@ export default function PropertiesTable({
       >
         <Trash className="h-4 w-4 text-red-500" />
       </Button>
-    </>
+    </div>
   );
 
   return (
@@ -376,6 +409,16 @@ export default function PropertiesTable({
             setPropertyDetailsOpen(false);
             setPropertyToShow(null);
           }}
+        />
+      )}
+
+      {/* Nuevo: modal de Shifts para propiedades */}
+      {shiftProperty && (
+        <PropertyShiftsModalImproved
+          propertyId={shiftProperty.id}
+          propertyName={shiftProperty.name || shiftProperty.alias || `Propiedad ${shiftProperty.id}`}
+          open={!!shiftProperty}
+          onClose={() => setShiftProperty(null)}
         />
       )}
     </>
