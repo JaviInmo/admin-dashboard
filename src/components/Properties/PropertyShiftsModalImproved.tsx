@@ -1,12 +1,7 @@
 "use client";
 
 import * as React from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -25,6 +20,9 @@ import {
   BarChart3,
   Download,
   Search,
+  AlertTriangle,
+  MessageCircle,
+  MoveVertical,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useI18n } from "@/i18n";
@@ -44,38 +42,42 @@ import ShowShift from "@/components/Shifts/Show/Show";
 import EditShift from "@/components/Shifts/Edit/Edit";
 import DeleteShift from "@/components/Shifts/Delete/Delete";
 import type { Shift } from "@/components/Shifts/types";
-import { listShiftsByProperty } from "@/lib/services/shifts";
+import { listShiftsByProperty, updateShift } from "@/lib/services/shifts";
 import { getProperty } from "@/lib/services/properties";
 import type { AppProperty } from "@/lib/services/properties";
-import { getGuard, listGuards } from "@/lib/services/guard";
+import { listGuards } from "@/lib/services/guard";
 import type { Guard } from "@/components/Guards/types";
 import { cn } from "@/lib/utils";
 
-// Colores para propiedades - paleta de 50 colores únicos
+// Colores para propiedades y guardias con prioridad: tonos "normales" primero; rojos/marrones al final
 const PROPERTY_COLORS = [
-  "#3B82F6", "#EF4444", "#10B981", "#F59E0B", "#8B5CF6", // 1-5: azul, rojo, verde, ámbar, violeta
-  "#EC4899", "#14B8A6", "#F97316", "#6366F1", "#84CC16", // 6-10: rosa, teal, naranja, índigo, lima
-  "#DC2626", "#059669", "#D97706", "#7C3AED", "#BE185D", // 11-15: rojo oscuro, esmeralda oscuro, ámbar oscuro, violeta oscuro, rosa oscuro
-  "#0891B2", "#EA580C", "#4F46E5", "#65A30D", "#B91C1C", // 16-20: cian, naranja oscuro, índigo oscuro, lima oscuro, rojo muy oscuro
-  "#047857", "#92400E", "#5B21B6", "#A21CAF", "#0E7490", // 21-25: esmeralda muy oscuro, ámbar muy oscuro, violeta muy oscuro, rosa muy oscuro, cian oscuro
-  "#C2410C", "#3730A3", "#4D7C0F", "#991B1B", "#064E3B", // 26-30: naranja muy oscuro, índigo muy oscuro, lima muy oscuro, rojo extremo, esmeralda extremo
-  "#78350F", "#581C87", "#86198F", "#155E75", "#9A3412", // 31-35: ámbar extremo, violeta extremo, rosa extremo, cian muy oscuro, naranja extremo
-  "#312E81", "#365314", "#7F1D1D", "#052E16", "#451A03", // 36-40: índigo extremo, lima extremo, rojo final, esmeralda final, ámbar final
-  "#2E1065", "#701A75", "#164E63", "#7C2D12", "#1E1B4B", // 41-45: violeta final, rosa final, cian final, naranja final, índigo final
-  "#1A2E05", "#450A0A", "#0C2D12", "#431407", "#0F172A"  // 46-50: lima final, rojo absoluto, esmeralda absoluto, ámbar absoluto, slate muy oscuro
+  // Prioridad alta (legibles/neutros)
+  "#3B82F6", "#10B981", "#14B8A6", "#6366F1", "#8B5CF6",
+  "#F59E0B", "#F97316", "#84CC16", "#0891B2", "#4F46E5",
+  "#059669", "#65A30D", "#155E75", "#0E7490", "#312E81",
+  "#3730A3", "#4D7C0F", "#581C87", "#2E1065", "#701A75",
+  "#164E63", "#1E1B4B", "#1A2E05", "#365314", "#052E16",
+  "#0C2D12", "#064E3B", "#047857", "#0F172A", "#EC4899",
+  // Fallback intensos (naranjas/marrones/rojos)
+  "#D97706", "#EA580C", "#C2410C", "#92400E", "#7C2D12",
+  "#9A3412", "#78350F", "#451A03", "#431407",
+  "#7C3AED", "#A21CAF", "#BE185D",
+  "#EF4444", "#DC2626", "#B91C1C", "#991B1B", "#7F1D1D", "#450A0A",
 ];
 
 const GUARD_COLORS = [
-  "#3B82F6", "#EF4444", "#10B981", "#F59E0B", "#8B5CF6", // 1-5: azul, rojo, verde, ámbar, violeta
-  "#EC4899", "#14B8A6", "#F97316", "#6366F1", "#84CC16", // 6-10: rosa, teal, naranja, índigo, lima
-  "#DC2626", "#059669", "#D97706", "#7C3AED", "#BE185D", // 11-15: rojo oscuro, esmeralda oscuro, ámbar oscuro, violeta oscuro, rosa oscuro
-  "#0891B2", "#EA580C", "#4F46E5", "#65A30D", "#B91C1C", // 16-20: cian, naranja oscuro, índigo oscuro, lima oscuro, rojo muy oscuro
-  "#047857", "#92400E", "#5B21B6", "#A21CAF", "#0E7490", // 21-25: esmeralda muy oscuro, ámbar muy oscuro, violeta muy oscuro, rosa muy oscuro, cian oscuro
-  "#C2410C", "#3730A3", "#4D7C0F", "#991B1B", "#064E3B", // 26-30: naranja muy oscuro, índigo muy oscuro, lima muy oscuro, rojo extremo, esmeralda extremo
-  "#78350F", "#581C87", "#86198F", "#155E75", "#9A3412", // 31-35: ámbar extremo, violeta extremo, rosa extremo, cian muy oscuro, naranja extremo
-  "#312E81", "#365314", "#7F1D1D", "#052E16", "#451A03", // 36-40: índigo extremo, lima extremo, rojo final, esmeralda final, ámbar final
-  "#2E1065", "#701A75", "#164E63", "#7C2D12", "#1E1B4B", // 41-45: violeta final, rosa final, cian final, naranja final, índigo final
-  "#1A2E05", "#450A0A", "#0C2D12", "#431407", "#0F172A"  // 46-50: lima final, rojo absoluto, esmeralda absoluto, ámbar absoluto, slate muy oscuro
+  // Prioridad alta (legibles/neutros)
+  "#3B82F6", "#10B981", "#14B8A6", "#6366F1", "#8B5CF6",
+  "#F59E0B", "#F97316", "#84CC16", "#0891B2", "#4F46E5",
+  "#059669", "#65A30D", "#155E75", "#0E7490", "#312E81",
+  "#3730A3", "#4D7C0F", "#581C87", "#2E1065", "#701A75",
+  "#164E63", "#1E1B4B", "#1A2E05", "#365314", "#052E16",
+  "#0C2D12", "#064E3B", "#047857", "#0F172A", "#EC4899",
+  // Fallback intensos (naranjas/marrones/rojos)
+  "#D97706", "#EA580C", "#C2410C", "#92400E", "#7C2D12",
+  "#9A3412", "#78350F", "#451A03", "#431407",
+  "#7C3AED", "#A21CAF", "#BE185D",
+  "#EF4444", "#DC2626", "#B91C1C", "#991B1B", "#7F1D1D", "#450A0A",
 ];
 
 // Estados con colores
@@ -188,12 +190,11 @@ export default function PropertyShiftsModalImproved({
     Record<number, AppProperty | null>
   >({});
   const [propertyColors, setPropertyColors] = React.useState<Record<number, string>>({});
-  const [guardColors, setGuardColors] = React.useState<Record<number, string>>({});
+  const [guardColors] = React.useState<Record<number, string>>({});
   const [loadingProps, setLoadingProps] = React.useState<boolean>(false);
   
   // Estados para filtrado de propiedades
-  const [propertyTimeFilter, setPropertyTimeFilter] = React.useState<string>("all");
-  const [propertySearchQuery, setPropertySearchQuery] = React.useState<string>("");
+  // (deprecated) filtros de propiedades no usados
   
   // Estados para filtros de guardias
   const [guardTimeFilter, setGuardTimeFilter] = React.useState<string>("all");
@@ -206,8 +207,7 @@ export default function PropertyShiftsModalImproved({
   const [guardsCacheLoaded, setGuardsCacheLoaded] = React.useState<boolean>(false);
   
   // Cache de guardias { [id]: Guard | null }
-  const [guardMap, setGuardMap] = React.useState<Record<number, Guard | null>>({});
-  const [loadingGuards, setLoadingGuards] = React.useState<boolean>(false);
+  // (deprecated) cache de guardias locales no usado
   
   // Cache del guardia actual para evitar llamadas repetidas
   const [currentPropertyCache, setCurrentPropertyCache] = React.useState<any | null>(null);
@@ -217,7 +217,6 @@ export default function PropertyShiftsModalImproved({
   const [overlapDays, setOverlapDays] = React.useState<Set<string>>(new Set());
   const [overlapAlert, setOverlapAlert] = React.useState<string>("");
   const [overlapShifts, setOverlapShifts] = React.useState<Set<number>>(new Set());
-  const [overlapProperties, setOverlapProperties] = React.useState<Set<number>>(new Set());
   const [overlapGuards, setOverlapGuards] = React.useState<Set<number>>(new Set());
 
   // Datos procesados para el calendario estilo Windows
@@ -286,7 +285,7 @@ export default function PropertyShiftsModalImproved({
     const overlappingShifts = new Set<number>();
     const overlappingProperties = new Set<number>();
 
-    // Función para verificar solapamiento entre dos turnos
+  // Función para verificar solapamiento entre dos turnos
     const checkTimeOverlap = (start1: string, end1: string, start2: string, end2: string): boolean => {
       const startDate1 = new Date(start1);
       const endDate1 = new Date(end1);
@@ -305,7 +304,10 @@ export default function PropertyShiftsModalImproved({
           const shift1 = dayShifts[i];
           const shift2 = dayShifts[j];
 
-          if (shift1.startTime && shift1.endTime && shift2.startTime && shift2.endTime) {
+          // Solo consideramos solapamiento si es el MISMO guardia
+          const g1 = shift1.guard != null ? Number(shift1.guard) : null;
+          const g2 = shift2.guard != null ? Number(shift2.guard) : null;
+          if (g1 != null && g2 != null && g1 === g2 && shift1.startTime && shift1.endTime && shift2.startTime && shift2.endTime) {
             if (checkTimeOverlap(shift1.startTime, shift1.endTime, shift2.startTime, shift2.endTime)) {
               const dateKey = dayData.date.toLocaleDateString();
               overlaps.add(dateKey);
@@ -313,10 +315,6 @@ export default function PropertyShiftsModalImproved({
               // Marcar turnos específicos con solapamiento
               overlappingShifts.add(shift1.id);
               overlappingShifts.add(shift2.id);
-              
-              // Marcar propiedades afectadas
-              if (shift1.property) overlappingProperties.add(Number(shift1.property));
-              if (shift2.property) overlappingProperties.add(Number(shift2.property));
               
               if (!overlapMessages.some(msg => msg.includes(dateKey))) {
                 overlapMessages.push(`${dateKey}`);
@@ -338,10 +336,93 @@ export default function PropertyShiftsModalImproved({
   // Actualizar estados de solapamiento
   React.useEffect(() => {
     setOverlapDays(overlapDetection.overlaps);
-    setOverlapAlert(overlapDetection.message);
-    setOverlapShifts(overlapDetection.overlappingShifts);
-    setOverlapProperties(overlapDetection.overlappingProperties);
-  }, [overlapDetection]);
+  // Overlap alert disabled in Properties view
+  setOverlapShifts(overlapDetection.overlappingShifts);
+  // Calcular guardias con solapamientos a partir de los turnos solapados
+    const guardIds = new Set<number>();
+    overlapDetection.overlappingShifts.forEach((sid) => {
+      const sh = shifts.find((s) => s.id === sid);
+      if (sh?.guard != null) guardIds.add(Number(sh.guard));
+    });
+    setOverlapGuards(guardIds);
+  setOverlapAlert(overlapDetection.message);
+  }, [overlapDetection, shifts]);
+
+  // Detectar gaps de cobertura por día (solo días con alguna cobertura)
+  const gapDetection = React.useMemo(() => {
+    const intervalsByDay: Record<string, Array<{ start: number; end: number }>> = {};
+    const addInterval = (dateKey: string, start: number, end: number) => {
+      if (end <= start) return;
+      if (!intervalsByDay[dateKey]) intervalsByDay[dateKey] = [];
+      intervalsByDay[dateKey].push({ start, end });
+    };
+
+    const toDateKey = (d: Date) => d.toLocaleDateString();
+    const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    const endOfDay = (d: Date) => startOfDay(d) + 24 * 60 * 60 * 1000;
+
+    shifts.forEach((s) => {
+      if (!s.startTime) return;
+      const st = new Date(s.startTime);
+      const et = s.endTime ? new Date(s.endTime) : new Date(st.getTime() + 60 * 60 * 1000);
+      // Día del inicio
+      const sodStart = startOfDay(st);
+      const eodStart = sodStart + 24 * 60 * 60 * 1000;
+      const dkStart = toDateKey(new Date(sodStart));
+      addInterval(dkStart, Math.max(st.getTime(), sodStart), Math.min(et.getTime(), eodStart));
+      // Si cruza a día siguiente, añadir en el día del fin
+      if (toDateKey(st) !== toDateKey(et)) {
+        const sodEnd = startOfDay(et);
+        const eodEnd = endOfDay(et);
+        const dkEnd = toDateKey(new Date(sodEnd));
+        addInterval(dkEnd, Math.max(st.getTime(), sodEnd), Math.min(et.getTime(), eodEnd));
+      }
+    });
+
+    // Merge intervals y calcular gaps
+    const gapsMap: Record<string, Array<{ start: number; end: number }>> = {};
+    const gapDays = new Set<string>();
+    const MIN_GAP_MS = 15 * 60 * 1000; // 15 minutos
+
+    Object.entries(intervalsByDay).forEach(([dk, intervals]) => {
+      if (!intervals || intervals.length === 0) return;
+      // Merge
+      const merged = intervals
+        .sort((a, b) => a.start - b.start)
+        .reduce((acc: Array<{ start: number; end: number }>, cur) => {
+          const last = acc[acc.length - 1];
+          if (!last || cur.start > last.end) acc.push({ ...cur });
+          else last.end = Math.max(last.end, cur.end);
+          return acc;
+        }, []);
+
+      // Calcular gaps dentro del día
+      const refDate = new Date(dk);
+      const sod = startOfDay(refDate);
+      const eod = sod + 24 * 60 * 60 * 1000;
+      const gaps: Array<{ start: number; end: number }> = [];
+
+      // Gap inicial
+      if (merged[0].start > sod) gaps.push({ start: sod, end: merged[0].start });
+      // Gaps intermedios
+      for (let i = 0; i < merged.length - 1; i++) {
+        const gapStart = merged[i].end;
+        const gapEnd = merged[i + 1].start;
+        if (gapEnd > gapStart) gaps.push({ start: gapStart, end: gapEnd });
+      }
+      // Gap final
+      if (merged[merged.length - 1].end < eod) gaps.push({ start: merged[merged.length - 1].end, end: eod });
+
+      // Filtrar gaps pequeños y registrar solo si hay cobertura alguna (merged > 0) y algún gap significativo
+      const significant = gaps.filter(g => g.end - g.start >= MIN_GAP_MS);
+      if (merged.length > 0 && significant.length > 0) {
+        gapsMap[dk] = significant;
+        gapDays.add(dk);
+      }
+    });
+
+    return { gapDays, gapsMap };
+  }, [shifts]);
 
   // Mapa de fecha -> guardias con turnos para mostrar círculos
   const dateGuardMap = React.useMemo(() => {
@@ -494,57 +575,6 @@ export default function PropertyShiftsModalImproved({
     });
   }, [shifts, allGuardsCache, guardColors, guardSearchQuery, guardTimeFilter]);
 
-  // Propiedades filtradas por búsqueda y tiempo
-  const filteredProperties = React.useMemo(() => {
-    let result = allProperties;
-    
-    // Filtro por búsqueda de texto
-    if (propertySearchQuery.trim()) {
-      const query = propertySearchQuery.toLowerCase();
-      result = result.filter(prop => 
-        prop.property.name?.toLowerCase().includes(query) ||
-        prop.property.alias?.toLowerCase().includes(query) ||
-        prop.property.address?.toLowerCase().includes(query)
-      );
-    }
-    
-    // Filtro temporal
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    
-    switch (propertyTimeFilter) {
-      case 'future':
-        result = result.filter(prop => 
-          prop.shifts.some(shift => 
-            shift.startTime && new Date(shift.startTime) > now
-          )
-        );
-        break;
-      case 'current':
-        result = result.filter(prop => 
-          prop.shifts.some(shift => 
-            shift.startTime && isSameDay(new Date(shift.startTime), today)
-          )
-        );
-        break;
-      case 'past':
-        result = result.filter(prop => 
-          prop.shifts.length > 0 && prop.shifts.every(shift => 
-            shift.startTime && new Date(shift.startTime) < today
-          )
-        );
-        break;
-      case 'no-shifts':
-        result = result.filter(prop => prop.shifts.length === 0);
-        break;
-      case 'all':
-      default:
-        // No filtrar, mostrar todas
-        break;
-    }
-    
-    return result;
-  }, [allProperties, propertySearchQuery, propertyTimeFilter]);
 
   // Shifts filtrados por propiedad seleccionada, ordenados por fecha (más recientes primero)
   const filteredShifts = React.useMemo(() => {
@@ -610,6 +640,23 @@ export default function PropertyShiftsModalImproved({
     }
 
     return null;
+  }
+
+  // Extraer teléfono del guardia y normalizar para WhatsApp
+  function getGuardPhone(g?: Guard | null): string | null {
+    if (!g) return null;
+    const anyG: any = g;
+    const cand =
+      anyG.phoneNumber || anyG.phone_number || anyG.phone || anyG.mobile ||
+      anyG.mobilePhone || anyG.cellphone || anyG.cell || anyG.whatsapp || anyG.whatsApp || null;
+    if (!cand || typeof cand !== "string") return null;
+    return cand.trim();
+  }
+
+  function normalizePhoneForWhatsapp(phone: string): string {
+    const digits = (phone || "").replace(/\D/g, "");
+    if (digits.length === 10) return `1${digits}`; // Asumir US si 10 dígitos
+    return digits; // Si ya viene con país u otra longitud
   }
 
   // Asignar colores a propiedades
@@ -899,6 +946,116 @@ export default function PropertyShiftsModalImproved({
   // Estado para guardia preseleccionado en crear turno
   const [createShiftGuardId, setCreateShiftGuardId] = React.useState<number | null>(null);
   const [createShiftPreselectedGuard, setCreateShiftPreselectedGuard] = React.useState<Guard | null>(null);
+
+  // === Resize (drag) state for timeline ===
+  const timelineRef = React.useRef<HTMLDivElement | null>(null);
+  const [dragState, setDragState] = React.useState<
+    | {
+        id: number;
+        mode: "start" | "end";
+        startMs: number;
+        endMs: number;
+        startClientY: number;
+      }
+    | null
+  >(null);
+  const [draftTimes, setDraftTimes] = React.useState<Record<number, { startMs: number; endMs: number }>>({});
+
+  const STEP_MINUTES = 15;
+  const MIN_DURATION_MIN = 15;
+
+  function roundToStepWithinDay(targetMs: number, sod: number): number {
+    const minutesFromSod = Math.round((targetMs - sod) / 60000);
+    const snapped = Math.round(minutesFromSod / STEP_MINUTES) * STEP_MINUTES;
+    return sod + snapped * 60000;
+  }
+
+  const startResize = React.useCallback(
+    (
+      e: React.MouseEvent<HTMLDivElement>,
+      shiftId: number,
+      mode: "start" | "end",
+      startMs: number,
+      endMs: number
+    ) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setDragState({ id: shiftId, mode, startMs, endMs, startClientY: e.clientY });
+      // Prime draft with current values so live render uses it immediately
+      setDraftTimes((prev) => ({ ...prev, [shiftId]: { startMs, endMs } }));
+      // Disable text selection during drag
+      document.body.style.userSelect = "none";
+    },
+    []
+  );
+
+  React.useEffect(() => {
+    if (!dragState) return;
+
+    const handleMove = (ev: MouseEvent) => {
+      const container = timelineRef.current;
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      const pxPerMinute = rect.height / (24 * 60);
+      const deltaY = ev.clientY - dragState.startClientY;
+      const deltaMinutes = deltaY / pxPerMinute;
+
+      const sodDate = selectedDate
+        ? new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate())
+        : null;
+      if (!sodDate) return;
+      const sod = sodDate.getTime();
+      const eod = sod + 24 * 60 * 60 * 1000;
+
+      let newStart = dragState.startMs;
+      let newEnd = dragState.endMs;
+      if (dragState.mode === "start") {
+        newStart = roundToStepWithinDay(dragState.startMs + deltaMinutes * 60000, sod);
+        // Clamp within day and min duration
+        newStart = Math.max(sod, Math.min(newStart, newEnd - MIN_DURATION_MIN * 60000));
+      } else {
+        newEnd = roundToStepWithinDay(dragState.endMs + deltaMinutes * 60000, sod);
+        newEnd = Math.min(eod, Math.max(newEnd, newStart + MIN_DURATION_MIN * 60000));
+      }
+
+      setDraftTimes((prev) => ({ ...prev, [dragState.id]: { startMs: newStart, endMs: newEnd } }));
+    };
+
+    const handleUp = async () => {
+      const dt = draftTimes[dragState.id];
+      document.body.style.userSelect = "";
+      setDragState(null);
+      if (!dt) return;
+      try {
+        // Persist changes
+        const updated = await updateShift(dragState.id, {
+          start_time: new Date(dt.startMs).toISOString(),
+          end_time: new Date(dt.endMs).toISOString(),
+        });
+        // Use existing handler to update state and close any dialogs if needed
+        handleUpdated(updated);
+      } catch (err) {
+        console.error("updateShift failed:", err);
+        toast.error("No se pudo actualizar el turno");
+      } finally {
+        // Clear draft for this shift
+        setDraftTimes((prev) => {
+          const { [dragState.id]: _, ...rest } = prev;
+          return rest;
+        });
+      }
+      window.removeEventListener("mousemove", handleMove);
+      window.removeEventListener("mouseup", handleUp);
+    };
+
+    window.addEventListener("mousemove", handleMove);
+    window.addEventListener("mouseup", handleUp);
+    return () => {
+      document.body.style.userSelect = "";
+      window.removeEventListener("mousemove", handleMove);
+      window.removeEventListener("mouseup", handleUp);
+    };
+  }, [dragState, draftTimes, selectedDate]);
   
   return (
     <Dialog
@@ -1022,6 +1179,8 @@ export default function PropertyShiftsModalImproved({
                                 
                                 // Verificar si este día tiene solapamientos
                                 const hasOverlap = overlapDays.has(props.day.date.toLocaleDateString());
+                                // Verificar si este día tiene gaps
+                                const hasGap = gapDetection.gapDays.has(props.day.date.toLocaleDateString());
                                 
                                 // Verificar si este día tiene turnos del guardia seleccionado
                                 const hasSelectedGuardShift = selectedGuardId ? 
@@ -1058,6 +1217,12 @@ export default function PropertyShiftsModalImproved({
                                     }}
                                   >
                                     <div className="relative w-full h-full flex flex-col items-center justify-center">
+                                      {/* Indicador de gap */}
+                                      {hasGap && (
+                                        <div className="absolute top-1 right-1" title="Día con gaps de cobertura">
+                                          <AlertTriangle className="h-3 w-3 text-orange-500 drop-shadow" />
+                                        </div>
+                                      )}
                                       {/* Número del día */}
                                       <span className={cn(
                                         "text-sm",
@@ -1101,7 +1266,7 @@ export default function PropertyShiftsModalImproved({
                           />
                         </div>
 
-                        {/* Alerta de solapamientos */}
+                        {/* Alerta de solapamientos (solo cuando el mismo guardia se solapa) */}
                         {overlapAlert && (
                           <div className="mt-3 bg-red-50 border border-red-200 rounded-md p-3">
                             <div className="flex items-center">
@@ -1256,8 +1421,27 @@ export default function PropertyShiftsModalImproved({
                                       style={{ backgroundColor: guardData.color }}
                                     />
                                     <div className="flex-1 min-w-0">
-                                      <div className="font-medium text-xs mb-1">
-                                        {guardData.guard.firstName} {guardData.guard.lastName}
+                                      <div className="flex items-center justify-between gap-2 mb-1">
+                                        <div className="font-medium text-xs truncate">
+                                          {guardData.guard.firstName} {guardData.guard.lastName}
+                                        </div>
+                                        {(() => {
+                                          const rawPhone = getGuardPhone(guardData.guard);
+                                          if (!rawPhone) return null;
+                                          const wa = normalizePhoneForWhatsapp(rawPhone);
+                                          return (
+                                            <a
+                                              href={`https://wa.me/${wa}`}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="text-xs inline-flex items-center gap-1 underline decoration-dotted text-green-700 hover:text-primary"
+                                              title={`WhatsApp a ${rawPhone}`}
+                                              onClick={(e) => e.stopPropagation()}
+                                            >
+                                              <MessageCircle className="h-3 w-3" /> {rawPhone}
+                                            </a>
+                                          );
+                                        })()}
                                       </div>
                                       
                                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -1305,6 +1489,9 @@ export default function PropertyShiftsModalImproved({
                                       e.stopPropagation(); // Evitar que se active el click del guardia
                                       setCreateShiftGuardId(guardData.guard.id);
                                       setCreateShiftPreselectedGuard(guardData.guard);
+                                      // Preseleccionar la propiedad del modal
+                                      setCreateShiftPropertyId(propertyId);
+                                      setCreateShiftPreselectedProperty(currentPropertyCache);
                                       setOpenCreate(true);
                                     }}
                                     className="h-6 w-6 p-0 flex-shrink-0 hover:bg-primary/10 hover:text-primary"
@@ -1355,250 +1542,475 @@ export default function PropertyShiftsModalImproved({
                       </div>
                     </CardHeader>
                     <CardContent className="p-0 flex-1 min-h-0 overflow-hidden">
-                      <ScrollArea className="h-[calc(95vh-280px)] w-full">
-                        <div className="space-y-2 p-2 pt-1">
-                          {loading && filteredShifts.length === 0 ? (
-                            <div className="space-y-2">
-                              {[1, 2, 3].map((i) => (
-                                <div
-                                  key={i}
-                                  className="flex items-center justify-between gap-2 rounded border p-2 shadow-sm bg-card"
-                                >
-                                  <div className="flex items-start gap-2">
-                                    <div className="h-4 w-4 rounded-full bg-muted/30 animate-pulse mt-0.5" />
-                                    <div className="w-full">
-                                      <div className="h-3 w-20 rounded bg-muted/30 animate-pulse mb-1"></div>
-                                      <div className="h-3 w-32 rounded bg-muted/30 animate-pulse mb-1"></div>
-                                      <div className="h-2 w-24 rounded bg-muted/30 animate-pulse"></div>
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center gap-1">
-                                    <div className="h-6 w-6 rounded bg-muted/30 animate-pulse" />
-                                    <div className="h-6 w-6 rounded bg-muted/30 animate-pulse" />
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          ) : selectedDate ? (
-                            // Vista especial: mostrar propiedades del día seleccionado
-                            allProperties.filter((propData: PropertyWithShifts) => 
-                              propData.shifts.some((shift: Shift) => 
-                                shift.startTime && isSameDay(new Date(shift.startTime), selectedDate)
-                              )
-                            ).length === 0 ? (
-                              <div className="text-center text-sm text-muted-foreground py-8">
-                                No hay turnos para {selectedDate.toLocaleDateString()}
-                              </div>
-                            ) : (
-                              allProperties.filter((propData: PropertyWithShifts) => 
-                                propData.shifts.some((shift: Shift) => 
-                                  shift.startTime && isSameDay(new Date(shift.startTime), selectedDate)
-                                )
-                              ).map((propData: PropertyWithShifts) => (
-                                <div
-                                  key={propData.property.id}
-                                  className="p-2 rounded border bg-card hover:shadow-sm transition-shadow cursor-pointer"
-                                  style={{ 
-                                    backgroundColor: 'var(--card)',
-                                    borderStyle: 'var(--tw-border-style)',
-                                    borderWidth: '1px',
-                                    borderRadius: 'calc(var(--radius) + 2px)'
-                                  }}
-                                  onClick={() => {
-                                    setSelectedPropertyId(propData.property.id);
-                                    setSelectedDate(undefined);
-                                  }}
-                                >
-                                  <div className="flex items-start gap-2">
-                                    <div
-                                      className="w-6 h-6 rounded-full mt-0.5 flex-shrink-0 border-2 border-white shadow-sm"
-                                      style={{ backgroundColor: propData.color }}
-                                    />
-                                    <div className="flex-1">
-                                      <div className="font-semibold text-sm mb-2">
-                                        {propData.property.name || propData.property.alias || `Propiedad ${propData.property.id}`}
-                                      </div>
-                                      
-                                      <div className="space-y-2">
-                                        {propData.shifts.map((shift: Shift) => {
-                                          const hasShiftOverlap = overlapShifts.has(shift.id);
-                                          
-                                          return (
-                                          <div 
-                                            key={shift.id} 
-                                            className={cn(
-                                              "flex items-center justify-between text-xs p-2 rounded",
-                                              hasShiftOverlap 
-                                                ? "bg-red-100 border border-red-300 shadow-sm" 
-                                                : "hover:bg-muted/30"
-                                            )}
-                                          >
-                                            <div className="flex items-center gap-2">
-                                              {/* Indicador de solapamiento */}
-                                              {hasShiftOverlap && (
-                                                <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse flex-shrink-0" title="Turno con solapamiento" />
-                                              )}
-                                              <Clock className={cn("h-3 w-3", hasShiftOverlap && "text-red-600")} />
-                                              <span className={hasShiftOverlap ? "text-red-800 font-medium" : ""}>
-                                                {shift.startTime
-                                                  ? new Date(shift.startTime).toLocaleTimeString([], {
-                                                      hour: "2-digit",
-                                                      minute: "2-digit",
-                                                    })
-                                                  : "—"}{" "}
-                                                -{" "}
-                                                {shift.endTime
-                                                  ? new Date(shift.endTime).toLocaleTimeString([], {
-                                                      hour: "2-digit",
-                                                      minute: "2-digit",
-                                                    })
-                                                  : "—"}
-                                              </span>
-                                            </div>
-                                            <Badge 
-                                              variant="secondary" 
-                                              className="text-xs"
-                                              style={{ 
-                                                backgroundColor: `${STATUS_COLORS[shift.status as keyof typeof STATUS_COLORS]}20`,
-                                                color: STATUS_COLORS[shift.status as keyof typeof STATUS_COLORS]
-                                              }}
-                                            >
-                                              {shift.status}
-                                            </Badge>
-                                          </div>
-                                          );
-                                        })}
-                                      </div>
-                                      
-                                      <div className="mt-2 pt-2 border-t text-xs text-muted-foreground">
-                                        {propData.shifts.length} turno{propData.shifts.length !== 1 ? 's' : ''} • {propData.totalHours}h total
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              ))
-                            )
-                          ) : filteredShifts.length === 0 ? (
-                            <div className="text-center text-sm text-muted-foreground py-8">
-                              {selectedPropertyId
-                                ? "No hay turnos para esta propiedad"
-                                : "No hay turnos para este guardia"}
-                            </div>
-                          ) : (
-                            // Vista normal: lista de turnos
-                            filteredShifts.map((s) => {
-                              const propertyLabel = getPropertyLabelForShift(s);
-                              const propId = s.property ? Number(s.property) : -1;
-                              const propColor = propertyColors[propId] || "#6B7280";
-                              const hasShiftOverlap = overlapShifts.has(s.id);
-                              
+                      {selectedDate ? (
+                        <div className="h-full w-full p-2">
+                          <div ref={timelineRef} className="relative w-full h-full overflow-hidden bg-transparent">
+                            {/* Fondos alternos por hora (gris claro / azul claro) */}
+                            {Array.from({ length: 24 }, (_, h) => {
+                              const top = (h / 24) * 100;
+                              const height = (1 / 24) * 100;
+                              const isEven = h % 2 === 0;
                               return (
                                 <div
-                                  key={s.id}
-                                  className={cn(
-                                    "flex items-center justify-between gap-2 rounded border p-2 shadow-sm transition-shadow",
-                                    hasShiftOverlap 
-                                      ? "bg-red-50 border-red-300 shadow-md" 
-                                      : "bg-card hover:shadow-sm"
-                                  )}
-                                >
-                                  <div className="flex items-start gap-3">
-                                    {/* Indicador de solapamiento */}
-                                    {hasShiftOverlap && (
-                                      <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse mt-2 flex-shrink-0" title="Turno con solapamiento" />
-                                    )}
+                                  key={`bg-${h}`}
+                                  className="absolute left-0 right-0 z-0 pointer-events-none"
+                                  style={{
+                                    top: `${top}%`,
+                                    height: `${height}%`,
+                                    backgroundColor: isEven ? '#F3F4F6' : '#EFF6FF',
+                                  }}
+                                />
+                              );
+                            })}
+
+                            {Array.from({ length: 25 }, (_, h) => {
+                              const top = (h / 24) * 100;
+                              const showLabel = h % 2 === 0; // etiqueta cada 2 horas
+                              return (
+                                <div key={h}>
+              <div className="absolute left-0 right-0 border-t border-muted/30 z-30 pointer-events-none" style={{ top: `${top}%` }} />
+                                  {showLabel && (
                                     <div
-                                      className="w-5 h-5 rounded-full mt-1 flex-shrink-0 border-2 border-white shadow-sm"
-                                      style={{ backgroundColor: propColor }}
-                                    />
-                                    <div>
-                                      {!selectedPropertyId && s.startTime && (
-                                        <div className="text-xs text-muted-foreground mb-1">
-                                          {new Date(s.startTime).toLocaleDateString()}
-                                        </div>
+                                      className={cn(
+                "absolute left-1 text-[10px] text-muted-foreground bg-background/80 px-1 rounded z-30 pointer-events-none",
+                                        h === 0 ? "translate-y-0" : h === 24 ? "-translate-y-full" : "-translate-y-1/2"
                                       )}
-
-                                      <div className={cn("text-sm font-semibold", hasShiftOverlap && "text-red-800")}>
-                                        {propertyLabel !== null ? (
-                                          propertyLabel
-                                        ) : loadingProps ? (
-                                          <span className="inline-block h-4 w-44 rounded bg-muted/30 animate-pulse" />
-                                        ) : s.property != null ? (
-                                          `Property ID: ${s.property}`
-                                        ) : (
-                                          "-"
-                                        )}
-                                      </div>
-
-                                      <div className={cn("text-sm flex items-center gap-2", hasShiftOverlap && "text-red-700")}>
-                                        <Clock className={cn("h-3 w-3", hasShiftOverlap && "text-red-600")} />
-                                        {s.startTime
-                                          ? new Date(s.startTime).toLocaleTimeString([], {
-                                              hour: "2-digit",
-                                              minute: "2-digit",
-                                            })
-                                          : "—"}{" "}
-                                        —{" "}
-                                        {s.endTime
-                                          ? new Date(s.endTime).toLocaleTimeString([], {
-                                              hour: "2-digit",
-                                              minute: "2-digit",
-                                            })
-                                          : "—"}
-                                      </div>
-
-                                      <div className="flex items-center gap-2 mt-1">
-                                        <Badge 
-                                          variant="secondary" 
-                                          className="text-xs"
-                                          style={{ 
-                                            backgroundColor: `${STATUS_COLORS[s.status as keyof typeof STATUS_COLORS]}20`,
-                                            color: STATUS_COLORS[s.status as keyof typeof STATUS_COLORS]
-                                          }}
-                                        >
-                                          {s.status}
-                                        </Badge>
-                                        <span className="text-xs text-muted-foreground">
-                                          {s.hoursWorked}h
-                                        </span>
-                                      </div>
+                                      style={{ top: `${top}%` }}
+                                    >
+                                      {h.toString().padStart(2, '0')}:00
                                     </div>
-                                  </div>
-
-                                  <div className="flex items-center gap-2">
-                                    <Button
-                                      size="icon"
-                                      variant="ghost"
-                                      onClick={() => setOpenShowId(s.id)}
-                                      title={TEXT?.actions?.view ?? "Ver"}
-                                    >
-                                      <Eye className="h-4 w-4" />
-                                    </Button>
-
-                                    <Button
-                                      size="icon"
-                                      variant="outline"
-                                      onClick={() => setOpenEditId(s.id)}
-                                      title={TEXT?.actions?.edit ?? "Editar"}
-                                    >
-                                      <Pencil className="h-4 w-4" />
-                                    </Button>
-
-                                    <Button
-                                      size="icon"
-                                      variant="destructive"
-                                      onClick={() => setOpenDeleteId(s.id)}
-                                      title={TEXT?.actions?.delete ?? "Eliminar"}
-                                    >
-                                      <Trash className="h-4 w-4" />
-                                    </Button>
-                                  </div>
+                                  )}
                                 </div>
                               );
-                            })
-                          )}
+                            })}
+
+                            {/* Bloques de gaps (fondo) */}
+                            {(() => {
+                              const dk = selectedDate.toLocaleDateString();
+                              const gaps = gapDetection.gapsMap[dk] || [];
+          return gaps.map((g, idx) => {
+                                const sod = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate()).getTime();
+                                const minutesFromStart = (g.start - sod) / 60000;
+                                const durationMinutes = (g.end - g.start) / 60000;
+                                const topPct = (minutesFromStart / (24 * 60)) * 100;
+                                const heightPct = (durationMinutes / (24 * 60)) * 100;
+                                return (
+                                  <div
+                                    key={`gap-${idx}`}
+            className="absolute left-10 right-2 rounded-sm z-10"
+                                    style={{
+                                      top: `${topPct}%`,
+                                      height: `${heightPct}%`,
+                                      backgroundColor: "#F97316" + "2A", // naranja con baja opacidad
+                                      outline: "1px dashed #F59E0B",
+                                    }}
+                                    title="Gap de cobertura"
+                                  />
+                                );
+                              });
+                            })()}
+
+                            {/* Bloques de turnos posicionados por hora con distribución por carriles (lanes) */}
+                            {(() => {
+                              const sod = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate()).getTime();
+                              const eod = sod + 24 * 60 * 60 * 1000;
+
+                              type Item = {
+                                shift: Shift;
+                                guardId: number;
+                                guardName: string;
+                                color: string;
+                                rawPhone: string | null;
+                                wa: string | null;
+                                startMs: number;
+                                endMs: number;
+                                clampedStart: number;
+                                clampedEnd: number;
+                                crossesFromPrev: boolean;
+                                crossesToNext: boolean;
+                                topPct: number;
+                                heightPct: number;
+                              };
+
+                              // Preparar items del día
+                              const items: Item[] = shifts
+                                .filter((shift) => {
+                                  if (!shift.startTime) return false;
+                                  const st = new Date(shift.startTime).getTime();
+                                  const et = shift.endTime ? new Date(shift.endTime).getTime() : st + 60 * 60 * 1000;
+                                  return st < eod && et > sod; // solapa con el día
+                                })
+                                .map((shift) => {
+                                  const guardId = shift.guard ? Number(shift.guard) : -1;
+                                  const guard = allGuardsCache.find((g) => g.id === guardId);
+                                  const guardName = guard ? `${guard.firstName} ${guard.lastName}` : (guardId !== -1 ? `Guardia ${guardId}` : "Sin guardia");
+                                  const color = GUARD_COLORS[guardId % GUARD_COLORS.length] || "#6B7280";
+                                  const rawPhone = getGuardPhone(guard);
+                                  const wa = rawPhone ? normalizePhoneForWhatsapp(rawPhone) : null;
+
+                                  let startMs = shift.startTime ? new Date(shift.startTime).getTime() : sod;
+                                  let endMs = shift.endTime ? new Date(shift.endTime).getTime() : Math.min(startMs + 60 * 60 * 1000, eod);
+                                  // Apply draft override if dragging this shift
+                                  const draft = draftTimes[shift.id];
+                                  if (draft) {
+                                    startMs = draft.startMs;
+                                    endMs = draft.endMs;
+                                  }
+                                  const clampedStart = Math.max(startMs, sod);
+                                  const clampedEnd = Math.min(endMs, eod);
+                                  const crossesFromPrev = startMs < sod;
+                                  const crossesToNext = endMs > eod;
+                                  const minutesFromStart = Math.max(0, (clampedStart - sod) / 60000);
+                                  const durationMinutes = Math.max(15, (clampedEnd - clampedStart) / 60000);
+                                  const topPct = (minutesFromStart / (24 * 60)) * 100;
+                                  const heightPct = (durationMinutes / (24 * 60)) * 100;
+
+                                  return {
+                                    shift,
+                                    guardId,
+                                    guardName,
+                                    color,
+                                    rawPhone,
+                                    wa,
+                                    startMs,
+                                    endMs,
+                                    clampedStart,
+                                    clampedEnd,
+                                    crossesFromPrev,
+                                    crossesToNext,
+                                    topPct,
+                                    heightPct,
+                                  };
+                                })
+                                .sort((a, b) => a.clampedStart - b.clampedStart || a.clampedEnd - b.clampedEnd);
+
+                              // Construir grafo de solapamientos para obtener componentes (grupos)
+                              const n = items.length;
+                              const adj: number[][] = Array.from({ length: n }, () => []);
+                              for (let i = 0; i < n; i++) {
+                                for (let j = i + 1; j < n; j++) {
+                                  if (items[i].clampedStart < items[j].clampedEnd && items[j].clampedStart < items[i].clampedEnd) {
+                                    adj[i].push(j);
+                                    adj[j].push(i);
+                                  }
+                                }
+                              }
+
+                              // DFS para componentes conectados
+                              const visited = new Array(n).fill(false);
+                              const components: number[][] = [];
+                              for (let i = 0; i < n; i++) {
+                                if (visited[i]) continue;
+                                const stack = [i];
+                                visited[i] = true;
+                                const comp: number[] = [];
+                                while (stack.length) {
+                                  const u = stack.pop()!;
+                                  comp.push(u);
+                                  adj[u].forEach((v) => {
+                                    if (!visited[v]) {
+                                      visited[v] = true;
+                                      stack.push(v);
+                                    }
+                                  });
+                                }
+                                components.push(comp);
+                              }
+
+                              // Asignar carriles por componente (greedy)
+                              const laneMap = new Map<number, { laneIndex: number; laneCount: number }>();
+                              components.forEach((comp) => {
+                                const sorted = comp.sort((a, b) => items[a].clampedStart - items[b].clampedStart || items[a].clampedEnd - items[b].clampedEnd);
+                                const laneEnds: number[] = [];
+                                const assigned: { idx: number; lane: number }[] = [];
+                                sorted.forEach((idx) => {
+                                  const it = items[idx];
+                                  let lane = laneEnds.findIndex((end) => end <= it.clampedStart);
+                                  if (lane === -1) {
+                                    lane = laneEnds.length;
+                                    laneEnds.push(it.clampedEnd);
+                                  } else {
+                                    laneEnds[lane] = it.clampedEnd;
+                                  }
+                                  assigned.push({ idx, lane });
+                                });
+                                const count = laneEnds.length || 1;
+                                assigned.forEach(({ idx, lane }) => {
+                                  laneMap.set(idx, { laneIndex: lane, laneCount: count });
+                                });
+                              });
+
+          // Renderizar
+                              return items.map((it, idx) => {
+                                const laneInfo = laneMap.get(idx) || { laneIndex: 0, laneCount: 1 };
+                                const widthPct = 100 / Math.max(1, laneInfo.laneCount);
+                                const leftPct = widthPct * laneInfo.laneIndex;
+                                const roundingClass = it.crossesFromPrev && it.crossesToNext
+                                  ? "rounded-none"
+                                  : it.crossesFromPrev
+                                    ? "rounded-b-md"
+                                    : it.crossesToNext
+                                      ? "rounded-t-md"
+                                      : "rounded-md";
+
+                                return (
+                                  <div
+                                    key={it.shift.id}
+            className="absolute left-10 right-2 z-20"
+                                    style={{ top: `${it.topPct}%`, height: `${it.heightPct}%` }}
+                                  >
+                                    {/* tarjeta posicionada por carril dentro del contenedor */}
+                                    <div
+                                      className={cn(
+                                        "absolute inset-y-0 shadow-sm text-white text-[10px] leading-tight p-2 cursor-pointer hover:ring-2 hover:ring-white/20",
+                                        roundingClass
+                                      )}
+                                      style={{
+                                        left: `calc(${leftPct}% + ${laneInfo.laneIndex > 0 ? 1 : 0}px)`,
+                                        width: `calc(${widthPct}% - ${laneInfo.laneCount > 1 ? 2 : 0}px)`,
+                                        backgroundColor: it.color + "E6",
+                                        backdropFilter: "blur(0.5px)",
+                                      }}
+                                      title={`${it.guardName}\n${it.shift.startTime ? new Date(it.shift.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''} - ${it.shift.endTime ? new Date(it.shift.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}`}
+                                      onClick={() => setOpenEditId(it.shift.id)}
+                                    >
+                                      <div className="flex items-center justify-between gap-2">
+                                        <span className="font-semibold truncate">{it.guardName}</span>
+                                        <div className="flex items-center gap-1">
+                                          <span className="font-mono">
+                                            {it.shift.startTime ? new Date(it.shift.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "--:--"}
+                                            {" "}–{" "}
+                                            {it.shift.endTime ? new Date(it.shift.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "--:--"}
+                                          </span>
+                                          <div className="flex flex-col items-center gap-0.5 ml-1">
+                                            <Button
+                                              size="icon"
+                                              variant="ghost"
+                                              className="h-6 w-6 p-0 text-white hover:bg-white/20"
+                                              title="Editar"
+                                              onClick={(e) => { e.stopPropagation(); setOpenEditId(it.shift.id); }}
+                                            >
+                                              <Pencil className="h-3 w-3" />
+                                            </Button>
+                                            <Button
+                                              size="icon"
+                                              variant="ghost"
+                                              className="h-6 w-6 p-0 text-white/90 hover:bg-white/20"
+                                              title="Eliminar"
+                                              onClick={(e) => { e.stopPropagation(); setOpenDeleteId(it.shift.id); }}
+                                            >
+                                              <Trash className="h-3 w-3" />
+                                            </Button>
+                                          </div>
+                                        </div>
+                                      </div>
+                                      {/* Drag preview time indicator */}
+                                      {dragState && dragState.id === it.shift.id && (
+                                        (() => {
+                                          const dt = draftTimes[it.shift.id];
+                                          const ms = dt ? (dragState.mode === 'start' ? dt.startMs : dt.endMs) : null;
+                                          if (!ms) return null;
+                                          const label = new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                          return (
+                                            <div
+                                              className={cn(
+                                                'absolute left-1 text-[10px] px-1 py-0.5 rounded bg-black/60 text-white',
+                                                dragState.mode === 'start' ? 'top-0 -translate-y-full' : 'bottom-0 translate-y-full'
+                                              )}
+                                            >
+                                              {label}
+                                            </div>
+                                          );
+                                        })()
+                                      )}
+                                      {it.wa && (
+                                        <div className="mt-1 text-[10px] leading-none truncate">
+                                          <a
+                                            href={`https://wa.me/${it.wa}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="underline decoration-dotted flex items-center gap-1 hover:text-white"
+                                            title={`WhatsApp a ${it.rawPhone}`}
+                                            onClick={(e) => e.stopPropagation()}
+                                          >
+                                            <MessageCircle className="h-3 w-3" /> {it.rawPhone}
+                                          </a>
+                                        </div>
+                                      )}
+                                      {/* Resize handles */}
+                                      {/* Handles solo cuando el borde corresponde al turno real (no en medianoche si cruza el día) */}
+                                      {!it.crossesFromPrev && (
+                                        <div
+                                          className="absolute top-0 left-0 right-0 h-2 cursor-ns-resize opacity-60 hover:opacity-100 flex items-center justify-center z-40"
+                                          onMouseDown={(e) => startResize(e, it.shift.id, 'start', it.startMs, it.endMs)}
+                                          title="Ajustar inicio"
+                                        >
+                                          <MoveVertical className="h-3 w-3" />
+                                        </div>
+                                      )}
+                                      {!it.crossesToNext && (
+                                        <div
+                                          className="absolute bottom-0 left-0 right-0 h-2 cursor-ns-resize opacity-60 hover:opacity-100 flex items-center justify-center z-40"
+                                          onMouseDown={(e) => startResize(e, it.shift.id, 'end', it.startMs, it.endMs)}
+                                          title="Ajustar fin"
+                                        >
+                                          <MoveVertical className="h-3 w-3" />
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              });
+                            })()}
+                          </div>
                         </div>
-                      </ScrollArea>
+                      ) : (
+                        <ScrollArea className="h-[calc(95vh-280px)] w-full">
+                          <div className="space-y-2 p-2 pt-1">
+                            {loading && filteredShifts.length === 0 ? (
+                              <div className="space-y-2">
+                                {[1, 2, 3].map((i) => (
+                                  <div
+                                    key={i}
+                                    className="flex items-center justify-between gap-2 rounded border p-2 shadow-sm bg-card"
+                                  >
+                                    <div className="flex items-start gap-2">
+                                      <div className="h-4 w-4 rounded-full bg-muted/30 animate-pulse mt-0.5" />
+                                      <div className="w-full">
+                                        <div className="h-3 w-20 rounded bg-muted/30 animate-pulse mb-1"></div>
+                                        <div className="h-3 w-32 rounded bg-muted/30 animate-pulse mb-1"></div>
+                                        <div className="h-2 w-24 rounded bg-muted/30 animate-pulse"></div>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      <div className="h-6 w-6 rounded bg-muted/30 animate-pulse" />
+                                      <div className="h-6 w-6 rounded bg-muted/30 animate-pulse" />
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : filteredShifts.length === 0 ? (
+                              <div className="text-center text-sm text-muted-foreground py-8">
+                                {selectedPropertyId
+                                  ? "No hay turnos para esta propiedad"
+                                  : "No hay turnos para este guardia"}
+                              </div>
+                            ) : (
+                              // Vista normal: lista de turnos
+                              filteredShifts.map((s) => {
+                                const propertyLabel = getPropertyLabelForShift(s);
+                                const propId = s.property ? Number(s.property) : -1;
+                                const propColor = propertyColors[propId] || "#6B7280";
+                                const hasShiftOverlap = overlapShifts.has(s.id);
+                                
+                                return (
+                                  <div
+                                    key={s.id}
+                                    className={cn(
+                                      "flex items-center justify-between gap-2 rounded border p-2 shadow-sm transition-shadow",
+                                      hasShiftOverlap 
+                                        ? "bg-red-50 border-red-300 shadow-md" 
+                                        : "bg-card hover:shadow-sm"
+                                    )}
+                                  >
+                                    <div className="flex items-start gap-3">
+                                      {/* Indicador de solapamiento */}
+                                      {hasShiftOverlap && (
+                                        <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse mt-2 flex-shrink-0" title="Turno con solapamiento" />
+                                      )}
+                                      <div
+                                        className="w-5 h-5 rounded-full mt-1 flex-shrink-0 border-2 border-white shadow-sm"
+                                        style={{ backgroundColor: propColor }}
+                                      />
+                                      <div>
+                                        {!selectedPropertyId && s.startTime && (
+                                          <div className="text-xs text-muted-foreground mb-1">
+                                            {new Date(s.startTime).toLocaleDateString()}
+                                          </div>
+                                        )}
+
+                                        <div className={cn("text-sm font-semibold", hasShiftOverlap && "text-red-800")}>
+                                          {propertyLabel !== null ? (
+                                            propertyLabel
+                                          ) : loadingProps ? (
+                                            <span className="inline-block h-4 w-44 rounded bg-muted/30 animate-pulse" />
+                                          ) : s.property != null ? (
+                                            `Property ID: ${s.property}`
+                                          ) : (
+                                            "-"
+                                          )}
+                                        </div>
+
+                                        <div className={cn("text-sm flex items-center gap-2", hasShiftOverlap && "text-red-700")}>
+                                          <Clock className={cn("h-3 w-3", hasShiftOverlap && "text-red-600")} />
+                                          {s.startTime
+                                            ? new Date(s.startTime).toLocaleTimeString([], {
+                                                hour: "2-digit",
+                                                minute: "2-digit",
+                                              })
+                                            : "—"}{" "}
+                                          —{" "}
+                                          {s.endTime
+                                            ? new Date(s.endTime).toLocaleTimeString([], {
+                                                hour: "2-digit",
+                                                minute: "2-digit",
+                                              })
+                                            : "—"}
+                                        </div>
+
+                                        <div className="flex items-center gap-2 mt-1">
+                                          <Badge 
+                                            variant="secondary" 
+                                            className="text-xs"
+                                            style={{ 
+                                              backgroundColor: `${STATUS_COLORS[s.status as keyof typeof STATUS_COLORS]}20`,
+                                              color: STATUS_COLORS[s.status as keyof typeof STATUS_COLORS]
+                                            }}
+                                          >
+                                            {s.status}
+                                          </Badge>
+                                          <span className="text-xs text-muted-foreground">
+                                            {s.hoursWorked}h
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-2">
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        onClick={() => setOpenShowId(s.id)}
+                                        title={TEXT?.actions?.view ?? "Ver"}
+                                      >
+                                        <Eye className="h-4 w-4" />
+                                      </Button>
+
+                                      <Button
+                                        size="icon"
+                                        variant="outline"
+                                        onClick={() => setOpenEditId(s.id)}
+                                        title={TEXT?.actions?.edit ?? "Editar"}
+                                      >
+                                        <Pencil className="h-4 w-4" />
+                                      </Button>
+
+                                      <Button
+                                        size="icon"
+                                        variant="destructive"
+                                        onClick={() => setOpenDeleteId(s.id)}
+                                        title={TEXT?.actions?.delete ?? "Eliminar"}
+                                      >
+                                        <Trash className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                );
+                              })
+                            )}
+                          </div>
+                        </ScrollArea>
+                      )}
                     </CardContent>
                   </Card>
                 </div>
@@ -1617,6 +2029,8 @@ export default function PropertyShiftsModalImproved({
         propertyId={createShiftPropertyId}
         preselectedProperty={createShiftPreselectedProperty}
         preloadedProperties={allPropertiesCache}
+  guardId={createShiftGuardId ?? undefined}
+  preloadedGuard={createShiftPreselectedGuard}
         onCreated={handleCreated}
       />
 
