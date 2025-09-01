@@ -42,7 +42,7 @@ import ShowShift from "@/components/Shifts/Show/Show";
 import EditShift from "@/components/Shifts/Edit/Edit";
 import DeleteShift from "@/components/Shifts/Delete/Delete";
 import type { Shift } from "@/components/Shifts/types";
-import { listShiftsByProperty, updateShift } from "@/lib/services/shifts";
+import { listShiftsByProperty, updateShift, createShift } from "@/lib/services/shifts";
 import { getProperty } from "@/lib/services/properties";
 import type { AppProperty } from "@/lib/services/properties";
 import { listGuards } from "@/lib/services/guard";
@@ -952,14 +952,17 @@ export default function PropertyShiftsModalImproved({
   const [dragState, setDragState] = React.useState<
     | {
         id: number;
-        mode: "start" | "end";
+        mode: "start" | "end" | "move";
         startMs: number;
         endMs: number;
         startClientY: number;
+        activated: boolean; // true once movement threshold is crossed (for move), always true for resize
       }
     | null
   >(null);
   const [draftTimes, setDraftTimes] = React.useState<Record<number, { startMs: number; endMs: number }>>({});
+  // Drag & Drop state for creating shifts from guard list
+  const [isDragOverTimeline, setIsDragOverTimeline] = React.useState<boolean>(false);
 
   const STEP_MINUTES = 15;
   const MIN_DURATION_MIN = 15;
@@ -980,7 +983,7 @@ export default function PropertyShiftsModalImproved({
     ) => {
       e.preventDefault();
       e.stopPropagation();
-      setDragState({ id: shiftId, mode, startMs, endMs, startClientY: e.clientY });
+      setDragState({ id: shiftId, mode, startMs, endMs, startClientY: e.clientY, activated: true });
       // Prime draft with current values so live render uses it immediately
       setDraftTimes((prev) => ({ ...prev, [shiftId]: { startMs, endMs } }));
       // Disable text selection during drag
@@ -989,10 +992,30 @@ export default function PropertyShiftsModalImproved({
     []
   );
 
+  // Start moving the whole shift keeping its duration
+  const startMove = React.useCallback(
+    (
+      e: React.MouseEvent<HTMLDivElement>,
+      shiftId: number,
+      startMs: number,
+      endMs: number
+    ) => {
+      // Ignore drags starting from interactive elements
+      const target = e.target as HTMLElement | null;
+      if (target && target.closest && target.closest("button, a, [data-no-drag]") ) {
+        return;
+      }
+      e.preventDefault();
+      // Don't open edit immediately; wait to see if it's a drag vs click
+      setDragState({ id: shiftId, mode: "move", startMs, endMs, startClientY: e.clientY, activated: false });
+    },
+    []
+  );
+
   React.useEffect(() => {
     if (!dragState) return;
 
-    const handleMove = (ev: MouseEvent) => {
+  const handleMove = (ev: MouseEvent) => {
       const container = timelineRef.current;
       if (!container) return;
       const rect = container.getBoundingClientRect();
@@ -1013,9 +1036,24 @@ export default function PropertyShiftsModalImproved({
         newStart = roundToStepWithinDay(dragState.startMs + deltaMinutes * 60000, sod);
         // Clamp within day and min duration
         newStart = Math.max(sod, Math.min(newStart, newEnd - MIN_DURATION_MIN * 60000));
-      } else {
+      } else if (dragState.mode === "end") {
         newEnd = roundToStepWithinDay(dragState.endMs + deltaMinutes * 60000, sod);
         newEnd = Math.min(eod, Math.max(newEnd, newStart + MIN_DURATION_MIN * 60000));
+      } else if (dragState.mode === "move") {
+        // Activate on threshold to differentiate from click
+        if (!dragState.activated) {
+          if (Math.abs(ev.clientY - dragState.startClientY) < 3) {
+            return; // not yet a drag
+          }
+          // Mark activated and disable selection
+          setDragState((prev) => (prev ? { ...prev, activated: true } : prev));
+          document.body.style.userSelect = "none";
+        }
+        const duration = dragState.endMs - dragState.startMs;
+        const candidateStart = roundToStepWithinDay(dragState.startMs + deltaMinutes * 60000, sod);
+        // Clamp so the whole shift stays within the selected day
+        newStart = Math.max(sod, Math.min(candidateStart, eod - duration));
+        newEnd = newStart + duration;
       }
 
       setDraftTimes((prev) => ({ ...prev, [dragState.id]: { startMs: newStart, endMs: newEnd } }));
@@ -1025,6 +1063,10 @@ export default function PropertyShiftsModalImproved({
       const dt = draftTimes[dragState.id];
       document.body.style.userSelect = "";
       setDragState(null);
+      // If it was a move but never activated, treat as click (don't persist here)
+      if (dragState.mode === "move" && !dragState.activated) {
+        return;
+      }
       if (!dt) return;
       try {
         // Persist changes
@@ -1056,6 +1098,81 @@ export default function PropertyShiftsModalImproved({
       window.removeEventListener("mouseup", handleUp);
     };
   }, [dragState, draftTimes, selectedDate]);
+
+  // === Drag & Drop: create a default 12:00–18:00 shift when dropping a guard on the timeline ===
+  const handleGuardDragStart = React.useCallback((e: React.DragEvent<HTMLDivElement>, guardId: number) => {
+    try {
+      e.dataTransfer.setData("text/plain", String(guardId));
+      // Also set JSON for robustness
+      e.dataTransfer.setData("application/json", JSON.stringify({ guardId }));
+    } catch {}
+    e.dataTransfer.effectAllowed = "copy";
+  }, []);
+
+  const handleTimelineDragOver = React.useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    // Allow drop only when a date is selected
+    if (!selectedDate) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+    if (!isDragOverTimeline) setIsDragOverTimeline(true);
+  }, [selectedDate, isDragOverTimeline]);
+
+  const handleTimelineDragLeave = React.useCallback(() => {
+    if (isDragOverTimeline) setIsDragOverTimeline(false);
+  }, [isDragOverTimeline]);
+
+  const handleTimelineDrop = React.useCallback(async (e: React.DragEvent<HTMLDivElement>) => {
+    if (!selectedDate) return;
+    e.preventDefault();
+    setIsDragOverTimeline(false);
+
+    let guardIdStr = e.dataTransfer.getData("text/plain");
+    if (!guardIdStr) {
+      try {
+        const json = e.dataTransfer.getData("application/json");
+        if (json) guardIdStr = String((JSON.parse(json) || {}).guardId ?? "");
+      } catch {}
+    }
+    const guardId = Number(guardIdStr);
+    if (!guardId || Number.isNaN(guardId)) {
+      toast.error("No se pudo identificar el guardia");
+      return;
+    }
+
+    try {
+      // Default 12:00 to 18:00 on selectedDate (local time)
+      const startLocal = new Date(
+        selectedDate.getFullYear(),
+        selectedDate.getMonth(),
+        selectedDate.getDate(),
+        12,
+        0,
+        0,
+        0
+      );
+      const endLocal = new Date(
+        selectedDate.getFullYear(),
+        selectedDate.getMonth(),
+        selectedDate.getDate(),
+        18,
+        0,
+        0,
+        0
+      );
+
+      const created = await createShift({
+        guard: guardId,
+        property: propertyId,
+        start_time: startLocal.toISOString(),
+        end_time: endLocal.toISOString(),
+        status: "scheduled",
+      });
+      handleCreated(created);
+    } catch (err) {
+      console.error("createShift (DnD) failed:", err);
+      toast.error("No se pudo crear el turno");
+    }
+  }, [selectedDate, propertyId]);
   
   return (
     <Dialog
@@ -1379,7 +1496,7 @@ export default function PropertyShiftsModalImproved({
                               }
                             </div>
                           ) : (
-                            allGuards.map((guardData) => {
+              allGuards.map((guardData) => {
                               const hasGuardOverlap = overlapGuards.has(guardData.guard.id);
                               
                               return (
@@ -1394,6 +1511,9 @@ export default function PropertyShiftsModalImproved({
                                       ? "border-primary bg-primary/10 shadow-sm"
                                       : "border-transparent bg-muted/50 hover:bg-muted"
                                 )}
+                draggable
+                onDragStart={(e) => handleGuardDragStart(e, guardData.guard.id)}
+                title="Arrastra al timeline para crear turno 12:00–18:00"
                               >
                                 <div className="flex items-start justify-between gap-2">
                                   {/* Indicador de solapamiento */}
@@ -1544,7 +1664,14 @@ export default function PropertyShiftsModalImproved({
                     <CardContent className="p-0 flex-1 min-h-0 overflow-hidden">
                       {selectedDate ? (
                         <div className="h-full w-full p-2">
-                          <div ref={timelineRef} className="relative w-full h-full overflow-hidden bg-transparent">
+                          <div
+                            ref={timelineRef}
+                            className="relative w-full h-full overflow-hidden bg-transparent"
+                            onDragOver={handleTimelineDragOver}
+                            onDragEnter={handleTimelineDragOver}
+                            onDragLeave={handleTimelineDragLeave}
+                            onDrop={handleTimelineDrop}
+                          >
                             {/* Fondos alternos por hora (gris claro / azul claro) */}
                             {Array.from({ length: 24 }, (_, h) => {
                               const top = (h / 24) * 100;
@@ -1562,6 +1689,16 @@ export default function PropertyShiftsModalImproved({
                                 />
                               );
                             })}
+
+                            {/* Drop highlight overlay */}
+                            {isDragOverTimeline && (
+                              <div className="absolute inset-0 z-40 pointer-events-none flex items-center justify-center">
+                                <div className="absolute inset-1 rounded-md border-2 border-dashed border-primary/60 bg-primary/5" />
+                                <div className="relative z-50 text-xs px-2 py-1 rounded bg-primary text-primary-foreground shadow">
+                                  Suelta para crear turno 12:00–18:00
+                                </div>
+                              </div>
+                            )}
 
                             {Array.from({ length: 25 }, (_, h) => {
                               const top = (h / 24) * 100;
@@ -1762,7 +1899,8 @@ export default function PropertyShiftsModalImproved({
                                     {/* tarjeta posicionada por carril dentro del contenedor */}
                                     <div
                                       className={cn(
-                                        "absolute inset-y-0 shadow-sm text-white text-[10px] leading-tight p-2 cursor-pointer hover:ring-2 hover:ring-white/20",
+                                        "absolute inset-y-0 shadow-sm text-white text-[10px] leading-tight p-2 select-none hover:ring-2 hover:ring-white/20",
+                                        dragState && dragState.id === it.shift.id && dragState.mode === 'move' && dragState.activated ? 'cursor-grabbing' : 'cursor-grab',
                                         roundingClass
                                       )}
                                       style={{
@@ -1772,7 +1910,16 @@ export default function PropertyShiftsModalImproved({
                                         backdropFilter: "blur(0.5px)",
                                       }}
                                       title={`${it.guardName}\n${it.shift.startTime ? new Date(it.shift.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''} - ${it.shift.endTime ? new Date(it.shift.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}`}
-                                      onClick={() => setOpenEditId(it.shift.id)}
+                                      onMouseDown={(e) => startMove(e, it.shift.id, it.startMs, it.endMs)}
+                                      onClick={(e) => {
+                                        // If we were moving and it activated, suppress click opening edit
+                                        if (dragState && dragState.id === it.shift.id && dragState.mode === 'move' && dragState.activated) {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          return;
+                                        }
+                                        setOpenEditId(it.shift.id);
+                                      }}
                                     >
                                       <div className="flex items-center justify-between gap-2">
                                         <span className="font-semibold truncate">{it.guardName}</span>
@@ -1839,22 +1986,22 @@ export default function PropertyShiftsModalImproved({
                                       )}
                                       {/* Resize handles */}
                                       {/* Handles solo cuando el borde corresponde al turno real (no en medianoche si cruza el día) */}
-                                      {!it.crossesFromPrev && (
+                    {!it.crossesFromPrev && (
                                         <div
-                                          className="absolute top-0 left-0 right-0 h-2 cursor-ns-resize opacity-60 hover:opacity-100 flex items-center justify-center z-40"
+                      className="absolute top-0 left-0 right-0 h-6 cursor-ns-resize opacity-80 hover:opacity-100 flex items-center justify-center z-40"
                                           onMouseDown={(e) => startResize(e, it.shift.id, 'start', it.startMs, it.endMs)}
                                           title="Ajustar inicio"
                                         >
-                                          <MoveVertical className="h-3 w-3" />
+                      <MoveVertical className="h-5 w-5" />
                                         </div>
                                       )}
-                                      {!it.crossesToNext && (
+                    {!it.crossesToNext && (
                                         <div
-                                          className="absolute bottom-0 left-0 right-0 h-2 cursor-ns-resize opacity-60 hover:opacity-100 flex items-center justify-center z-40"
+                      className="absolute bottom-0 left-0 right-0 h-6 cursor-ns-resize opacity-80 hover:opacity-100 flex items-center justify-center z-40"
                                           onMouseDown={(e) => startResize(e, it.shift.id, 'end', it.startMs, it.endMs)}
                                           title="Ajustar fin"
                                         >
-                                          <MoveVertical className="h-3 w-3" />
+                      <MoveVertical className="h-5 w-5" />
                                         </div>
                                       )}
                                     </div>
