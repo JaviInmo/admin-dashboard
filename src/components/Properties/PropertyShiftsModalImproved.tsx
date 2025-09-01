@@ -426,25 +426,30 @@ export default function PropertyShiftsModalImproved({
 
   // Mapa de fecha -> guardias con turnos para mostrar círculos
   const dateGuardMap = React.useMemo(() => {
-    const map: Record<string, Array<{guardId: number, color: string, shiftCount: number}>> = {};
-    
-    shifts.forEach(shift => {
+    const map: Record<string, Array<{ guardId: number; color: string; shiftCount: number }>> = {};
+
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+    shifts.forEach((shift) => {
       if (!shift.startTime) return;
-      const dateKey = new Date(shift.startTime).toDateString();
+      const st = new Date(shift.startTime);
+      const et = shift.endTime ? new Date(shift.endTime) : new Date(st.getTime() + 60 * 60 * 1000);
       const guardId = Number(shift.guard);
       const color = guardColors[guardId] || GUARD_COLORS[guardId % GUARD_COLORS.length];
-      
-      if (!map[dateKey]) map[dateKey] = [];
-      
-      // Buscar si ya existe esta guardia en este día
-      const existingGuard = map[dateKey].find(g => g.guardId === guardId);
-      if (existingGuard) {
-        existingGuard.shiftCount += 1;
-      } else {
-        map[dateKey].push({ guardId, color, shiftCount: 1 });
+
+      // Iterate every day touched by the shift (cross-midnight support)
+      let dayCursor = startOfDay(st);
+      while (dayCursor.getTime() < et.getTime()) {
+        const key = dayCursor.toDateString();
+        if (!map[key]) map[key] = [];
+        const existing = map[key].find((g) => g.guardId === guardId);
+        if (existing) existing.shiftCount += 1;
+        else map[key].push({ guardId, color, shiftCount: 1 });
+        dayCursor = new Date(dayCursor.getTime() + DAY_MS);
       }
     });
-    
+
     return map;
   }, [shifts, guardColors]);
 
@@ -1049,11 +1054,13 @@ export default function PropertyShiftsModalImproved({
           setDragState((prev) => (prev ? { ...prev, activated: true } : prev));
           document.body.style.userSelect = "none";
         }
-        const duration = dragState.endMs - dragState.startMs;
-        const candidateStart = roundToStepWithinDay(dragState.startMs + deltaMinutes * 60000, sod);
-        // Clamp so the whole shift stays within the selected day
-        newStart = Math.max(sod, Math.min(candidateStart, eod - duration));
-        newEnd = newStart + duration;
+  const duration = dragState.endMs - dragState.startMs;
+  const rawCandidateStart = dragState.startMs + deltaMinutes * 60000;
+  // Snap to a global 15-minute grid; allow start before/after the current day
+  const stepMs = STEP_MINUTES * 60000;
+  const snapped = Math.round(rawCandidateStart / stepMs) * stepMs;
+  newStart = snapped;
+  newEnd = newStart + duration;
       }
 
       setDraftTimes((prev) => ({ ...prev, [dragState.id]: { startMs: newStart, endMs: newEnd } }));
@@ -1063,12 +1070,12 @@ export default function PropertyShiftsModalImproved({
       const dt = draftTimes[dragState.id];
       document.body.style.userSelect = "";
       setDragState(null);
-      // If it was a move but never activated, treat as click (don't persist here)
+  // If it was a move but never activated, treat as click (don't persist here)
       if (dragState.mode === "move" && !dragState.activated) {
         return;
       }
       if (!dt) return;
-      try {
+  try {
         // Persist changes
         const updated = await updateShift(dragState.id, {
           start_time: new Date(dt.startMs).toISOString(),
