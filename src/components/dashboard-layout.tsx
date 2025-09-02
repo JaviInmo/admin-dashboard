@@ -10,6 +10,7 @@ import {
   Briefcase,
   UserRoundCheck,
   Home,
+  CalendarClock,
 } from "lucide-react";
 import { useState, useEffect, type CSSProperties } from "react";
 import { logout as authLogout } from "@/lib/services/auth";
@@ -68,6 +69,7 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
     if (pathname.startsWith('/guards')) return 'Guards';
     if (pathname.startsWith('/users')) return 'Users';
     if (pathname.startsWith('/properties')) return 'Properties';
+  if (pathname.startsWith('/shifts')) return 'Shifts';
     return 'Dashboard';
   };
 
@@ -176,6 +178,12 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
       label: TEXT.menu.properties,
       icon: Home,
       path: "/properties",
+    },
+    {
+      key: "Shifts",
+      label: TEXT.menu.shifts,
+      icon: CalendarClock,
+      path: "/shifts",
     },
   ];
 

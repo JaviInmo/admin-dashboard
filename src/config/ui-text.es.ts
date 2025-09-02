@@ -12,7 +12,8 @@ export const ES_TEXT = {
     clients: "Clientes",
     guards: "Guardias",
     users: "Usuarios",
-    properties: "Propiedades",
+  properties: "Propiedades",
+  shifts: "Turnos",
   },
 
   pagination: {

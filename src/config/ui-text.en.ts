@@ -12,7 +12,8 @@ export const EN_TEXT = {
     clients: "Clients",
     guards: "Guards",
     users: "Users",
-    properties: "Properties",
+  properties: "Properties",
+  shifts: "Shifts",
   },
 
   pagination: {
