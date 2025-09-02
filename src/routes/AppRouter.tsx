@@ -9,6 +9,7 @@ import PropertiesPage from "../pages/PropertiesPage";
 import UsersPage from "../pages/UsersPage";
 import ClientDetailPage from "../pages/ClientDetailPage";
 import ShiftsPage from "../pages/ShiftsPage";
+import ServicesPage from "../pages/ServicesPage";
 import { getAccessToken } from "@/lib/auth-storage";
 
 // Función helper para verificar si el usuario está autenticado
@@ -86,6 +87,10 @@ export const router = createBrowserRouter([
       {
         path: "users",
         element: <UsersPage />,
+      },
+      {
+        path: "services",
+        element: <ServicesPage />,
       },
     ],
   },

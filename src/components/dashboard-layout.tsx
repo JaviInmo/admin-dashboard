@@ -69,7 +69,8 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
     if (pathname.startsWith('/guards')) return 'Guards';
     if (pathname.startsWith('/users')) return 'Users';
     if (pathname.startsWith('/properties')) return 'Properties';
-  if (pathname.startsWith('/shifts')) return 'Shifts';
+    if (pathname.startsWith('/shifts')) return 'Shifts';
+    if (pathname.startsWith('/services')) return 'Services';
     return 'Dashboard';
   };
 
@@ -151,39 +152,45 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
   const menuItems = [
     {
       key: "Dashboard",
-      label: TEXT.menu.dashboard,
+      label: TEXT.menu?.dashboard ?? "Dashboard",
       icon: LayoutDashboard,
       path: "/dashboard",
     },
     {
       key: "Clients",
-      label: TEXT.menu.clients,
+      label: TEXT.menu?.clients ?? "Clients",
       icon: Briefcase,
       path: "/clients",
     },
     {
       key: "Guards",
-      label: TEXT.menu.guards,
+      label: TEXT.menu?.guards ?? "Guards",
       icon: Users,
       path: "/guards",
     },
     {
       key: "Users",
-      label: TEXT.menu.users,
+      label: TEXT.menu?.users ?? "Users",
       icon: UserRoundCheck,
       path: "/users",
     },
     {
       key: "Properties",
-      label: TEXT.menu.properties,
+      label: TEXT.menu?.properties ?? "Properties",
       icon: Home,
       path: "/properties",
     },
     {
       key: "Shifts",
-      label: TEXT.menu.shifts,
+      label: TEXT.menu?.shifts ?? "Shifts",
       icon: CalendarClock,
       path: "/shifts",
+    },
+    {
+      key: "Services",
+      label: TEXT.menu?.services ?? "Services",
+      icon: Package2,
+      path: "/services",
     },
   ];
 
@@ -209,7 +216,7 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
           <SidebarContent>
             <SidebarGroup>
               <SidebarGroupLabel className="group-data-[collapsible=icon]:hidden">
-                {TEXT.sidebar.navigationLabel}
+                {TEXT.sidebar?.navigationLabel}
               </SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
@@ -240,14 +247,14 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
 
             <Button variant="ghost" size="icon" className="rounded-full">
               <Bell className="h-5 w-5" />
-              <span className="sr-only">{TEXT.header.notificationsAria}</span>
+              <span className="sr-only">{TEXT.header?.notificationsAria}</span>
             </Button>
 
             {/* Language segmented toggle: | EN* | ES | */}
             <div className="mx-2">
               <div
                 role="group"
-                aria-label={TEXT.accountMenu.language}
+                aria-label={TEXT.accountMenu?.language}
                 className="inline-flex items-stretch rounded-md border overflow-hidden bg-background"
               >
                 <button
@@ -288,13 +295,13 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
                       {initials}
                     </AvatarFallback>
                   </Avatar>
-                  <span className="sr-only">{TEXT.header.userMenuAria}</span>
+                  <span className="sr-only">{TEXT.header?.userMenuAria}</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 {/* Language options moved to header segmented toggle */}
-                <DropdownMenuItem>{TEXT.accountMenu.settings}</DropdownMenuItem>
-                <DropdownMenuItem>{TEXT.accountMenu.support}</DropdownMenuItem>
+                <DropdownMenuItem>{TEXT.accountMenu?.settings}</DropdownMenuItem>
+                <DropdownMenuItem>{TEXT.accountMenu?.support}</DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onSelect={(e) => {
@@ -303,7 +310,7 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
                   }}
                 >
                   <LogOut className="mr-2 h-4 w-4" />
-                  <span>{TEXT.accountMenu.logout}</span>
+                  <span>{TEXT.accountMenu?.logout}</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -315,14 +322,14 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
           <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>{TEXT.logoutDialog.title}</DialogTitle>
+                <DialogTitle>{TEXT.logoutDialog?.title}</DialogTitle>
                 <DialogDescription>
-                  {TEXT.logoutDialog.description}
+                  {TEXT.logoutDialog?.description}
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setConfirmOpen(false)}>
-                  {TEXT.logoutDialog.cancel}
+                  {TEXT.logoutDialog?.cancel}
                 </Button>
                 <Button
                   variant="destructive"
@@ -331,13 +338,13 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
                     try {
                       await authLogout();
                       // Toast notification
-                      toast.success(TEXT.logoutDialog.successToast);
+                      toast.success(TEXT.logoutDialog?.successToast);
                     } finally {
                       onLogout();
                     }
                   }}
                 >
-                  {TEXT.logoutDialog.confirm}
+                  {TEXT.logoutDialog?.confirm}
                 </Button>
               </DialogFooter>
             </DialogContent>

@@ -9,15 +9,20 @@ export const endpoints = {
   users: 'api/users/',
   clients: 'api/clients/',
   guards: 'api/guards/',
-   guards_property_tariffs: 'api/guards-preperty-tariffs/',
+  guards_property_tariffs: 'api/guards-preperty-tariffs/',
   permissions: 'api/v1/permissions/admin',
   properties: 'api/properties/',
   propertyTypesOfService: 'api/property-types-of-service/',
-   shifts: 'api/shifts/',
+  shifts: 'api/shifts/',
+
+  // services
+  services: 'api/services/',
+  services_by_guard: 'api/services/by_guard/',
+  services_by_property: 'api/services/by_property/',
 
   common: {
     generalSettings: 'api/common/general-settings/',
   },
-}
+};
 
-export type Endpoints = typeof endpoints
+export type Endpoints = typeof endpoints;

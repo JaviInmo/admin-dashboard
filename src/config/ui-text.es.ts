@@ -12,8 +12,9 @@ export const ES_TEXT = {
     clients: "Clientes",
     guards: "Guardias",
     users: "Usuarios",
-  properties: "Propiedades",
-  shifts: "Turnos",
+    properties: "Propiedades",
+    shifts: "Turnos",
+    services: "Servicios", // <-- ADDED
   },
 
   pagination: {
@@ -30,7 +31,7 @@ export const ES_TEXT = {
     noMatch: "No hay coincidencias",
     noResults: "No se encontraron resultados para \"{search}\"",
     noData: "No hay datos disponibles",
-    items: "elementos", // <--- agregado
+    items: "elementos",
   },
 
   common: {
@@ -55,7 +56,8 @@ export const ES_TEXT = {
     copyError: "No se pudo copiar",
     saving: "Guardando...",
     deleting: "Eliminando...",
-    view: "Ver", // <--- agregado
+    view: "Ver",
+    show: "Ver",
   },
 
   clients: {
@@ -321,7 +323,7 @@ export const ES_TEXT = {
       confirmDelete: "¿Estás seguro de eliminar la tarifa para {property}?",
       exists: "Ya existe una tarifa para esta propiedad. Se cargará para editar.",
       createSuccess: "Tarifa creada exitosamente",
-      updateSuccess: "Tarifa actualizada exitosamente",
+      updateSuccess: "Tarifa actualizada exitosamente", 
       deleteSuccess: "Tarifa eliminada exitosamente",
       saveError: "Error guardando tarifa. Verifica los datos e intenta nuevamente.",
       deleteError: "Error eliminando tarifa. Intenta nuevamente."
@@ -440,7 +442,6 @@ export const ES_TEXT = {
     errorDefault: "Credenciales inválidas. Por favor intenta de nuevo.",
   },
 
-  // ------------- SHIFTS -------------
   shifts: {
     create: {
       title: "Crear Turno",
@@ -456,8 +457,8 @@ export const ES_TEXT = {
     },
     show: {
       title: "Detalles del Turno",
-      subtitle: "Lista de turnos (scrollable)", // <--- agregado
-      open: "Ver turnos", // <--- agregado
+      subtitle: "Lista de turnos (scrollable)",
+      open: "Ver turnos",
     },
     errors: {
       missingDates: "Fecha de inicio y fin son requeridas",
@@ -478,12 +479,77 @@ export const ES_TEXT = {
     },
   },
 
+  services: {
+    title: "Gestión de Servicios",
+    add: "Agregar",
+    addButton: "Agregar",
+    searchPlaceholder: "Buscar servicios...",
+    errorLoading: "Error al cargar servicios",
+    table: {
+      title: "Lista de Servicios",
+      add: "Agregar",
+      searchPlaceholder: "Buscar servicios...",
+      headers: {
+        name: "Nombre",
+        guard: "Guardia",
+        property: "Propiedad",
+        rate: "Tarifa/h",
+        monthlyBudget: "Mensual",
+        isActive: "Activo",
+        actions: "Acciones",
+      },
+      pageSizeLabel: "Filas por página",
+      activeLabel: "Sí",
+      inactiveLabel: "No",
+    },
+    create: {
+      title: "Crear Servicio",
+    },
+    edit: {
+      title: "Editar Servicio",
+    },
+    delete: {
+      title: "Eliminar Servicio",
+      confirm: "¿Estás seguro que quieres eliminar el servicio \"{name}\"?",
+    },
+    show: {
+      title: "Detalles del Servicio",
+    },
+    placeholders: {
+      guard: "Escribe para buscar guardias (p. ej. 'Pedro')",
+      property: "Escribe para buscar propiedades (dirección/nombre)",
+    },
+    fields: {
+      name: "Nombre",
+      description: "Descripción",
+      guard: "Guardia",
+      assignedProperty: "Propiedad",
+      rate: "Tarifa por hora",
+      monthlyBudget: "Presupuesto Mensual",
+      totalHours: "Horas totales",
+      isActive: "Activo",
+      createdAt: "Creado",
+      updatedAt: "Actualizado",
+    },
+    errors: {
+      nameRequired: "El nombre es requerido",
+      createFailed: "No se pudo crear el servicio",
+      updateFailed: "No se pudo actualizar el servicio",
+      deleteFailed: "No se pudo eliminar el servicio",
+    },
+    messages: {
+      created: "Servicio creado",
+      updated: "Servicio actualizado",
+      deleted: "Servicio eliminado",
+    },
+  },
+
   dashboard: {
     title: "Panel de Control",
     kpis: {
       clients: "Clientes",
       activeClients: "activos",
-      properties: "Propiedades", 
+      properties: "Propiedades",
       registeredTotal: "Registradas en total",
       guards: "Guardias",
       inService: "En servicio",

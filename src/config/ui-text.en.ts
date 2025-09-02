@@ -12,8 +12,9 @@ export const EN_TEXT = {
     clients: "Clients",
     guards: "Guards",
     users: "Users",
-  properties: "Properties",
-  shifts: "Shifts",
+    properties: "Properties",
+    shifts: "Shifts",
+    services: "Services", // <-- ADDED
   },
 
   pagination: {
@@ -30,7 +31,7 @@ export const EN_TEXT = {
     noMatch: "No match",
     noResults: "No results found for \"{search}\"",
     noData: "No data available",
-    items: "items", // <--- agregado
+    items: "items",
   },
 
   common: {
@@ -55,7 +56,8 @@ export const EN_TEXT = {
     copyError: "Could not copy",
     saving: "Saving...",
     deleting: "Deleting...",
-    view: "View", // <--- agregado
+    view: "View",
+    show: "Show",
   },
 
   clients: {
@@ -133,7 +135,7 @@ export const EN_TEXT = {
       actionDelete: "Delete {name}",
     },
     loading: "Loading clients...",
-    selectPrompt: "Select a client to view its properties.",
+    selectPrompt: "Select a option to view its properties.",
     propertiesLoading: "Loading properties...",
     errorLoading: "Error loading clients",
     propertiesError: "Error loading properties",
@@ -440,7 +442,6 @@ export const EN_TEXT = {
     errorDefault: "Invalid credentials. Please try again.",
   },
 
-  // ------------- SHIFTS -------------
   shifts: {
     create: {
       title: "Create Shift",
@@ -456,8 +457,8 @@ export const EN_TEXT = {
     },
     show: {
       title: "Shift Details",
-      subtitle: "Scrollable list of shifts", // <--- agregado
-      open: "View shifts", // <--- agregado
+      subtitle: "Scrollable list of shifts",
+      open: "View shifts",
     },
     errors: {
       missingDates: "Start and end are required",
@@ -478,12 +479,77 @@ export const EN_TEXT = {
     },
   },
 
+  services: {
+    title: "Services Management",
+    add: "Add",
+    addButton: "Add",
+    searchPlaceholder: "Search services...",
+    errorLoading: "Error loading services",
+    table: {
+      title: "Services List",
+      add: "Add",
+      searchPlaceholder: "Search services...",
+      headers: {
+        name: "Name",
+        guard: "Guard",
+        property: "Property",
+        rate: "Rate/hr",
+        monthlyBudget: "Monthly",
+        isActive: "Active",
+        actions: "Actions",
+      },
+      pageSizeLabel: "Rows per page",
+      activeLabel: "Yes",
+      inactiveLabel: "No",
+    },
+    create: {
+      title: "Create Service",
+    },
+    edit: {
+      title: "Edit Service",
+    },
+    delete: {
+      title: "Delete Service",
+      confirm: "Are you sure you want to delete service \"{name}\"?",
+    },
+    show: {
+      title: "Service details",
+    },
+    placeholders: {
+      guard: "Type to search guards (e.g. 'Pedro')",
+      property: "Type to search properties (address/name)",
+    },
+    fields: {
+      name: "Name",
+      description: "Description",
+      guard: "Guard",
+      assignedProperty: "Property",
+      rate: "Rate per hour",
+      monthlyBudget: "Monthly Budget",
+      totalHours: "Total hours",
+      isActive: "Is active",
+      createdAt: "Created at",
+      updatedAt: "Updated at",
+    },
+    errors: {
+      nameRequired: "Name is required",
+      createFailed: "Could not create service",
+      updateFailed: "Could not update service",
+      deleteFailed: "Could not delete service",
+    },
+    messages: {
+      created: "Service created",
+      updated: "Service updated",
+      deleted: "Service deleted",
+    },
+  },
+
   dashboard: {
     title: "Dashboard",
     kpis: {
       clients: "Clients",
       activeClients: "active",
-      properties: "Properties", 
+      properties: "Properties",
       registeredTotal: "Registered in total",
       guards: "Guards",
       inService: "In service",
@@ -541,7 +607,7 @@ export const EN_TEXT = {
       security: {
         title: "🛡️ Security Metrics",
         incidentsThisMonth: "Incidents This Month",
-        vsLastMonth: "vs last month",
+        vsLastMonth: "vs Last Month",
         responseTime: "Response Time",
         incidentsResolved: "incidents resolved",
         preventionScore: "Prevention Score",
@@ -550,7 +616,7 @@ export const EN_TEXT = {
       efficiency: {
         title: "⚡ Efficiency Metrics",
         propertyUtilization: "Property Utilization",
-        fullCoverage: "Full coverage",
+        fullCoverage: "Full Coverage",
         guardEfficiency: "Guard Efficiency",
         productiveTime: "Productive time",
         clientSatisfaction: "Client Satisfaction",

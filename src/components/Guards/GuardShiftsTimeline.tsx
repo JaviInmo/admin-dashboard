@@ -239,7 +239,7 @@ export function GuardShiftsTimeline({ guardName, shifts = [] }: GuardShiftsTimel
                       )}
 
                       {event.status === 'delayed' && (
-                        <div className="mt-1.5 text-xs text-red-700 bg-red-100 px-2 py-0.5 rounded inline-block flex items-center gap-1">
+                        <div className="mt-1.5 text-xs text-red-700 bg-red-100 px-2 py-0.5 rounded  flex items-center gap-1">
                           <AlertCircle className="h-3 w-3" />
                           Retrasado
                         </div>
