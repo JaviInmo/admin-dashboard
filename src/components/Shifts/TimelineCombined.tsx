@@ -323,7 +323,7 @@ export default function TimelineCombined() {
 
   return (
     <div className="h-full flex flex-col min-h-0">
-      <Card className="flex-1 flex flex-col min-h-0" style={{margin: 0, padding: 0}}>
+      <Card className="flex-1 flex flex-col min-h-0 h-full" style={{margin: 0, padding: 0}}>
         <CardHeader style={{padding: 0, margin: 0, minHeight: 'auto', marginBottom: '-1.5rem'}}>
           <div className="flex items-center justify-between" style={{margin: 0, padding: '4px 8px 2px 8px'}}>
             {/* Dropdown a la izquierda */}
@@ -393,7 +393,7 @@ export default function TimelineCombined() {
           </div>
         </CardHeader>
         <CardContent className="flex-1 min-h-0" style={{padding: 0, margin: 0, marginTop: '-2px'}}>
-          <div className="h-full overflow-y-auto max-h-full" style={{minHeight: '400px', margin: 0, padding: 0, paddingTop: 0}}>
+          <div className="h-full overflow-y-auto" style={{margin: 0, padding: 0, paddingTop: 0}}>
             <table className="w-full table-fixed text-sm" style={{margin: 0, padding: 0, marginTop: 0}}>
               <thead className="sticky top-0 bg-background z-10 border-b shadow-sm" style={{margin: 0, padding: 0}}>
                 <tr className="bg-muted/50" style={{margin: 0, padding: 0}}>

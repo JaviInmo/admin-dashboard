@@ -12,6 +12,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AddressInput } from "@/components/ui/address-input";
 import { useModalCache } from "@/hooks/use-modal-cache";
 import { toast } from "sonner";
 import { useI18n } from "@/i18n";
@@ -237,25 +238,23 @@ export default function EditClientDialog({ client, open, onClose, onUpdated }: P
               </div>
 
               <div className="grid grid-cols-1 gap-2">
-                <div>
-                  <label className="block text-sm">{(FORM as any)?.fields?.address ?? (lang === "es" ? "Dirección" : "Address")}</label>
-                  <Input
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    placeholder={(FORM as any)?.placeholders?.address ?? (lang === "es" ? "Dirección física del cliente" : "Client's physical address")}
-                  />
-                </div>
+                <AddressInput
+                  value={address}
+                  onChange={setAddress}
+                  label={(FORM as any)?.fields?.address ?? (lang === "es" ? "Dirección" : "Address")}
+                  placeholder={(FORM as any)?.placeholders?.address ?? (lang === "es" ? "Dirección física del cliente" : "Client's physical address")}
+                  name="address"
+                />
               </div>
 
               <div className="grid grid-cols-1 gap-2">
-                <div>
-                  <label className="block text-sm">{(FORM as any)?.fields?.billingAddress ?? (lang === "es" ? "Dirección de facturación" : "Billing address")}</label>
-                  <Input
-                    value={billingAddress}
-                    onChange={(e) => setBillingAddress(e.target.value)}
-                    placeholder={(FORM as any)?.placeholders?.billingAddress ?? (lang === "es" ? "Dirección para envío de facturas" : "Address used for invoicing")}
-                  />
-                </div>
+                <AddressInput
+                  value={billingAddress}
+                  onChange={setBillingAddress}
+                  label={(FORM as any)?.fields?.billingAddress ?? (lang === "es" ? "Dirección de facturación" : "Billing address")}
+                  placeholder={(FORM as any)?.placeholders?.billingAddress ?? (lang === "es" ? "Dirección para envío de facturas" : "Address used for invoicing")}
+                  name="billingAddress"
+                />
               </div>
 
               <div className="flex items-center gap-3 mt-2">

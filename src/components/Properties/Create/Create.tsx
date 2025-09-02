@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle,  } from "@/components
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AddressInput } from "@/components/ui/address-input";
 import { toast } from "sonner";
 import { createProperty, listPropertyTypesOfService, type AppPropertyType } from "@/lib/services/properties";
 import { listClients, getClient } from "@/lib/services/clients";
@@ -354,10 +355,14 @@ export default function CreatePropertyDialog({ open = true, onClose, onCreated, 
               </div>
 
               <div className="grid grid-cols-1 gap-2">
-                <div>
-                  <label className="block text-sm">{addressLabel}</label>
-                  <Input name="address" value={address} onChange={(e) => setAddress(e.target.value)} required placeholder={addressPlaceholder} />
-                </div>
+                <AddressInput
+                  value={address}
+                  onChange={setAddress}
+                  label={addressLabel}
+                  placeholder={addressPlaceholder}
+                  name="address"
+                  required
+                />
               </div>
 
               <div>

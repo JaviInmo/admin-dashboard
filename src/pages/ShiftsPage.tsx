@@ -7,12 +7,12 @@ export default function ShiftsPage() {
   const { TEXT } = useI18n();
   return (
     <ShiftsProvider>
-      <div className="p-4 md:p-6">
-        <div className="mb-4 flex items-center gap-3">
+      <div className="h-[calc(100vh-80px)] flex flex-col p-4 md:p-6">
+        <div className="mb-4 flex items-center gap-3 flex-shrink-0">
           <h1 className="text-2xl font-semibold">{TEXT.menu.shifts}</h1>
           <div className="ml-auto"><KPISummaryInline /></div>
         </div>
-        <div className="flex flex-col gap-4">
+        <div className="flex-1 min-h-0">
           <AsidePanelGeneral />
         </div>
       </div>

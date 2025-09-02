@@ -4,6 +4,7 @@ import * as React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { AddressInput } from "@/components/ui/address-input";
 import { toast } from "sonner";
 import { createClient, type CreateClientPayload } from "@/lib/services/clients";
 import { useModalCache } from "@/hooks/use-modal-cache";
@@ -17,7 +18,6 @@ type Props = {
 };
 
 interface ClientFormData {
-  username: string;
   firstName: string;
   lastName: string;
   email: string;
@@ -43,7 +43,6 @@ export default function CreateClientDialog({ open, onClose, onCreated }: Props) 
   const FORM = {
     createTitle: getText("clients.form.createTitle", getText("clients.title", "Create Client")),
     fields: {
-      username: getText("clients.form.fields.username", "Username"),
       firstName: getText("clients.form.fields.firstName", "First name *"),
       lastName: getText("clients.form.fields.lastName", "Last name *"),
       email: getText("clients.form.fields.email", "Email *"),
@@ -68,7 +67,6 @@ export default function CreateClientDialog({ open, onClose, onCreated }: Props) 
     success: getText("clients.form.success", "Client created"),
   };
 
-  const [username, setUsername] = React.useState<string>("");
   const [firstName, setFirstName] = React.useState<string>("");
   const [lastName, setLastName] = React.useState<string>("");
   const [email, setEmail] = React.useState<string>("");
@@ -91,7 +89,6 @@ export default function CreateClientDialog({ open, onClose, onCreated }: Props) 
     if (open) {
       const cachedData = getFromCache("create-client");
       if (cachedData) {
-        setUsername(cachedData.username ?? "");
         setFirstName(cachedData.firstName ?? "");
         setLastName(cachedData.lastName ?? "");
         setEmail(cachedData.email ?? "");
@@ -105,10 +102,9 @@ export default function CreateClientDialog({ open, onClose, onCreated }: Props) 
   React.useEffect(() => {
     if (
       open &&
-      (username || firstName || lastName || email || phone || address || billingAddress)
+      (firstName || lastName || email || phone || address || billingAddress)
     ) {
       saveToCache("create-client", {
-        username,
         firstName,
         lastName,
         email,
@@ -117,10 +113,9 @@ export default function CreateClientDialog({ open, onClose, onCreated }: Props) 
         billingAddress,
       });
     }
-  }, [username, firstName, lastName, email, phone, address, billingAddress, open, saveToCache]);
+  }, [firstName, lastName, email, phone, address, billingAddress, open, saveToCache]);
 
   function resetForm() {
-    setUsername("");
     setFirstName("");
     setLastName("");
     setEmail("");
@@ -131,9 +126,8 @@ export default function CreateClientDialog({ open, onClose, onCreated }: Props) 
   }
 
   function handleClose() {
-    if (username || firstName || lastName || email || phone || address || billingAddress) {
+    if (firstName || lastName || email || phone || address || billingAddress) {
       saveToCache("create-client", {
-        username,
         firstName,
         lastName,
         email,
@@ -167,7 +161,6 @@ export default function CreateClientDialog({ open, onClose, onCreated }: Props) 
       }
 
       const payload: CreateClientPayload = {
-        username: username.trim() !== "" ? username.trim() : undefined,
         first_name: firstName.trim(),
         last_name: lastName.trim(),
         email: email.trim(),
@@ -223,11 +216,6 @@ export default function CreateClientDialog({ open, onClose, onCreated }: Props) 
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-2">
                 <FieldSkeleton />
-                <div />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <FieldSkeleton />
                 <FieldSkeleton />
               </div>
 
@@ -251,14 +239,6 @@ export default function CreateClientDialog({ open, onClose, onCreated }: Props) 
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-3">
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-sm">{FORM.fields.username}</label>
-                  <Input name="username" value={username} onChange={(e) => setUsername(e.target.value)} />
-                </div>
-                <div />
-              </div>
-
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-sm">{FORM.fields.firstName}</label>
@@ -298,27 +278,23 @@ export default function CreateClientDialog({ open, onClose, onCreated }: Props) 
               </div>
 
               <div className="grid grid-cols-1 gap-2">
-                <div>
-                  <label className="block text-sm">{FORM.fields.address}</label>
-                  <Input
-                    name="address"
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    placeholder={FORM.placeholders?.address}
-                  />
-                </div>
+                <AddressInput
+                  value={address}
+                  onChange={setAddress}
+                  label={FORM.fields.address}
+                  placeholder={FORM.placeholders?.address}
+                  name="address"
+                />
               </div>
 
               <div className="grid grid-cols-1 gap-2">
-                <div>
-                  <label className="block text-sm">{FORM.fields.billingAddress}</label>
-                  <Input
-                    name="billingAddress"
-                    value={billingAddress}
-                    onChange={(e) => setBillingAddress(e.target.value)}
-                    placeholder={FORM.placeholders?.billingAddress}
-                  />
-                </div>
+                <AddressInput
+                  value={billingAddress}
+                  onChange={setBillingAddress}
+                  label={FORM.fields.billingAddress}
+                  placeholder={FORM.placeholders?.billingAddress}
+                  name="billingAddress"
+                />
               </div>
 
               <div className="flex justify-end gap-2 mt-3">

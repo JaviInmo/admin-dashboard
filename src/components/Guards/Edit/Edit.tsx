@@ -4,6 +4,7 @@ import * as React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AddressInput } from "@/components/ui/address-input";
 import { toast } from "sonner";
 import type { Guard } from "../types";
 import { updateGuard, type UpdateGuardPayload } from "@/lib/services/guard";
@@ -229,10 +230,12 @@ export default function EditGuardDialog({ guard, open, onClose, onUpdated }: Pro
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm">{getText("guards.form.fields.address")}</label>
-                <Input name="address" value={address} onChange={(e) => setAddress(e.target.value)} />
-              </div>
+              <AddressInput
+                value={address}
+                onChange={setAddress}
+                label={getText("guards.form.fields.address")}
+                name="address"
+              />
 
               {error && <p className="text-sm text-red-600">{error}</p>}
 

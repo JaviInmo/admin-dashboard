@@ -74,7 +74,7 @@ export default function AsidePanelGeneral() {
   return (
     <aside className="w-full space-y-4">
       {/* Intermedia: Calendario (izquierda) sin contenedor + Timeline (derecha) */}
-      <div className="flex flex-col md:flex-row gap-4 items-start h-[calc(100vh-300px)] min-h-0">
+      <div className="flex flex-col md:flex-row gap-4 items-start h-full min-h-0">
         <div className="basis-full md:basis-[20%] md:max-w-[20%] flex-shrink-0 space-y-3">
           {/* Calendario */}
           <Calendar
@@ -123,7 +123,7 @@ export default function AsidePanelGeneral() {
             </div>
           </div>
         </div>
-        <div className="flex-1 min-w-0 h-full min-h-0">
+        <div className="flex-1 min-w-0 h-full min-h-0 flex flex-col">
           <TimelineCombined />
         </div>
       </div>

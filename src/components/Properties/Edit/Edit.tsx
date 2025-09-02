@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle,  } from "@/components
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AddressInput } from "@/components/ui/address-input";
 import type { AppProperty, AppPropertyType } from "@/lib/services/properties";
 import {
   partialUpdateProperty,
@@ -345,10 +346,13 @@ export default function EditPropertyDialog({ property, open, onClose, onUpdated 
               </div>
 
               <div className="grid grid-cols-1 gap-2">
-                <div>
-                  <label className="block text-sm">{FIELD.address ?? ""}</label>
-                  <Input name="address" placeholder={PLACEHOLDERS.address ?? ""} value={address} onChange={(e) => setAddress(e.target.value)} />
-                </div>
+                <AddressInput
+                  value={address}
+                  onChange={setAddress}
+                  label={FIELD.address ?? ""}
+                  placeholder={PLACEHOLDERS.address ?? ""}
+                  name="address"
+                />
               </div>
 
               <div>
