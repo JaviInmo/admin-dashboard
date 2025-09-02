@@ -70,8 +70,7 @@ export function CoverageBar({
   colorBy = "property", 
   guards = [], 
   properties = [],
-  showTooltip = true,
-  hasGap = false
+  showTooltip = true 
 }: { 
   day: Date; 
   shifts: Shift[];
@@ -79,7 +78,6 @@ export function CoverageBar({
   guards?: Guard[];
   properties?: AppProperty[];
   showTooltip?: boolean;
-  hasGap?: boolean;
 }) {
   // Función para obtener color basado en ID
   const getColor = (id: number): string => {
@@ -146,34 +144,26 @@ export function CoverageBar({
   });
 
   return (
-    <div className="w-full h-6 relative">
-      {/* Fondo rojo para gaps que cubre toda la celda */}
-      {hasGap && (
-        <div className="absolute inset-0 bg-red-200 bg-opacity-60 rounded"></div>
-      )}
-      
-      {/* Barra de cobertura */}
-      <div className={`w-full h-full rounded bg-gray-200 relative overflow-hidden ${hasGap ? 'ring-4 ring-red-500 ring-opacity-80' : ''}`}>
-        {/* Render coverage segments with different colors */}
-        {colorSegments.map((segment, segmentIdx) => (
-          segment.intervals.map(([s, e], intervalIdx) => {
-            const left = ((s - dayStart) / totalMs) * 100;
-            const width = ((e - s) / totalMs) * 100;
-            return (
-              <div
-                key={`${segmentIdx}-${intervalIdx}`}
-                className="absolute top-0 bottom-0 transition-opacity duration-200 hover:opacity-80"
-                style={{ 
-                  left: `${left}%`, 
-                  width: `${width}%`,
-                  backgroundColor: segment.color
-                }}
-                title={showTooltip ? getTooltipContent(segment.shift) : undefined}
-              />
-            );
-          })
-        ))}
-      </div>
+    <div className="w-full h-6 rounded bg-gray-200 relative overflow-hidden">
+      {/* Render coverage segments with different colors */}
+      {colorSegments.map((segment, segmentIdx) => (
+        segment.intervals.map(([s, e], intervalIdx) => {
+          const left = ((s - dayStart) / totalMs) * 100;
+          const width = ((e - s) / totalMs) * 100;
+          return (
+            <div
+              key={`${segmentIdx}-${intervalIdx}`}
+              className="absolute top-0 bottom-0 transition-opacity duration-200 hover:opacity-80"
+              style={{ 
+                left: `${left}%`, 
+                width: `${width}%`,
+                backgroundColor: segment.color
+              }}
+              title={showTooltip ? getTooltipContent(segment.shift) : undefined}
+            />
+          );
+        })
+      ))}
     </div>
   );
 }

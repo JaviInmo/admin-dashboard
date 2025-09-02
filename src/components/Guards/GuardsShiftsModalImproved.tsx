@@ -142,6 +142,7 @@ type Props = {
   guardName?: string;
   open: boolean;
   onClose: () => void;
+  initialSelectedDate?: Date;
 };
 
 export default function GuardsShiftsModalImproved({
@@ -149,6 +150,7 @@ export default function GuardsShiftsModalImproved({
   guardName,
   open,
   onClose,
+  initialSelectedDate,
 }: Props) {
   const { TEXT } = useI18n();
 
@@ -156,7 +158,7 @@ export default function GuardsShiftsModalImproved({
   const [loading, setLoading] = React.useState<boolean>(false);
 
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(
-    undefined
+    initialSelectedDate
   );
   const [selectedPropertyId, setSelectedPropertyId] = React.useState<number | null>(null);
 

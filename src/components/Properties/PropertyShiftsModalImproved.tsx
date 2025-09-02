@@ -189,6 +189,7 @@ type Props = {
   propertyName?: string;
   open: boolean;
   onClose: () => void;
+  initialSelectedDate?: Date;
 };
 
 export default function PropertyShiftsModalImproved({
@@ -196,6 +197,7 @@ export default function PropertyShiftsModalImproved({
   propertyName,
   open,
   onClose,
+  initialSelectedDate,
 }: Props) {
   const { TEXT } = useI18n();
 
@@ -203,7 +205,7 @@ export default function PropertyShiftsModalImproved({
   const [loading, setLoading] = React.useState<boolean>(false);
 
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(
-    undefined
+    initialSelectedDate
   );
   const [selectedPropertyId, setSelectedPropertyId] = React.useState<number | null>(null);
   const [selectedGuardId, setSelectedGuardId] = React.useState<number | null>(null);
