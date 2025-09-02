@@ -1,9 +1,16 @@
 "use client"
 
+import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Clock, MapPin, User, AlertCircle } from "lucide-react";
+import { Clock, MapPin, User, AlertCircle, Loader2 } from "lucide-react";
+import { listShifts } from "@/lib/services/shifts";
+import { listGuards } from "@/lib/services/guard";
+import { listProperties } from "@/lib/services/properties";
+import type { Shift } from "@/components/Shifts/types";
+import type { Guard } from "@/components/Guards/types";
+import type { AppProperty } from "@/lib/services/properties";
 
 interface ShiftEvent {
   id: string;
@@ -15,60 +22,6 @@ interface ShiftEvent {
   status: 'active' | 'upcoming' | 'completed' | 'delayed';
   type: 'regular' | 'overtime' | 'emergency';
 }
-
-// Datos de ejemplo para el timeline
-const mockShiftEvents: ShiftEvent[] = [
-  {
-    id: '1',
-    guardName: 'Carlos Mendoza',
-    propertyName: 'Centro Comercial Plaza Norte',
-    propertyAddress: 'Av. Principal 123',
-    startTime: new Date(2025, 7, 31, 6, 0), // 6:00 AM hoy
-    endTime: new Date(2025, 7, 31, 14, 0), // 2:00 PM hoy
-    status: 'active',
-    type: 'regular'
-  },
-  {
-    id: '2',
-    guardName: 'Ana García',
-    propertyName: 'Residencial Los Pinos',
-    propertyAddress: 'Calle 5ta #45',
-    startTime: new Date(2025, 7, 31, 14, 0), // 2:00 PM hoy
-    endTime: new Date(2025, 7, 31, 22, 0), // 10:00 PM hoy
-    status: 'upcoming',
-    type: 'regular'
-  },
-  {
-    id: '3',
-    guardName: 'Miguel Torres',
-    propertyName: 'Oficinas Corporativas',
-    propertyAddress: 'Zona Financiera 789',
-    startTime: new Date(2025, 7, 31, 22, 0), // 10:00 PM hoy
-    endTime: new Date(2025, 8, 1, 6, 0), // 6:00 AM mañana
-    status: 'upcoming',
-    type: 'regular'
-  },
-  {
-    id: '4',
-    guardName: 'Luis Rodriguez',
-    propertyName: 'Almacén Industrial',
-    propertyAddress: 'Zona Industrial 456',
-    startTime: new Date(2025, 7, 30, 22, 0), // 10:00 PM ayer
-    endTime: new Date(2025, 7, 31, 6, 0), // 6:00 AM hoy
-    status: 'completed',
-    type: 'regular'
-  },
-  {
-    id: '5',
-    guardName: 'Sofia López',
-    propertyName: 'Hospital Central',
-    propertyAddress: 'Av. Salud 321',
-    startTime: new Date(2025, 7, 31, 12, 0), // 12:00 PM hoy
-    endTime: new Date(2025, 7, 31, 16, 0), // 4:00 PM hoy
-    status: 'delayed',
-    type: 'emergency'
-  }
-];
 
 const getStatusColor = (status: string) => {
   switch (status) {
@@ -143,9 +96,193 @@ const formatDate = (date: Date) => {
   }
 };
 
+// Función para determinar el estado del turno basado en las fechas
+const determineShiftStatus = (startTime: Date, endTime: Date, originalStatus: string): 'active' | 'upcoming' | 'completed' | 'delayed' => {
+  const now = new Date();
+  const start = new Date(startTime);
+  const end = new Date(endTime);
+  
+  // Si el turno ya terminó
+  if (now > end) {
+    return 'completed';
+  }
+  
+  // Si el turno está en progreso
+  if (now >= start && now <= end) {
+    return 'active';
+  }
+  
+  // Si el turno es futuro
+  if (now < start) {
+    return 'upcoming';
+  }
+  
+  // Si hay algún problema con el estado original, determinar si está retrasado
+  if (originalStatus === 'scheduled' && now > start) {
+    return 'delayed';
+  }
+  
+  return 'upcoming';
+};
+
+// Función para convertir datos de la API a ShiftEvent
+const convertToShiftEvent = (shift: Shift, guard: Guard | undefined, property: AppProperty | undefined): ShiftEvent => {
+  const startTime = new Date(shift.startTime);
+  const endTime = new Date(shift.endTime);
+  
+  // Determinar el tipo de turno basado en horarios
+  const duration = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
+  const isWeekend = startTime.getDay() === 0 || startTime.getDay() === 6;
+  const isNightShift = startTime.getHours() >= 22 || startTime.getHours() <= 6;
+  
+  let type: 'regular' | 'overtime' | 'emergency' = 'regular';
+  if (duration > 12) {
+    type = 'overtime';
+  } else if (isWeekend || isNightShift) {
+    type = 'emergency';
+  }
+  
+  return {
+    id: shift.id.toString(),
+    guardName: guard ? `${guard.firstName} ${guard.lastName}` : `Guardia #${shift.guard}`,
+    propertyName: property?.name || property?.alias || `Propiedad #${shift.property}`,
+    propertyAddress: property?.address || 'Dirección no disponible',
+    startTime,
+    endTime,
+    status: determineShiftStatus(startTime, endTime, shift.status),
+    type
+  };
+};
+
 export function ShiftsTimeline() {
+  const [shifts, setShifts] = React.useState<ShiftEvent[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    async function fetchShiftsData() {
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Obtener turnos de los últimos 2 días y próximos 2 días
+        const today = new Date();
+        const twoDaysAgo = new Date(today);
+        twoDaysAgo.setDate(today.getDate() - 2);
+        const twoDaysFromNow = new Date(today);
+        twoDaysFromNow.setDate(today.getDate() + 2);
+
+        // Obtener datos en paralelo
+        const [shiftsResult, guardsResult, propertiesResult] = await Promise.all([
+          listShifts(1, undefined, 50, '-start_time'), // Obtener hasta 50 turnos ordenados por fecha
+          listGuards(1, undefined, 100), // Obtener guardias
+          listProperties(1, undefined, 100) // Obtener propiedades
+        ]);
+
+        // Crear mapas para búsqueda rápida
+        const guardsMap = new Map<number, Guard>();
+        guardsResult.items.forEach(guard => {
+          guardsMap.set(guard.id, guard);
+        });
+
+        const propertiesMap = new Map<number, AppProperty>();
+        propertiesResult.items.forEach(property => {
+          propertiesMap.set(property.id, property);
+        });
+
+        // Filtrar turnos relevantes (últimos 2 días y próximos 2 días)
+        const relevantShifts = shiftsResult.items.filter(shift => {
+          const shiftStart = new Date(shift.startTime);
+          return shiftStart >= twoDaysAgo && shiftStart <= twoDaysFromNow;
+        });
+
+        // Convertir a ShiftEvent
+        const shiftEvents = relevantShifts.map(shift => 
+          convertToShiftEvent(
+            shift, 
+            guardsMap.get(shift.guard), 
+            propertiesMap.get(shift.property)
+          )
+        );
+
+        setShifts(shiftEvents);
+      } catch (err) {
+        console.error('Error fetching shifts data:', err);
+        setError('Error al cargar los datos de turnos');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchShiftsData();
+  }, []);
+
+  if (loading) {
+    return (
+      <Card className="col-span-full">
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-2">
+            <Clock className="h-5 w-5 text-blue-600" />
+            Timeline de Turnos en Tiempo Real
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center h-[400px]">
+            <div className="flex items-center gap-2 text-gray-500">
+              <Loader2 className="h-6 w-6 animate-spin" />
+              <span>Cargando turnos...</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card className="col-span-full">
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-2">
+            <Clock className="h-5 w-5 text-blue-600" />
+            Timeline de Turnos en Tiempo Real
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center h-[400px]">
+            <div className="flex items-center gap-2 text-red-500">
+              <AlertCircle className="h-6 w-6" />
+              <span>{error}</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (shifts.length === 0) {
+    return (
+      <Card className="col-span-full">
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-2">
+            <Clock className="h-5 w-5 text-blue-600" />
+            Timeline de Turnos en Tiempo Real
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center h-[400px]">
+            <div className="text-center text-gray-500">
+              <Clock className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <div className="text-lg font-medium mb-2">No hay turnos programados</div>
+              <div className="text-sm">Los turnos aparecerán aquí cuando sean programados</div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   // Ordenar eventos por fecha de inicio
-  const sortedEvents = mockShiftEvents.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
+  const sortedEvents = shifts.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
 
   return (
     <Card className="col-span-full">
