@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { ReusableTable, type Column } from "@/components/ui/reusable-table";
 import { useI18n } from "@/i18n";
 import type { SortOrder } from "@/lib/sort";
-// import CreateGuardDialog from "./Create/Create"; // TODO: Implement proper CreateGuardDialog
+// ahora sí importamos CreateGuardDialog
+import CreateGuardDialog from "./Create/Create";
 import DeleteGuardDialog from "./Delete/Delete";
 import EditGuardDialog from "./Edit/Edit";
 import type { Guard } from "./types";
@@ -69,7 +70,8 @@ export default function GuardsTable({
     return String(str);
   }
 
-  // const [createOpen, setCreateOpen] = React.useState(false); // TODO: Implement CreateGuardDialog
+  // const [createOpen, setCreateOpen] = React.useState(false); // <-- ahora lo usamos
+  const [createOpen, setCreateOpen] = React.useState(false);
   const [editGuard, setEditGuard] = React.useState<Guard | null>(null);
   const [deleteGuard, setDeleteGuard] = React.useState<Guard | null>(null);
   const [tariffGuard, setTariffGuard] = React.useState<Guard | null>(null);
@@ -271,7 +273,7 @@ export default function GuardsTable({
         title={guardTable.title ?? getText("guards.table.title", "Guards List")}
         searchPlaceholder={guardTable.searchPlaceholder ?? getText("guards.table.searchPlaceholder", "Buscar guardias...")}
         addButtonText={guardTable.add ?? guardTable.addButton ?? getText("guards.table.add", "Agregar")}
-        // onAddClick={() => setCreateOpen(true)} // TODO: Implement CreateGuardDialog
+        onAddClick={() => setCreateOpen(true)} // <-- botón de crear ahora abre CreateGuardDialog
         serverSide={serverSide}
         currentPage={currentPage}
         totalPages={totalPages}
@@ -287,12 +289,23 @@ export default function GuardsTable({
         isPageLoading={isPageLoading}
       />
 
-      {/* TODO: Implement CreateGuardDialog component */}
-      {/* <CreateGuardDialog
-        open={createOpen}
-        onClose={() => setCreateOpen(false)}
-        onCreated={onRefresh}
-      /> */}
+      {/* Create Guard dialog */}
+      {createOpen && (
+        <CreateGuardDialog
+          open={createOpen}
+          onClose={() => setCreateOpen(false)}
+          onCreated={async () => {
+            if (onRefresh) {
+              const maybe = onRefresh();
+              if (maybe && typeof (maybe as any).then === "function") {
+                await maybe;
+              }
+            }
+            setCreateOpen(false);
+          }}
+        />
+      )}
+
       {editGuard && (
         <EditGuardDialog
           guard={editGuard}
