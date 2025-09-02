@@ -302,8 +302,7 @@ export default function GuardsTable({
               }
             }
             setCreateOpen(false);
-          }}
-        />
+          } } guardId={0}        />
       )}
 
       {editGuard && (
