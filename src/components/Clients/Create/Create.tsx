@@ -4,6 +4,7 @@ import * as React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AddressInput } from "@/components/ui/address-input";
 import { toast } from "sonner";
 import { createClient, type CreateClientPayload } from "@/lib/services/clients";
@@ -18,6 +19,7 @@ type Props = {
 };
 
 interface ClientFormData {
+  clientType: "person" | "company";
   firstName: string;
   lastName: string;
   email: string;
@@ -42,9 +44,15 @@ export default function CreateClientDialog({ open, onClose, onCreated }: Props) 
 
   const FORM = {
     createTitle: getText("clients.form.createTitle", getText("clients.title", "Create Client")),
+    clientType: {
+      label: getText("clients.form.fields.clientType", "Client Type"),
+      person: getText("clients.form.clientType.person", "Person"),
+      company: getText("clients.form.clientType.company", "Company"),
+    },
     fields: {
       firstName: getText("clients.form.fields.firstName", "First name *"),
       lastName: getText("clients.form.fields.lastName", "Last name *"),
+      companyName: getText("clients.form.fields.companyName", "Company name *"),
       email: getText("clients.form.fields.email", "Email *"),
       phone: getText("clients.form.fields.phone", "Phone"),
       address: getText("clients.form.fields.address", "Address"),
@@ -58,15 +66,18 @@ export default function CreateClientDialog({ open, onClose, onCreated }: Props) 
       cancel: getText("clients.form.buttons.cancel", getText("actions.cancel", "Cancel")),
       create: getText("clients.form.buttons.create", "Create"),
       creating: getText("clients.form.buttons.creating", "Creating..."),
+      sameAsMailing: getText("clients.form.buttons.sameAsMailing", "Same as mailing address"),
     },
     validation: {
       firstNameRequired: getText("clients.form.validation.firstNameRequired", "First name is required"),
       lastNameRequired: getText("clients.form.validation.lastNameRequired", "Last name is required"),
+      companyNameRequired: getText("clients.form.validation.companyNameRequired", "Company name is required"),
       emailRequired: getText("clients.form.validation.emailRequired", "Email is required"),
     },
     success: getText("clients.form.success", "Client created"),
   };
 
+  const [clientType, setClientType] = React.useState<"person" | "company">("person");
   const [firstName, setFirstName] = React.useState<string>("");
   const [lastName, setLastName] = React.useState<string>("");
   const [email, setEmail] = React.useState<string>("");
@@ -89,6 +100,7 @@ export default function CreateClientDialog({ open, onClose, onCreated }: Props) 
     if (open) {
       const cachedData = getFromCache("create-client");
       if (cachedData) {
+        setClientType(cachedData.clientType ?? "person");
         setFirstName(cachedData.firstName ?? "");
         setLastName(cachedData.lastName ?? "");
         setEmail(cachedData.email ?? "");
@@ -102,9 +114,10 @@ export default function CreateClientDialog({ open, onClose, onCreated }: Props) 
   React.useEffect(() => {
     if (
       open &&
-      (firstName || lastName || email || phone || address || billingAddress)
+      (clientType !== "person" || firstName || lastName || email || phone || address || billingAddress)
     ) {
       saveToCache("create-client", {
+        clientType,
         firstName,
         lastName,
         email,
@@ -113,9 +126,10 @@ export default function CreateClientDialog({ open, onClose, onCreated }: Props) 
         billingAddress,
       });
     }
-  }, [firstName, lastName, email, phone, address, billingAddress, open, saveToCache]);
+  }, [clientType, firstName, lastName, email, phone, address, billingAddress, open, saveToCache]);
 
   function resetForm() {
+    setClientType("person");
     setFirstName("");
     setLastName("");
     setEmail("");
@@ -126,8 +140,9 @@ export default function CreateClientDialog({ open, onClose, onCreated }: Props) 
   }
 
   function handleClose() {
-    if (firstName || lastName || email || phone || address || billingAddress) {
+    if (clientType !== "person" || firstName || lastName || email || phone || address || billingAddress) {
       saveToCache("create-client", {
+        clientType,
         firstName,
         lastName,
         email,
@@ -139,21 +154,37 @@ export default function CreateClientDialog({ open, onClose, onCreated }: Props) 
     onClose();
   }
 
+  function copyMainToBillingAddress() {
+    setBillingAddress(address);
+    toast.success("Main address copied to billing address");
+  }
+
   async function handleSubmit(e?: React.FormEvent) {
     if (e) e.preventDefault();
     setLoading(true);
 
     try {
-      if (!firstName.trim()) {
-        toast.error(FORM.validation.firstNameRequired);
-        setLoading(false);
-        return;
+      // Validation based on client type
+      if (clientType === "person") {
+        if (!firstName.trim()) {
+          toast.error(FORM.validation.firstNameRequired);
+          setLoading(false);
+          return;
+        }
+        if (!lastName.trim()) {
+          toast.error(FORM.validation.lastNameRequired);
+          setLoading(false);
+          return;
+        }
+      } else {
+        // Company validation
+        if (!firstName.trim()) {
+          toast.error(FORM.validation.companyNameRequired);
+          setLoading(false);
+          return;
+        }
       }
-      if (!lastName.trim()) {
-        toast.error(FORM.validation.lastNameRequired);
-        setLoading(false);
-        return;
-      }
+      
       if (!email.trim()) {
         toast.error(FORM.validation.emailRequired);
         setLoading(false);
@@ -162,7 +193,7 @@ export default function CreateClientDialog({ open, onClose, onCreated }: Props) 
 
       const payload: CreateClientPayload = {
         first_name: firstName.trim(),
-        last_name: lastName.trim(),
+        last_name: clientType === "person" ? lastName.trim() : "",
         email: email.trim(),
         phone: phone.trim() !== "" ? phone.trim() : undefined,
         address: address.trim() !== "" ? address.trim() : undefined,
@@ -239,26 +270,57 @@ export default function CreateClientDialog({ open, onClose, onCreated }: Props) 
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-3">
-              <div className="grid grid-cols-2 gap-2">
+              {/* Client Type Selector */}
+              <div className="grid grid-cols-1 gap-2">
                 <div>
-                  <label className="block text-sm">{FORM.fields.firstName}</label>
-                  <Input
-                    name="firstName"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm">{FORM.fields.lastName}</label>
-                  <Input
-                    name="lastName"
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                    required
-                  />
+                  <label className="block text-sm">{FORM.clientType.label}</label>
+                  <Select value={clientType} onValueChange={(value: "person" | "company") => setClientType(value)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="person">{FORM.clientType.person}</SelectItem>
+                      <SelectItem value="company">{FORM.clientType.company}</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
+
+              {/* Name fields - conditional based on client type */}
+              {clientType === "person" ? (
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-sm">{FORM.fields.firstName}</label>
+                    <Input
+                      name="firstName"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm">{FORM.fields.lastName}</label>
+                    <Input
+                      name="lastName"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-2">
+                  <div>
+                    <label className="block text-sm">{FORM.fields.companyName}</label>
+                    <Input
+                      name="companyName"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
@@ -288,10 +350,22 @@ export default function CreateClientDialog({ open, onClose, onCreated }: Props) 
               </div>
 
               <div className="grid grid-cols-1 gap-2">
+                <div className="flex items-center justify-between">
+                  <label className="block text-sm">{FORM.fields.billingAddress}</label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={copyMainToBillingAddress}
+                    disabled={!address || address.trim() === ""}
+                    className="text-xs px-2 py-1 h-6"
+                  >
+                    {FORM.buttons.sameAsMailing}
+                  </Button>
+                </div>
                 <AddressInput
                   value={billingAddress}
                   onChange={setBillingAddress}
-                  label={FORM.fields.billingAddress}
                   placeholder={FORM.placeholders?.billingAddress}
                   name="billingAddress"
                 />
