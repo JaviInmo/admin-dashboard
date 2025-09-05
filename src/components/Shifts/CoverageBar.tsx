@@ -71,7 +71,8 @@ export function CoverageBar({
   guards = [], 
   properties = [],
   showTooltip = true,
-  hasGap = false
+  hasGap = false,
+  showStats = false
 }: { 
   day: Date; 
   shifts: Shift[];
@@ -80,6 +81,7 @@ export function CoverageBar({
   properties?: AppProperty[];
   showTooltip?: boolean;
   hasGap?: boolean;
+  showStats?: boolean;
 }) {
   // Función para obtener color basado en ID
   const getColor = (id: number): string => {
@@ -107,6 +109,40 @@ export function CoverageBar({
 
   const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate()).getTime();
   const totalMs = 24 * 60 * 60 * 1000;
+  const dayEnd = dayStart + totalMs;
+
+  // Calcular estadísticas para mostrar debajo de la barra
+  // Incluir TODOS los turnos que tengan tiempo dentro de este día (empiecen antes, durante o crucen)
+  const dayShifts = shifts.filter(shift => {
+    if (!shift.startTime || !shift.endTime) return false;
+    const shiftStart = new Date(shift.startTime).getTime();
+    const shiftEnd = new Date(shift.endTime).getTime();
+    
+    // El turno debe tener al menos algo de tiempo dentro del día
+    return shiftEnd > dayStart && shiftStart < dayEnd;
+  });
+  
+  const totalTurnos = dayShifts.length;
+  
+  // Calcular horas solo de los turnos que tocan este día, considerando solo las horas dentro del día
+  const totalHoras = dayShifts.reduce((sum, shift) => {
+    if (!shift.startTime || !shift.endTime) return sum;
+    
+    const shiftStart = new Date(shift.startTime).getTime();
+    const shiftEnd = new Date(shift.endTime).getTime();
+    
+    // Limitar el turno a las fronteras del día
+    const effectiveStart = Math.max(shiftStart, dayStart);
+    const effectiveEnd = Math.min(shiftEnd, dayEnd);
+    
+    // Si el turno efectivo es válido, calcular las horas
+    if (effectiveEnd > effectiveStart) {
+      const hoursInDay = (effectiveEnd - effectiveStart) / (1000 * 60 * 60);
+      return sum + hoursInDay;
+    }
+    
+    return sum;
+  }, 0);
 
   // Agrupar turnos por el criterio de color (guardia o propiedad)
   const shiftsByColor: Record<number, Shift[]> = {};
@@ -146,34 +182,44 @@ export function CoverageBar({
   });
 
   return (
-    <div className="w-full h-6 relative">
-      {/* Fondo rojo para gaps que cubre toda la celda */}
-      {hasGap && (
-        <div className="absolute inset-0 bg-red-200 bg-opacity-60 rounded"></div>
-      )}
-      
-      {/* Barra de cobertura */}
-      <div className={`w-full h-full rounded bg-gray-200 relative overflow-hidden ${hasGap ? 'ring-4 ring-red-500 ring-opacity-80' : ''}`}>
-        {/* Render coverage segments with different colors */}
-        {colorSegments.map((segment, segmentIdx) => (
-          segment.intervals.map(([s, e], intervalIdx) => {
-            const left = ((s - dayStart) / totalMs) * 100;
-            const width = ((e - s) / totalMs) * 100;
-            return (
-              <div
-                key={`${segmentIdx}-${intervalIdx}`}
-                className="absolute top-0 bottom-0 transition-opacity duration-200 hover:opacity-80"
-                style={{ 
-                  left: `${left}%`, 
-                  width: `${width}%`,
-                  backgroundColor: segment.color
-                }}
-                title={showTooltip ? getTooltipContent(segment.shift) : undefined}
-              />
-            );
-          })
-        ))}
+    <div className="w-full">
+      {/* Contenedor de la barra */}
+      <div className="w-full h-6 relative">
+        {/* Fondo rojo para gaps que cubre toda la celda */}
+        {hasGap && (
+          <div className="absolute inset-0 bg-red-200 bg-opacity-60 rounded"></div>
+        )}
+        
+        {/* Barra de cobertura */}
+        <div className={`w-full h-full rounded bg-gray-200 relative overflow-hidden ${hasGap ? 'ring-4 ring-red-500 ring-opacity-80' : ''}`}>
+          {/* Render coverage segments with different colors */}
+          {colorSegments.map((segment, segmentIdx) => (
+            segment.intervals.map(([s, e], intervalIdx) => {
+              const left = ((s - dayStart) / totalMs) * 100;
+              const width = ((e - s) / totalMs) * 100;
+              return (
+                <div
+                  key={`${segmentIdx}-${intervalIdx}`}
+                  className="absolute top-0 bottom-0 transition-opacity duration-200 hover:opacity-80"
+                  style={{ 
+                    left: `${left}%`, 
+                    width: `${width}%`,
+                    backgroundColor: segment.color
+                  }}
+                  title={showTooltip ? getTooltipContent(segment.shift) : undefined}
+                />
+              );
+            })
+          ))}
+        </div>
       </div>
+      
+      {/* Estadísticas debajo de la barra */}
+      {showStats && (
+        <div className="text-center text-[10px] text-muted-foreground mt-0.5 leading-none">
+          {totalTurnos > 0 ? `${totalTurnos}t/${totalHoras.toFixed(0)}h` : '0t/0h'}
+        </div>
+      )}
     </div>
   );
 }

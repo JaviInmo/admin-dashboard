@@ -12,6 +12,7 @@ import type { Shift } from "@/components/Shifts/types";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { CoverageBar } from "./CoverageBar";
 import PropertyShiftsModalImproved from "@/components/Properties/PropertyShiftsModalImproved";
+import TimelineDetails from "@/components/Shifts/TimelineDetails";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -69,6 +70,18 @@ export default function TimelineCombined() {
       const s = startOfWeek(anchorDate);
       const days = Array.from({ length: 7 }, (_, i) => addDays(s, i));
       return [days, s, addDays(s, 7)];
+    }
+    if (rangeType === "custom") {
+      const s = startOfDay(anchorDate);
+      const customEndDateStr = localStorage.getItem("customEndDate");
+      if (customEndDateStr) {
+        const e = new Date(customEndDateStr);
+        const count = Math.ceil((e.getTime() - s.getTime()) / (24 * 60 * 60 * 1000)) + 1;
+        const days = Array.from({ length: count }, (_, i) => addDays(s, i));
+        return [days, s, addDays(e, 1)];
+      }
+      // Fallback to single day if no custom end date
+      return [[s], s, addDays(s, 1)];
     }
     // month
     const s = startOfMonth(anchorDate);
@@ -453,6 +466,7 @@ export default function TimelineCombined() {
                                   guards={guards}
                                   properties={properties}
                                   hasGap={(gapMode === "properties" || gapMode === "all") && detectedGaps.has(p.id) && detectedGaps.get(p.id)!.has(d.toISOString().split('T')[0])}
+                                  showStats={true}
                                 />
                               </div>
                             </td>
@@ -509,6 +523,7 @@ export default function TimelineCombined() {
                                     }
                                     return false;
                                   })()}
+                                  showStats={true}
                                 />
                               </div>
                             </td>
@@ -528,6 +543,14 @@ export default function TimelineCombined() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Timeline Details - Shows day-specific information when a column is selected */}
+      <TimelineDetails
+        displayDays={displayDays}
+        shifts={filtered}
+        guards={guards}
+        selectedColumn={selectedColumn}
+      />
 
       {modalProperty && (
         <PropertyShiftsModalImproved
