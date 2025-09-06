@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useMemo, useState } from "react";
 
 export type ShiftsView = "property" | "guard";
-export type RangeType = "day" | "week" | "month";
+export type RangeType = "day" | "week" | "month" | "custom";
 
 export type StatusFilter = "scheduled" | "completed" | "voided";
 

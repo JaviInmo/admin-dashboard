@@ -3,6 +3,7 @@ import { useShiftsFilters } from "@/contexts/shifts-context";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import TimelineCombined from "@/components/Shifts/TimelineCombined";
+import CustomPeriodSelector from "@/components/Shifts/CustomPeriodSelector";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -98,7 +99,10 @@ export default function AsidePanelGeneral() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="w-full justify-center">
-                  {rangeType === "day" ? "Día" : rangeType === "week" ? "Semana" : "Mes"}
+                  {rangeType === "day" ? "Día" : 
+                   rangeType === "week" ? "Semana" : 
+                   rangeType === "month" ? "Mes" : 
+                   "Personalizado"}
                   <ChevronDown className="h-4 w-4 ml-2" />
                 </Button>
               </DropdownMenuTrigger>
@@ -106,6 +110,7 @@ export default function AsidePanelGeneral() {
                 <DropdownMenuItem onSelect={() => setRangeType("day")}>Día</DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => setRangeType("week")}>Semana</DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => setRangeType("month")}>Mes</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setRangeType("custom")}>Personalizado</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
             
@@ -121,6 +126,9 @@ export default function AsidePanelGeneral() {
                 Este mes
               </Button>
             </div>
+            
+            {/* Custom Period Selector */}
+            <CustomPeriodSelector />
           </div>
         </div>
         <div className="flex-1 min-w-0 h-full min-h-0 flex flex-col">
