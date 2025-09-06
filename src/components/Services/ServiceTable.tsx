@@ -10,7 +10,7 @@ import type { Service } from "./types";
 import DeleteServiceDialog from "./Delete/Delete";
 import EditServiceDialog from "./Edit/Edit";
 import ShowServiceDialog from "./Show/Show";
-import CreateServiceDialog from "./Create/Create"; // <-- import del modal de creación
+import CreateServiceDialog from "./Create/Create";
 
 export interface ServicesTableProps {
   services: Service[];
@@ -107,7 +107,13 @@ export default function ServicesTable({
       key: "isActive",
       label: tableText.headers?.isActive ?? "Active",
       sortable: true,
-      render: (s) => (s.isActive ? (tableText.activeLabel ?? "Yes") : (tableText.inactiveLabel ?? "No")),
+      render: (s) => {
+        // mostrar "-" cuando es null/undefined, usar labels traducidos si existen
+        if (s.isActive === null || s.isActive === undefined) return "-";
+        const yes = tableText.activeLabel ?? TEXT?.common?.yes ?? "Yes";
+        const no = tableText.inactiveLabel ?? TEXT?.common?.no ?? "No";
+        return s.isActive ? yes : no;
+      },
       headerClassName: "px-2 py-1 text-sm text-center",
       cellClassName: "px-2 py-1 text-sm text-center",
       headerStyle: { width: "90px", minWidth: "70px" },
@@ -172,9 +178,9 @@ export default function ServicesTable({
           if (found) setShowService(found);
         }}
         title={tableText.title ?? TEXT?.services?.title ?? "Services"}
-        searchPlaceholder={tableText.searchPlaceholder ?? TEXT?.services?.searchPlaceholder ?? "Buscar servicios..."}
-        addButtonText={tableText.add ?? TEXT?.services?.add ?? "Agregar"}
-        onAddClick={() => setCreateOpen(true)} // <-- abre el modal de creación
+        searchPlaceholder={tableText.searchPlaceholder ?? TEXT?.services?.searchPlaceholder ?? "Search services..."}
+        addButtonText={tableText.add ?? TEXT?.services?.add ?? "Add"}
+        onAddClick={() => setCreateOpen(true)}
         serverSide={serverSide}
         currentPage={currentPage}
         totalPages={totalPages}

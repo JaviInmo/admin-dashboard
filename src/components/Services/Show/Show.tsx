@@ -18,6 +18,21 @@ interface ShowServiceDialogProps {
   onClose: () => void;
 }
 
+function formatDate(dateStr?: string | null) {
+  if (!dateStr) return "-";
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return dateStr;
+  // fecha corta (sin hora)
+  return d.toLocaleDateString();
+}
+
+function formatDateTime(dateStr?: string | null) {
+  if (!dateStr) return "-";
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return dateStr;
+  return d.toLocaleString();
+}
+
 export default function ShowServiceDialog({ service, open, onClose }: ShowServiceDialogProps) {
   const { TEXT } = useI18n();
 
@@ -49,10 +64,15 @@ export default function ShowServiceDialog({ service, open, onClose }: ShowServic
 
   const propertyLabel = React.useMemo(() => {
     if (service.propertyName) return service.propertyName;
-    if (propQuery.data) return `${propQuery.data.name ?? propQuery.data.alias ?? "Property #" + propQuery.data.id} — ${propQuery.data.address}`;
+    if (propQuery.data) return `${propQuery.data.name ?? propQuery.data.alias ?? "Property #" + propQuery.data.id} — ${propQuery.data.address ?? "-"}`;
     if (service.assignedProperty) return `#${service.assignedProperty}`;
     return "-";
   }, [service.propertyName, propQuery.data, service.assignedProperty]);
+
+  const isActiveLabel = React.useMemo(() => {
+    if (service.isActive === null || service.isActive === undefined) return "-";
+    return service.isActive ? (TEXT?.common?.yes ?? "Yes") : (TEXT?.common?.no ?? "No");
+  }, [service.isActive, TEXT]);
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
@@ -69,9 +89,10 @@ export default function ShowServiceDialog({ service, open, onClose }: ShowServic
           <div><strong>{TEXT?.services?.fields?.rate ?? "Rate"}:</strong> {service.rate ?? "-"}</div>
           <div><strong>{TEXT?.services?.fields?.monthlyBudget ?? "Monthly Budget"}:</strong> {service.monthlyBudget ?? "-"}</div>
           <div><strong>{TEXT?.services?.fields?.totalHours ?? "Total Hours"}:</strong> {service.totalHours ?? "-"}</div>
-          <div><strong>{TEXT?.services?.fields?.isActive ?? "Is active"}:</strong> {service.isActive ? "Yes" : "No"}</div>
-          <div><strong>{TEXT?.services?.fields?.createdAt ?? "Created at"}:</strong> {service.createdAt ?? "-"}</div>
-          <div><strong>{TEXT?.services?.fields?.updatedAt ?? "Updated at"}:</strong> {service.updatedAt ?? "-"}</div>
+          <div><strong>{TEXT?.services?.fields?.contractStartDate ?? "Contract start date"}:</strong> {formatDate(service.contractStartDate)}</div>
+          <div><strong>{TEXT?.services?.fields?.isActive ?? "Is active"}:</strong> {isActiveLabel}</div>
+          <div><strong>{TEXT?.services?.fields?.createdAt ?? "Created at"}:</strong> {formatDateTime(service.createdAt)}</div>
+          <div><strong>{TEXT?.services?.fields?.updatedAt ?? "Updated at"}:</strong> {formatDateTime(service.updatedAt)}</div>
         </div>
 
         <DialogFooter>

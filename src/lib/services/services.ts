@@ -1,4 +1,4 @@
-// src/lib/services.ts
+// src/lib/services/services.ts
 import type { Service } from "@/components/Services/types";
 import { endpoints } from "@/lib/endpoints";
 import { api } from "@/lib/http";
@@ -17,6 +17,7 @@ type ServerService = {
   property_name?: string | null;
   rate?: string | null; // decimal string
   monthly_budget?: string | null; // decimal string
+  contract_start_date?: string | null; // date
   total_hours?: string | null;
   created_at?: string | null; // date-time
   updated_at?: string | null; // date-time
@@ -33,6 +34,7 @@ export type CreateServicePayload = {
   assigned_property?: number | null;
   rate?: string | null;
   monthly_budget?: string | null;
+  contract_start_date?: string | null;
   is_active?: boolean;
 };
 
@@ -54,6 +56,7 @@ function mapServerService(s: ServerService): Service {
     propertyName: s.property_name ?? null,
     rate: s.rate ?? null,
     monthlyBudget: s.monthly_budget ?? null,
+    contractStartDate: s.contract_start_date ?? null,
     totalHours: s.total_hours ?? null,
     createdAt: s.created_at ?? null,
     updatedAt: s.updated_at ?? null,
@@ -122,6 +125,10 @@ export async function createService(payload: CreateServicePayload): Promise<Serv
     body.monthly_budget = payload.monthly_budget;
   }
 
+  if (payload.contract_start_date !== undefined && payload.contract_start_date !== null && payload.contract_start_date !== "") {
+    body.contract_start_date = payload.contract_start_date;
+  }
+
   if (payload.is_active !== undefined) {
     body.is_active = payload.is_active;
   }
@@ -174,6 +181,14 @@ export async function updateService(id: number, payload: UpdateServicePayload): 
       // omitimos
     } else {
       body.monthly_budget = payload.monthly_budget;
+    }
+  }
+
+  if (payload.contract_start_date !== undefined) {
+    if (payload.contract_start_date === "") {
+      // omitimos
+    } else {
+      body.contract_start_date = payload.contract_start_date;
     }
   }
 

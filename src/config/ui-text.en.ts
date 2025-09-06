@@ -38,6 +38,8 @@ export const EN_TEXT = {
     notFoundTitle: "Content not found",
     notFoundDescription: "Select an option from the menu.",
     loading: "Loading...",
+     yes: "Yes",
+    no: "No",
   },
 
   actions: {
@@ -520,6 +522,7 @@ export const EN_TEXT = {
     placeholders: {
       guard: "Type to search guards (e.g. 'Pedro')",
       property: "Type to search properties (address/name)",
+        contractStartDate: "YYYY-MM-DD",
     },
     fields: {
       name: "Name",
@@ -532,6 +535,7 @@ export const EN_TEXT = {
       isActive: "Is active",
       createdAt: "Created at",
       updatedAt: "Updated at",
+        contractStartDate: "Contract Start Date",
     },
     errors: {
       nameRequired: "Name is required",

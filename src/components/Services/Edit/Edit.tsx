@@ -1,3 +1,4 @@
+// src/components/Services/Edit/Edit.tsx  (el archivo que me pegaste, con las modificaciones)
 "use client";
 
 import * as React from "react";
@@ -49,6 +50,9 @@ export default function EditServiceDialog({ service, open, onClose, onUpdated }:
   const [monthlyBudget, setMonthlyBudget] = React.useState<string>(service.monthlyBudget ?? "");
   const [isActive, setIsActive] = React.useState<boolean>(service.isActive ?? true);
 
+  // --- NUEVO: contract start date ---
+  const [contractStartDate, setContractStartDate] = React.useState<string>(service.contractStartDate ?? "");
+
   // sync when service changes
   React.useEffect(() => {
     setName(service.name ?? "");
@@ -62,6 +66,7 @@ export default function EditServiceDialog({ service, open, onClose, onUpdated }:
     setRate(service.rate ?? "");
     setMonthlyBudget(service.monthlyBudget ?? "");
     setIsActive(service.isActive ?? true);
+    setContractStartDate(service.contractStartDate ?? "");
   }, [service]);
 
   // fetch label for existing guardId (if no label provided)
@@ -79,7 +84,6 @@ export default function EditServiceDialog({ service, open, onClose, onUpdated }:
       const g = guardDetailQuery.data;
       const lbl = `${g.firstName} ${g.lastName}${g.email ? ` — ${g.email}` : ""}`;
       setGuardSelectedLabel(lbl);
-      // only set input if it's empty (so we don't clobber user typing)
       if (!guardInput) setGuardInput(lbl);
     }
   }, [guardDetailQuery.data]);
@@ -164,6 +168,7 @@ export default function EditServiceDialog({ service, open, onClose, onUpdated }:
     setRate(service.rate ?? "");
     setMonthlyBudget(service.monthlyBudget ?? "");
     setIsActive(service.isActive ?? true);
+    setContractStartDate(service.contractStartDate ?? "");
   };
 
   const handleUpdate = async () => {
@@ -180,6 +185,7 @@ export default function EditServiceDialog({ service, open, onClose, onUpdated }:
       rate: rate === "" ? undefined : rate,
       monthly_budget: monthlyBudget === "" ? undefined : monthlyBudget,
       is_active: isActive,
+      contract_start_date: contractStartDate === "" ? undefined : contractStartDate, // <-- añadido
     };
 
     try {
@@ -312,6 +318,12 @@ export default function EditServiceDialog({ service, open, onClose, onUpdated }:
               <label className="text-sm">{TEXT?.services?.fields?.monthlyBudget ?? "Monthly budget"}</label>
               <Input value={monthlyBudget ?? ""} onChange={(e) => setMonthlyBudget(e.currentTarget.value)} />
             </div>
+          </div>
+
+          {/* Nuevo: campo Fecha de inicio del contrato */}
+          <div>
+            <label className="text-sm">{TEXT?.services?.fields?.contractStartDate ?? "Contract Start Date"}</label>
+            <Input type="date" value={contractStartDate ?? ""} onChange={(e) => setContractStartDate(e.currentTarget.value)} />
           </div>
 
           <div className="flex items-center gap-2">

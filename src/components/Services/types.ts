@@ -9,6 +9,7 @@ export type Service = {
   propertyName: string | null;
   rate: string | null; // decimal string
   monthlyBudget: string | null; // decimal string
+  contractStartDate: string | null; // date (ISO)  <-- agregado
   totalHours: string | null;
   createdAt: string | null; // ISO datetime
   updatedAt: string | null; // ISO datetime

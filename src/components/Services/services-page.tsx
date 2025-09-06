@@ -12,16 +12,15 @@ import type { Service } from "./types";
 import { useI18n } from "@/i18n";
 import { usePageSize } from "@/hooks/use-page-size";
 import { useVisitedPagesCache } from "@/hooks/use-visited-pages-cache";
-import CreateServiceDialog from "./Create/Create";
 
 function mapServiceSortField(field: keyof Service): string {
   switch (field) {
     case "name":
       return "name";
     case "guardName":
-      return "guard__user__first_name"; // example: adjust if your API expects user__first_name
+      return "guard__user__first_name";
     case "propertyName":
-      return "assigned_property__name"; // adjust to API field if needed
+      return "assigned_property__name";
     default:
       return String(field);
   }
@@ -46,7 +45,6 @@ export default function ServicesPage() {
   const [sortField, setSortField] = React.useState<keyof Service>("name");
   const [sortOrder, setSortOrder] = React.useState<SortOrder>("asc");
   const [stableTotalPages, setStableTotalPages] = React.useState<number>(1);
-  const [createOpen, setCreateOpen] = React.useState(false);
 
   const handleSearch = React.useCallback((term: string) => {
     setPage(1);
@@ -58,7 +56,15 @@ export default function ServicesPage() {
     return generateSort(mapped, sortOrder);
   }, [sortField, sortOrder]);
 
-  const queryKey = [SERVICES_KEY, search, page, pageSize, apiOrdering];
+  const queryKey = React.useMemo(() => [SERVICES_KEY, search, page, pageSize, apiOrdering], [search, page, pageSize, apiOrdering]);
+
+  // Decide whether to refetch on mount depending on cached pages (React Query expects a boolean)
+  const cachedForKey = React.useMemo(() => visitedCache.get(queryKey), [visitedCache, queryKey, pageSize]);
+  const refetchOnMount = React.useMemo(() => {
+    if (!cachedForKey) return true;
+    const maxPage = Math.max(1, Math.ceil((cachedForKey.count ?? 0) / pageSize));
+    return page > maxPage;
+  }, [cachedForKey, page, pageSize]);
 
   const {
     data = INITIAL_DATA,
@@ -68,22 +74,19 @@ export default function ServicesPage() {
     queryKey,
     queryFn: () => listServices(page, search, pageSize, apiOrdering),
     initialData: INITIAL_DATA,
-    placeholderData: (previousData) => {
-      const cached = visitedCache.get(queryKey);
-      if (cached) {
-        const maxPage = Math.max(1, Math.ceil(cached.count / pageSize));
-        if (page <= maxPage) return cached;
+    placeholderData: (previousData?: PaginatedResult<Service>) => {
+      if (!previousData || previousData === INITIAL_DATA) {
+        // try visited cache
+        if (cachedForKey) {
+          const maxPage = Math.max(1, Math.ceil((cachedForKey.count ?? 0) / pageSize));
+          if (page <= maxPage) return cachedForKey;
+        }
+        return previousData ?? INITIAL_DATA;
       }
-      return previousData || INITIAL_DATA;
+      return previousData;
     },
-    refetchOnMount: () => {
-      const cached = visitedCache.get(queryKey);
-      if (cached) {
-        const maxPage = Math.max(1, Math.ceil(cached.count / pageSize));
-        return page > maxPage;
-      }
-      return true;
-    },
+    // boolean (not a function) — computed above
+    refetchOnMount,
   });
 
   React.useEffect(() => {
@@ -92,23 +95,28 @@ export default function ServicesPage() {
     }
   }, [data, isFetching, queryKey, visitedCache]);
 
-  const shouldShowLoading = isFetching && (() => {
-    const cached = visitedCache.get(queryKey);
-    if (cached) {
-      const maxPage = Math.max(1, Math.ceil(cached.count / pageSize));
+  const shouldShowLoading = React.useMemo(() => {
+    if (!isFetching) return false;
+    if (cachedForKey) {
+      const maxPage = Math.max(1, Math.ceil((cachedForKey.count ?? 0) / pageSize));
       return page > maxPage;
     }
     return true;
-  })();
+  }, [isFetching, cachedForKey, page, pageSize]);
 
-  const totalPages = React.useMemo(() => {
-    const newTotal = Math.max(1, Math.ceil((data?.count ?? 0) / pageSize));
-    if ((!isFetching && data?.count !== undefined) || stableTotalPages === 1) {
-      setStableTotalPages(newTotal);
-      return newTotal;
+  // compute pages (pure)
+  const computedTotalPages = React.useMemo(() => {
+    return Math.max(1, Math.ceil((data?.count ?? 0) / pageSize));
+  }, [data?.count, pageSize]);
+
+  // keep a stable value while fetching (avoid page jump)
+  React.useEffect(() => {
+    if (!isFetching) {
+      setStableTotalPages(computedTotalPages);
     }
-    return stableTotalPages;
-  }, [data?.count, isFetching, stableTotalPages, pageSize]);
+  }, [computedTotalPages, isFetching]);
+
+  const totalPages = (!isFetching && data?.count !== undefined) ? computedTotalPages : stableTotalPages;
 
   React.useEffect(() => {
     if (!isFetching && totalPages > 0 && page > totalPages) {
@@ -116,7 +124,7 @@ export default function ServicesPage() {
     }
   }, [page, totalPages, isFetching]);
 
-  const toggleSort = (field: keyof Service) => {
+  const toggleSort = React.useCallback((field: keyof Service) => {
     if (sortField === field) {
       setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
     } else {
@@ -124,7 +132,7 @@ export default function ServicesPage() {
       setSortOrder("asc");
     }
     setPage(1);
-  };
+  }, [sortField]);
 
   React.useEffect(() => {
     if (error) {
@@ -155,14 +163,6 @@ export default function ServicesPage() {
         sortField={sortField}
         sortOrder={sortOrder}
         isPageLoading={shouldShowLoading}
-      />
-
-      <CreateServiceDialog
-        open={createOpen}
-        onClose={() => setCreateOpen(false)}
-        onCreated={() => {
-          queryClient.invalidateQueries({ predicate: (q) => Array.isArray(q.queryKey) && q.queryKey[0] === SERVICES_KEY });
-        }}
       />
     </div>
   );

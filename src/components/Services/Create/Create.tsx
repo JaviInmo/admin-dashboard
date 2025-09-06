@@ -46,6 +46,7 @@ export default function CreateServiceDialog({ open, onClose, onCreated }: Create
 
   const [rate, setRate] = React.useState<string>("");
   const [monthlyBudget, setMonthlyBudget] = React.useState<string>("");
+  const [contractStartDate, setContractStartDate] = React.useState<string>(""); // <-- nuevo
   const [isActive, setIsActive] = React.useState<boolean>(true);
 
   // debounce guard input -> guardSearchTerm
@@ -64,14 +65,11 @@ export default function CreateServiceDialog({ open, onClose, onCreated }: Create
     queryKey: ["guards-suggest", guardSearchTerm],
     queryFn: async () => {
       const res = await listGuards(1, guardSearchTerm || undefined, 10, "user__first_name");
-      // drfList devuelve normalmente un PaginatedResult, pero para evitar errores de typing
-      // sacamos de forma segura el array de resultados
       const anyRes = res as any;
       if (Array.isArray(anyRes)) return anyRes as Guard[];
       return (anyRes.results ?? anyRes.data ?? anyRes.items ?? []) as Guard[];
     },
     enabled: guardSearchTerm.length > 0,
-    // nota: NO usamos `keepPreviousData` porque en tu versión de types no existe en el tipo de opciones
     staleTime: 1000 * 60 * 2,
   });
 
@@ -99,6 +97,7 @@ export default function CreateServiceDialog({ open, onClose, onCreated }: Create
     setPropertySelectedLabel("");
     setRate("");
     setMonthlyBudget("");
+    setContractStartDate("");
     setIsActive(true);
   };
 
@@ -115,6 +114,7 @@ export default function CreateServiceDialog({ open, onClose, onCreated }: Create
       assigned_property: propertyId ?? undefined,
       rate: rate === "" ? undefined : rate,
       monthly_budget: monthlyBudget === "" ? undefined : monthlyBudget,
+      contract_start_date: contractStartDate === "" ? undefined : contractStartDate, // <-- añadido
       is_active: isActive,
     };
 
@@ -266,7 +266,7 @@ export default function CreateServiceDialog({ open, onClose, onCreated }: Create
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <div>
               <label className="text-sm">{TEXT?.services?.fields?.rate ?? "Rate / hr"}</label>
               <Input value={rate} onChange={(e) => setRate(e.currentTarget.value)} placeholder="0.00" />
@@ -274,6 +274,10 @@ export default function CreateServiceDialog({ open, onClose, onCreated }: Create
             <div>
               <label className="text-sm">{TEXT?.services?.fields?.monthlyBudget ?? "Monthly budget"}</label>
               <Input value={monthlyBudget} onChange={(e) => setMonthlyBudget(e.currentTarget.value)} placeholder="0.00" />
+            </div>
+            <div>
+              <label className="text-sm">{TEXT?.services?.fields?.contractStartDate ?? "Contract Start Date"}</label>
+              <Input type="date" value={contractStartDate} onChange={(e) => setContractStartDate(e.currentTarget.value)} />
             </div>
           </div>
 
