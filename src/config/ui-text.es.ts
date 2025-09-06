@@ -175,6 +175,7 @@ export const ES_TEXT = {
         monthlyRate: "Tarifa Mensual",
         contractStartDate: "Fecha de Inicio del Contrato",
         totalHours: "Horas",
+        description: "Descripción", 
       },
       placeholders: {
         owner: "Buscar cliente por nombre/username...",
@@ -183,6 +184,7 @@ export const ES_TEXT = {
         address: "Dirección de la propiedad",
         monthlyRate: "$0.00",
         totalHours: "0",
+         description: "Descripción, observaciones, etc.",
       },
       buttons: {
         cancel: "Cancelar",

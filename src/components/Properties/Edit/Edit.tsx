@@ -1,16 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle,  } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AddressInput } from "@/components/ui/address-input";
-import type { AppProperty, AppPropertyType } from "@/lib/services/properties";
-import {
-  partialUpdateProperty,
-  listPropertyTypesOfService,
-} from "@/lib/services/properties";
+import type { AppProperty } from "@/lib/services/properties";
+import { partialUpdateProperty } from "@/lib/services/properties";
 import { listClients, getClient } from "@/lib/services/clients";
 import { toast } from "sonner";
 import { useI18n } from "@/i18n";
@@ -26,19 +23,6 @@ export default function EditPropertyDialog({ property, open, onClose, onUpdated 
   const { TEXT } = useI18n();
 
   const asAny = property as any;
-
-  const normalizeInitialTypes = (): number[] => {
-    const tAny: any =
-      asAny.typesOfService ??
-      asAny.types_of_service ??
-      asAny.types ??
-      asAny.types_of_services ??
-      [];
-    if (!Array.isArray(tAny)) return [];
-    return tAny
-      .map((x: any) => (typeof x === "object" && x !== null ? Number(x.id) : Number(x)))
-      .filter((n) => !Number.isNaN(n));
-  };
 
   const pick = (...keys: string[]) => {
     for (const k of keys) {
@@ -65,24 +49,12 @@ export default function EditPropertyDialog({ property, open, onClose, onUpdated 
   const [name, setName] = React.useState<string>(() => String(pick("name") ?? ""));
   const [alias, setAlias] = React.useState<string>(() => String(pick("alias") ?? ""));
   const [address, setAddress] = React.useState<string>(() => String(pick("address") ?? ""));
-  const [types, setTypes] = React.useState<number[]>(normalizeInitialTypes());
-  const [monthlyRate, setMonthlyRate] = React.useState<string>(() => {
-    const v = pick("monthlyRate", "monthly_rate");
-    return v === null || v === undefined ? "" : String(v);
-  });
   const [contractStartDate, setContractStartDate] = React.useState<string>(() => {
     return String(pick("contractStartDate", "contract_start_date") ?? "");
   });
-  const [totalHours, setTotalHours] = React.useState<number | "">(() => {
-    const t = pick("totalHours", "total_hours");
-    if (t === "" || t === null || t === undefined) return "";
-    const n = Number(t);
-    return Number.isFinite(n) ? n : "";
-  });
+  const [description, setDescription] = React.useState<string>(() => String(pick("description") ?? ""));
 
   const [loading, setLoading] = React.useState(false);
-  const [typesLoading, setTypesLoading] = React.useState(false);
-  const [availableTypes, setAvailableTypes] = React.useState<AppPropertyType[]>([]);
   const [initialOwnerLoading, setInitialOwnerLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const mountedRef = React.useRef(true);
@@ -94,27 +66,6 @@ export default function EditPropertyDialog({ property, open, onClose, onUpdated 
     return () => {
       mountedRef.current = false;
     };
-  }, []);
-
-  // cargar tipos
-  React.useEffect(() => {
-    let mounted = true;
-    setTypesLoading(true);
-    listPropertyTypesOfService(1, 200)
-      .then((res: any) => {
-        if (!mounted) return;
-        const items: AppPropertyType[] = Array.isArray((res as any).items)
-          ? (res as any).items
-          : Array.isArray((res as any).results)
-          ? (res as any).results
-          : Array.isArray(res)
-          ? res
-          : [];
-        setAvailableTypes(items);
-      })
-      .catch((err) => console.error("listPropertyTypesOfService failed", err))
-      .finally(() => { if (mounted) setTypesLoading(false); });
-    return () => { mounted = false; };
   }, []);
 
   // cargar owner si no estaba embebido
@@ -163,38 +114,35 @@ export default function EditPropertyDialog({ property, open, onClose, onUpdated 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [property]);
 
-  const doSearchClients = React.useCallback(
-    (q: string, page = 1) => {
-      if (!q || String(q).trim() === "") {
+  const doSearchClients = React.useCallback((q: string, page = 1) => {
+    if (!q || String(q).trim() === "") {
+      setSearchResults([]);
+      return;
+    }
+    if (searchTimerRef.current) {
+      clearTimeout(searchTimerRef.current);
+      searchTimerRef.current = null;
+    }
+    searchTimerRef.current = setTimeout(async () => {
+      setSearchLoading(true);
+      try {
+        const res = await listClients(page, q, 50);
+        const items: any[] = Array.isArray((res as any).items)
+          ? (res as any).items
+          : Array.isArray((res as any).results)
+          ? (res as any).results
+          : Array.isArray(res)
+          ? res
+          : [];
+        setSearchResults(items);
+      } catch (err) {
+        console.error("listClients search failed", err);
         setSearchResults([]);
-        return;
+      } finally {
+        setSearchLoading(false);
       }
-      if (searchTimerRef.current) {
-        clearTimeout(searchTimerRef.current);
-        searchTimerRef.current = null;
-      }
-      searchTimerRef.current = setTimeout(async () => {
-        setSearchLoading(true);
-        try {
-          const res = await listClients(page, q, 50);
-          const items: any[] = Array.isArray((res as any).items)
-            ? (res as any).items
-            : Array.isArray((res as any).results)
-            ? (res as any).results
-            : Array.isArray(res)
-            ? res
-            : [];
-          setSearchResults(items);
-        } catch (err) {
-          console.error("listClients search failed", err);
-          setSearchResults([]);
-        } finally {
-          setSearchLoading(false);
-        }
-      }, 300);
-    },
-    []
-  );
+    }, 300);
+  }, []);
 
   React.useEffect(() => {
     const label = selectedClient
@@ -213,10 +161,6 @@ export default function EditPropertyDialog({ property, open, onClose, onUpdated 
     }
   }, [ownerInput, selectedClient, doSearchClients]);
 
-  const toggleType = (id: number) => {
-    setTypes((prev) => (prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]));
-  };
-
   async function handleSubmit() {
     setError(null);
     setLoading(true);
@@ -233,13 +177,12 @@ export default function EditPropertyDialog({ property, open, onClose, onUpdated 
         payload.owner_details = { phone: ownerPhone };
       }
 
+      // Sólo los campos que la API espera ahora
       if (name !== undefined) payload.name = name || null;
       if (alias !== undefined) payload.alias = alias || null;
       if (address !== undefined) payload.address = address;
-      payload.types_of_service = Array.isArray(types) ? types : [];
-      if (monthlyRate !== undefined) payload.monthly_rate = monthlyRate || null;
-      if (contractStartDate !== undefined) payload.contract_start_date = contractStartDate || null;
-      if (totalHours !== "" && totalHours !== null && totalHours !== undefined) payload.total_hours = Number(totalHours);
+      if (contractStartDate !== undefined) payload.contract_start_date = contract_start_date_or_null(contractStartDate);
+      if (description !== undefined) payload.description = description || null;
 
       await partialUpdateProperty(property.id, payload);
       toast.success(FORM.success ?? "");
@@ -255,7 +198,7 @@ export default function EditPropertyDialog({ property, open, onClose, onUpdated 
     }
   }
 
-  const isInitialLoading = typesLoading || initialOwnerLoading;
+  const isInitialLoading = initialOwnerLoading;
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -273,8 +216,7 @@ export default function EditPropertyDialog({ property, open, onClose, onUpdated 
                 <Skeleton className="h-10" />
               </div>
               <Skeleton className="h-10 w-full" />
-              <div className="grid grid-cols-3 gap-2">
-                <Skeleton className="h-10" />
+              <div className="grid grid-cols-2 gap-2">
                 <Skeleton className="h-10" />
                 <Skeleton className="h-10" />
               </div>
@@ -356,47 +298,19 @@ export default function EditPropertyDialog({ property, open, onClose, onUpdated 
               </div>
 
               <div>
-                <p className="font-medium mb-2">{FORM.serviceTypesTitle ?? ""}</p>
-                {typesLoading ? (
-                  <p className="text-sm">{FORM.loadingTypesText ?? ""}</p>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {availableTypes.length === 0 ? (
-                      <p className="text-sm">{FORM.noTypesText ?? ""}</p>
-                    ) : (
-                      availableTypes.map((t) => {
-                        const selected = types.includes(t.id);
-                        return (
-                          <button
-                            key={t.id}
-                            type="button"
-                            onClick={() => toggleType(t.id)}
-                            className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-sm focus:outline-none ${
-                              selected ? "bg-primary text-primary-foreground border-primary" : "bg-transparent text-muted-foreground"
-                            }`}
-                            aria-pressed={selected}
-                          >
-                            <span>{t.name}</span>
-                          </button>
-                        );
-                      })
-                    )}
-                  </div>
-                )}
+                <label className="block text-sm mb-1">{FIELD.description ?? ""}</label>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder={PLACEHOLDERS.description ?? ""}
+                  className="w-full min-h-[100px] resize-y rounded border p-2"
+                />
               </div>
 
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <label className="block text-sm">{FIELD.monthlyRate ?? ""}</label>
-                  <Input placeholder={PLACEHOLDERS.monthlyRate ?? ""} value={monthlyRate ?? ""} onChange={(e) => setMonthlyRate(e.target.value)} name="monthlyRate" />
-                </div>
+              <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-sm">{FIELD.contractStartDate ?? ""}</label>
                   <Input type="date" value={contractStartDate ?? ""} onChange={(e) => setContractStartDate(e.target.value)} name="contractStartDate" />
-                </div>
-                <div>
-                  <label className="block text-sm">{FIELD.totalHours ?? ""}</label>
-                  <Input type="number" placeholder={PLACEHOLDERS.totalHours ?? ""} value={totalHours === "" ? "" : String(totalHours)} onChange={(e) => setTotalHours(e.target.value === "" ? "" : Number(e.target.value))} name="totalHours" />
                 </div>
               </div>
 
@@ -416,4 +330,9 @@ export default function EditPropertyDialog({ property, open, onClose, onUpdated 
       </DialogContent>
     </Dialog>
   );
+}
+
+function contract_start_date_or_null(v: string) {
+  if (!v) return null;
+  return v;
 }

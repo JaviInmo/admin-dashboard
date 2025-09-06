@@ -10,12 +10,12 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Mail, Phone, MapPin, Calendar, User, DollarSign, Building, Clock } from "lucide-react";
+import { Mail, Phone, MapPin, Calendar, User, Building } from "lucide-react";
 import type { AppProperty } from "@/lib/services/properties";
 import { ClickableAddress } from "@/components/ui/clickable-address";
 
 type PropertyDetailsModalProps = {
-  property: AppProperty & { ownerName?: string; typesOfServiceStr?: string };
+  property: AppProperty & { ownerName?: string };
   open: boolean;
   onClose: () => void;
 };
@@ -113,20 +113,6 @@ export default function PropertyDetailsModal({
                 label="Alias/Nick"
                 value={property.alias || "-"}
               />
-              <InfoItem
-                icon={<DollarSign className="h-4 w-4" />}
-                label="Tarifa Mensual"
-                value={
-                  property.monthlyRate != null && property.monthlyRate !== ""
-                    ? `$${property.monthlyRate}`
-                    : "-"
-                }
-              />
-              <InfoItem
-                icon={<Clock className="h-4 w-4" />}
-                label="Horas Totales"
-                value={property.totalHours ?? "-"}
-              />
             </div>
 
             {/* Dirección en sección completa */}
@@ -142,18 +128,23 @@ export default function PropertyDetailsModal({
               <InfoItem
                 icon={<Calendar className="h-4 w-4" />}
                 label="Fecha de Inicio"
-                value={formatDateMaybe((property as any).contractStartDate ?? (property as any).startDate)}
+                value={formatDateMaybe((property as any).contractStartDate ?? (property as any).contract_start_date)}
+              />
+              <InfoItem
+                icon={<Calendar className="h-4 w-4" />}
+                label="Creado"
+                value={formatDateMaybe((property as any).created_at ?? (property as any).createdAt)}
               />
             </div>
 
-            {/* Tipos de servicio */}
-            {(property as any).typesOfServiceStr && (
+            {/* Description */}
+            <div>
               <InfoItem
                 icon={<Building className="h-4 w-4" />}
-                label="Tipos de Servicio"
-                value={(property as any).typesOfServiceStr}
+                label="Descripción"
+                value={property.description ?? "-"}
               />
-            )}
+            </div>
 
             {/* Información del propietario */}
             <div className="border-t pt-4">
@@ -199,13 +190,8 @@ export default function PropertyDetailsModal({
               </div>
             </div>
 
-            {/* Fechas del sistema */}
+            {/* Fecha actualizado (sección aparte para más claridad) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <InfoItem
-                icon={<Calendar className="h-4 w-4" />}
-                label="Creado"
-                value={formatDateMaybe((property as any).created_at ?? (property as any).createdAt)}
-              />
               <InfoItem
                 icon={<Calendar className="h-4 w-4" />}
                 label="Actualizado"

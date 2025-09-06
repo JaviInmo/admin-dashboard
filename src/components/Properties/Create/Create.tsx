@@ -1,13 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle,  } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AddressInput } from "@/components/ui/address-input";
 import { toast } from "sonner";
-import { createProperty, listPropertyTypesOfService, type AppPropertyType } from "@/lib/services/properties";
+import { createProperty } from "@/lib/services/properties";
 import { listClients, getClient } from "@/lib/services/clients";
 import { useI18n } from "@/i18n";
 
@@ -30,13 +30,9 @@ export default function CreatePropertyDialog({ open = true, onClose, onCreated, 
   const [name, setName] = React.useState<string>("");
   const [alias, setAlias] = React.useState<string>("");
   const [address, setAddress] = React.useState<string>("");
-  const [types, setTypes] = React.useState<number[]>([]);
-  const [monthlyRate, setMonthlyRate] = React.useState<string>("");
   const [contractStartDate, setContractStartDate] = React.useState<string>("");
-  const [totalHours, setTotalHours] = React.useState<string | number>("");
+  const [description, setDescription] = React.useState<string>("");
 
-  const [availableTypes, setAvailableTypes] = React.useState<AppPropertyType[]>([]);
-  const [typesLoading, setTypesLoading] = React.useState<boolean>(false);
   const [initialClientLoading, setInitialClientLoading] = React.useState<boolean>(false);
 
   const [loading, setLoading] = React.useState<boolean>(false);
@@ -61,35 +57,9 @@ export default function CreatePropertyDialog({ open = true, onClose, onCreated, 
     setName("");
     setAlias("");
     setAddress("");
-    setTypes([]);
-    setMonthlyRate("");
     setContractStartDate("");
-    setTotalHours("");
+    setDescription("");
   }
-
-  // Cargar tipos de servicio
-  React.useEffect(() => {
-    let mounted = true;
-    setTypesLoading(true);
-    listPropertyTypesOfService(1, 500)
-      .then((res: any) => {
-        if (!mounted) return;
-        const items: AppPropertyType[] = Array.isArray((res as any).items)
-          ? (res as any).items
-          : Array.isArray((res as any).results)
-          ? (res as any).results
-          : Array.isArray(res)
-          ? res
-          : [];
-        setAvailableTypes(items);
-      })
-      .catch((err) => {
-        console.error("listPropertyTypesOfService failed", err);
-        setAvailableTypes([]);
-      })
-      .finally(() => { if (mounted) setTypesLoading(false); });
-    return () => { mounted = false; };
-  }, []);
 
   // Si vino clientId, cargar details
   React.useEffect(() => {
@@ -102,8 +72,8 @@ export default function CreatePropertyDialog({ open = true, onClose, onCreated, 
         if (!mounted) return;
         setSelectedClient(detail);
         const label =
-          detail.username ??
-          `${detail.firstName ?? ""} ${detail.lastName ?? ""}`.trim() ??
+          // varios posibles nombres en la respuesta
+          (detail.username ?? `${detail.firstName ?? ""} ${detail.lastName ?? ""}`.trim()) ??
           `#${detail.id}`;
         setOwnerInput(label);
         setShowDropdown(false);
@@ -192,10 +162,6 @@ export default function CreatePropertyDialog({ open = true, onClose, onCreated, 
     }
   }, [TEXT]);
 
-  const toggleType = (id: number) => {
-    setTypes(prev => prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]);
-  };
-
   async function handleSubmit(e?: React.FormEvent) {
     if (e) e.preventDefault();
     setLoading(true);
@@ -221,6 +187,7 @@ export default function CreatePropertyDialog({ open = true, onClose, onCreated, 
         return;
       }
 
+      // Payload acorde al nuevo swagger: owner, address, owner_details { user }, name, alias, contract_start_date, description
       const payload: any = {
         address,
         owner: ownerClientId,
@@ -229,10 +196,8 @@ export default function CreatePropertyDialog({ open = true, onClose, onCreated, 
 
       if (name) payload.name = name;
       if (alias) payload.alias = alias;
-      if (Array.isArray(types) && types.length > 0) payload.types_of_service = types.map(n => Number(n));
-      if (monthlyRate) payload.monthly_rate = monthlyRate;
       if (contractStartDate) payload.contract_start_date = contract_start_date_or_null(contractStartDate);
-      if (totalHours !== "" && totalHours !== null) payload.total_hours = Number(totalHours);
+      if (description) payload.description = description;
 
       await createProperty(payload);
 
@@ -259,21 +224,16 @@ export default function CreatePropertyDialog({ open = true, onClose, onCreated, 
   const aliasPlaceholder = TEXT.properties?.form?.placeholders?.alias ?? "Alias o nombre alternativo";
   const addressLabel = TEXT.properties?.form?.fields?.address ?? "Dirección *";
   const addressPlaceholder = TEXT.properties?.form?.placeholders?.address ?? "Dirección de la propiedad";
-  const serviceTypesTitle = TEXT.properties?.form?.serviceTypesTitle ?? "Service Types";
-  const typesLoadingText = TEXT.properties?.form?.loadingTypesText ?? "Cargando tipos...";
-  const noTypesText = TEXT.properties?.form?.noTypesText ?? "No hay tipos disponibles";
   const searchingText = TEXT.properties?.form?.searchingText ?? "Buscando...";
   const noResultsText = TEXT.properties?.form?.noResultsText ?? "No hay resultados";
-  const monthlyRateLabel = TEXT.properties?.form?.fields?.monthlyRate ?? "Tarifa Mensual";
-  const monthlyRatePlaceholder = TEXT.properties?.form?.placeholders?.monthlyRate ?? "$0.00";
   const contractStartLabel = TEXT.properties?.form?.fields?.contractStartDate ?? "Fecha de Inicio del Contrato";
-  const totalHoursLabel = TEXT.properties?.form?.fields?.totalHours ?? "Horas Totales";
-  const totalHoursPlaceholder = TEXT.properties?.form?.placeholders?.totalHours ?? "0";
+  const descriptionLabel = TEXT.properties?.form?.fields?.description ?? "Descripción";
+  const descriptionPlaceholder = TEXT.properties?.form?.placeholders?.description ?? "Descripción, observaciones, etc.";
   const cancelText = TEXT.properties?.form?.buttons?.cancel ?? "Cancelar";
   const createText = TEXT.properties?.form?.buttons?.create ?? "Crear";
   const creatingText = TEXT.properties?.form?.buttons?.creating ?? "Creando...";
 
-  const isInitialLoading = typesLoading || initialClientLoading;
+  const isInitialLoading = initialClientLoading;
 
   return (
     <Dialog open={!!open} onOpenChange={() => onClose?.()}>
@@ -292,11 +252,8 @@ export default function CreatePropertyDialog({ open = true, onClose, onCreated, 
                 <Skeleton className="h-10" />
               </div>
               <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-8 w-48" />
-              <div className="grid grid-cols-3 gap-2">
-                <Skeleton className="h-10" />
-                <Skeleton className="h-10" />
-                <Skeleton className="h-10" />
+              <div className="grid grid-cols-1 gap-2">
+                <Skeleton className="h-20 w-full" />
               </div>
             </div>
           ) : (
@@ -366,47 +323,19 @@ export default function CreatePropertyDialog({ open = true, onClose, onCreated, 
               </div>
 
               <div>
-                <p className="font-medium mb-2">{serviceTypesTitle}</p>
-                {typesLoading ? (
-                  <p className="text-sm">{typesLoadingText}</p>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {availableTypes.length === 0 ? (
-                      <p className="text-sm">{noTypesText}</p>
-                    ) : (
-                      availableTypes.map((t) => {
-                        const selected = types.includes(t.id);
-                        return (
-                          <button
-                            key={t.id}
-                            type="button"
-                            onClick={() => toggleType(t.id)}
-                            className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-sm focus:outline-none ${
-                              selected ? "bg-primary text-primary-foreground border-primary" : "bg-transparent text-muted-foreground"
-                            }`}
-                            aria-pressed={selected}
-                          >
-                            <span>{t.name}</span>
-                          </button>
-                        );
-                      })
-                    )}
-                  </div>
-                )}
+                <label className="block text-sm mb-1">{descriptionLabel}</label>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder={descriptionPlaceholder}
+                  className="w-full min-h-[100px] resize-y rounded border p-2"
+                />
               </div>
 
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <label className="block text-sm">{monthlyRateLabel}</label>
-                  <Input value={monthlyRate} onChange={(e) => setMonthlyRate(e.target.value)} placeholder={monthlyRatePlaceholder} />
-                </div>
+              <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-sm">{contractStartLabel}</label>
                   <Input type="date" value={contractStartDate} onChange={(e) => setContractStartDate(e.target.value)} />
-                </div>
-                <div>
-                  <label className="block text-sm">{totalHoursLabel}</label>
-                  <Input type="number" value={totalHours === "" ? "" : String(totalHours)} onChange={(e) => setTotalHours(e.target.value === "" ? "" : Number(e.target.value))} placeholder={totalHoursPlaceholder} />
                 </div>
               </div>
             </>

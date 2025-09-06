@@ -63,7 +63,6 @@ export interface PropertiesTableProps {
   pageSize?: number;
   onPageSizeChange?: (size: number) => void;
   onSearch?: (term: string) => void;
-  propertyTypesMap?: Record<number, string>;
 
   sortField: keyof AppProperty;
   sortOrder: SortOrder;
@@ -83,7 +82,6 @@ export default function PropertiesTable({
   pageSize = 5,
   onPageSizeChange,
   onSearch,
-  propertyTypesMap,
   sortField,
   sortOrder,
   toggleSort,
@@ -118,7 +116,7 @@ export default function PropertiesTable({
     return fallback ?? path;
   }
 
-  // Normalizar los datos de propiedades
+  // Normalizar los datos de propiedades (simplificado: ya no procesamos types_of_service)
   const normalizedProperties = properties.map((p) => {
     const od: any = (p as any).ownerDetails ?? {};
     let ownerName = "";
@@ -145,39 +143,13 @@ export default function PropertiesTable({
 
     if (!ownerName) ownerName = `#${(p as any).ownerId ?? (p as any).owner ?? p.id}`;
 
-    // Procesar tipos de servicio
-    let typesOfServiceStr = "";
-    const tos: any =
-      (p as any).typesOfService ?? (p as any).types_of_service ?? [];
-    if (Array.isArray(tos)) {
-      typesOfServiceStr = tos
-        .map((t: any) => {
-          if (!t && t !== 0) return null;
-          if (typeof t === "object") {
-            return String(t.name ?? t.title ?? t.id ?? "");
-          }
-          if (typeof t === "number") {
-            return propertyTypesMap?.[t] ?? String(t);
-          }
-          if (typeof t === "string") {
-            const n = Number(t);
-            if (!Number.isNaN(n)) return propertyTypesMap?.[n] ?? t;
-            return t;
-          }
-          return null;
-        })
-        .filter(Boolean)
-        .join(", ");
-    }
-
     return {
       ...p,
       ownerName,
-      typesOfServiceStr,
     };
   });
 
-  // Definir las columnas de la tabla - la columna de dirección (índice 3) será sacrificada
+  // Definir las columnas de la tabla
   const columns: Column<any>[] = [
     {
       key: "ownerId",
@@ -223,7 +195,7 @@ export default function PropertiesTable({
     },
     {
       key: "address",
-      label: getText("properties.table.headers.address", "Address"), // Esta columna (índice 3) se truncará
+      label: getText("properties.table.headers.address", "Address"),
       sortable: true,
       render: (p) => <ClickableAddress address={p.address || ""} />,
       headerClassName: "px-1 py-1 text-sm",
@@ -232,42 +204,24 @@ export default function PropertiesTable({
       cellStyle: { width: "150px", minWidth: "120px", maxWidth: "200px" },
     },
     {
-      key: "typesOfService",
-      label: getText("properties.table.headers.serviceTypes", "Service Types"),
-      sortable: false,
-      render: (p) => (
-        <TruncatedText text={(p as any).typesOfServiceStr || "-"} maxLength={20} />
-      ),
-      headerClassName: "px-1 py-1 text-sm",
-      cellClassName: "px-1 py-1 text-sm",
+      key: "contractStartDate",
+      label: getText("properties.table.headers.contractStartDate", "Contract Start"),
+      sortable: true,
+      render: (p) => {
+        const raw = (p as any).contractStartDate ?? (p as any).contract_start_date ?? null;
+        if (!raw) return <span className="text-sm">-</span>;
+        try {
+          const d = new Date(String(raw));
+          if (isNaN(d.getTime())) return <span className="text-sm">{String(raw)}</span>;
+          return <span className="text-sm">{d.toLocaleDateString()}</span>;
+        } catch {
+          return <span className="text-sm">{String(raw)}</span>;
+        }
+      },
+      headerClassName: "px-1 py-1 text-sm text-center",
+      cellClassName: "px-1 py-1 text-sm text-center",
       headerStyle: { width: "120px", minWidth: "100px", maxWidth: "140px" },
       cellStyle: { width: "120px", minWidth: "100px", maxWidth: "140px" },
-    },
-    {
-      key: "monthlyRate",
-      label: getText("properties.table.headers.monthlyRate", "Monthly Rate"),
-      sortable: true,
-      render: (p) => (
-        <span className="text-sm">
-          {p.monthlyRate != null && p.monthlyRate !== ""
-            ? `$ ${p.monthlyRate}`
-            : "-"}
-        </span>
-      ),
-      headerClassName: "px-1 py-1 text-sm text-center",
-      cellClassName: "px-1 py-1 text-sm text-right",
-      headerStyle: { width: "100px", minWidth: "80px", maxWidth: "120px" },
-      cellStyle: { width: "100px", minWidth: "80px", maxWidth: "120px" },
-    },
-    {
-      key: "totalHours",
-      label: getText("properties.table.headers.totalHours", "Total Hours"),
-      sortable: true,
-      render: (p) => <span className="text-xs">{p.totalHours ?? "-"}</span>,
-      headerClassName: "px-1 py-1 text-xs text-center",
-      cellClassName: "px-1 py-1 text-xs text-center",
-      headerStyle: { width: "60px", minWidth: "50px", maxWidth: "70px" },
-      cellStyle: { width: "60px", minWidth: "50px", maxWidth: "70px" },
     },
   ];
 

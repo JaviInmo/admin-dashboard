@@ -34,10 +34,6 @@ function mapPropertySortField(field?: keyof AppProperty | string): string | unde
       return "name";
     case "address":
       return "address";
-    case "monthlyRate":
-      return "monthly_rate";
-    case "totalHours":
-      return "total_hours";
     case "contractStartDate":
       return "contract_start_date";
     case "createdAt":
