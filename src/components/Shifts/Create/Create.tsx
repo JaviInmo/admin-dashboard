@@ -1,4 +1,4 @@
-// src/components/Shifts/Create.tsx
+// src/components/Shifts/Create/Create.tsx
 "use client";
 
 import React from "react";
@@ -63,22 +63,23 @@ function extractItems<T>(maybe: any): T[] {
   return [];
 }
 
-export default function CreateShift({ 
-  open, 
-  onClose, 
-  guardId, 
-  selectedDate, 
-  propertyId, 
+export default function CreateShift({
+  open,
+  onClose,
+  guardId,
+  selectedDate,
+  propertyId,
   preselectedProperty = null,
-  preloadedProperties = [], 
+  preloadedProperties = [],
   preloadedGuard = null,
-  onCreated 
+  onCreated,
 }: CreateShiftProps) {
   const { TEXT } = useI18n();
 
   // placeholders usando las claves existentes en tus i18n
   const guardPlaceholder =
-    (TEXT as any)?.guards?.table?.searchPlaceholder ?? "Buscar guard por nombre o email...";
+    (TEXT as any)?.guards?.table?.searchPlaceholder ??
+    "Buscar guard por nombre o email...";
   const propertyPlaceholder =
     (TEXT as any)?.properties?.table?.searchPlaceholder ?? "Buscar propiedades...";
 
@@ -123,7 +124,7 @@ export default function CreateShift({
       setStart("");
       setEnd("");
       setStatus("scheduled");
-      
+
       // Limpiar estados de solapamiento
       setHasOverlap(false);
       setOverlapMessage("");
@@ -134,24 +135,22 @@ export default function CreateShift({
   React.useEffect(() => {
     if (!open) return;
     if (!guardId) return;
-    
+
     // Si tenemos el guardia preloaded, usarlo directamente
     if (preloadedGuard && preloadedGuard.id === guardId) {
-      // console.log("✅ Usando guardia desde cache");
       setSelectedGuard(preloadedGuard);
-      setGuardQuery(""); // Limpiar query para que use guardLabel
+      setGuardQuery("");
       return;
     }
-    
+
     // Si no hay cache, hacer llamada a la API (fallback)
     let mounted = true;
     (async () => {
       try {
-        // console.log("⚠️ Cargando guardia desde API (sin cache)");
         const g = await getGuard(guardId);
         if (!mounted) return;
         setSelectedGuard(g);
-        setGuardQuery(""); // Limpiar query para que use guardLabel
+        setGuardQuery("");
       } catch (err) {
         console.error("prefill guard failed", err);
       }
@@ -164,71 +163,66 @@ export default function CreateShift({
   // prefill fecha (usa selectedDate o fecha de hoy como fallback)
   React.useEffect(() => {
     if (!open) return;
-    
-    // Usar selectedDate si está disponible, sino usar fecha de hoy
+
     const targetDate = selectedDate || new Date();
-    
-    // Crear fecha con hora de inicio por defecto (8:00 AM)
+
     const startDate = new Date(targetDate);
     startDate.setHours(8, 0, 0, 0);
-    
-    // Crear fecha con hora de fin por defecto (8:00 AM + 8 horas = 4:00 PM)
+
     const endDate = new Date(targetDate);
     endDate.setHours(16, 0, 0, 0);
-    
-    // Convertir a formato datetime-local (YYYY-MM-DDTHH:mm)
-    const startString = startDate.toISOString().slice(0, 16);
-    const endString = endDate.toISOString().slice(0, 16);
-    
-    setStart(startString);
-    setEnd(endString);
+
+    // Convertir a formato datetime-local (YYYY-MM-DDTHH:mm) en local
+    const toLocalDateTimeInput = (d: Date) => {
+      const pad = (n: number) => String(n).padStart(2, "0");
+      const YYYY = d.getFullYear();
+      const MM = pad(d.getMonth() + 1);
+      const DD = pad(d.getDate());
+      const hh = pad(d.getHours());
+      const mm = pad(d.getMinutes());
+      return `${YYYY}-${MM}-${DD}T${hh}:${mm}`;
+    };
+
+    setStart(toLocalDateTimeInput(startDate));
+    setEnd(toLocalDateTimeInput(endDate));
   }, [open, selectedDate]);
 
   // prefill propiedad si recibes propertyId o preselectedProperty
   React.useEffect(() => {
     if (!open) return;
-    
-    // Prioridad 1: Si viene preselectedProperty (desde botón +), usarla directamente
+
     if (preselectedProperty) {
       setSelectedProperty(preselectedProperty);
-      setPropertyQuery(""); // Limpiar query para que use propertyLabel
+      setPropertyQuery("");
       return;
     }
-    
-    // Prioridad 2: Si viene propertyId, buscar en cache o API
+
     if (!propertyId) return;
-    
-    
-    // Primero intentar desde el cache
+
     if (preloadedProperties.length > 0) {
-      // Buscar por ID con conversión flexible
-      const property = preloadedProperties.find(p => 
-        Number(p.id) === Number(propertyId) || 
-        String(p.id) === String(propertyId)
+      const property = preloadedProperties.find(
+        (p) => Number(p.id) === Number(propertyId) || String(p.id) === String(propertyId),
       );
-      
+
       if (property) {
         setSelectedProperty(property);
-        setPropertyQuery(""); // Limpiar query para que use propertyLabel
+        setPropertyQuery("");
         return;
       }
     }
-    
-    // Si no está en cache, hacer llamada a la API
-    // console.log("🔄 Propiedad no encontrada en cache, consultando API...");
+
     let mounted = true;
     (async () => {
       try {
         const properties = await listProperties(1, "", 1000);
         if (!mounted) return;
-        
+
         const items = extractItems<AppProperty>(properties);
-        const property = items.find(p => Number(p.id) === propertyId);
-        
+        const property = items.find((p) => Number(p.id) === propertyId);
+
         if (property) {
-          // console.log("✅ Propiedad encontrada en API:", property.name);
           setSelectedProperty(property);
-          setPropertyQuery(""); // Limpiar query para que use propertyLabel
+          setPropertyQuery("");
         }
       } catch (err) {
         console.error("❌ Error al consultar propiedad:", err);
@@ -275,52 +269,46 @@ export default function CreateShift({
       setPropertyResults([]);
       return;
     }
-    
+
     setPropertiesLoading(true);
-    
-    // Intentar buscar en cache primero si está disponible
+
     if (preloadedProperties.length > 0) {
-      // console.log("🔍 Buscando en cache de propiedades...");
-      const filtered = preloadedProperties.filter(prop => 
-        prop.name?.toLowerCase().includes(q.toLowerCase()) ||
-        prop.alias?.toLowerCase().includes(q.toLowerCase()) ||
-        prop.address?.toLowerCase().includes(q.toLowerCase())
-      ).slice(0, 10); // Limitar a 10 resultados
-      
+      const filtered = preloadedProperties
+        .filter(
+          (prop) =>
+            prop.name?.toLowerCase().includes(q.toLowerCase()) ||
+            prop.alias?.toLowerCase().includes(q.toLowerCase()) ||
+            prop.address?.toLowerCase().includes(q.toLowerCase()),
+        )
+        .slice(0, 10);
+
       if (mounted) {
         setPropertyResults(filtered);
         setPropertyDropdownOpen(true);
         setPropertiesLoading(false);
-        // console.log(`✅ Encontrados ${filtered.length} resultados en cache`);
-        
-        // Si hay pocos resultados en cache, complementar con búsqueda API
+
         if (filtered.length < 3 && q.length >= 2) {
-          // console.log("🔄 Pocos resultados en cache, complementando con API...");
           (async () => {
             try {
               const res = await listProperties(1, q, 10);
               if (!mounted) return;
               const apiItems = extractItems<AppProperty>(res);
-              
-              // Combinar resultados, evitando duplicados
-              const cacheIds = new Set(filtered.map(p => p.id));
-              const newItems = apiItems.filter(p => !cacheIds.has(p.id));
+
+              const cacheIds = new Set(filtered.map((p) => p.id));
+              const newItems = apiItems.filter((p) => !cacheIds.has(p.id));
               const combinedResults = [...filtered, ...newItems];
-              
+
               setPropertyResults(combinedResults);
-              // console.log(`✅ Combinados: ${filtered.length} cache + ${newItems.length} API = ${combinedResults.length} total`);
             } catch (err) {
               console.error("Error en búsqueda complementaria:", err);
-              setPropertyResults(filtered); // Usar solo resultados del cache
+              setPropertyResults(filtered);
             }
           })();
         }
       }
       return;
     }
-    
-    // Si no hay cache, hacer llamada a la API
-    // console.log("🔄 Cache no disponible, consultando API...");
+
     (async () => {
       try {
         const res = await listProperties(1, q, 10);
@@ -328,7 +316,6 @@ export default function CreateShift({
         const items = extractItems<AppProperty>(res);
         setPropertyResults(items);
         setPropertyDropdownOpen(true);
-        // console.log(`✅ Encontrados ${items.length} resultados en API`);
       } catch (err) {
         console.error("listProperties error", err);
         setPropertyResults([]);
@@ -358,7 +345,6 @@ export default function CreateShift({
     const startDate2 = new Date(start2);
     const endDate2 = new Date(end2);
 
-    // Verificar si hay solapamiento
     return startDate1 < endDate2 && startDate2 < endDate1;
   };
 
@@ -371,26 +357,27 @@ export default function CreateShift({
     }
 
     try {
-      // Obtener turnos existentes del guardia
-      const response = await listShiftsByGuard(selectedGuard.id);
-      const shifts = Array.isArray(response) ? response : (response as any)?.results || [];
-      
-      // Verificar solapamientos
-      const overlappingShifts = shifts.filter((shift: any) => {
-        const shiftStart = shift.start_time || shift.startTime || shift.start;
-        const shiftEnd = shift.end_time || shift.endTime || shift.end;
-        
+      // Pedimos más items para aumentar la probabilidad de capturar solapamientos
+      const response = await listShiftsByGuard(selectedGuard.id, 1, 1000);
+      const shifts = extractItems<Shift>(response);
+
+      const overlappingShifts = shifts.filter((shift) => {
+        const shiftStart = (shift as any).startTime;
+        const shiftEnd = (shift as any).endTime;
+
         if (!shiftStart || !shiftEnd) return false;
-        
+
         return checkTimeOverlap(start, end, shiftStart, shiftEnd);
       });
 
       if (overlappingShifts.length > 0) {
         setHasOverlap(true);
-        const dates = overlappingShifts.map((shift: any) => {
-          const shiftStart = shift.start_time || shift.startTime || shift.start;
-          return new Date(shiftStart).toLocaleDateString();
-        }).join(", ");
+        const dates = overlappingShifts
+          .map((shift) => {
+            const shiftStart = (shift as any).startTime;
+            return new Date(shiftStart).toLocaleString();
+          })
+          .join(", ");
         setOverlapMessage(`Solapamiento detectado con turnos existentes en: ${dates}`);
       } else {
         setHasOverlap(false);
@@ -444,7 +431,7 @@ export default function CreateShift({
     setLoading(true);
     try {
       const created = await createShift({
-        guard: selectedGuard.id, // id sigue usándose internamente
+        guard: selectedGuard.id,
         property: Number(selectedProperty.id),
         start_time: startIso,
         end_time: endIso,
@@ -455,38 +442,36 @@ export default function CreateShift({
       onClose();
     } catch (err: any) {
       console.error(err);
-      
-      // Manejo específico de errores
+
       let errorMessage = (TEXT as any)?.shifts?.errors?.createFailed ?? "Could not create shift";
-      
+
       if (err?.response?.data?.message || err?.message) {
         const serverMessage = err?.response?.data?.message || err?.message;
-        
-        // Detectar errores de solapamiento
-        if (serverMessage.toLowerCase().includes('overlap') || 
-            serverMessage.toLowerCase().includes('solapado') ||
-            serverMessage.toLowerCase().includes('conflicto') ||
-            serverMessage.toLowerCase().includes('conflict')) {
+
+        if (
+          serverMessage.toLowerCase().includes("overlap") ||
+          serverMessage.toLowerCase().includes("solapado") ||
+          serverMessage.toLowerCase().includes("conflicto") ||
+          serverMessage.toLowerCase().includes("conflict")
+        ) {
           errorMessage = "Este turno se solapa con otro turno existente. Por favor, verifica las fechas y horarios.";
-        } 
-        // Detectar errores de disponibilidad del guardia
-        else if (serverMessage.toLowerCase().includes('disponib') ||
-                 serverMessage.toLowerCase().includes('available') ||
-                 serverMessage.toLowerCase().includes('busy')) {
+        } else if (
+          serverMessage.toLowerCase().includes("disponib") ||
+          serverMessage.toLowerCase().includes("available") ||
+          serverMessage.toLowerCase().includes("busy")
+        ) {
           errorMessage = "El guardia no está disponible en el horario seleccionado.";
-        }
-        // Detectar errores de validación de datos
-        else if (serverMessage.toLowerCase().includes('validación') ||
-                 serverMessage.toLowerCase().includes('validation') ||
-                 serverMessage.toLowerCase().includes('invalid')) {
+        } else if (
+          serverMessage.toLowerCase().includes("validación") ||
+          serverMessage.toLowerCase().includes("validation") ||
+          serverMessage.toLowerCase().includes("invalid")
+        ) {
           errorMessage = `Datos inválidos: ${serverMessage}`;
-        }
-        // Usar mensaje del servidor si es descriptivo
-        else if (serverMessage.length > 10) {
+        } else if (serverMessage.length > 10) {
           errorMessage = serverMessage;
         }
       }
-      
+
       toast.error(errorMessage);
     } finally {
       setLoading(false);
@@ -550,7 +535,6 @@ export default function CreateShift({
                       className="w-full text-left px-3 py-2 hover:bg-muted/10"
                       onClick={() => {
                         setSelectedGuard(g);
-                        // Limpiar query para que use guardLabel
                         setGuardQuery("");
                         setGuardDropdownOpen(false);
                       }}
@@ -607,7 +591,7 @@ export default function CreateShift({
                       className="w-full text-left px-3 py-2 hover:bg-muted/10"
                       onClick={() => {
                         setSelectedProperty(p);
-                        setPropertyQuery(""); // Limpiar para que use propertyLabel
+                        setPropertyQuery("");
                         setPropertyDropdownOpen(false);
                       }}
                     >

@@ -107,6 +107,7 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
   // Reset cuando se cierra dialog
   React.useEffect(() => {
     if (!open) {
+      // restablecer al estado inicial
       setShift(initialShift ?? null);
       setLoadingShift(false);
 
@@ -134,6 +135,8 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
   React.useEffect(() => {
     if (!open) return;
 
+    let mounted = true;
+
     const load = async () => {
       setLoadingShift(true);
       try {
@@ -143,68 +146,119 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
         } else if (shiftId) {
           s = (await getShift(shiftId)) as Shift;
         }
+
         if (!s) {
-          setShift(null);
-          toast.error(TEXT.shifts.errors.noShift ?? "No shift loaded");
-          onClose();
+          if (mounted) {
+            setShift(null);
+            toast.error((TEXT as any)?.shifts?.errors?.noShift ?? "No shift loaded");
+            onClose();
+          }
           return;
         }
+
+        if (!mounted) return;
+
         setShift(s);
         setStart(isoToLocalInputValue((s as any).startTime));
         setEnd(isoToLocalInputValue((s as any).endTime));
-        setStatus((s as any).status);
+        setStatus((s as any).status ?? "scheduled");
 
-        // prefill guard object (intento con getGuard)
+        // PREFILL GUARD: preferir guardDetails si vienen, sino getGuard
         try {
-          if ((s as any).guard) {
-            const guardId = Number((s as any).guard);
-            const g = await getGuard(guardId);
-            if (g) {
-              setSelectedGuard(g);
-              setGuardQuery(`${g.firstName} ${g.lastName} (${g.email ?? ""})`);
-            } else {
-              // fallback a mostrar id en query
-              setGuardQuery(String((s as any).guard));
+          if ((s as any).guardDetails) {
+            // intentar mapear el shape si viene en server
+            const gd: any = (s as any).guardDetails;
+            const gObj: Guard = {
+              id: Number(gd.id ?? (s as any).guard),
+              user: (gd.user as any) ?? undefined,
+              firstName: gd.first_name ?? gd.firstName ?? gd.name ?? "",
+              lastName: gd.last_name ?? gd.lastName ?? "",
+              email: gd.email ?? "",
+            } as Guard;
+            setSelectedGuard(gObj);
+            setGuardQuery(`${gObj.firstName} ${gObj.lastName} (${gObj.email ?? ""})`);
+          } else if ((s as any).guard) {
+            const guardIdNum = Number((s as any).guard);
+            try {
+              const g = await getGuard(guardIdNum);
+              if (!mounted) return;
+              if (g) {
+                setSelectedGuard(g);
+                setGuardQuery(`${g.firstName} ${g.lastName} (${g.email ?? ""})`);
+              } else {
+                setGuardQuery(String((s as any).guard));
+              }
+            } catch (err) {
+              // fallback: mostrar id
+              setGuardQuery(String((s as any).guard ?? ""));
             }
           }
         } catch (e) {
-          // fallback
-          setGuardQuery(String((s as any).guard ?? ""));
           console.error("prefill guard failed", e);
+          setGuardQuery(String((s as any).guard ?? ""));
         }
 
-        // prefill property object (intento con getProperty)
+        // PREFILL PROPERTY: preferir propertyDetails si vienen, sino getProperty
         try {
-          if ((s as any).property) {
-            const propertyId = Number((s as any).property);
-            // Si getProperty no existe, ajusta según tu API
-            if (typeof getProperty === "function") {
-              const p = await getProperty(propertyId);
-              if (p) {
-                setSelectedProperty(p);
-                setPropertyQuery(`${p.name ?? p.alias ?? p.address} #${p.id}`);
+          if ((s as any).propertyDetails) {
+            const pd: any = (s as any).propertyDetails;
+
+            const pObj = {
+              id: Number(pd.id ?? (s as any).property),
+              // ownerId es el campo requerido por AppProperty — intentar varias fuentes posibles
+              ownerId: pd.owner !== undefined
+                ? Number(pd.owner)
+                : pd.owner_id !== undefined
+                ? Number(pd.owner_id)
+                : pd.owner_details?.id !== undefined
+                ? Number(pd.owner_details.id)
+                : undefined,
+              // mantener otros campos opcionales
+              name: pd.name ?? pd.title ?? "",
+              alias: pd.alias ?? undefined,
+              address: pd.address ?? undefined,
+              description: pd.description ?? undefined,
+            } as unknown as AppProperty;
+
+            setSelectedProperty(pObj);
+            setPropertyQuery(`${pObj.name ?? pObj.alias ?? pObj.address} #${pObj.id}`);
+          } else if ((s as any).property) {
+            const propertyIdNum = Number((s as any).property);
+            try {
+              if (typeof getProperty === "function") {
+                const p = await getProperty(propertyIdNum);
+                if (!mounted) return;
+                if (p) {
+                  setSelectedProperty(p);
+                  setPropertyQuery(`${p.name ?? p.alias ?? p.address} #${p.id}`);
+                } else {
+                  setPropertyQuery(String((s as any).property));
+                }
               } else {
                 setPropertyQuery(String((s as any).property));
               }
-            } else {
-              setPropertyQuery(String((s as any).property));
+            } catch (err) {
+              setPropertyQuery(String((s as any).property ?? ""));
             }
           }
         } catch (e) {
-          setPropertyQuery(String((s as any).property ?? ""));
           console.error("prefill property failed", e);
+          setPropertyQuery(String((s as any).property ?? ""));
         }
       } catch (err) {
         console.error(err);
-        toast.error(TEXT.shifts.errors.fetchFailed ?? "Could not load shift");
+        toast.error((TEXT as any)?.shifts?.errors?.fetchFailed ?? "Could not load shift");
         onClose();
       } finally {
-        setLoadingShift(false);
+        if (mounted) setLoadingShift(false);
       }
     };
 
     load();
 
+    return () => {
+      mounted = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, shiftId, initialShift]);
 
@@ -276,18 +330,18 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
   async function onSubmit(e?: React.FormEvent) {
     e?.preventDefault?.();
     if (!shift) {
-      toast.error(TEXT.shifts.errors.noShift ?? "No shift to edit");
+      toast.error((TEXT as any)?.shifts?.errors?.noShift ?? "No shift to edit");
       return;
     }
     if (!start || !end) {
-      toast.error(TEXT.shifts.errors.missingDates ?? "Start and end are required");
+      toast.error((TEXT as any)?.shifts?.errors?.missingDates ?? "Start and end are required");
       return;
     }
     const startIso = toIsoFromDatetimeLocal(start);
     const endIso = toIsoFromDatetimeLocal(end);
 
     if (new Date(endIso) <= new Date(startIso)) {
-      toast.error(TEXT.shifts.errors.endBeforeStart ?? "End must be after start");
+      toast.error((TEXT as any)?.shifts?.errors?.endBeforeStart ?? "End must be after start");
       return;
     }
 
@@ -314,12 +368,18 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
       if (selectedGuard) payload.guard = Number(selectedGuard.id);
 
       const updated = await updateShift(shift.id, payload);
-      toast.success(TEXT.shifts.messages.updated ?? "Shift updated");
+      toast.success((TEXT as any)?.shifts?.messages?.updated ?? "Shift updated");
       onUpdated?.(updated as Shift);
       onClose();
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      toast.error(TEXT.shifts.errors.updateFailed ?? "Could not update shift");
+      // intentar extraer mensaje descriptivo del servidor
+      const serverMsg = err?.response?.data?.message ?? err?.message;
+      if (serverMsg) {
+        toast.error(String(serverMsg));
+      } else {
+        toast.error((TEXT as any)?.shifts?.errors?.updateFailed ?? "Could not update shift");
+      }
     } finally {
       setLoading(false);
     }
@@ -334,14 +394,14 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
     >
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>{TEXT.shifts.edit.title ?? "Editar Turno"}</DialogTitle>
+          <DialogTitle>{(TEXT as any)?.shifts?.edit?.title ?? "Editar Turno"}</DialogTitle>
         </DialogHeader>
 
         <div className="mt-4">
           {loadingShift ? (
-            <div>{TEXT.common.loading ?? "Loading..."}</div>
+            <div>{(TEXT as any)?.common?.loading ?? "Loading..."}</div>
           ) : !shift ? (
-            <div>{TEXT.shifts.errors.noShift ?? "No shift loaded"}</div>
+            <div>{(TEXT as any)?.shifts?.errors?.noShift ?? "No shift loaded"}</div>
           ) : (
             <form onSubmit={onSubmit} className="space-y-4">
               <div>
@@ -498,9 +558,9 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
 
               <DialogFooter>
                 <div className="flex justify-end gap-2 w-full">
-                  <Button variant="ghost" onClick={onClose} type="button">{TEXT.actions.cancel ?? "Close"}</Button>
+                  <Button variant="ghost" onClick={onClose} type="button">{(TEXT as any)?.actions?.cancel ?? "Close"}</Button>
                   <Button type="submit" disabled={loading}>
-                    {loading ? TEXT.actions.saving ?? "Saving..." : TEXT.actions.save ?? "Save"}
+                    {loading ? (TEXT as any)?.actions?.saving ?? "Saving..." : (TEXT as any)?.actions?.save ?? "Save"}
                   </Button>
                 </div>
               </DialogFooter>
