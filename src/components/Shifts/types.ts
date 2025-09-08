@@ -1,7 +1,7 @@
 // src/components/Shifts/types.ts
 
 export type UserShort = {
-  id: number;
+  id?: number;
   username?: string;
   email?: string;
   firstName?: string;
@@ -61,6 +61,8 @@ export type ServiceDetails = {
   rate?: string; // decimal as string (Swagger showed string($decimal))
   monthlyBudget?: string; // decimal as string
   contractStartDate?: string; // ISO / date
+  schedule?: string[] | null;
+  recurrent?: boolean | null;
   totalHours?: string;
   createdAt?: string; // ISO
   updatedAt?: string; // ISO
@@ -84,8 +86,8 @@ export type Shift = {
   startTime: string; // ISO string
   endTime: string; // ISO string
 
-  status: "scheduled" | "completed" | "voided";
-  hoursWorked: number;
+  status: "scheduled" | "completed" | "voided" | string;
+  hoursWorked?: number;
 
   isActive?: boolean;
   isArmed?: boolean;

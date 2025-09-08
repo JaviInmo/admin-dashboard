@@ -9,7 +9,9 @@ export type Service = {
   propertyName: string | null;
   rate: string | null; // decimal string
   monthlyBudget: string | null; // decimal string
-  contractStartDate: string | null; // date (ISO)  <-- agregado
+  contractStartDate: string | null; // date (ISO)
+  schedule: string[] | null; // array of date strings (ISO) when scheduled
+  recurrent: boolean | null; // whether it's recurring
   totalHours: string | null;
   createdAt: string | null; // ISO datetime
   updatedAt: string | null; // ISO datetime

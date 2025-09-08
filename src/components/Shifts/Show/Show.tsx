@@ -1,4 +1,3 @@
-// src/components/Shifts/Show.tsx
 "use client";
 
 import React from "react";
@@ -36,7 +35,6 @@ export default function ShowShift({ open, onClose, shiftId, onUpdated, onDeleted
   const [openEdit, setOpenEdit] = React.useState(false);
   const [openDelete, setOpenDelete] = React.useState(false);
 
-  // estados para nombres
   const [guardObj, setGuardObj] = React.useState<Guard | null>(null);
   const [propertyObj, setPropertyObj] = React.useState<AppProperty | null>(null);
   const [loadingNames, setLoadingNames] = React.useState(false);
@@ -58,7 +56,6 @@ export default function ShowShift({ open, onClose, shiftId, onUpdated, onDeleted
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, shiftId]);
 
-  // cuando cargue shift, obtener guard y property (preferir details si vienen)
   React.useEffect(() => {
     if (!shift) return;
     let mounted = true;
@@ -66,7 +63,7 @@ export default function ShowShift({ open, onClose, shiftId, onUpdated, onDeleted
 
     (async () => {
       try {
-        // GUARD: preferir guardDetails
+        // GUARD
         try {
           if ((shift as any).guardDetails) {
             const gd: any = (shift as any).guardDetails;
@@ -79,7 +76,6 @@ export default function ShowShift({ open, onClose, shiftId, onUpdated, onDeleted
             } as Guard;
             if (mounted) setGuardObj(gObj);
           } else if (shift.guard != null) {
-            // fallback: obtener por API
             try {
               const g = await getGuard(Number(shift.guard));
               if (mounted) setGuardObj(g ?? null);
@@ -95,13 +91,12 @@ export default function ShowShift({ open, onClose, shiftId, onUpdated, onDeleted
           if (mounted) setGuardObj(null);
         }
 
-        // PROPERTY: preferir propertyDetails
+        // PROPERTY
         try {
           if ((shift as any).propertyDetails) {
             const pd: any = (shift as any).propertyDetails;
             const pObj = {
               id: Number(pd.id ?? (shift as any).property),
-              // ownerId es el campo requerido por AppProperty — intentar varias fuentes posibles
               ownerId:
                 pd.owner !== undefined
                   ? Number(pd.owner)
@@ -118,7 +113,6 @@ export default function ShowShift({ open, onClose, shiftId, onUpdated, onDeleted
 
             if (mounted) setPropertyObj(pObj);
           } else if (shift.property != null) {
-            // fallback: obtener por API
             try {
               const p = await getProperty(Number(shift.property));
               if (mounted) setPropertyObj(p ?? null);
@@ -169,6 +163,16 @@ export default function ShowShift({ open, onClose, shiftId, onUpdated, onDeleted
     return "-";
   };
 
+  const renderServiceLabel = () => {
+    if (!shift) return "-";
+    if ((shift as any).serviceDetails) {
+      const sd: any = (shift as any).serviceDetails;
+      return sd.name ?? sd.property_name ?? `#${sd.id}`;
+    }
+    if (shift.service != null) return `#${shift.service}`;
+    return "-";
+  };
+
   return (
     <>
       <Dialog
@@ -192,10 +196,13 @@ export default function ShowShift({ open, onClose, shiftId, onUpdated, onDeleted
                 <div><strong>ID:</strong> {shift.id}</div>
                 <div><strong>Guard:</strong> {renderGuardLabel()}</div>
                 <div><strong>Property:</strong> {renderPropertyLabel()}</div>
+                <div><strong>Service:</strong> {renderServiceLabel()}</div>
                 <div><strong>Start:</strong> {shift.startTime ? new Date(shift.startTime).toLocaleString() : "-"}</div>
                 <div><strong>End:</strong> {shift.endTime ? new Date(shift.endTime).toLocaleString() : "-"}</div>
                 <div><strong>Status:</strong> {shift.status}</div>
-                <div><strong>Hours worked:</strong> {shift.hoursWorked}</div>
+                <div><strong>Hours worked:</strong> {shift.hoursWorked ?? "-"}</div>
+                <div><strong>Is armed:</strong> {shift.isArmed ? "Yes" : "No"}</div>
+                {shift.weaponDetails && <div><strong>Weapon details:</strong> {shift.weaponDetails}</div>}
                 <div><strong>Active:</strong> {shift.isActive ? "Yes" : "No"}</div>
               </div>
             )}

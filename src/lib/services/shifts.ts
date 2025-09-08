@@ -1,66 +1,182 @@
 // src/lib/services/shifts.ts
-import type { Shift } from "@/components/Shifts/types";
+import type { Shift, GuardDetails, PropertyDetails, ServiceDetails, UserShort } from "@/components/Shifts/types";
 import { endpoints } from "@/lib/endpoints";
 import { api } from "@/lib/http";
 import { drfList, type PaginatedResult } from "@/lib/pagination";
 
 /**
  * Server side shape (snake_case) según la API que compartiste
- * He incluido campos adicionales que aparecen en el Swagger (opcionalmente)
  */
 type ServerShift = {
   id: number;
   guard: number;
-  guard_details?: unknown;
+  guard_details?: Record<string, any>;
   property: number;
-  property_details?: unknown;
+  property_details?: Record<string, any>;
   service?: number | null;
-  service_details?: unknown;
+  service_details?: Record<string, any>;
   start_time: string; // ISO
   end_time: string; // ISO
-  status: "scheduled" | "completed" | "voided";
-  hours_worked: number;
+  status: string;
+  hours_worked?: number;
   is_armed?: boolean;
   weapon_details?: string;
   is_active?: boolean;
 };
 
 /**
- * Payloads para crear/actualizar (mantengo los campos mínimos)
+ * Payloads para crear/actualizar
  */
 export type CreateShiftPayload = {
   guard: number;
   property: number;
+  service?: number | null;
   start_time: string; // ISO
   end_time: string; // ISO
-  status?: "scheduled" | "completed" | "voided";
+  status?: "scheduled" | "completed" | "voided" | string;
   is_armed?: boolean;
 };
 
 export type UpdateShiftPayload = Partial<CreateShiftPayload>;
 
 /**
+ * Helpers de mapeo
+ */
+function mapUserShort(u: any): UserShort | undefined {
+  if (!u || typeof u !== "object") return undefined;
+  return {
+    id: u.id,
+    username: u.username,
+    email: u.email,
+    firstName: u.first_name ?? u.firstName,
+    lastName: u.last_name ?? u.lastName,
+    isActive: typeof u.is_active === "boolean" ? u.is_active : undefined,
+    isStaff: typeof u.is_staff === "boolean" ? u.is_staff : undefined,
+    isSuperuser: typeof u.is_superuser === "boolean" ? u.is_superuser : undefined,
+    dateJoined: u.date_joined ?? u.dateJoined,
+    lastLogin: u.last_login ?? u.lastLogin,
+  };
+}
+
+function mapGuardDetails(g: any): GuardDetails | undefined {
+  if (!g || typeof g !== "object") return undefined;
+  return {
+    id: g.id,
+    user: g.user,
+    userDetails: mapUserShort(g.user_details),
+    firstName: g.first_name ?? g.firstName,
+    lastName: g.last_name ?? g.lastName,
+    name: g.name,
+    email: g.email,
+    birthDate: g.birth_date ?? g.birthDate,
+    phone: g.phone,
+    ssn: g.ssn,
+    address: g.address,
+  };
+}
+
+function mapClientBrief(c: any) {
+  if (!c || typeof c !== "object") return undefined;
+  return {
+    id: c.id,
+    user: c.user,
+    firstName: c.first_name ?? c.firstName,
+    lastName: c.last_name ?? c.lastName,
+    email: c.email,
+    phone: c.phone,
+    balance: c.balance,
+    createdAt: c.created_at ?? c.createdAt,
+    updatedAt: c.updated_at ?? c.updatedAt,
+    isActive: typeof c.is_active === "boolean" ? c.is_active : undefined,
+  };
+}
+
+function mapPropertyDetails(p: any): PropertyDetails | undefined {
+  if (!p || typeof p !== "object") return undefined;
+  return {
+    id: p.id,
+    owner: p.owner,
+    ownerDetails: mapClientBrief(p.owner_details),
+    name: p.name,
+    alias: p.alias,
+    address: p.address,
+    description: p.description,
+  };
+}
+
+function normalizeScheduleArray(sch: any): string[] | null {
+  if (!Array.isArray(sch)) return null;
+  return sch.map((it) => {
+    if (typeof it === "string") return it;
+    if (it && typeof it === "object") {
+      if ("date" in it && it.date) return String(it.date);
+      if ("start" in it && it.start) return String(it.start);
+      if ("schedule" in it && it.schedule) return String(it.schedule);
+      try {
+        return JSON.stringify(it);
+      } catch {
+        return String(it);
+      }
+    }
+    return String(it);
+  });
+}
+
+function mapServiceDetails(s: any): ServiceDetails | undefined {
+  if (!s || typeof s !== "object") return undefined;
+  return {
+    id: s.id,
+    name: s.name,
+    description: s.description,
+    guard: s.guard ?? null,
+    guardName: s.guard_name ?? s.guardName,
+    assignedProperty: s.assigned_property ?? s.assignedProperty,
+    propertyName: s.property_name ?? s.propertyName,
+    rate: s.rate,
+    monthlyBudget: s.monthly_budget ?? s.monthlyBudget,
+    contractStartDate: s.contract_start_date ?? s.contractStartDate,
+    schedule: normalizeScheduleArray(s.schedule ?? s.schedules ?? null),
+    recurrent: typeof s.recurrent === "boolean" ? s.recurrent : null,
+    totalHours: s.total_hours ?? s.totalHours,
+    createdAt: s.created_at ?? s.createdAt,
+    updatedAt: s.updated_at ?? s.updatedAt,
+    isActive: typeof s.is_active === "boolean" ? s.is_active : undefined,
+  };
+}
+
+/**
  * Mapea ServerShift -> Shift (cliente)
- * Si quieres exponer guard_details / property_details / service_details
- * en el cliente, amplía el tipo Shift en "@/components/Shifts/types".
  */
 function mapServerShift(s: ServerShift): Shift {
   return {
     id: s.id,
     guard: s.guard,
+    guardDetails: mapGuardDetails(s.guard_details),
+    guardName:
+      // si el backend provee guard_details.name o guard_details.first_name + last_name, priorizamos eso
+      (s.guard_details && (s.guard_details.name || (s.guard_details.first_name && s.guard_details.last_name)))
+        ? (s.guard_details.name ?? `${s.guard_details.first_name} ${s.guard_details.last_name}`)
+        : undefined,
     property: s.property,
+    propertyDetails: mapPropertyDetails(s.property_details),
+    propertyName: s.property_details?.name ?? s.property_details?.alias ?? undefined,
+    service: s.service ?? null,
+    serviceDetails: mapServiceDetails(s.service_details),
+
     startTime: s.start_time,
     endTime: s.end_time,
-    status: s.status,
-    hoursWorked: s.hours_worked,
-    isActive: s.is_active ?? true,
+
+    status: s.status ?? "scheduled",
+    hoursWorked: typeof s.hours_worked === "number" ? s.hours_worked : undefined,
+
+    isActive: typeof s.is_active === "boolean" ? s.is_active : undefined,
+    isArmed: typeof s.is_armed === "boolean" ? s.is_armed : undefined,
+    weaponDetails: s.weapon_details,
   } as Shift;
 }
 
 /**
  * listShifts
- * Nota: la ruta GET /shifts/ en el Swagger sólo documenta
- * search, ordering, page, page_size — por eso aquí sólo envío esos params.
  */
 export async function listShifts(
   page?: number,
@@ -100,12 +216,9 @@ export async function createShift(payload: CreateShiftPayload): Promise<Shift> {
     end_time: payload.end_time,
   };
 
-  if (payload.status !== undefined && payload.status !== null) {
-    body.status = payload.status;
-  }
-  if (typeof payload.is_armed === "boolean") {
-    body.is_armed = payload.is_armed;
-  }
+  if (payload.service !== undefined) body.service = payload.service;
+  if (payload.status !== undefined) body.status = payload.status;
+  if (typeof payload.is_armed === "boolean") body.is_armed = payload.is_armed;
 
   const { data } = await api.post<ServerShift>(endpoints.shifts, body);
   return mapServerShift(data);
@@ -123,8 +236,10 @@ export async function updateShift(
   if (payload.property !== undefined && payload.property !== null) {
     body.property = payload.property;
   }
+  if (payload.service !== undefined) {
+    body.service = payload.service;
+  }
   if (
-    // en el cliente puede que uses start_time como string vacío; filtramos
     payload.start_time !== undefined &&
     payload.start_time !== null &&
     payload.start_time !== ""
@@ -145,10 +260,7 @@ export async function updateShift(
     body.is_armed = payload.is_armed;
   }
 
-  const { data } = await api.patch<ServerShift>(
-    `${endpoints.shifts}${id}/`,
-    body,
-  );
+  const { data } = await api.patch<ServerShift>(`${endpoints.shifts}${id}/`, body);
   return mapServerShift(data);
 }
 
@@ -159,12 +271,14 @@ export async function deleteShift(id: number): Promise<void> {
 /**
  * Acciones custom
  */
-export async function softDeleteShift(id: number): Promise<void> {
-  await api.post(`${endpoints.shifts}${id}/soft_delete/`);
+export async function softDeleteShift(id: number): Promise<Shift> {
+  const { data } = await api.post<ServerShift>(`${endpoints.shifts}${id}/soft_delete/`);
+  return mapServerShift(data);
 }
 
-export async function restoreShift(id: number): Promise<void> {
-  await api.post(`${endpoints.shifts}${id}/restore/`);
+export async function restoreShift(id: number): Promise<Shift> {
+  const { data } = await api.post<ServerShift>(`${endpoints.shifts}${id}/restore/`);
+  return mapServerShift(data);
 }
 
 /**
@@ -228,16 +342,14 @@ export async function listShiftsByService(
 }
 
 /**
- * Bulk endpoints (implementados genéricamente — adapta la forma de `data` si tu backend espera otro shape)
+ * Bulk endpoints (genéricos)
  */
 export async function bulkDeleteShifts(data: unknown): Promise<unknown> {
-  // Ej: data puede ser { ids: [1,2,3] } o un array de objetos, según tu API
   const { data: res } = await api.post(`${endpoints.shifts}bulk_delete/`, data);
   return res;
 }
 
 export async function bulkUpdateShifts(data: unknown): Promise<unknown> {
-  // Ej: data puede ser [{ id: 1, ...fields }, { id: 2, ...}] según tu API
   const { data: res } = await api.post(`${endpoints.shifts}bulk_update/`, data);
   return res;
 }

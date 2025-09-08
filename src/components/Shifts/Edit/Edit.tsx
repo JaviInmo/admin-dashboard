@@ -1,4 +1,3 @@
-// src/components/Shifts/Edit.tsx
 "use client";
 
 import React from "react";
@@ -14,10 +13,12 @@ import { toast } from "sonner";
 import { getShift, updateShift } from "@/lib/services/shifts";
 import { listGuards, getGuard } from "@/lib/services/guard";
 import { listProperties, getProperty } from "@/lib/services/properties";
+import { listServices, getService } from "@/lib/services/services";
 import type { Shift } from "../types";
 import { useI18n } from "@/i18n";
 import type { Guard } from "@/components/Guards/types";
 import type { AppProperty } from "@/lib/services/properties";
+import type { Service as AppService } from "@/components/Services/types";
 
 type EditShiftProps = {
   open: boolean;
@@ -53,13 +54,6 @@ function useDebouncedValue<T>(value: T, delay = 300) {
   return v;
 }
 
-/**
- * Extrae array de distintos shapes de respuesta paginada:
- * - T[]
- * - { results: T[] }
- * - { items: T[] }
- * - { data: { results: T[] } }
- */
 function extractItems<T>(maybe: any): T[] {
   if (!maybe) return [];
   if (Array.isArray(maybe)) return maybe as T[];
@@ -72,11 +66,10 @@ function extractItems<T>(maybe: any): T[] {
 export default function EditShift({ open, onClose, shiftId, initialShift, onUpdated }: EditShiftProps) {
   const { TEXT } = useI18n();
 
-  // ---- shift + loading state ----
   const [shift, setShift] = React.useState<Shift | null>(initialShift ?? null);
   const [loadingShift, setLoadingShift] = React.useState(false);
 
-  // ---- guard select-search state ----
+  // guard
   const [selectedGuard, setSelectedGuard] = React.useState<Guard | null>(null);
   const [guardQuery, setGuardQuery] = React.useState<string>("");
   const debouncedGuardQuery = useDebouncedValue(guardQuery, 300);
@@ -84,7 +77,7 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
   const [guardsLoading, setGuardsLoading] = React.useState(false);
   const [guardDropdownOpen, setGuardDropdownOpen] = React.useState(false);
 
-  // ---- property select-search state ----
+  // property
   const [selectedProperty, setSelectedProperty] = React.useState<AppProperty | null>(null);
   const [propertyQuery, setPropertyQuery] = React.useState<string>("");
   const debouncedPropertyQuery = useDebouncedValue(propertyQuery, 300);
@@ -92,22 +85,32 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
   const [propertiesLoading, setPropertiesLoading] = React.useState(false);
   const [propertyDropdownOpen, setPropertyDropdownOpen] = React.useState(false);
 
-  // ---- datetime + status + submit loading ----
+  // service
+  const [selectedService, setSelectedService] = React.useState<AppService | null>(null);
+  const [serviceQuery, setServiceQuery] = React.useState<string>("");
+  const debouncedServiceQuery = useDebouncedValue(serviceQuery, 300);
+  const [serviceResults, setServiceResults] = React.useState<AppService[]>([]);
+  const [servicesLoading, setServicesLoading] = React.useState(false);
+  const [serviceDropdownOpen, setServiceDropdownOpen] = React.useState(false);
+
+  // datetimes / status / loading
   const [start, setStart] = React.useState<string>("");
   const [end, setEnd] = React.useState<string>("");
   const [status, setStatus] = React.useState<Shift["status"]>("scheduled");
   const [loading, setLoading] = React.useState(false);
 
-  // placeholders
+  // is_armed
+  const [isArmed, setIsArmed] = React.useState<boolean>(false);
+
   const guardPlaceholder =
     (TEXT as any)?.guards?.table?.searchPlaceholder ?? "Buscar guard por nombre o email...";
   const propertyPlaceholder =
     (TEXT as any)?.properties?.table?.searchPlaceholder ?? "Buscar propiedades...";
+  const servicePlaceholder =
+    (TEXT as any)?.services?.table?.searchPlaceholder ?? "Buscar servicios...";
 
-  // Reset cuando se cierra dialog
   React.useEffect(() => {
     if (!open) {
-      // restablecer al estado inicial
       setShift(initialShift ?? null);
       setLoadingShift(false);
 
@@ -123,15 +126,20 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
       setPropertiesLoading(false);
       setPropertyDropdownOpen(false);
 
+      setSelectedService(null);
+      setServiceQuery("");
+      setServiceResults([]);
+      setServicesLoading(false);
+      setServiceDropdownOpen(false);
+
       setStart("");
       setEnd("");
       setStatus("scheduled");
+      setIsArmed(false);
       setLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, initialShift]);
 
-  // Prefill shift (desde initialShift o getShift)
   React.useEffect(() => {
     if (!open) return;
 
@@ -162,11 +170,11 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
         setStart(isoToLocalInputValue((s as any).startTime));
         setEnd(isoToLocalInputValue((s as any).endTime));
         setStatus((s as any).status ?? "scheduled");
+        setIsArmed(Boolean((s as any).isArmed));
 
-        // PREFILL GUARD: preferir guardDetails si vienen, sino getGuard
+        // PREFILL GUARD
         try {
           if ((s as any).guardDetails) {
-            // intentar mapear el shape si viene en server
             const gd: any = (s as any).guardDetails;
             const gObj: Guard = {
               id: Number(gd.id ?? (s as any).guard),
@@ -189,7 +197,6 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
                 setGuardQuery(String((s as any).guard));
               }
             } catch (err) {
-              // fallback: mostrar id
               setGuardQuery(String((s as any).guard ?? ""));
             }
           }
@@ -198,14 +205,13 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
           setGuardQuery(String((s as any).guard ?? ""));
         }
 
-        // PREFILL PROPERTY: preferir propertyDetails si vienen, sino getProperty
+        // PREFILL PROPERTY
         try {
           if ((s as any).propertyDetails) {
             const pd: any = (s as any).propertyDetails;
 
             const pObj = {
               id: Number(pd.id ?? (s as any).property),
-              // ownerId es el campo requerido por AppProperty — intentar varias fuentes posibles
               ownerId: pd.owner !== undefined
                 ? Number(pd.owner)
                 : pd.owner_id !== undefined
@@ -213,7 +219,6 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
                 : pd.owner_details?.id !== undefined
                 ? Number(pd.owner_details.id)
                 : undefined,
-              // mantener otros campos opcionales
               name: pd.name ?? pd.title ?? "",
               alias: pd.alias ?? undefined,
               address: pd.address ?? undefined,
@@ -225,15 +230,11 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
           } else if ((s as any).property) {
             const propertyIdNum = Number((s as any).property);
             try {
-              if (typeof getProperty === "function") {
-                const p = await getProperty(propertyIdNum);
-                if (!mounted) return;
-                if (p) {
-                  setSelectedProperty(p);
-                  setPropertyQuery(`${p.name ?? p.alias ?? p.address} #${p.id}`);
-                } else {
-                  setPropertyQuery(String((s as any).property));
-                }
+              const p = await getProperty(propertyIdNum);
+              if (!mounted) return;
+              if (p) {
+                setSelectedProperty(p);
+                setPropertyQuery(`${p.name ?? p.alias ?? p.address} #${p.id}`);
               } else {
                 setPropertyQuery(String((s as any).property));
               }
@@ -244,6 +245,43 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
         } catch (e) {
           console.error("prefill property failed", e);
           setPropertyQuery(String((s as any).property ?? ""));
+        }
+
+        // PREFILL SERVICE (opcional)
+        try {
+          if ((s as any).serviceDetails) {
+            const sd: any = (s as any).serviceDetails;
+            const svc: AppService = {
+              id: Number(sd.id ?? (s as any).service),
+              name: sd.name ?? "",
+              description: sd.description ?? "",
+              propertyName: sd.property_name ?? sd.propertyName ?? undefined,
+            } as AppService;
+            setSelectedService(svc);
+            setServiceQuery(`${svc.name}`);
+          } else if ((s as any).service) {
+            const serviceIdNum = Number((s as any).service);
+            try {
+              // intentar obtener con getService
+              if (typeof getService === "function") {
+                const svc = await getService(serviceIdNum);
+                if (!mounted) return;
+                if (svc) {
+                  setSelectedService(svc as AppService);
+                  setServiceQuery(`${svc.name}`);
+                } else {
+                  setServiceQuery(String(serviceIdNum));
+                }
+              } else {
+                setServiceQuery(String(serviceIdNum));
+              }
+            } catch (err) {
+              setServiceQuery(String((s as any).service ?? ""));
+            }
+          }
+        } catch (e) {
+          console.error("prefill service failed", e);
+          setServiceQuery(String((s as any).service ?? ""));
         }
       } catch (err) {
         console.error(err);
@@ -259,10 +297,9 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
     return () => {
       mounted = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, shiftId, initialShift]);
 
-  // Buscar guards con debounce
+  // Guard search
   React.useEffect(() => {
     let mounted = true;
     const q = (debouncedGuardQuery ?? "").trim();
@@ -290,7 +327,7 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
     };
   }, [debouncedGuardQuery]);
 
-  // Buscar properties con debounce
+  // Property search
   React.useEffect(() => {
     let mounted = true;
     const q = (debouncedPropertyQuery ?? "").trim();
@@ -318,6 +355,34 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
     };
   }, [debouncedPropertyQuery]);
 
+  // Service search
+  React.useEffect(() => {
+    let mounted = true;
+    const q = (debouncedServiceQuery ?? "").trim();
+    if (q === "") {
+      setServiceResults([]);
+      return;
+    }
+    setServicesLoading(true);
+    (async () => {
+      try {
+        const res = await listServices(1, q, 10, "name");
+        if (!mounted) return;
+        const items = extractItems<AppService>(res);
+        setServiceResults(items);
+        setServiceDropdownOpen(true);
+      } catch (err) {
+        console.error("listServices error", err);
+        setServiceResults([]);
+      } finally {
+        if (mounted) setServicesLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [debouncedServiceQuery]);
+
   const guardLabel = (g?: Guard | null) => {
     if (!g) return "";
     return `${g.firstName} ${g.lastName} (${g.email ?? ""})`;
@@ -325,6 +390,10 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
   const propertyLabel = (p?: AppProperty | null) => {
     if (!p) return "";
     return `${p.name ?? p.alias ?? p.address} #${p.id}`;
+  };
+  const serviceLabel = (s?: AppService | null) => {
+    if (!s) return "";
+    return `${s.name}${s.propertyName ? ` — ${s.propertyName}` : ""}`;
   };
 
   async function onSubmit(e?: React.FormEvent) {
@@ -345,12 +414,10 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
       return;
     }
 
-    // property required
     if (!selectedProperty) {
       toast.error((TEXT as any)?.shifts?.errors?.missingProperty ?? "Property required");
       return;
     }
-    // guard required
     if (!selectedGuard) {
       toast.error((TEXT as any)?.shifts?.errors?.missingGuard ?? "Guard required");
       return;
@@ -364,8 +431,9 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
         end_time: endIso,
         status,
       };
-      // incluir guard si está seleccionado (edición)
       if (selectedGuard) payload.guard = Number(selectedGuard.id);
+      if (selectedService) payload.service = Number(selectedService.id);
+      if (typeof isArmed === "boolean") payload.is_armed = isArmed;
 
       const updated = await updateShift(shift.id, payload);
       toast.success((TEXT as any)?.shifts?.messages?.updated ?? "Shift updated");
@@ -373,7 +441,6 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
       onClose();
     } catch (err: any) {
       console.error(err);
-      // intentar extraer mensaje descriptivo del servidor
       const serverMsg = err?.response?.data?.message ?? err?.message;
       if (serverMsg) {
         toast.error(String(serverMsg));
@@ -409,7 +476,7 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
                 <input className="w-full rounded border px-3 py-2" value={shift.id} readOnly />
               </div>
 
-              {/* Guard select-search (editable) */}
+              {/* Guard select-search */}
               <div className="relative">
                 <label className="text-sm text-muted-foreground block mb-1">Guard</label>
                 <input
@@ -522,6 +589,63 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
                 )}
               </div>
 
+              {/* Service select-search (opcional) */}
+              <div className="relative">
+                <label className="text-sm text-muted-foreground block mb-1">Service (opcional)</label>
+                <input
+                  type="text"
+                  className="w-full rounded border px-3 py-2"
+                  value={selectedService ? serviceLabel(selectedService) : serviceQuery}
+                  onChange={(e) => {
+                    if (selectedService) setSelectedService(null);
+                    setServiceQuery(e.target.value);
+                  }}
+                  onFocus={() => {
+                    if (serviceResults.length > 0) setServiceDropdownOpen(true);
+                  }}
+                  placeholder={servicePlaceholder}
+                  aria-label="Buscar servicio"
+                />
+                {selectedService && (
+                  <button
+                    type="button"
+                    className="absolute right-2 top-2 text-xs text-muted-foreground"
+                    onClick={() => {
+                      setSelectedService(null);
+                      setServiceQuery("");
+                    }}
+                  >
+                    Clear
+                  </button>
+                )}
+
+                {serviceDropdownOpen && (serviceResults.length > 0 || servicesLoading) && (
+                  <div className="absolute z-50 left-0 right-0 mt-1 bg-white border rounded shadow max-h-56 overflow-auto">
+                    {servicesLoading && <div className="p-2 text-xs text-muted-foreground">Buscando...</div>}
+                    {!servicesLoading && serviceResults.length === 0 && <div className="p-2 text-xs text-muted-foreground">No matches.</div>}
+                    {!servicesLoading &&
+                      serviceResults.map((s) => (
+                        <button
+                          key={s.id}
+                          type="button"
+                          className="w-full text-left px-3 py-2 hover:bg-muted/10"
+                          onClick={() => {
+                            setSelectedService(s);
+                            setServiceQuery(serviceLabel(s));
+                            setServiceDropdownOpen(false);
+                          }}
+                        >
+                          <div className="flex justify-between items-center">
+                            <div className="text-sm truncate">{s.name}</div>
+                            <div className="text-xs text-muted-foreground">{s.propertyName ?? ""}</div>
+                          </div>
+                          <div className="text-[11px] text-muted-foreground truncate">{s.description}</div>
+                        </button>
+                      ))}
+                  </div>
+                )}
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-sm text-muted-foreground block mb-1">Start</label>
@@ -554,6 +678,17 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
                   <option value="completed">completed</option>
                   <option value="voided">voided</option>
                 </select>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" checked={isArmed} onChange={(e) => setIsArmed(Boolean(e.target.checked))} />
+                  <span className="text-sm">Is armed</span>
+                </label>
+                {/* weapon details are typically readOnly from backend; not sending by default */}
+                {shift?.weaponDetails && (
+                  <div className="text-sm text-muted-foreground">Weapon: {shift.weaponDetails}</div>
+                )}
               </div>
 
               <DialogFooter>

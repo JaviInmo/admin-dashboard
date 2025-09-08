@@ -6,6 +6,7 @@ import { drfList, type PaginatedResult } from "@/lib/pagination";
 
 /**
  * Server-side shape (snake_case) según la API (swagger)
+ * schedule puede ser array de strings o array de objetos (p.ej. { date: '2025-09-01' }).
  */
 type ServerService = {
   id: number;
@@ -18,6 +19,8 @@ type ServerService = {
   rate?: string | null; // decimal string
   monthly_budget?: string | null; // decimal string
   contract_start_date?: string | null; // date
+  schedule?: Array<string | { [key: string]: any }> | null;
+  recurrent?: boolean | null;
   total_hours?: string | null;
   created_at?: string | null; // date-time
   updated_at?: string | null; // date-time
@@ -35,6 +38,8 @@ export type CreateServicePayload = {
   rate?: string | null;
   monthly_budget?: string | null;
   contract_start_date?: string | null;
+  schedule?: string[]; // array de fechas ISO (si el backend acepta objetos, ajusta según necesites)
+  recurrent?: boolean;
   is_active?: boolean;
 };
 
@@ -42,12 +47,30 @@ export type UpdateServicePayload = Partial<CreateServicePayload>;
 
 /**
  * Mapea ServerService -> Service (cliente, camelCase)
- * Ajusta si tu Service type en "@/components/Services/types" difiere.
  */
 function mapServerService(s: ServerService): Service {
+  // map schedule robustamente: pueden venir strings o objetos { date: ... } u otras formas.
+  const schedule: string[] | null = Array.isArray(s.schedule)
+    ? s.schedule.map((it) => {
+        if (typeof it === "string") return it;
+        if (it && typeof it === "object") {
+          // priorizamos propiedades comunes
+          if ("date" in it && it.date) return String(it.date);
+          if ("schedule" in it && it.schedule) return String(it.schedule);
+          if ("start" in it && it.start) return String(it.start);
+          // cualquier otro objeto lo convertimos a JSON minimal (fallback)
+          try {
+            return String(JSON.stringify(it));
+          } catch {
+            return String(it);
+          }
+        }
+        return String(it);
+      })
+    : null;
+
   return {
     id: s.id,
-    // campos asumidos en el tipo Service (camelCase)
     name: s.name,
     description: s.description ?? null,
     guard: s.guard ?? null,
@@ -57,16 +80,17 @@ function mapServerService(s: ServerService): Service {
     rate: s.rate ?? null,
     monthlyBudget: s.monthly_budget ?? null,
     contractStartDate: s.contract_start_date ?? null,
+    schedule,
+    recurrent: typeof s.recurrent === "boolean" ? s.recurrent : null,
     totalHours: s.total_hours ?? null,
     createdAt: s.created_at ?? null,
     updatedAt: s.updated_at ?? null,
     isActive: typeof s.is_active === "boolean" ? s.is_active : null,
-  } as unknown as Service;
+  } as Service;
 }
 
 /**
  * listServices
- * Parámetros: page, search, pageSize, ordering
  */
 export async function listServices(
   page?: number,
@@ -98,7 +122,6 @@ export async function getService(id: number): Promise<Service> {
 
 /**
  * createService
- * Construye body explícito y sanitizado (evita enviar campos vacíos).
  */
 export async function createService(payload: CreateServicePayload): Promise<Service> {
   const body: Record<string, unknown> = {
@@ -127,6 +150,15 @@ export async function createService(payload: CreateServicePayload): Promise<Serv
 
   if (payload.contract_start_date !== undefined && payload.contract_start_date !== null && payload.contract_start_date !== "") {
     body.contract_start_date = payload.contract_start_date;
+  }
+
+  if (payload.schedule !== undefined && payload.schedule !== null) {
+    // enviamos array de strings tal cual (ajusta si el backend necesita objetos)
+    body.schedule = payload.schedule;
+  }
+
+  if (payload.recurrent !== undefined) {
+    body.recurrent = payload.recurrent;
   }
 
   if (payload.is_active !== undefined) {
@@ -190,6 +222,18 @@ export async function updateService(id: number, payload: UpdateServicePayload): 
     } else {
       body.contract_start_date = payload.contract_start_date;
     }
+  }
+
+  if (payload.schedule !== undefined) {
+    // si el usuario pasa array vacío quizá quiera limpiar: si quieres soportar "vaciar schedule",
+    // descomenta la siguiente línea y envía body.schedule = payload.schedule;
+    if (Array.isArray(payload.schedule)) {
+      body.schedule = payload.schedule;
+    }
+  }
+
+  if (payload.recurrent !== undefined) {
+    body.recurrent = payload.recurrent;
   }
 
   if (payload.is_active !== undefined) {
@@ -271,9 +315,7 @@ export async function listServicesByProperty(
 }
 
 /**
- * getServiceShifts
- * Reutiliza drfList apuntando al sub-endpoint {id}/shifts/
- * Usamos un mapper identity para que el caller haga el cast/tipado si lo necesita.
+ * listServiceShifts
  */
 type ServerShift = any;
 export async function listServiceShifts(

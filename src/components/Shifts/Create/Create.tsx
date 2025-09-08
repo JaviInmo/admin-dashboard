@@ -1,4 +1,3 @@
-// src/components/Shifts/Create/Create.tsx
 "use client";
 
 import React from "react";
@@ -12,13 +11,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { createShift, listShiftsByGuard } from "@/lib/services/shifts";
-import type { Shift } from "../types";
-import { useI18n } from "@/i18n";
-
 import { listGuards, getGuard } from "@/lib/services/guard";
 import { listProperties } from "@/lib/services/properties";
+import { listServices } from "@/lib/services/services";
+import type { Shift } from "../types";
+import { useI18n } from "@/i18n";
 import type { Guard } from "@/components/Guards/types";
 import type { AppProperty } from "@/lib/services/properties";
+import type { Service as AppService } from "@/components/Services/types";
 import { cn } from "@/lib/utils";
 
 type CreateShiftProps = {
@@ -27,9 +27,9 @@ type CreateShiftProps = {
   guardId?: number;
   selectedDate?: Date;
   propertyId?: number | null;
-  preselectedProperty?: AppProperty | null; // Propiedad ya disponible
-  preloadedProperties?: AppProperty[]; // Cache de propiedades
-  preloadedGuard?: Guard | null; // Cache del guardia actual
+  preselectedProperty?: AppProperty | null;
+  preloadedProperties?: AppProperty[];
+  preloadedGuard?: Guard | null;
   onCreated?: (shift: Shift) => void;
 };
 
@@ -47,13 +47,6 @@ function useDebouncedValue<T>(value: T, delay = 300) {
   return v;
 }
 
-/**
- * Extrae array de distintos shapes de respuesta paginada:
- * - T[]
- * - { results: T[] }
- * - { items: T[] }
- * - { data: { results: T[] } }
- */
 function extractItems<T>(maybe: any): T[] {
   if (!maybe) return [];
   if (Array.isArray(maybe)) return maybe as T[];
@@ -76,12 +69,13 @@ export default function CreateShift({
 }: CreateShiftProps) {
   const { TEXT } = useI18n();
 
-  // placeholders usando las claves existentes en tus i18n
   const guardPlaceholder =
     (TEXT as any)?.guards?.table?.searchPlaceholder ??
     "Buscar guard por nombre o email...";
   const propertyPlaceholder =
     (TEXT as any)?.properties?.table?.searchPlaceholder ?? "Buscar propiedades...";
+  const servicePlaceholder =
+    (TEXT as any)?.services?.table?.searchPlaceholder ?? "Buscar servicios...";
 
   const [selectedGuard, setSelectedGuard] = React.useState<Guard | null>(null);
   const [guardQuery, setGuardQuery] = React.useState<string>("");
@@ -97,16 +91,28 @@ export default function CreateShift({
   const [propertiesLoading, setPropertiesLoading] = React.useState(false);
   const [propertyDropdownOpen, setPropertyDropdownOpen] = React.useState(false);
 
+  // --- Service selection (opcional) ---
+  const [selectedService, setSelectedService] = React.useState<AppService | null>(null);
+  const [serviceQuery, setServiceQuery] = React.useState<string>("");
+  const debouncedServiceQuery = useDebouncedValue(serviceQuery, 300);
+  const [serviceResults, setServiceResults] = React.useState<AppService[]>([]);
+  const [servicesLoading, setServicesLoading] = React.useState(false);
+  const [serviceDropdownOpen, setServiceDropdownOpen] = React.useState(false);
+
   const [start, setStart] = React.useState<string>("");
   const [end, setEnd] = React.useState<string>("");
   const [status, setStatus] = React.useState<Shift["status"]>("scheduled");
   const [loading, setLoading] = React.useState(false);
 
-  // Estados para detección de solapamientos
+  // is_armed (opcional)
+  const [isArmed, setIsArmed] = React.useState<boolean>(false);
+  // weapon details may be readOnly from backend — we allow input to show context but do NOT send it unless the API supports it.
+  const [weaponDetails, setWeaponDetails] = React.useState<string>("");
+
+  // overlap detection
   const [hasOverlap, setHasOverlap] = React.useState<boolean>(false);
   const [overlapMessage, setOverlapMessage] = React.useState<string>("");
 
-  // reset cuando se cierra el dialog
   React.useEffect(() => {
     if (!open) {
       setSelectedGuard(null);
@@ -121,29 +127,33 @@ export default function CreateShift({
       setPropertiesLoading(false);
       setPropertyDropdownOpen(false);
 
+      setSelectedService(null);
+      setServiceQuery("");
+      setServiceResults([]);
+      setServicesLoading(false);
+      setServiceDropdownOpen(false);
+
       setStart("");
       setEnd("");
       setStatus("scheduled");
+      setIsArmed(false);
+      setWeaponDetails("");
 
-      // Limpiar estados de solapamiento
       setHasOverlap(false);
       setOverlapMessage("");
     }
   }, [open]);
 
-  // prefill si recibes guardId (usa cache si está disponible)
   React.useEffect(() => {
     if (!open) return;
     if (!guardId) return;
 
-    // Si tenemos el guardia preloaded, usarlo directamente
     if (preloadedGuard && preloadedGuard.id === guardId) {
       setSelectedGuard(preloadedGuard);
       setGuardQuery("");
       return;
     }
 
-    // Si no hay cache, hacer llamada a la API (fallback)
     let mounted = true;
     (async () => {
       try {
@@ -160,7 +170,6 @@ export default function CreateShift({
     };
   }, [guardId, open, preloadedGuard]);
 
-  // prefill fecha (usa selectedDate o fecha de hoy como fallback)
   React.useEffect(() => {
     if (!open) return;
 
@@ -172,7 +181,6 @@ export default function CreateShift({
     const endDate = new Date(targetDate);
     endDate.setHours(16, 0, 0, 0);
 
-    // Convertir a formato datetime-local (YYYY-MM-DDTHH:mm) en local
     const toLocalDateTimeInput = (d: Date) => {
       const pad = (n: number) => String(n).padStart(2, "0");
       const YYYY = d.getFullYear();
@@ -187,7 +195,6 @@ export default function CreateShift({
     setEnd(toLocalDateTimeInput(endDate));
   }, [open, selectedDate]);
 
-  // prefill propiedad si recibes propertyId o preselectedProperty
   React.useEffect(() => {
     if (!open) return;
 
@@ -233,7 +240,7 @@ export default function CreateShift({
     };
   }, [propertyId, open, preloadedProperties, preselectedProperty]);
 
-  // buscar guards con debounce
+  // guards search
   React.useEffect(() => {
     let mounted = true;
     const q = (debouncedGuardQuery ?? "").trim();
@@ -261,7 +268,7 @@ export default function CreateShift({
     };
   }, [debouncedGuardQuery]);
 
-  // buscar properties con debounce (optimizado con cache)
+  // properties search
   React.useEffect(() => {
     let mounted = true;
     const q = (debouncedPropertyQuery ?? "").trim();
@@ -276,9 +283,9 @@ export default function CreateShift({
       const filtered = preloadedProperties
         .filter(
           (prop) =>
-            prop.name?.toLowerCase().includes(q.toLowerCase()) ||
-            prop.alias?.toLowerCase().includes(q.toLowerCase()) ||
-            prop.address?.toLowerCase().includes(q.toLowerCase()),
+            (prop.name ?? "").toLowerCase().includes(q.toLowerCase()) ||
+            (prop.alias ?? "").toLowerCase().includes(q.toLowerCase()) ||
+            (prop.address ?? "").toLowerCase().includes(q.toLowerCase()),
         )
         .slice(0, 10);
 
@@ -328,7 +335,34 @@ export default function CreateShift({
     };
   }, [debouncedPropertyQuery, preloadedProperties]);
 
-  // etiqueta para mostrar (sin email, solo nombre)
+  // services search (opcional)
+  React.useEffect(() => {
+    let mounted = true;
+    const q = (debouncedServiceQuery ?? "").trim();
+    if (q === "") {
+      setServiceResults([]);
+      return;
+    }
+    setServicesLoading(true);
+    (async () => {
+      try {
+        const res = await listServices(1, q, 10, "name");
+        if (!mounted) return;
+        const items = extractItems<AppService>(res);
+        setServiceResults(items);
+        setServiceDropdownOpen(true);
+      } catch (err) {
+        console.error("listServices error", err);
+        setServiceResults([]);
+      } finally {
+        if (mounted) setServicesLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [debouncedServiceQuery]);
+
   const guardLabel = (g?: Guard | null) => {
     if (!g) return "";
     return `${g.firstName} ${g.lastName}`;
@@ -337,8 +371,11 @@ export default function CreateShift({
     if (!p) return "";
     return `${p.name ?? p.alias ?? p.address} #${p.id}`;
   };
+  const serviceLabel = (s?: AppService | null) => {
+    if (!s) return "";
+    return `${s.name} ${s.propertyName ? `— ${s.propertyName}` : ""}`;
+  };
 
-  // Función para verificar solapamientos entre dos turnos
   const checkTimeOverlap = (start1: string, end1: string, start2: string, end2: string): boolean => {
     const startDate1 = new Date(start1);
     const endDate1 = new Date(end1);
@@ -348,7 +385,6 @@ export default function CreateShift({
     return startDate1 < endDate2 && startDate2 < endDate1;
   };
 
-  // Función para verificar solapamientos con turnos existentes
   const checkForOverlaps = React.useCallback(async () => {
     if (!selectedGuard || !start || !end) {
       setHasOverlap(false);
@@ -357,7 +393,6 @@ export default function CreateShift({
     }
 
     try {
-      // Pedimos más items para aumentar la probabilidad de capturar solapamientos
       const response = await listShiftsByGuard(selectedGuard.id, 1, 1000);
       const shifts = extractItems<Shift>(response);
 
@@ -388,12 +423,10 @@ export default function CreateShift({
     }
   }, [selectedGuard, start, end]);
 
-  // useEffect para verificar solapamientos cuando cambien los datos
   React.useEffect(() => {
     const timeoutId = setTimeout(() => {
       checkForOverlaps();
-    }, 500); // Debounce de 500ms
-
+    }, 500);
     return () => clearTimeout(timeoutId);
   }, [checkForOverlaps]);
 
@@ -404,7 +437,6 @@ export default function CreateShift({
       return;
     }
 
-    // Verificar solapamientos antes de enviar
     if (hasOverlap) {
       toast.error("No se puede crear el turno debido a solapamientos detectados");
       return;
@@ -430,19 +462,26 @@ export default function CreateShift({
 
     setLoading(true);
     try {
-      const created = await createShift({
+      const payload: any = {
         guard: selectedGuard.id,
         property: Number(selectedProperty.id),
         start_time: startIso,
         end_time: endIso,
         status,
-      });
+      };
+
+      if (selectedService) payload.service = Number(selectedService.id);
+      if (typeof isArmed === "boolean") payload.is_armed = isArmed;
+      // NOT sending weaponDetails by default because swagger doesn't list it as accepted on create.
+      // If your backend supports it, uncomment:
+      // if (weaponDetails) payload.weapon_details = weaponDetails;
+
+      const created = await createShift(payload);
       toast.success((TEXT as any)?.shifts?.messages?.created ?? "Shift created");
       onCreated?.(created as Shift);
       onClose();
     } catch (err: any) {
       console.error(err);
-
       let errorMessage = (TEXT as any)?.shifts?.errors?.createFailed ?? "Could not create shift";
 
       if (err?.response?.data?.message || err?.message) {
@@ -606,6 +645,63 @@ export default function CreateShift({
             )}
           </div>
 
+          {/* Service select-search (opcional) */}
+          <div className="relative">
+            <label className="text-sm text-muted-foreground block mb-1">Service (opcional)</label>
+            <input
+              type="text"
+              className="w-full rounded border px-3 py-2"
+              value={selectedService ? serviceLabel(selectedService) : serviceQuery}
+              onChange={(e) => {
+                if (selectedService) setSelectedService(null);
+                setServiceQuery(e.target.value);
+              }}
+              onFocus={() => {
+                if (serviceResults.length > 0) setServiceDropdownOpen(true);
+              }}
+              placeholder={servicePlaceholder}
+              aria-label="Buscar servicio"
+            />
+            {selectedService && (
+              <button
+                type="button"
+                className="absolute right-2 top-2 text-xs text-muted-foreground"
+                onClick={() => {
+                  setSelectedService(null);
+                  setServiceQuery("");
+                }}
+              >
+                Clear
+              </button>
+            )}
+
+            {serviceDropdownOpen && (serviceResults.length > 0 || servicesLoading) && (
+              <div className="absolute z-50 left-0 right-0 mt-1 bg-white border rounded shadow max-h-56 overflow-auto">
+                {servicesLoading && <div className="p-2 text-xs text-muted-foreground">Buscando...</div>}
+                {!servicesLoading && serviceResults.length === 0 && <div className="p-2 text-xs text-muted-foreground">No matches.</div>}
+                {!servicesLoading &&
+                  serviceResults.map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      className="w-full text-left px-3 py-2 hover:bg-muted/10"
+                      onClick={() => {
+                        setSelectedService(s);
+                        setServiceQuery("");
+                        setServiceDropdownOpen(false);
+                      }}
+                    >
+                      <div className="flex justify-between items-center">
+                        <div className="text-sm truncate">{s.name}</div>
+                        <div className="text-xs text-muted-foreground">{s.propertyName ?? ""}</div>
+                      </div>
+                      <div className="text-[11px] text-muted-foreground truncate">{s.description}</div>
+                    </button>
+                  ))}
+              </div>
+            )}
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-sm text-muted-foreground block mb-1">Start</label>
@@ -633,7 +729,6 @@ export default function CreateShift({
             </div>
           </div>
 
-          {/* Mensaje de solapamiento */}
           {hasOverlap && overlapMessage && (
             <div className="bg-red-50 border border-red-200 rounded-md p-3">
               <div className="flex items-center">
@@ -643,12 +738,8 @@ export default function CreateShift({
                   </svg>
                 </div>
                 <div className="ml-3">
-                  <h3 className="text-sm font-medium text-red-800">
-                    Solapamiento Detectado
-                  </h3>
-                  <div className="mt-1 text-sm text-red-700">
-                    {overlapMessage}
-                  </div>
+                  <h3 className="text-sm font-medium text-red-800">Solapamiento Detectado</h3>
+                  <div className="mt-1 text-sm text-red-700">{overlapMessage}</div>
                 </div>
               </div>
             </div>
@@ -665,6 +756,22 @@ export default function CreateShift({
               <option value="completed">completed</option>
               <option value="voided">voided</option>
             </select>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={isArmed} onChange={(e) => setIsArmed(Boolean(e.target.checked))} />
+              <span className="text-sm">Is armed</span>
+            </label>
+            {isArmed && (
+              <input
+                type="text"
+                placeholder="Weapon details (informative)"
+                value={weaponDetails}
+                onChange={(e) => setWeaponDetails(e.target.value)}
+                className="flex-1 rounded border px-3 py-2"
+              />
+            )}
           </div>
 
           <DialogFooter>
