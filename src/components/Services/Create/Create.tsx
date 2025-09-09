@@ -1,3 +1,4 @@
+// src/components/Services/Create/Create.tsx
 "use client";
 
 import * as React from "react";
@@ -48,6 +49,7 @@ export default function CreateServiceDialog({ open, onClose, onCreated }: Create
   const [monthlyBudget, setMonthlyBudget] = React.useState<string>("");
   const [contractStartDate, setContractStartDate] = React.useState<string>(""); // <-- nuevo
   const [isActive, setIsActive] = React.useState<boolean>(true);
+  const [recurrent, setRecurrent] = React.useState<boolean>(false); // <-- nuevo
 
   // debounce guard input -> guardSearchTerm
   React.useEffect(() => {
@@ -99,6 +101,7 @@ export default function CreateServiceDialog({ open, onClose, onCreated }: Create
     setMonthlyBudget("");
     setContractStartDate("");
     setIsActive(true);
+    setRecurrent(false);
   };
 
   const handleCreate = async () => {
@@ -116,6 +119,7 @@ export default function CreateServiceDialog({ open, onClose, onCreated }: Create
       monthly_budget: monthlyBudget === "" ? undefined : monthlyBudget,
       contract_start_date: contractStartDate === "" ? undefined : contractStartDate, // <-- añadido
       is_active: isActive,
+      recurrent: recurrent,
     };
 
     try {
@@ -281,9 +285,16 @@ export default function CreateServiceDialog({ open, onClose, onCreated }: Create
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Checkbox checked={isActive} onCheckedChange={(v) => setIsActive(Boolean(v))} />
-            <span>{TEXT?.services?.fields?.isActive ?? "Is active"}</span>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Checkbox checked={isActive} onCheckedChange={(v) => setIsActive(Boolean(v))} />
+              <span>{TEXT?.services?.fields?.isActive ?? "Is active"}</span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Checkbox checked={recurrent} onCheckedChange={(v) => setRecurrent(Boolean(v))} />
+              <span>{TEXT?.services?.fields?.recurrent ?? "Recurrent"}</span>
+            </div>
           </div>
         </div>
 

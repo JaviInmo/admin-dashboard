@@ -531,6 +531,7 @@ export const EN_TEXT = {
       assignedProperty: "Property",
       rate: "Rate per hour",
       monthlyBudget: "Monthly Budget",
+        recurrent: "Recurrent", 
       totalHours: "Total hours",
       isActive: "Is active",
       createdAt: "Created at",

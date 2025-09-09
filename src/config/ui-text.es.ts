@@ -530,6 +530,7 @@ export const ES_TEXT = {
       guard: "Guardia",
       assignedProperty: "Propiedad",
       rate: "Tarifa por hora",
+        recurrent: "Recurrente", 
       monthlyBudget: "Presupuesto Mensual",
       totalHours: "Horas totales",
       isActive: "Activo",

@@ -1,3 +1,4 @@
+// src/components/Services/Edit/Edit.tsx
 "use client";
 
 import * as React from "react";
@@ -51,6 +52,7 @@ export default function EditServiceDialog({ service, open, onClose, onUpdated }:
 
   // --- NUEVO: contract start date ---
   const [contractStartDate, setContractStartDate] = React.useState<string>(service.contractStartDate ?? "");
+  const [recurrent, setRecurrent] = React.useState<boolean>(service.recurrent ?? false); // <-- nuevo
 
   // sync when service changes
   React.useEffect(() => {
@@ -66,6 +68,7 @@ export default function EditServiceDialog({ service, open, onClose, onUpdated }:
     setMonthlyBudget(service.monthlyBudget ?? "");
     setIsActive(service.isActive ?? true);
     setContractStartDate(service.contractStartDate ?? "");
+    setRecurrent(service.recurrent ?? false);
   }, [service]);
 
   // fetch label for existing guardId (if no label provided)
@@ -168,6 +171,7 @@ export default function EditServiceDialog({ service, open, onClose, onUpdated }:
     setMonthlyBudget(service.monthlyBudget ?? "");
     setIsActive(service.isActive ?? true);
     setContractStartDate(service.contractStartDate ?? "");
+    setRecurrent(service.recurrent ?? false);
   };
 
   const handleUpdate = async () => {
@@ -185,6 +189,7 @@ export default function EditServiceDialog({ service, open, onClose, onUpdated }:
       monthly_budget: monthlyBudget === "" ? undefined : monthlyBudget,
       is_active: isActive,
       contract_start_date: contractStartDate === "" ? undefined : contractStartDate, // <-- añadido
+      recurrent: recurrent,
     };
 
     try {
@@ -325,9 +330,16 @@ export default function EditServiceDialog({ service, open, onClose, onUpdated }:
             <Input type="date" value={contractStartDate ?? ""} onChange={(e) => setContractStartDate(e.currentTarget.value)} />
           </div>
 
-          <div className="flex items-center gap-2">
-            <Checkbox checked={isActive} onCheckedChange={(v) => setIsActive(Boolean(v))} />
-            <span>{TEXT?.services?.fields?.isActive ?? "Is active"}</span>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Checkbox checked={isActive} onCheckedChange={(v) => setIsActive(Boolean(v))} />
+              <span>{TEXT?.services?.fields?.isActive ?? "Is active"}</span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Checkbox checked={recurrent} onCheckedChange={(v) => setRecurrent(Boolean(v))} />
+              <span>{TEXT?.services?.fields?.recurrent ?? "Recurrent"}</span>
+            </div>
           </div>
         </div>
 

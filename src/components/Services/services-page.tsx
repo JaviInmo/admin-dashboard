@@ -21,6 +21,8 @@ function mapServiceSortField(field: keyof Service): string {
       return "guard__user__first_name";
     case "propertyName":
       return "assigned_property__name";
+    case "recurrent":
+      return "recurrent";
     default:
       return String(field);
   }

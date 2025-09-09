@@ -104,6 +104,21 @@ export default function ServicesTable({
       cellStyle: { width: "120px", minWidth: "90px" },
     },
     {
+      key: "recurrent",
+      label: tableText.headers?.recurrent ?? "Recurrent",
+      sortable: true,
+      render: (s) => {
+        if (s.recurrent === null || s.recurrent === undefined) return "-";
+        const yes = tableText.recurrentYes ?? TEXT?.common?.yes ?? "Yes";
+        const no = tableText.recurrentNo ?? TEXT?.common?.no ?? "No";
+        return s.recurrent ? yes : no;
+      },
+      headerClassName: "px-2 py-1 text-sm text-center",
+      cellClassName: "px-2 py-1 text-sm text-center",
+      headerStyle: { width: "100px", minWidth: "80px" },
+      cellStyle: { width: "100px", minWidth: "80px" },
+    },
+    {
       key: "isActive",
       label: tableText.headers?.isActive ?? "Active",
       sortable: true,

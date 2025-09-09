@@ -1,3 +1,4 @@
+// src/components/Services/Show/Show.tsx
 "use client";
 
 import * as React from "react";
@@ -74,6 +75,11 @@ export default function ShowServiceDialog({ service, open, onClose }: ShowServic
     return service.isActive ? (TEXT?.common?.yes ?? "Yes") : (TEXT?.common?.no ?? "No");
   }, [service.isActive, TEXT]);
 
+  const recurrentLabel = React.useMemo(() => {
+    if (service.recurrent === null || service.recurrent === undefined) return "-";
+    return service.recurrent ? (TEXT?.common?.yes ?? "Yes") : (TEXT?.common?.no ?? "No");
+  }, [service.recurrent, TEXT]);
+
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
       <DialogContent>
@@ -90,6 +96,7 @@ export default function ShowServiceDialog({ service, open, onClose }: ShowServic
           <div><strong>{TEXT?.services?.fields?.monthlyBudget ?? "Monthly Budget"}:</strong> {service.monthlyBudget ?? "-"}</div>
           <div><strong>{TEXT?.services?.fields?.totalHours ?? "Total Hours"}:</strong> {service.totalHours ?? "-"}</div>
           <div><strong>{TEXT?.services?.fields?.contractStartDate ?? "Contract start date"}:</strong> {formatDate(service.contractStartDate)}</div>
+          <div><strong>{TEXT?.services?.fields?.recurrent ?? "Recurrent"}:</strong> {recurrentLabel}</div>
           <div><strong>{TEXT?.services?.fields?.isActive ?? "Is active"}:</strong> {isActiveLabel}</div>
           <div><strong>{TEXT?.services?.fields?.createdAt ?? "Created at"}:</strong> {formatDateTime(service.createdAt)}</div>
           <div><strong>{TEXT?.services?.fields?.updatedAt ?? "Updated at"}:</strong> {formatDateTime(service.updatedAt)}</div>
