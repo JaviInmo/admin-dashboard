@@ -19,6 +19,8 @@ type ServerService = {
   rate?: string | null; // decimal string
   monthly_budget?: string | null; // decimal string
   contract_start_date?: string | null; // date
+  start_time?: string | null; // time string e.g. "22:00:00"
+  end_time?: string | null; // time string e.g. "06:00:00"
   schedule?: Array<string | { [key: string]: any }> | null;
   recurrent?: boolean | null;
   total_hours?: string | null;
@@ -29,6 +31,7 @@ type ServerService = {
 
 /**
  * Payloads (coinciden con lo que acepta el backend)
+ * Usamos snake_case porque el backend lo espera según tu ejemplo swagger.
  */
 export type CreateServicePayload = {
   name: string;
@@ -38,7 +41,9 @@ export type CreateServicePayload = {
   rate?: string | null;
   monthly_budget?: string | null;
   contract_start_date?: string | null;
-  schedule?: string[]; // array de fechas ISO (si el backend acepta objetos, ajusta según necesites)
+  start_time?: string | null;
+  end_time?: string | null;
+  schedule?: Array<string | { [key: string]: any }>; // puede aceptar strings o objetos si el backend lo permite
   recurrent?: boolean;
   is_active?: boolean;
 };
@@ -49,7 +54,6 @@ export type UpdateServicePayload = Partial<CreateServicePayload>;
  * Mapea ServerService -> Service (cliente, camelCase)
  */
 function mapServerService(s: ServerService): Service {
-  // map schedule robustamente: pueden venir strings o objetos { date: ... } u otras formas.
   const schedule: string[] | null = Array.isArray(s.schedule)
     ? s.schedule.map((it) => {
         if (typeof it === "string") return it;
@@ -58,6 +62,7 @@ function mapServerService(s: ServerService): Service {
           if ("date" in it && it.date) return String(it.date);
           if ("schedule" in it && it.schedule) return String(it.schedule);
           if ("start" in it && it.start) return String(it.start);
+          if ("day" in it && it.day) return String(it.day);
           // cualquier otro objeto lo convertimos a JSON minimal (fallback)
           try {
             return String(JSON.stringify(it));
@@ -80,6 +85,8 @@ function mapServerService(s: ServerService): Service {
     rate: s.rate ?? null,
     monthlyBudget: s.monthly_budget ?? null,
     contractStartDate: s.contract_start_date ?? null,
+    startTime: s.start_time ?? null,
+    endTime: s.end_time ?? null,
     schedule,
     recurrent: typeof s.recurrent === "boolean" ? s.recurrent : null,
     totalHours: s.total_hours ?? null,
@@ -152,8 +159,16 @@ export async function createService(payload: CreateServicePayload): Promise<Serv
     body.contract_start_date = payload.contract_start_date;
   }
 
+  if (payload.start_time !== undefined && payload.start_time !== null && payload.start_time !== "") {
+    body.start_time = payload.start_time;
+  }
+
+  if (payload.end_time !== undefined && payload.end_time !== null && payload.end_time !== "") {
+    body.end_time = payload.end_time;
+  }
+
   if (payload.schedule !== undefined && payload.schedule !== null) {
-    // enviamos array de strings tal cual (ajusta si el backend necesita objetos)
+    // enviamos array tal cual (strings u objetos) — ajusta si el backend exige objetos concretos
     body.schedule = payload.schedule;
   }
 
@@ -221,6 +236,22 @@ export async function updateService(id: number, payload: UpdateServicePayload): 
       // omitimos
     } else {
       body.contract_start_date = payload.contract_start_date;
+    }
+  }
+
+  if (payload.start_time !== undefined) {
+    if (payload.start_time === "") {
+      // omitimos
+    } else {
+      body.start_time = payload.start_time;
+    }
+  }
+
+  if (payload.end_time !== undefined) {
+    if (payload.end_time === "") {
+      // omitimos
+    } else {
+      body.end_time = payload.end_time;
     }
   }
 

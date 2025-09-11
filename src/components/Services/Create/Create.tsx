@@ -1,4 +1,3 @@
-// src/components/Services/Create/Create.tsx
 "use client";
 
 import * as React from "react";
@@ -14,7 +13,7 @@ import type { CreateServicePayload } from "@/lib/services/services";
 import { useI18n } from "@/i18n";
 
 // types + services
-import type { Guard } from "@/components/Guards/types"; // <-- tipo Guard
+import type { Guard } from "@/components/Guards/types";
 import { listGuards } from "@/lib/services/guard";
 import type { AppProperty } from "@/lib/services/properties";
 import { listProperties } from "@/lib/services/properties";
@@ -47,11 +46,17 @@ export default function CreateServiceDialog({ open, onClose, onCreated }: Create
 
   const [rate, setRate] = React.useState<string>("");
   const [monthlyBudget, setMonthlyBudget] = React.useState<string>("");
-  const [contractStartDate, setContractStartDate] = React.useState<string>(""); // <-- nuevo
+  const [contractStartDate, setContractStartDate] = React.useState<string>(""); // date
+  const [startTime, setStartTime] = React.useState<string>(""); // time "HH:MM"
+  const [endTime, setEndTime] = React.useState<string>(""); // time "HH:MM"
   const [isActive, setIsActive] = React.useState<boolean>(true);
-  const [recurrent, setRecurrent] = React.useState<boolean>(false); // <-- nuevo
+  const [recurrent, setRecurrent] = React.useState<boolean>(false);
 
-  // debounce guard input -> guardSearchTerm
+  // schedule state: array of ISO date strings (YYYY-MM-DD)
+  const [schedule, setSchedule] = React.useState<string[]>([]);
+  const [scheduleInput, setScheduleInput] = React.useState<string>(""); // single date input
+
+  // debounce guard/property inputs
   React.useEffect(() => {
     const t = setTimeout(() => setGuardSearchTerm(guardInput.trim()), 300);
     return () => clearTimeout(t);
@@ -100,6 +105,10 @@ export default function CreateServiceDialog({ open, onClose, onCreated }: Create
     setRate("");
     setMonthlyBudget("");
     setContractStartDate("");
+    setStartTime("");
+    setEndTime("");
+    setSchedule([]);
+    setScheduleInput("");
     setIsActive(true);
     setRecurrent(false);
   };
@@ -117,9 +126,12 @@ export default function CreateServiceDialog({ open, onClose, onCreated }: Create
       assigned_property: propertyId ?? undefined,
       rate: rate === "" ? undefined : rate,
       monthly_budget: monthlyBudget === "" ? undefined : monthlyBudget,
-      contract_start_date: contractStartDate === "" ? undefined : contractStartDate, // <-- añadido
-      is_active: isActive,
+      contract_start_date: contractStartDate === "" ? undefined : contractStartDate,
+      start_time: startTime === "" ? undefined : startTime,
+      end_time: endTime === "" ? undefined : endTime,
+      schedule: schedule.length > 0 ? schedule : undefined,
       recurrent: recurrent,
+      is_active: isActive,
     };
 
     try {
@@ -139,6 +151,22 @@ export default function CreateServiceDialog({ open, onClose, onCreated }: Create
     } finally {
       setLoading(false);
     }
+  };
+
+  // schedule helpers
+  const addScheduleDate = () => {
+    if (!scheduleInput) return;
+    // ensure format YYYY-MM-DD (browser date input gives that)
+    if (!schedule.includes(scheduleInput)) {
+      setSchedule((s) => [...s, scheduleInput]);
+      setScheduleInput("");
+    } else {
+      toast("Date already added");
+    }
+  };
+
+  const removeScheduleDate = (d: string) => {
+    setSchedule((s) => s.filter((x) => x !== d));
   };
 
   // helpers to render labels
@@ -283,6 +311,36 @@ export default function CreateServiceDialog({ open, onClose, onCreated }: Create
               <label className="text-sm">{TEXT?.services?.fields?.contractStartDate ?? "Contract Start Date"}</label>
               <Input type="date" value={contractStartDate} onChange={(e) => setContractStartDate(e.currentTarget.value)} />
             </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-sm">{TEXT?.services?.fields?.startTime ?? "Start time"}</label>
+              <Input type="time" value={startTime} onChange={(e) => setStartTime(e.currentTarget.value)} />
+            </div>
+            <div>
+              <label className="text-sm">{TEXT?.services?.fields?.endTime ?? "End time"}</label>
+              <Input type="time" value={endTime} onChange={(e) => setEndTime(e.currentTarget.value)} />
+            </div>
+          </div>
+
+          {/* schedule manager */}
+          <div>
+            <label className="text-sm">{TEXT?.services?.fields?.schedule ?? "Schedule dates"}</label>
+            <div className="flex gap-2 items-center">
+              <Input type="date" value={scheduleInput} onChange={(e) => setScheduleInput(e.currentTarget.value)} />
+              <Button variant="outline" onClick={addScheduleDate} disabled={!scheduleInput}>{TEXT?.actions?.add ?? "Add"}</Button>
+            </div>
+            {schedule.length > 0 && (
+              <ul className="mt-2 space-y-1 text-sm">
+                {schedule.map((d) => (
+                  <li key={d} className="flex justify-between items-center gap-2">
+                    <span>{d}</span>
+                    <button type="button" className="text-sm opacity-80" onClick={() => removeScheduleDate(d)}>✕</button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
           <div className="flex items-center gap-4">

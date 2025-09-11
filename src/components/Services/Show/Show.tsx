@@ -1,4 +1,3 @@
-// src/components/Services/Show/Show.tsx
 "use client";
 
 import * as React from "react";
@@ -23,7 +22,6 @@ function formatDate(dateStr?: string | null) {
   if (!dateStr) return "-";
   const d = new Date(dateStr);
   if (Number.isNaN(d.getTime())) return dateStr;
-  // fecha corta (sin hora)
   return d.toLocaleDateString();
 }
 
@@ -96,6 +94,22 @@ export default function ShowServiceDialog({ service, open, onClose }: ShowServic
           <div><strong>{TEXT?.services?.fields?.monthlyBudget ?? "Monthly Budget"}:</strong> {service.monthlyBudget ?? "-"}</div>
           <div><strong>{TEXT?.services?.fields?.totalHours ?? "Total Hours"}:</strong> {service.totalHours ?? "-"}</div>
           <div><strong>{TEXT?.services?.fields?.contractStartDate ?? "Contract start date"}:</strong> {formatDate(service.contractStartDate)}</div>
+          <div><strong>{TEXT?.services?.fields?.startTime ?? "Start time"}:</strong> {service.startTime ?? "-"}</div>
+          <div><strong>{TEXT?.services?.fields?.endTime ?? "End time"}:</strong> {service.endTime ?? "-"}</div>
+
+          <div>
+            <strong>{TEXT?.services?.fields?.schedule ?? "Schedule"}:</strong>
+            {Array.isArray(service.schedule) && service.schedule.length > 0 ? (
+              <ul className="mt-1 ml-4 list-disc">
+                {service.schedule.map((d) => (
+                  <li key={d} className="text-sm">{formatDate(d)}</li>
+                ))}
+              </ul>
+            ) : (
+              <span> { "-" }</span>
+            )}
+          </div>
+
           <div><strong>{TEXT?.services?.fields?.recurrent ?? "Recurrent"}:</strong> {recurrentLabel}</div>
           <div><strong>{TEXT?.services?.fields?.isActive ?? "Is active"}:</strong> {isActiveLabel}</div>
           <div><strong>{TEXT?.services?.fields?.createdAt ?? "Created at"}:</strong> {formatDateTime(service.createdAt)}</div>

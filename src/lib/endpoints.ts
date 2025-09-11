@@ -23,6 +23,8 @@ export const endpoints = {
   common: {
     generalSettings: 'api/common/general-settings/',
   },
-};
 
+  // weapons 
+  weapons: 'api/weapons/',
+};
 export type Endpoints = typeof endpoints;
