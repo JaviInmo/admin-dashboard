@@ -73,7 +73,11 @@ export default function ServicesTable({
 }: ServicesTableProps) {
   const { TEXT } = useI18n();
 
-  function getText(path: string, fallback?: string, vars?: Record<string, string>) {
+ /*  function getText(
+    path: string,
+    fallback?: string,
+    vars?: Record<string, string>
+  ) {
     const parts = path.split(".");
     let val: any = TEXT;
     for (const p of parts) {
@@ -87,20 +91,27 @@ export default function ServicesTable({
       }
     }
     return String(str);
-  }
+  } */
 
   const [editService, setEditService] = React.useState<Service | null>(null);
-  const [deleteServiceState, setDeleteServiceState] = React.useState<Service | null>(null);
+  const [deleteServiceState, setDeleteServiceState] =
+    React.useState<Service | null>(null);
   const [showService, setShowService] = React.useState<Service | null>(null);
 
   // Nuevo estado para abrir el modal de creación
   const [createOpen, setCreateOpen] = React.useState(false);
 
   // Estado para prefijar guard cuando abrimos CreateServiceDialog desde un guard
-  const [createInitialGuard, setCreateInitialGuard] = React.useState<{ id?: number | null; label?: string | null } | null>(null);
+  const [createInitialGuard, setCreateInitialGuard] = React.useState<{
+    id?: number | null;
+    label?: string | null;
+  } | null>(null);
 
   // Estado para prefijar property cuando abrimos CreateServiceDialog desde una property
-  const [createInitialProperty, setCreateInitialProperty] = React.useState<{ id?: number | null; label?: string | null } | null>(null);
+  const [createInitialProperty, setCreateInitialProperty] = React.useState<{
+    id?: number | null;
+    label?: string | null;
+  } | null>(null);
 
   const tableText = TEXT?.services?.table ?? {};
 
@@ -121,10 +132,28 @@ export default function ServicesTable({
     ? { width: "160px", minWidth: "140px" }
     : { width: "100px", minWidth: "80px" };
 
-  const iconSizeClass = compact ? "h-3 w-3" : shrinkToFit ? "h-4 w-4" : largeMode ? "h-5 w-5" : "h-4 w-4";
-  const tableClass = compact ? "text-xs" : shrinkToFit ? "text-sm" : largeMode ? "text-base" : "text-sm";
+  const iconSizeClass = compact
+    ? "h-3 w-3"
+    : shrinkToFit
+    ? "h-4 w-4"
+    : largeMode
+    ? "h-5 w-5"
+    : "h-4 w-4";
+  const tableClass = compact
+    ? "text-xs"
+    : shrinkToFit
+    ? "text-sm"
+    : largeMode
+    ? "text-base"
+    : "text-sm";
 
-  const Trunc = ({ children, title }: { children: React.ReactNode; title?: string | null }) => (
+  const Trunc = ({
+    children,
+    title,
+  }: {
+    children: React.ReactNode;
+    title?: string | null;
+  }) => (
     <span className="block truncate max-w-full" title={title ?? undefined}>
       {children}
     </span>
@@ -135,7 +164,11 @@ export default function ServicesTable({
       key: "name",
       label: tableText.headers?.name ?? "Name",
       sortable: true,
-      render: (s) => <Trunc title={s.name}><span className="font-medium">{s.name}</span></Trunc>,
+      render: (s) => (
+        <Trunc title={s.name}>
+          <span className="font-medium">{s.name}</span>
+        </Trunc>
+      ),
       headerClassName: sizeHeaderCell,
       cellClassName: `${sizeHeaderCell} max-w-[220px]`,
       autoSize: true,
@@ -152,7 +185,9 @@ export default function ServicesTable({
       key: "propertyName",
       label: tableText.headers?.property ?? "Property",
       sortable: true,
-      render: (s) => <Trunc title={s.propertyName}>{s.propertyName ?? "-"}</Trunc>,
+      render: (s) => (
+        <Trunc title={s.propertyName}>{s.propertyName ?? "-"}</Trunc>
+      ),
       headerClassName: sizeHeaderCell,
       cellClassName: sizeHeaderCell,
     },
@@ -160,7 +195,9 @@ export default function ServicesTable({
       key: "rate",
       label: tableText.headers?.rate ?? "Rate/hr",
       sortable: false,
-      render: (s) => <Trunc title={String(s.rate ?? null)}>{s.rate ?? "-"}</Trunc>,
+      render: (s) => (
+        <Trunc title={String(s.rate ?? null)}>{s.rate ?? "-"}</Trunc>
+      ),
       headerClassName: sizeHeaderCell,
       cellClassName: sizeHeaderCell,
       headerStyle: headerCellSmallStyle,
@@ -170,7 +207,11 @@ export default function ServicesTable({
       key: "monthlyBudget",
       label: tableText.headers?.monthlyBudget ?? "Monthly",
       sortable: false,
-      render: (s) => <Trunc title={String(s.monthlyBudget ?? null)}>{s.monthlyBudget ?? "-"}</Trunc>,
+      render: (s) => (
+        <Trunc title={String(s.monthlyBudget ?? null)}>
+          {s.monthlyBudget ?? "-"}
+        </Trunc>
+      ),
       headerClassName: sizeHeaderCell,
       cellClassName: sizeHeaderCell,
       headerStyle: headerCellSmallStyle,
@@ -184,12 +225,22 @@ export default function ServicesTable({
         if (s.recurrent === null || s.recurrent === undefined) return "-";
         const yes = tableText.recurrentYes ?? TEXT?.common?.yes ?? "Yes";
         const no = tableText.recurrentNo ?? TEXT?.common?.no ?? "No";
-        return <Trunc title={s.recurrent ? yes : no}>{s.recurrent ? yes : no}</Trunc>;
+        return (
+          <Trunc title={s.recurrent ? yes : no}>{s.recurrent ? yes : no}</Trunc>
+        );
       },
       headerClassName: `${sizeHeaderCell} text-center`,
       cellClassName: `${sizeHeaderCell} text-center`,
-      headerStyle: shrinkToFit ? { width: "100px", minWidth: "80px" } : largeMode ? { width: "140px", minWidth: "120px" } : { width: "100px", minWidth: "80px" },
-      cellStyle: shrinkToFit ? { width: "100px", minWidth: "80px" } : largeMode ? { width: "140px", minWidth: "120px" } : { width: "100px", minWidth: "80px" },
+      headerStyle: shrinkToFit
+        ? { width: "100px", minWidth: "80px" }
+        : largeMode
+        ? { width: "140px", minWidth: "120px" }
+        : { width: "100px", minWidth: "80px" },
+      cellStyle: shrinkToFit
+        ? { width: "100px", minWidth: "80px" }
+        : largeMode
+        ? { width: "140px", minWidth: "120px" }
+        : { width: "100px", minWidth: "80px" },
     },
     {
       key: "isActive",
@@ -199,12 +250,22 @@ export default function ServicesTable({
         if (s.isActive === null || s.isActive === undefined) return "-";
         const yes = tableText.activeLabel ?? TEXT?.common?.yes ?? "Yes";
         const no = tableText.inactiveLabel ?? TEXT?.common?.no ?? "No";
-        return <Trunc title={s.isActive ? yes : no}>{s.isActive ? yes : no}</Trunc>;
+        return (
+          <Trunc title={s.isActive ? yes : no}>{s.isActive ? yes : no}</Trunc>
+        );
       },
       headerClassName: `${sizeHeaderCell} text-center`,
       cellClassName: `${sizeHeaderCell} text-center`,
-      headerStyle: shrinkToFit ? { width: "100px", minWidth: "80px" } : largeMode ? { width: "140px", minWidth: "120px" } : { width: "90px", minWidth: "70px" },
-      cellStyle: shrinkToFit ? { width: "100px", minWidth: "80px" } : largeMode ? { width: "140px", minWidth: "120px" } : { width: "90px", minWidth: "70px" },
+      headerStyle: shrinkToFit
+        ? { width: "100px", minWidth: "80px" }
+        : largeMode
+        ? { width: "140px", minWidth: "120px" }
+        : { width: "90px", minWidth: "70px" },
+      cellStyle: shrinkToFit
+        ? { width: "100px", minWidth: "80px" }
+        : largeMode
+        ? { width: "140px", minWidth: "120px" }
+        : { width: "90px", minWidth: "70px" },
     },
   ];
 
@@ -258,7 +319,9 @@ export default function ServicesTable({
   return (
     <>
       <div className="w-full overflow-auto">
-        <div className={shrinkToFit ? "w-full" : largeMode ? "min-w-[1200px]" : ""}>
+        <div
+          className={shrinkToFit ? "w-full" : largeMode ? "min-w-[1200px]" : ""}
+        >
           <ReusableTable
             className={`${tableClass} ${shrinkToFit ? "table-fixed" : ""}`}
             data={services}
@@ -269,7 +332,11 @@ export default function ServicesTable({
               if (found) setShowService(found);
             }}
             title={tableText.title ?? TEXT?.services?.title ?? "Services"}
-            searchPlaceholder={tableText.searchPlaceholder ?? TEXT?.services?.searchPlaceholder ?? "Search services..."}
+            searchPlaceholder={
+              tableText.searchPlaceholder ??
+              TEXT?.services?.searchPlaceholder ??
+              "Search services..."
+            }
             addButtonText={tableText.add ?? TEXT?.services?.add ?? "Add"}
             onAddClick={() => {
               // Prioritize any explicit createInitialX set in component state
@@ -278,10 +345,16 @@ export default function ServicesTable({
               } else if (createInitialProperty) {
                 setCreateOpen(true);
               } else if (createInitialGuardId != null) {
-                setCreateInitialGuard({ id: createInitialGuardId, label: createInitialGuardLabel ?? undefined });
+                setCreateInitialGuard({
+                  id: createInitialGuardId,
+                  label: createInitialGuardLabel ?? undefined,
+                });
                 setCreateOpen(true);
               } else if (createInitialPropertyId != null) {
-                setCreateInitialProperty({ id: createInitialPropertyId, label: createInitialPropertyLabel ?? undefined });
+                setCreateInitialProperty({
+                  id: createInitialPropertyId,
+                  label: createInitialPropertyLabel ?? undefined,
+                });
                 setCreateOpen(true);
               } else {
                 setCreateOpen(true);
@@ -323,10 +396,20 @@ export default function ServicesTable({
             setCreateInitialGuard(null);
             setCreateInitialProperty(null);
           }}
-          initialGuardId={createInitialGuard?.id ?? createInitialGuardId ?? undefined}
-          initialGuardLabel={createInitialGuard?.label ?? createInitialGuardLabel ?? undefined}
-          initialPropertyId={createInitialProperty?.id ?? createInitialPropertyId ?? undefined}
-          initialPropertyLabel={createInitialProperty?.label ?? createInitialPropertyLabel ?? undefined}
+          initialGuardId={
+            createInitialGuard?.id ?? createInitialGuardId ?? undefined
+          }
+          initialGuardLabel={
+            createInitialGuard?.label ?? createInitialGuardLabel ?? undefined
+          }
+          initialPropertyId={
+            createInitialProperty?.id ?? createInitialPropertyId ?? undefined
+          }
+          initialPropertyLabel={
+            createInitialProperty?.label ??
+            createInitialPropertyLabel ??
+            undefined
+          }
           compact={compact}
         />
       )}

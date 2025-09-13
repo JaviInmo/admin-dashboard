@@ -1,4 +1,3 @@
-// src/components/Services/Create/Create.tsx
 "use client";
 
 import * as React from "react";
@@ -229,7 +228,10 @@ export default function CreateServiceDialog({
     setPropertyInput("");
   };
 
-  const dialogClass = compact ? "max-w-2xl w-full" : "max-w-4xl w-full";
+  // Dialog sizing: compact reduce width and height
+  const dialogClass = compact
+    ? "max-w-2xl w-full max-h-[60vh] overflow-auto"
+    : "max-w-4xl w-full max-h-[80vh] overflow-auto";
   const gap = compact ? "gap-2 py-3" : "gap-3 py-4";
   const titleClass = compact ? "text-base" : "text-lg";
 
@@ -240,7 +242,7 @@ export default function CreateServiceDialog({
           <DialogTitle className={titleClass}>{TEXT?.services?.create?.title ?? "Create Service"}</DialogTitle>
         </DialogHeader>
 
-        <div className={`grid ${gap}`}>
+        <div className={`grid ${gap} px-4`}>
           <label className="text-sm">{TEXT?.services?.fields?.name ?? "Name"}</label>
           <Input value={name} onChange={(e) => setName(e.currentTarget.value)} />
 
@@ -404,7 +406,7 @@ export default function CreateServiceDialog({
         </div>
 
         <DialogFooter>
-          <div className="flex gap-2">
+          <div className="flex gap-2 px-4 py-3">
             <Button variant="ghost" onClick={() => { resetForm(); onClose(); }}>{TEXT?.actions?.cancel ?? "Cancel"}</Button>
             <Button onClick={handleCreate} disabled={loading}>{loading ? TEXT?.actions?.saving ?? "Saving..." : (TEXT?.actions?.create ?? "Create")}</Button>
           </div>
