@@ -14,12 +14,14 @@ import { createShift, listShiftsByGuard } from "@/lib/services/shifts";
 import { listGuards, getGuard } from "@/lib/services/guard";
 import { listProperties } from "@/lib/services/properties";
 import { listServices } from "@/lib/services/services";
+import { listWeaponsByGuard } from "@/lib/services/weapons";
 import type { Shift } from "../types";
 import { useI18n } from "@/i18n";
 import type { Guard } from "@/components/Guards/types";
 import type { AppProperty } from "@/lib/services/properties";
 import type { Service as AppService } from "@/components/Services/types";
-import { cn } from "@/lib/utils";
+import type { Weapon } from "@/components/Weapons/types";
+
 
 type CreateShiftProps = {
   open: boolean;
@@ -99,17 +101,22 @@ export default function CreateShift({
   const [servicesLoading, setServicesLoading] = React.useState(false);
   const [serviceDropdownOpen, setServiceDropdownOpen] = React.useState(false);
 
-  const [start, setStart] = React.useState<string>("");
-  const [end, setEnd] = React.useState<string>("");
+  // PLANNED dates only (create)
+  const [plannedStart, setPlannedStart] = React.useState<string>("");
+  const [plannedEnd, setPlannedEnd] = React.useState<string>("");
+
   const [status, setStatus] = React.useState<Shift["status"]>("scheduled");
   const [loading, setLoading] = React.useState(false);
 
-  // is_armed (opcional)
+  // is_armed (opcional) + weapons
   const [isArmed, setIsArmed] = React.useState<boolean>(false);
-  // weapon details may be readOnly from backend — we allow input to show context but do NOT send it unless the API supports it.
-  const [weaponDetails, setWeaponDetails] = React.useState<string>("");
+  const [weapons, setWeapons] = React.useState<Weapon[]>([]);
+  const [weaponsLoading, setWeaponsLoading] = React.useState(false);
+  const [selectedWeaponId, setSelectedWeaponId] = React.useState<number | null>(null);
+  const [selectedWeaponSerial, setSelectedWeaponSerial] = React.useState<string | null>(null);
+  const [manualSerial, setManualSerial] = React.useState<string>("");
 
-  // overlap detection
+  // overlap detection (based on planned times)
   const [hasOverlap, setHasOverlap] = React.useState<boolean>(false);
   const [overlapMessage, setOverlapMessage] = React.useState<string>("");
 
@@ -133,46 +140,23 @@ export default function CreateShift({
       setServicesLoading(false);
       setServiceDropdownOpen(false);
 
-      setStart("");
-      setEnd("");
+      setPlannedStart("");
+      setPlannedEnd("");
       setStatus("scheduled");
       setIsArmed(false);
-      setWeaponDetails("");
+      setWeapons([]);
+      setSelectedWeaponId(null);
+      setSelectedWeaponSerial(null);
+      setManualSerial("");
 
       setHasOverlap(false);
       setOverlapMessage("");
     }
   }, [open]);
 
+  // initial planned defaults
   React.useEffect(() => {
     if (!open) return;
-    if (!guardId) return;
-
-    if (preloadedGuard && preloadedGuard.id === guardId) {
-      setSelectedGuard(preloadedGuard);
-      setGuardQuery("");
-      return;
-    }
-
-    let mounted = true;
-    (async () => {
-      try {
-        const g = await getGuard(guardId);
-        if (!mounted) return;
-        setSelectedGuard(g);
-        setGuardQuery("");
-      } catch (err) {
-        console.error("prefill guard failed", err);
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, [guardId, open, preloadedGuard]);
-
-  React.useEffect(() => {
-    if (!open) return;
-
     const targetDate = selectedDate || new Date();
 
     const startDate = new Date(targetDate);
@@ -191,8 +175,8 @@ export default function CreateShift({
       return `${YYYY}-${MM}-${DD}T${hh}:${mm}`;
     };
 
-    setStart(toLocalDateTimeInput(startDate));
-    setEnd(toLocalDateTimeInput(endDate));
+    setPlannedStart(toLocalDateTimeInput(startDate));
+    setPlannedEnd(toLocalDateTimeInput(endDate));
   }, [open, selectedDate]);
 
   React.useEffect(() => {
@@ -239,6 +223,60 @@ export default function CreateShift({
       mounted = false;
     };
   }, [propertyId, open, preloadedProperties, preselectedProperty]);
+
+  React.useEffect(() => {
+    if (!open) return;
+    if (!guardId) return;
+
+    if (preloadedGuard && preloadedGuard.id === guardId) {
+      setSelectedGuard(preloadedGuard);
+      setGuardQuery("");
+      return;
+    }
+
+    let mounted = true;
+    (async () => {
+      try {
+        const g = await getGuard(guardId);
+        if (!mounted) return;
+        setSelectedGuard(g);
+        setGuardQuery("");
+      } catch (err) {
+        console.error("prefill guard failed", err);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [guardId, open, preloadedGuard]);
+
+  // when selectedGuard changes -> fetch weapons for that guard
+  React.useEffect(() => {
+    let mounted = true;
+    async function loadWeapons() {
+      setWeapons([]);
+      setSelectedWeaponId(null);
+      setSelectedWeaponSerial(null);
+      setManualSerial("");
+      if (!selectedGuard?.id) return;
+      setWeaponsLoading(true);
+      try {
+        const res = await listWeaponsByGuard(selectedGuard.id, 1, 1000);
+        if (!mounted) return;
+        const items = extractItems<Weapon>(res);
+        setWeapons(items);
+      } catch (err) {
+        console.error("Error fetching weapons for guard:", err);
+        setWeapons([]);
+      } finally {
+        if (mounted) setWeaponsLoading(false);
+      }
+    }
+    loadWeapons();
+    return () => {
+      mounted = false;
+    };
+  }, [selectedGuard]);
 
   // guards search
   React.useEffect(() => {
@@ -386,7 +424,8 @@ export default function CreateShift({
   };
 
   const checkForOverlaps = React.useCallback(async () => {
-    if (!selectedGuard || !start || !end) {
+    // overlap check based on plannedStart/plannedEnd
+    if (!selectedGuard || !plannedStart || !plannedEnd) {
       setHasOverlap(false);
       setOverlapMessage("");
       return;
@@ -397,31 +436,33 @@ export default function CreateShift({
       const shifts = extractItems<Shift>(response);
 
       const overlappingShifts = shifts.filter((shift) => {
-        const shiftStart = (shift as any).startTime;
-        const shiftEnd = (shift as any).endTime;
+        const shiftPlannedStart = (shift as any).plannedStartTime ?? (shift as any).planned_start_time;
+        const shiftPlannedEnd = (shift as any).plannedEndTime ?? (shift as any).planned_end_time;
 
-        if (!shiftStart || !shiftEnd) return false;
+        if (!shiftPlannedStart || !shiftPlannedEnd) return false;
 
-        return checkTimeOverlap(start, end, shiftStart, shiftEnd);
+        return checkTimeOverlap(plannedStart, plannedEnd, shiftPlannedStart, shiftPlannedEnd);
       });
 
       if (overlappingShifts.length > 0) {
         setHasOverlap(true);
         const dates = overlappingShifts
           .map((shift) => {
-            const shiftStart = (shift as any).startTime;
-            return new Date(shiftStart).toLocaleString();
+            const s = (shift as any).plannedStartTime ?? (shift as any).planned_start_time;
+            return new Date(s).toLocaleString();
           })
           .join(", ");
-        setOverlapMessage(`Solapamiento detectado con turnos existentes en: ${dates}`);
+        setOverlapMessage(`Solapamiento detectado con turnos planeados en: ${dates}`);
       } else {
         setHasOverlap(false);
         setOverlapMessage("");
       }
     } catch (error) {
       console.error("Error verificando solapamientos:", error);
+      setHasOverlap(false);
+      setOverlapMessage("");
     }
-  }, [selectedGuard, start, end]);
+  }, [selectedGuard, plannedStart, plannedEnd]);
 
   React.useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -430,22 +471,25 @@ export default function CreateShift({
     return () => clearTimeout(timeoutId);
   }, [checkForOverlaps]);
 
+  // weaponDetails (informativo local)
+  const [weaponDetails, setWeaponDetails] = React.useState<string>("");
+
   async function onSubmit(e?: React.FormEvent) {
     e?.preventDefault?.();
-    if (!start || !end) {
-      toast.error((TEXT as any)?.shifts?.errors?.missingDates ?? "Start and end are required");
+    if (!plannedStart || !plannedEnd) {
+      toast.error((TEXT as any)?.shifts?.errors?.missingDates ?? "Planned start and end are required");
       return;
     }
 
     if (hasOverlap) {
-      toast.error("No se puede crear el turno debido a solapamientos detectados");
+      toast.error("No se puede crear el turno debido a solapamientos detectados (planned times)");
       return;
     }
 
-    const startIso = toIsoFromDatetimeLocal(start);
-    const endIso = toIsoFromDatetimeLocal(end);
+    const plannedStartIso = toIsoFromDatetimeLocal(plannedStart);
+    const plannedEndIso = toIsoFromDatetimeLocal(plannedEnd);
 
-    if (new Date(endIso) <= new Date(startIso)) {
+    if (new Date(plannedEndIso) <= new Date(plannedStartIso)) {
       toast.error((TEXT as any)?.shifts?.errors?.endBeforeStart ?? "End must be after start");
       return;
     }
@@ -465,16 +509,20 @@ export default function CreateShift({
       const payload: any = {
         guard: selectedGuard.id,
         property: Number(selectedProperty.id),
-        start_time: startIso,
-        end_time: endIso,
+        planned_start_time: plannedStartIso,
+        planned_end_time: plannedEndIso,
         status,
       };
 
       if (selectedService) payload.service = Number(selectedService.id);
       if (typeof isArmed === "boolean") payload.is_armed = isArmed;
-      // NOT sending weaponDetails by default because swagger doesn't list it as accepted on create.
-      // If your backend supports it, uncomment:
-      // if (weaponDetails) payload.weapon_details = weaponDetails;
+
+      // weapon handling: send weapon id (if selected) and/or serial if available
+      if (isArmed) {
+        if (selectedWeaponId) payload.weapon = selectedWeaponId;
+        const serialToSend = selectedWeaponSerial ?? (manualSerial.trim() !== "" ? manualSerial.trim() : null);
+        if (serialToSend) payload.weapon_serial_number = serialToSend;
+      }
 
       const created = await createShift(payload);
       toast.success((TEXT as any)?.shifts?.messages?.created ?? "Shift created");
@@ -493,7 +541,7 @@ export default function CreateShift({
           serverMessage.toLowerCase().includes("conflicto") ||
           serverMessage.toLowerCase().includes("conflict")
         ) {
-          errorMessage = "Este turno se solapa con otro turno existente. Por favor, verifica las fechas y horarios.";
+          errorMessage = "Este turno planeado se solapa con otro turno existente. Por favor, verifica las fechas y horarios.";
         } else if (
           serverMessage.toLowerCase().includes("disponib") ||
           serverMessage.toLowerCase().includes("available") ||
@@ -517,6 +565,9 @@ export default function CreateShift({
     }
   }
 
+  // compact input class
+  const inputClass = "w-full rounded border px-3 py-1.5 text-sm";
+
   return (
     <Dialog
       open={open}
@@ -524,20 +575,20 @@ export default function CreateShift({
         if (!v) onClose();
       }}
     >
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[80vh] sm:max-h-[70vh] overflow-auto">
         <DialogHeader>
           <div className="flex items-center justify-between w-full">
-            <DialogTitle>{(TEXT as any)?.shifts?.create?.title ?? "Crear Turno"}</DialogTitle>
+            <DialogTitle className="text-base">{(TEXT as any)?.shifts?.create?.title ?? "Crear Turno"}</DialogTitle>
           </div>
         </DialogHeader>
 
-        <form onSubmit={onSubmit} className="space-y-4 mt-4">
+        <form onSubmit={onSubmit} className="space-y-3 mt-2 p-2">
           {/* Guard select-search */}
           <div className="relative">
             <label className="text-sm text-muted-foreground block mb-1">Guard</label>
             <input
               type="text"
-              className="w-full rounded border px-3 py-2"
+              className={inputClass}
               value={selectedGuard ? guardLabel(selectedGuard) : guardQuery}
               onChange={(e) => {
                 if (selectedGuard) setSelectedGuard(null);
@@ -563,7 +614,7 @@ export default function CreateShift({
             )}
 
             {guardDropdownOpen && (guardResults.length > 0 || guardsLoading) && (
-              <div className="absolute z-50 left-0 right-0 mt-1 bg-white border rounded shadow max-h-56 overflow-auto">
+              <div className="absolute z-50 left-0 right-0 mt-1 bg-white border rounded shadow max-h-40 overflow-auto">
                 {guardsLoading && <div className="p-2 text-xs text-muted-foreground">Buscando...</div>}
                 {!guardsLoading && guardResults.length === 0 && <div className="p-2 text-xs text-muted-foreground">No matches.</div>}
                 {!guardsLoading &&
@@ -593,7 +644,7 @@ export default function CreateShift({
             <label className="text-sm text-muted-foreground block mb-1">Property</label>
             <input
               type="text"
-              className="w-full rounded border px-3 py-2"
+              className={inputClass}
               value={selectedProperty ? propertyLabel(selectedProperty) : propertyQuery}
               onChange={(e) => {
                 if (selectedProperty) setSelectedProperty(null);
@@ -619,7 +670,7 @@ export default function CreateShift({
             )}
 
             {propertyDropdownOpen && (propertyResults.length > 0 || propertiesLoading) && (
-              <div className="absolute z-50 left-0 right-0 mt-1 bg-white border rounded shadow max-h-56 overflow-auto">
+              <div className="absolute z-50 left-0 right-0 mt-1 bg-white border rounded shadow max-h-40 overflow-auto">
                 {propertiesLoading && <div className="p-2 text-xs text-muted-foreground">Buscando...</div>}
                 {!propertiesLoading && propertyResults.length === 0 && <div className="p-2 text-xs text-muted-foreground">No matches.</div>}
                 {!propertiesLoading &&
@@ -650,7 +701,7 @@ export default function CreateShift({
             <label className="text-sm text-muted-foreground block mb-1">Service (opcional)</label>
             <input
               type="text"
-              className="w-full rounded border px-3 py-2"
+              className={inputClass}
               value={selectedService ? serviceLabel(selectedService) : serviceQuery}
               onChange={(e) => {
                 if (selectedService) setSelectedService(null);
@@ -676,7 +727,7 @@ export default function CreateShift({
             )}
 
             {serviceDropdownOpen && (serviceResults.length > 0 || servicesLoading) && (
-              <div className="absolute z-50 left-0 right-0 mt-1 bg-white border rounded shadow max-h-56 overflow-auto">
+              <div className="absolute z-50 left-0 right-0 mt-1 bg-white border rounded shadow max-h-40 overflow-auto">
                 {servicesLoading && <div className="p-2 text-xs text-muted-foreground">Buscando...</div>}
                 {!servicesLoading && serviceResults.length === 0 && <div className="p-2 text-xs text-muted-foreground">No matches.</div>}
                 {!servicesLoading &&
@@ -702,35 +753,30 @@ export default function CreateShift({
             )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* Planned start/end only */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div>
-              <label className="text-sm text-muted-foreground block mb-1">Start</label>
+              <label className="text-sm text-muted-foreground block mb-1">Planned Start</label>
               <input
                 type="datetime-local"
-                className={cn(
-                  "w-full rounded border px-3 py-2",
-                  hasOverlap && "border-red-500 bg-red-50 focus:border-red-500 focus:ring-red-500"
-                )}
-                value={start}
-                onChange={(e) => setStart(e.target.value)}
+                className={inputClass}
+                value={plannedStart}
+                onChange={(e) => setPlannedStart(e.target.value)}
               />
             </div>
             <div>
-              <label className="text-sm text-muted-foreground block mb-1">End</label>
+              <label className="text-sm text-muted-foreground block mb-1">Planned End</label>
               <input
                 type="datetime-local"
-                className={cn(
-                  "w-full rounded border px-3 py-2",
-                  hasOverlap && "border-red-500 bg-red-50 focus:border-red-500 focus:ring-red-500"
-                )}
-                value={end}
-                onChange={(e) => setEnd(e.target.value)}
+                className={inputClass}
+                value={plannedEnd}
+                onChange={(e) => setPlannedEnd(e.target.value)}
               />
             </div>
           </div>
 
           {hasOverlap && overlapMessage && (
-            <div className="bg-red-50 border border-red-200 rounded-md p-3">
+            <div className="bg-red-50 border border-red-200 rounded-md p-2">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
                   <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
@@ -750,7 +796,7 @@ export default function CreateShift({
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value as Shift["status"])}
-              className="w-full rounded border px-3 py-2"
+              className={inputClass}
             >
               <option value="scheduled">scheduled</option>
               <option value="completed">completed</option>
@@ -758,28 +804,90 @@ export default function CreateShift({
             </select>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col gap-2">
             <label className="flex items-center gap-2">
               <input type="checkbox" checked={isArmed} onChange={(e) => setIsArmed(Boolean(e.target.checked))} />
               <span className="text-sm">Is armed</span>
             </label>
+
             {isArmed && (
-              <input
-                type="text"
-                placeholder="Weapon details (informative)"
-                value={weaponDetails}
-                onChange={(e) => setWeaponDetails(e.target.value)}
-                className="flex-1 rounded border px-3 py-2"
-              />
+              <div className="space-y-2">
+                <div>
+                  <label className="text-sm block mb-1">Select weapon (del guard) — opcional</label>
+                  <div>
+                    <select
+                      value={selectedWeaponId ?? ""}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === "__manual") {
+                          setSelectedWeaponId(null);
+                          setSelectedWeaponSerial(null);
+                          return;
+                        }
+                        if (!val) {
+                          setSelectedWeaponId(null);
+                          setSelectedWeaponSerial(null);
+                          return;
+                        }
+                        const id = Number(val);
+                        setSelectedWeaponId(id);
+                        const w = weapons.find((x) => Number(x.id) === id);
+                        setSelectedWeaponSerial(w?.serialNumber ?? null);
+                        setManualSerial("");
+                      }}
+                      className={inputClass}
+                    >
+                      <option value="">-- Select weapon --</option>
+                      {!weaponsLoading && weapons.length === 0 && <option value="">(no weapons)</option>}
+                      {weaponsLoading && <option value="">Cargando armas...</option>}
+                      {weapons.map((w) => (
+                        <option key={w.id} value={w.id}>
+                          {w.model ?? "model"} — {w.serialNumber ?? "no-serial"} (#{w.id})
+                        </option>
+                      ))}
+                      <option value="__manual">Other / Manual serial</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-sm block mb-1">Weapon serial (manual / preview)</label>
+                  <input
+                    type="text"
+                    placeholder="Serial number (manual or selected)"
+                    className={inputClass}
+                    value={selectedWeaponSerial ?? manualSerial}
+                    onChange={(e) => {
+                      setManualSerial(e.target.value);
+                      setSelectedWeaponSerial(null);
+                      setSelectedWeaponId(null);
+                    }}
+                  />
+                  <div className="text-[11px] text-muted-foreground mt-1">
+                    {selectedWeaponId ? `Serial seleccionado: ${selectedWeaponSerial ?? ""}` : "Puedes escribir un serial manual si el arma no está en la lista."}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-sm block mb-1">Weapon details (informativo)</label>
+                  <input
+                    type="text"
+                    placeholder="Weapon details (informative)"
+                    value={weaponDetails}
+                    onChange={(e) => setWeaponDetails(e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+              </div>
             )}
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="pt-2">
             <div className="flex justify-end gap-2 w-full">
-              <Button variant="ghost" onClick={onClose} type="button">
+              <Button variant="ghost" onClick={onClose} type="button" size="sm">
                 {(TEXT as any)?.actions?.close ?? "Close"}
               </Button>
-              <Button type="submit" disabled={loading || hasOverlap}>
+              <Button type="submit" disabled={loading || hasOverlap} size="sm">
                 {loading ? (TEXT as any)?.actions?.saving ?? "Saving..." : (TEXT as any)?.actions?.create ?? "Create"}
               </Button>
             </div>
