@@ -14,7 +14,8 @@ interface DeleteServiceDialogProps {
   onClose: () => void;
   onDeleted?: () => Promise<void> | void;
   open?: boolean;
-  soft?: boolean; // si true, usa soft delete
+  soft?: boolean;
+  compact?: boolean;
 }
 
 export default function DeleteServiceDialog({
@@ -23,6 +24,7 @@ export default function DeleteServiceDialog({
   onDeleted,
   open = true,
   soft = false,
+  compact = false,
 }: DeleteServiceDialogProps) {
   const { TEXT } = useI18n();
   const qc = useQueryClient();
@@ -50,14 +52,10 @@ export default function DeleteServiceDialog({
     }
   };
 
-  // formatea la plantilla de confirmación sustituyendo placeholders comunes por el nombre real
   const formattedConfirm = React.useMemo(() => {
     const nameSafe = service?.name ?? "";
     const defaultConfirm = `¿Seguro que querés eliminar el servicio "${nameSafe}"?`;
-
     const tpl = TEXT?.services?.delete?.confirm ?? defaultConfirm;
-
-    // si la plantilla contiene placeholders explícitos, los sustituimos
     if (/\{\{\s*name\s*\}\}|\{\s*name\s*\}|\%name\%|:name/.test(tpl)) {
       return tpl
         .replace(/\{\{\s*name\s*\}\}/g, nameSafe)
@@ -65,24 +63,22 @@ export default function DeleteServiceDialog({
         .replace(/\%name\%/g, nameSafe)
         .replace(/:name/g, nameSafe);
     }
-
-    // si la plantilla contiene la palabra literal 'name' (ej: 'servicio name'), la sustituimos con cuidado
     if (/\bname\b/.test(tpl)) {
       return tpl.replace(/\bname\b/g, nameSafe);
     }
-
-    // si no hay placeholder ni la palabra 'name', devolvemos la plantilla tal cual
     return tpl;
   }, [TEXT, service]);
 
+  const dialogClass = compact ? "max-w-2xl w-full" : "max-w-4xl w-full";
+
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <DialogContent>
+      <DialogContent className={dialogClass}>
         <DialogHeader>
-          <DialogTitle>{TEXT?.services?.delete?.title ?? "Delete service"}</DialogTitle>
+          <DialogTitle className={compact ? "text-base" : undefined}>{TEXT?.services?.delete?.title ?? "Delete service"}</DialogTitle>
         </DialogHeader>
 
-        <div className="py-4">
+        <div className="py-3">
           <p className="text-sm">
             {formattedConfirm}
           </p>

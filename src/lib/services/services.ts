@@ -305,8 +305,10 @@ export async function restoreService(id: number): Promise<Service> {
 
 /**
  * listServicesByGuard
+ * Ahora acepta guardId para enviar guard_id en los params.
  */
 export async function listServicesByGuard(
+  guardId: number,
   page?: number,
   search?: string,
   pageSize?: number,
@@ -315,6 +317,7 @@ export async function listServicesByGuard(
   return drfList<ServerService, Service>(
     endpoints.services_by_guard,
     {
+      guard_id: guardId,
       page,
       page_size: pageSize ?? 10,
       search: search && String(search).trim() !== "" ? String(search).trim() : undefined,
@@ -323,11 +326,11 @@ export async function listServicesByGuard(
     mapServerService,
   );
 }
-
 /**
  * listServicesByProperty
  */
 export async function listServicesByProperty(
+  propertyId: number,
   page?: number,
   search?: string,
   pageSize?: number,
@@ -336,6 +339,7 @@ export async function listServicesByProperty(
   return drfList<ServerService, Service>(
     endpoints.services_by_property,
     {
+      property_id: propertyId,
       page,
       page_size: pageSize ?? 10,
       search: search && String(search).trim() !== "" ? String(search).trim() : undefined,

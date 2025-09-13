@@ -1,5 +1,5 @@
 // src/lib/services/weapons.ts
-import type { Weapon, CreateWeaponPayload, UpdateWeaponPayload } from "@/components/Weapons/Types";
+import type { Weapon, CreateWeaponPayload, UpdateWeaponPayload } from "@/components/Weapons/types";
 import { endpoints } from "@/lib/endpoints";
 import { api } from "@/lib/http";
 import { drfList, type PaginatedResult } from "@/lib/pagination";
@@ -146,4 +146,75 @@ export async function bulkDeleteWeapons(ids: number[]): Promise<void> {
 export async function bulkUpdateWeapons(items: Array<Record<string, unknown>>): Promise<Weapon[]> {
   const { data } = await api.post<ServerWeapon[]>(`${endpoints.weapons}bulk_update/`, items);
   return data.map(mapServerWeapon);
+}
+
+/**
+ * listWeaponsByGuard (cliente-filtrado)
+ *
+ * Nota: según tu swagger GET /weapons/ **no** soporta parámetro guard,
+ * por eso aquí traemos páginas del servidor y filtramos por guard en el cliente.
+ * Esto es temporal hasta que el backend implemente filtrado por guard o un endpoint /guards/{id}/weapons/.
+ */
+export async function listWeaponsByGuard(
+  guardId: number,
+  page?: number,
+  pageSize?: number,
+  ordering?: string,
+  search?: string,
+): Promise<PaginatedResult<Weapon>> {
+  // Si guardId no es válido, devolvemos vacío (con next/previous para concordar con PaginatedResult)
+  if (!guardId) {
+    return { count: 0, items: [], next: null, previous: null };
+  }
+
+  // Vamos a paginar en el cliente: primero traemos todas las páginas del backend
+  // (pasando search/ordering al servidor si aplica) y luego filtramos por guard.
+  const fetchPageSize = 100; // ajustar si esperas muchos items; balance entre requests y memoria
+  let currentPage = 1;
+  let allItems: Weapon[] = [];
+  let totalCount = 0;
+
+  while (true) {
+    const res = await drfList<ServerWeapon, Weapon>(
+      endpoints.weapons,
+      {
+        page: currentPage,
+        page_size: fetchPageSize,
+        ordering: ordering ?? undefined,
+        search: search && String(search).trim() !== "" ? String(search).trim() : undefined,
+      },
+      mapServerWeapon,
+    );
+
+    allItems = allItems.concat(res.items);
+    totalCount = res.count ?? totalCount;
+
+    // si obtuvimos menos items que fetchPageSize => última página
+    if ((res.items.length ?? 0) < fetchPageSize) break;
+
+    // protección: si ya obtuvimos todo según count
+    if (allItems.length >= (res.count ?? allItems.length)) break;
+
+    currentPage++;
+  }
+
+  // filtrar por guardId en cliente
+  const filtered = allItems.filter((w) => Number(w.guard) === Number(guardId));
+
+  // paginar la lista filtrada según page/pageSize solicitados
+  const p = Math.max(1, page ?? 1);
+  const ps = Math.max(1, pageSize ?? 10);
+  const start = (p - 1) * ps;
+  const pagedItems = filtered.slice(start, start + ps);
+
+  // construir next/previous sencillos (relativos) para mantener la forma PaginatedResult
+  const next = start + ps < filtered.length ? `?page=${p + 1}&page_size=${ps}` : null;
+  const previous = p > 1 ? `?page=${p - 1}&page_size=${ps}` : null;
+
+  return {
+    count: filtered.length,
+    items: pagedItems,
+    next,
+    previous,
+  };
 }

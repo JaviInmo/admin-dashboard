@@ -1,6 +1,7 @@
+// src/components/Properties/properties-table.tsx
 "use client";
 
-import { Pencil, Trash, User, Calendar } from "lucide-react";
+import { Pencil, Trash, User, Calendar, List } from "lucide-react";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { ReusableTable, type Column } from "@/components/ui/reusable-table";
@@ -24,6 +25,9 @@ import PropertyDetailsModal from "@/components/Properties/PropertyDetailsModal";
 
 // Nuevo: modal de turnos para propiedades - versión corregida
 import PropertyShiftsModalImproved from "@/components/Properties/PropertyShiftsModalImproved";
+
+// Nuevo: modal de servicios por propiedad
+import PropertiesServicesModal from "@/components/Properties/PropertiesServicesModal";
 
 // Componente helper para texto truncado con tooltip
 function TruncatedText({
@@ -103,6 +107,9 @@ export default function PropertiesTable({
 
   // Nuevo estado: property para abrir modal de Shifts
   const [shiftProperty, setShiftProperty] = React.useState<AppProperty | null>(null);
+
+  // Nuevo estado: property para abrir modal de Services
+  const [servicesProperty, setServicesProperty] = React.useState<AppProperty | null>(null);
 
   // Safe text getter to avoid TS errors when some keys are missing
   function getText(path: string, fallback?: string) {
@@ -231,6 +238,20 @@ export default function PropertiesTable({
   // Acciones de fila
   const renderActions = (property: AppProperty) => (
     <div className="flex items-center gap-1"> {/* gap reducido como en guardias */}
+      {/* Servicios (nuevo botón) */}
+      <Button
+        size="icon"
+        variant="ghost"
+        onClick={(e) => {
+          e.stopPropagation();
+          setServicesProperty(property);
+        }}
+        title={getText("properties.table.servicesButton", "Services")}
+        aria-label={getText("properties.table.servicesAria", "Ver servicios de la propiedad")}
+      >
+        <List className="h-4 w-4" />
+      </Button>
+
       {/* Turnos */}
       <Button
         size="icon"
@@ -287,9 +308,8 @@ export default function PropertiesTable({
 
   return (
     <>
-      {/* Usar siempre ReusableTable con loading integrado */}
       <ReusableTable<any>
-        className="text-sm" // más compacto
+        className="text-sm"
         data={normalizedProperties}
         columns={columns}
         getItemId={(p) => p.id}
@@ -373,6 +393,17 @@ export default function PropertiesTable({
           propertyName={shiftProperty.name || shiftProperty.alias || `Propiedad ${shiftProperty.id}`}
           open={!!shiftProperty}
           onClose={() => setShiftProperty(null)}
+        />
+      )}
+
+      {/* Nuevo: modal de Services para la propiedad seleccionada */}
+      {servicesProperty && (
+        <PropertiesServicesModal
+          propertyId={servicesProperty.id}
+          propertyName={servicesProperty.name || servicesProperty.alias || `Propiedad ${servicesProperty.id}`}
+          open={!!servicesProperty}
+          onClose={() => setServicesProperty(null)}
+          onUpdated={onRefresh}
         />
       )}
     </>

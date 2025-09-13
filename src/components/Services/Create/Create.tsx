@@ -1,3 +1,4 @@
+// src/components/Services/Create/Create.tsx
 "use client";
 
 import * as React from "react";
@@ -11,8 +12,6 @@ import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { createService } from "@/lib/services/services";
 import type { CreateServicePayload } from "@/lib/services/services";
 import { useI18n } from "@/i18n";
-
-// types + services
 import type { Guard } from "@/components/Guards/types";
 import { listGuards } from "@/lib/services/guard";
 import type { AppProperty } from "@/lib/services/properties";
@@ -22,9 +21,26 @@ interface CreateServiceDialogProps {
   open: boolean;
   onClose: () => void;
   onCreated?: () => Promise<void> | void;
+  initialGuardId?: number | null;
+  initialGuardLabel?: string | null;
+
+  // NUEVO: initial property prefill
+  initialPropertyId?: number | null;
+  initialPropertyLabel?: string | null;
+
+  compact?: boolean;
 }
 
-export default function CreateServiceDialog({ open, onClose, onCreated }: CreateServiceDialogProps) {
+export default function CreateServiceDialog({
+  open,
+  onClose,
+  onCreated,
+  initialGuardId = null,
+  initialGuardLabel = null,
+  initialPropertyId = null,
+  initialPropertyLabel = null,
+  compact = false,
+}: CreateServiceDialogProps) {
   const { TEXT } = useI18n();
   const qc = useQueryClient();
 
@@ -32,13 +48,11 @@ export default function CreateServiceDialog({ open, onClose, onCreated }: Create
   const [name, setName] = React.useState("");
   const [description, setDescription] = React.useState("");
 
-  // --- Combobox state for guards ---
   const [guardInput, setGuardInput] = React.useState("");
   const [guardId, setGuardId] = React.useState<number | null>(null);
   const [guardSelectedLabel, setGuardSelectedLabel] = React.useState<string>("");
   const [guardSearchTerm, setGuardSearchTerm] = React.useState<string>("");
 
-  // --- Combobox state for properties ---
   const [propertyInput, setPropertyInput] = React.useState("");
   const [propertyId, setPropertyId] = React.useState<number | null>(null);
   const [propertySelectedLabel, setPropertySelectedLabel] = React.useState<string>("");
@@ -52,11 +66,9 @@ export default function CreateServiceDialog({ open, onClose, onCreated }: Create
   const [isActive, setIsActive] = React.useState<boolean>(true);
   const [recurrent, setRecurrent] = React.useState<boolean>(false);
 
-  // schedule state: array of ISO date strings (YYYY-MM-DD)
   const [schedule, setSchedule] = React.useState<string[]>([]);
   const [scheduleInput, setScheduleInput] = React.useState<string>(""); // single date input
 
-  // debounce guard/property inputs
   React.useEffect(() => {
     const t = setTimeout(() => setGuardSearchTerm(guardInput.trim()), 300);
     return () => clearTimeout(t);
@@ -67,7 +79,6 @@ export default function CreateServiceDialog({ open, onClose, onCreated }: Create
     return () => clearTimeout(t);
   }, [propertyInput]);
 
-  // Guard suggestions
   const guardsQuery = useQuery<Guard[], Error>({
     queryKey: ["guards-suggest", guardSearchTerm],
     queryFn: async () => {
@@ -80,7 +91,6 @@ export default function CreateServiceDialog({ open, onClose, onCreated }: Create
     staleTime: 1000 * 60 * 2,
   });
 
-  // Property suggestions
   const propsQuery = useQuery<AppProperty[], Error>({
     queryKey: ["properties-suggest", propertySearchTerm],
     queryFn: async () => {
@@ -92,6 +102,43 @@ export default function CreateServiceDialog({ open, onClose, onCreated }: Create
     enabled: propertySearchTerm.length > 0,
     staleTime: 1000 * 60 * 2,
   });
+
+  // Prefill guard & property when dialog opens (if provided)
+  React.useEffect(() => {
+    if (!open) return;
+    if (initialGuardId != null) {
+      setGuardId(initialGuardId);
+      if (initialGuardLabel && initialGuardLabel.trim() !== "") {
+        setGuardSelectedLabel(initialGuardLabel);
+        setGuardInput(initialGuardLabel);
+      } else {
+        setGuardSelectedLabel("");
+        setGuardInput(String(initialGuardId));
+      }
+    } else {
+      // if not provided, reset guard selection for safety
+      setGuardId(null);
+      setGuardSelectedLabel("");
+      setGuardInput("");
+    }
+
+    if (initialPropertyId != null) {
+      setPropertyId(initialPropertyId);
+      if (initialPropertyLabel && initialPropertyLabel.trim() !== "") {
+        setPropertySelectedLabel(initialPropertyLabel);
+        setPropertyInput(initialPropertyLabel);
+      } else {
+        setPropertySelectedLabel("");
+        setPropertyInput(String(initialPropertyId));
+      }
+    } else {
+      // reset property selection if not provided
+      setPropertyId(null);
+      setPropertySelectedLabel("");
+      setPropertyInput("");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initialGuardId, initialGuardLabel, initialPropertyId, initialPropertyLabel]);
 
   const resetForm = () => {
     setName("");
@@ -153,10 +200,8 @@ export default function CreateServiceDialog({ open, onClose, onCreated }: Create
     }
   };
 
-  // schedule helpers
   const addScheduleDate = () => {
     if (!scheduleInput) return;
-    // ensure format YYYY-MM-DD (browser date input gives that)
     if (!schedule.includes(scheduleInput)) {
       setSchedule((s) => [...s, scheduleInput]);
       setScheduleInput("");
@@ -169,11 +214,9 @@ export default function CreateServiceDialog({ open, onClose, onCreated }: Create
     setSchedule((s) => s.filter((x) => x !== d));
   };
 
-  // helpers to render labels
   const guardLabel = (g: Guard) => `${g.firstName} ${g.lastName}${g.email ? ` — ${g.email}` : ""}`;
   const propertyLabel = (p: AppProperty) => `${p.name ?? p.alias ?? "Property #" + p.id} — ${p.address}`;
 
-  // clear selection helpers
   const clearGuardSelection = () => {
     setGuardId(null);
     setGuardSelectedLabel("");
@@ -186,14 +229,18 @@ export default function CreateServiceDialog({ open, onClose, onCreated }: Create
     setPropertyInput("");
   };
 
+  const dialogClass = compact ? "max-w-2xl w-full" : "max-w-4xl w-full";
+  const gap = compact ? "gap-2 py-3" : "gap-3 py-4";
+  const titleClass = compact ? "text-base" : "text-lg";
+
   return (
     <Dialog open={open} onOpenChange={(val) => { if (!val) onClose(); }}>
-      <DialogContent>
+      <DialogContent className={dialogClass}>
         <DialogHeader>
-          <DialogTitle>{TEXT?.services?.create?.title ?? "Create Service"}</DialogTitle>
+          <DialogTitle className={titleClass}>{TEXT?.services?.create?.title ?? "Create Service"}</DialogTitle>
         </DialogHeader>
 
-        <div className="grid gap-3 py-4">
+        <div className={`grid ${gap}`}>
           <label className="text-sm">{TEXT?.services?.fields?.name ?? "Name"}</label>
           <Input value={name} onChange={(e) => setName(e.currentTarget.value)} />
 
@@ -216,7 +263,7 @@ export default function CreateServiceDialog({ open, onClose, onCreated }: Create
               />
 
               { (Array.isArray(guardsQuery.data) && guardsQuery.data.length > 0 && guardInput.trim().length > 0) && (
-                <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-lg max-h-60 overflow-auto">
+                <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-lg max-h-40 overflow-auto text-sm">
                   {guardsQuery.isFetching && <div className="p-2 text-sm text-muted-foreground">{TEXT?.common?.loading ?? "Loading..."}</div>}
                   {guardsQuery.data.map((g) => (
                     <button
@@ -265,7 +312,7 @@ export default function CreateServiceDialog({ open, onClose, onCreated }: Create
               />
 
               { (Array.isArray(propsQuery.data) && propsQuery.data.length > 0 && propertyInput.trim().length > 0) && (
-                <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-lg max-h-60 overflow-auto">
+                <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-lg max-h-40 overflow-auto text-sm">
                   {propsQuery.isFetching && <div className="p-2 text-sm text-muted-foreground">{TEXT?.common?.loading ?? "Loading..."}</div>}
                   {propsQuery.data.map((p) => (
                     <button
@@ -298,7 +345,7 @@ export default function CreateServiceDialog({ open, onClose, onCreated }: Create
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 gap-2">
             <div>
               <label className="text-sm">{TEXT?.services?.fields?.rate ?? "Rate / hr"}</label>
               <Input value={rate} onChange={(e) => setRate(e.currentTarget.value)} placeholder="0.00" />
@@ -313,7 +360,7 @@ export default function CreateServiceDialog({ open, onClose, onCreated }: Create
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="text-sm">{TEXT?.services?.fields?.startTime ?? "Start time"}</label>
               <Input type="time" value={startTime} onChange={(e) => setStartTime(e.currentTarget.value)} />
@@ -332,7 +379,7 @@ export default function CreateServiceDialog({ open, onClose, onCreated }: Create
               <Button variant="outline" onClick={addScheduleDate} disabled={!scheduleInput}>{TEXT?.actions?.add ?? "Add"}</Button>
             </div>
             {schedule.length > 0 && (
-              <ul className="mt-2 space-y-1 text-sm">
+              <ul className="mt-2 space-y-1 text-xs">
                 {schedule.map((d) => (
                   <li key={d} className="flex justify-between items-center gap-2">
                     <span>{d}</span>
@@ -343,15 +390,15 @@ export default function CreateServiceDialog({ open, onClose, onCreated }: Create
             )}
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
               <Checkbox checked={isActive} onCheckedChange={(v) => setIsActive(Boolean(v))} />
-              <span>{TEXT?.services?.fields?.isActive ?? "Is active"}</span>
+              <span className="text-sm">{TEXT?.services?.fields?.isActive ?? "Is active"}</span>
             </div>
 
             <div className="flex items-center gap-2">
               <Checkbox checked={recurrent} onCheckedChange={(v) => setRecurrent(Boolean(v))} />
-              <span>{TEXT?.services?.fields?.recurrent ?? "Recurrent"}</span>
+              <span className="text-sm">{TEXT?.services?.fields?.recurrent ?? "Recurrent"}</span>
             </div>
           </div>
         </div>

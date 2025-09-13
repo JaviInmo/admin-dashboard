@@ -48,7 +48,7 @@ export default function DeleteShift({ open, onClose, shiftId, onDeleted }: Delet
       .then((s) => setShift(s as Shift))
       .catch((err) => {
         console.error(err);
-        toast.error(TEXT.shifts.errors.fetchFailed ?? "Could not load shift");
+        toast.error((TEXT as any)?.shifts?.errors?.fetchFailed ?? "Could not load shift");
         onClose();
       })
       .finally(() => setLoadingShift(false));
@@ -97,16 +97,16 @@ export default function DeleteShift({ open, onClose, shiftId, onDeleted }: Delet
     try {
       if (hardDelete) {
         await deleteShift(shiftId);
-        toast.success(TEXT.shifts.messages.deleted ?? "Shift deleted");
+        toast.success((TEXT as any)?.shifts?.messages?.deleted ?? "Shift deleted");
       } else {
         await softDeleteShift(shiftId);
-        toast.success(TEXT.shifts.messages.softDeleted ?? "Shift soft-deleted");
+        toast.success((TEXT as any)?.shifts?.messages?.softDeleted ?? "Shift soft-deleted");
       }
       onDeleted?.(shiftId);
       onClose();
     } catch (err) {
       console.error(err);
-      toast.error(TEXT.shifts.errors.deleteFailed ?? "Could not delete shift");
+      toast.error((TEXT as any)?.shifts?.errors?.deleteFailed ?? "Could not delete shift");
     } finally {
       setLoading(false);
     }
@@ -135,16 +135,16 @@ export default function DeleteShift({ open, onClose, shiftId, onDeleted }: Delet
     >
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>{TEXT.shifts.delete.title ?? "Eliminar Turno"}</DialogTitle>
+          <DialogTitle>{(TEXT as any)?.shifts?.delete?.title ?? "Eliminar Turno"}</DialogTitle>
         </DialogHeader>
 
         <div className="mt-4">
           {loadingShift ? (
-            <div>{TEXT.common.loading ?? "Loading..."}</div>
+            <div>{(TEXT as any)?.common?.loading ?? "Loading..."}</div>
           ) : (
             <>
               <div className="text-sm text-muted-foreground mb-3">
-                {TEXT.shifts.delete.confirm ?? "Are you sure you want to delete this shift?"}
+                {(TEXT as any)?.shifts?.delete?.confirm ?? "Are you sure you want to delete this shift?"}
               </div>
 
               {shift ? (
@@ -159,10 +159,10 @@ export default function DeleteShift({ open, onClose, shiftId, onDeleted }: Delet
                     <strong>Property:</strong> {renderPropertyLabel()}
                   </div>
                   <div>
-                    <strong>Start:</strong> {new Date(shift.startTime).toLocaleString()}
+                    <strong>Start:</strong> {shift.startTime ? new Date(shift.startTime).toLocaleString() : "-"}
                   </div>
                   <div>
-                    <strong>End:</strong> {new Date(shift.endTime).toLocaleString()}
+                    <strong>End:</strong> {shift.endTime ? new Date(shift.endTime).toLocaleString() : "-"}
                   </div>
                 </div>
               ) : null}
@@ -175,7 +175,7 @@ export default function DeleteShift({ open, onClose, shiftId, onDeleted }: Delet
                   className="h-4 w-4"
                 />
                 <span className="text-sm">
-                  {TEXT.shifts.delete.hardDeleteLabel ?? "Hard delete (permanently remove)"}
+                  {(TEXT as any)?.shifts?.delete?.hardDeleteLabel ?? "Hard delete (permanently remove)"}
                 </span>
               </label>
             </>
@@ -185,10 +185,10 @@ export default function DeleteShift({ open, onClose, shiftId, onDeleted }: Delet
         <DialogFooter>
           <div className="flex justify-end gap-2 w-full mt-2">
             <Button variant="ghost" onClick={onClose} disabled={loading}>
-              {TEXT.actions.cancel ?? "Cancel"}
+              {(TEXT as any)?.actions?.cancel ?? "Cancel"}
             </Button>
             <Button variant="destructive" onClick={confirmDelete} disabled={loading || loadingShift}>
-              {loading ? TEXT.actions.deleting ?? "Deleting..." : TEXT.actions.delete ?? "Delete"}
+              {loading ? (TEXT as any)?.actions?.deleting ?? "Deleting..." : (TEXT as any)?.actions?.delete ?? "Delete"}
             </Button>
           </div>
         </DialogFooter>

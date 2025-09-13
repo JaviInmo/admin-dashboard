@@ -63,6 +63,50 @@ export const EN_TEXT = {
     show: "Show",
   },
 
+ weapons: {
+    panel: {
+      title: "Assigned Weapons",
+      add: "Add Weapon",
+    },
+    create: {
+      title: "Create Weapon",
+    },
+    delete: {
+      title: "Delete Weapon",
+      confirm: "Are you sure you want to delete {name}?",
+    },
+    form: {
+      fields: {
+        serialNumber: "Serial Number",
+        model: "Model",
+      },
+      buttons: {
+        create: "Create",
+        saving: "Creating...",
+        delete: "Delete",
+        deleting: "Deleting...",
+        apply: "Apply",
+        applying: "Applying...",
+      },
+    },
+    errors: {
+      missingGuard: "Select a guard",
+      missingSerial: "Serial required",
+      missingModel: "Model required",
+      createFail: "Error creating weapon",
+      deleteFail: "Error deleting weapon",
+    }, 
+    messages: {
+      created: "Weapon created",
+      updated: "Weapon updated",
+      deleted: "Weapon deleted",
+    },
+    table: {
+      actionDeleteConfirm: "Delete weapon {name}?",
+      actionDelete: "Delete weapon {name}",
+    },
+  },
+
   clients: {
     title: "Clients Management",
     table: {

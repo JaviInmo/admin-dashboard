@@ -12,8 +12,6 @@ import { updateService } from "@/lib/services/services";
 import type { UpdateServicePayload } from "@/lib/services/services";
 import type { Service } from "../types";
 import { useI18n } from "@/i18n";
-
-// guards / properties services + types
 import type { Guard } from "@/components/Guards/types";
 import { getGuard, listGuards } from "@/lib/services/guard";
 import type { AppProperty } from "@/lib/services/properties";
@@ -24,16 +22,16 @@ interface EditServiceDialogProps {
   open: boolean;
   onClose: () => void;
   onUpdated?: () => Promise<void> | void;
+  compact?: boolean;
 }
 
-export default function EditServiceDialog({ service, open, onClose, onUpdated }: EditServiceDialogProps) {
+export default function EditServiceDialog({ service, open, onClose, onUpdated, compact = false }: EditServiceDialogProps) {
   const { TEXT } = useI18n();
   const qc = useQueryClient();
 
   const [loading, setLoading] = React.useState(false);
   const [name, setName] = React.useState(service.name ?? "");
   const [description, setDescription] = React.useState(service.description ?? "");
-  // guard/property selection as ids
   const [guardId, setGuardId] = React.useState<number | null>(service.guard ?? null);
   const [guardInput, setGuardInput] = React.useState<string>("");
   const [guardSelectedLabel, setGuardSelectedLabel] = React.useState<string>("");
@@ -49,17 +47,14 @@ export default function EditServiceDialog({ service, open, onClose, onUpdated }:
   const [monthlyBudget, setMonthlyBudget] = React.useState<string>(service.monthlyBudget ?? "");
   const [isActive, setIsActive] = React.useState<boolean>(service.isActive ?? true);
 
-  // contract start date + times + recurrent
   const [contractStartDate, setContractStartDate] = React.useState<string>(service.contractStartDate ?? "");
   const [startTime, setStartTime] = React.useState<string>(service.startTime ?? "");
   const [endTime, setEndTime] = React.useState<string>(service.endTime ?? "");
   const [recurrent, setRecurrent] = React.useState<boolean>(service.recurrent ?? false);
 
-  // schedule editing
   const [schedule, setSchedule] = React.useState<string[]>(Array.isArray(service.schedule) ? service.schedule : []);
   const [scheduleInput, setScheduleInput] = React.useState<string>("");
 
-  // sync when service changes
   React.useEffect(() => {
     setName(service.name ?? "");
     setDescription(service.description ?? "");
@@ -80,7 +75,6 @@ export default function EditServiceDialog({ service, open, onClose, onUpdated }:
     setScheduleInput("");
   }, [service]);
 
-  // fetch label for existing guardId (if no label provided)
   const guardDetailQuery = useQuery<Guard, Error>({
     queryKey: ["guard-detail", guardId],
     queryFn: async () => {
@@ -99,7 +93,6 @@ export default function EditServiceDialog({ service, open, onClose, onUpdated }:
     }
   }, [guardDetailQuery.data]);
 
-  // fetch label for existing propertyId
   const propDetailQuery = useQuery<AppProperty, Error>({
     queryKey: ["property-detail", propertyId],
     queryFn: async () => {
@@ -118,7 +111,6 @@ export default function EditServiceDialog({ service, open, onClose, onUpdated }:
     }
   }, [propDetailQuery.data]);
 
-  // debounce inputs -> search term
   React.useEffect(() => {
     const t = setTimeout(() => setGuardSearchTerm(guardInput.trim()), 300);
     return () => clearTimeout(t);
@@ -129,7 +121,6 @@ export default function EditServiceDialog({ service, open, onClose, onUpdated }:
     return () => clearTimeout(t);
   }, [propertyInput]);
 
-  // guard suggestions
   const guardsQuery = useQuery<Guard[], Error>({
     queryKey: ["guards-suggest", guardSearchTerm],
     queryFn: async () => {
@@ -142,7 +133,6 @@ export default function EditServiceDialog({ service, open, onClose, onUpdated }:
     staleTime: 1000 * 60 * 2,
   });
 
-  // property suggestions
   const propsQuery = useQuery<AppProperty[], Error>({
     queryKey: ["properties-suggest", propertySearchTerm],
     queryFn: async () => {
@@ -225,7 +215,6 @@ export default function EditServiceDialog({ service, open, onClose, onUpdated }:
     }
   };
 
-  // schedule helpers
   const addScheduleDate = () => {
     if (!scheduleInput) return;
     if (!schedule.includes(scheduleInput)) {
@@ -240,25 +229,28 @@ export default function EditServiceDialog({ service, open, onClose, onUpdated }:
     setSchedule((s) => s.filter((x) => x !== d));
   };
 
-  // label render helpers
   const guardLabel = (g: Guard) => `${g.firstName} ${g.lastName}${g.email ? ` — ${g.email}` : ""}`;
   const propertyLabel = (p: AppProperty) => `${p.name ?? p.alias ?? "Property #" + p.id} — ${p.address}`;
 
+  const dialogClass = compact ? "max-w-2xl w-full" : "max-w-4xl w-full";
+  const gap = compact ? "gap-2 py-3" : "gap-3 py-4";
+  const titleClass = compact ? "text-base" : "text-lg";
+
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <DialogContent>
+      <DialogContent className={dialogClass}>
         <DialogHeader>
-          <DialogTitle>{TEXT?.services?.edit?.title ?? "Edit Service"}</DialogTitle>
+          <DialogTitle className={titleClass}>{TEXT?.services?.edit?.title ?? "Edit Service"}</DialogTitle>
         </DialogHeader>
 
-        <div className="grid gap-3 py-4">
+        <div className={`grid ${gap}`}>
           <label className="text-sm">{TEXT?.services?.fields?.name ?? "Name"}</label>
           <Input value={name} onChange={(e) => setName(e.currentTarget.value)} />
 
           <label className="text-sm">{TEXT?.services?.fields?.description ?? "Description"}</label>
           <Textarea value={description ?? ""} onChange={(e) => setDescription(e.currentTarget.value)} />
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2">
             {/* Guard combobox */}
             <div>
               <label className="text-sm">{TEXT?.services?.fields?.guard ?? "Guard"}</label>
@@ -275,7 +267,7 @@ export default function EditServiceDialog({ service, open, onClose, onUpdated }:
                 />
 
                 {(Array.isArray(guardsQuery.data) && guardsQuery.data.length > 0 && guardInput.trim().length > 0) && (
-                  <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-lg max-h-60 overflow-auto">
+                  <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-lg max-h-40 overflow-auto text-sm">
                     {guardsQuery.isFetching && <div className="p-2 text-sm text-muted-foreground">{TEXT?.common?.loading ?? "Loading..."}</div>}
                     {guardsQuery.data.map((g) => (
                       <button
@@ -317,7 +309,7 @@ export default function EditServiceDialog({ service, open, onClose, onUpdated }:
                 />
 
                 {(Array.isArray(propsQuery.data) && propsQuery.data.length > 0 && propertyInput.trim().length > 0) && (
-                  <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-lg max-h-60 overflow-auto">
+                  <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-lg max-h-40 overflow-auto text-sm">
                     {propsQuery.isFetching && <div className="p-2 text-sm text-muted-foreground">{TEXT?.common?.loading ?? "Loading..."}</div>}
                     {propsQuery.data.map((p) => (
                       <button
@@ -344,7 +336,7 @@ export default function EditServiceDialog({ service, open, onClose, onUpdated }:
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="text-sm">{TEXT?.services?.fields?.rate ?? "Rate / hr"}</label>
               <Input value={rate ?? ""} onChange={(e) => setRate(e.currentTarget.value)} />
@@ -355,13 +347,12 @@ export default function EditServiceDialog({ service, open, onClose, onUpdated }:
             </div>
           </div>
 
-          {/* Contract start + times */}
           <div>
             <label className="text-sm">{TEXT?.services?.fields?.contractStartDate ?? "Contract Start Date"}</label>
             <Input type="date" value={contractStartDate ?? ""} onChange={(e) => setContractStartDate(e.currentTarget.value)} />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="text-sm">{TEXT?.services?.fields?.startTime ?? "Start time"}</label>
               <Input type="time" value={startTime ?? ""} onChange={(e) => setStartTime(e.currentTarget.value)} />
@@ -372,7 +363,6 @@ export default function EditServiceDialog({ service, open, onClose, onUpdated }:
             </div>
           </div>
 
-          {/* schedule manager */}
           <div>
             <label className="text-sm">{TEXT?.services?.fields?.schedule ?? "Schedule dates"}</label>
             <div className="flex gap-2 items-center">
@@ -380,7 +370,7 @@ export default function EditServiceDialog({ service, open, onClose, onUpdated }:
               <Button variant="outline" onClick={addScheduleDate} disabled={!scheduleInput}>{TEXT?.actions?.add ?? "Add"}</Button>
             </div>
             {schedule.length > 0 && (
-              <ul className="mt-2 space-y-1 text-sm">
+              <ul className="mt-2 space-y-1 text-xs">
                 {schedule.map((d) => (
                   <li key={d} className="flex justify-between items-center gap-2">
                     <span>{d}</span>
@@ -391,15 +381,15 @@ export default function EditServiceDialog({ service, open, onClose, onUpdated }:
             )}
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
               <Checkbox checked={isActive} onCheckedChange={(v) => setIsActive(Boolean(v))} />
-              <span>{TEXT?.services?.fields?.isActive ?? "Is active"}</span>
+              <span className="text-sm">{TEXT?.services?.fields?.isActive ?? "Is active"}</span>
             </div>
 
             <div className="flex items-center gap-2">
               <Checkbox checked={recurrent} onCheckedChange={(v) => setRecurrent(Boolean(v))} />
-              <span>{TEXT?.services?.fields?.recurrent ?? "Recurrent"}</span>
+              <span className="text-sm">{TEXT?.services?.fields?.recurrent ?? "Recurrent"}</span>
             </div>
           </div>
         </div>

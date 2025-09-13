@@ -45,8 +45,7 @@ export const ES_TEXT = {
   actions: {
     refresh: "Actualizar",
     save: "Guardar",
-     add: "Añadir",
-     
+    add: "Añadir",
     cancel: "Cancelar",
     cancelEdit: "Cancelar edición",
     edit: "Editar",
@@ -62,6 +61,56 @@ export const ES_TEXT = {
     deleting: "Eliminando...",
     view: "Ver",
     show: "Ver",
+  },
+
+  weapons: {
+    panel: {
+      title: "Armas Asignadas",
+      add: "Agregar Arma",
+    },
+    create: {
+      title: "Crear Arma",
+    },
+    delete: {
+      title: "Eliminar Arma",
+      confirm: "¿Estás seguro que quieres eliminar {name}?",
+    },
+    form: {
+      fields: {
+        guard: "Guardia",
+        serialNumber: "Número de Serie",
+        model: "Modelo",
+      },
+      placeholders: {
+        guardSearch: "Buscar guard por nombre o email...",
+        serialNumber: "",
+        model: "",
+      },
+      buttons: {
+        create: "Crear",
+        saving: "Creando...",
+        delete: "Eliminar",
+        deleting: "Eliminando...",
+        apply: "Aplicar",
+        applying: "Aplicando...",
+      },
+    },
+    errors: {
+      missingGuard: "Selecciona un guard",
+      missingSerial: "Número de serie requerido",
+      missingModel: "Modelo requerido",
+      createFail: "Error creando arma",
+      deleteFail: "Error eliminando arma",
+    },
+    messages: {
+      created: "Arma creada",
+      updated: "Arma actualizada",
+      deleted: "Arma eliminada",
+    },
+    table: {
+      actionDeleteConfirm: "¿Eliminar arma {name}?",
+      actionDelete: "Eliminar arma {name}",
+    },
   },
 
   clients: {
@@ -507,7 +556,7 @@ export const ES_TEXT = {
       },
       pageSizeLabel: "Filas por página",
       recurrentYes: "Si",
-    recurrentNo: "No",
+      recurrentNo: "No",
       activeLabel: "Sí",
       inactiveLabel: "No",
     },

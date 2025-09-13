@@ -1,10 +1,12 @@
 "use client";
 
-import { Pencil, Trash, Tag, Calendar } from "lucide-react";
+import { Pencil, Trash, Tag, Calendar, Briefcase } from "lucide-react";
+import { List } from "lucide-react";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { ReusableTable, type Column } from "@/components/ui/reusable-table";
 import { useI18n } from "@/i18n";
+import { GiPistolGun } from "react-icons/gi";
 import type { SortOrder } from "@/lib/sort";
 // ahora sí importamos CreateGuardDialog
 import CreateGuardDialog from "./Create/Create";
@@ -17,6 +19,12 @@ import { ClickableEmail } from "../ui/clickable-email";
 import TariffModal from "./TarifModal";
 import GuardDetailsModal from "./GuardDetailsModal";
 import GuardsShiftsModal from "./GuardsShiftsModalImproved"; // Modal mejorado
+
+// Nuevo modal de armas del guardia
+import GuardWeaponsModal from "./GuardWeaponsModal";
+
+// Import modal de servicios del guardia
+import GuardServicesModal from "./GuardServicesModal";
 
 export interface GuardsTableProps {
   guards: Guard[];
@@ -70,7 +78,6 @@ export default function GuardsTable({
     return String(str);
   }
 
-  // const [createOpen, setCreateOpen] = React.useState(false); // <-- ahora lo usamos
   const [createOpen, setCreateOpen] = React.useState(false);
   const [editGuard, setEditGuard] = React.useState<Guard | null>(null);
   const [deleteGuard, setDeleteGuard] = React.useState<Guard | null>(null);
@@ -79,6 +86,12 @@ export default function GuardsTable({
 
   // Nuevo estado: guard para abrir modal de Shifts
   const [shiftGuard, setShiftGuard] = React.useState<Guard | null>(null);
+
+  // Nuevo estado: guard para abrir modal de Weapons del guardia
+  const [weaponsGuard, setWeaponsGuard] = React.useState<Guard | null>(null);
+
+  // Nuevo estado: guard para abrir modal de Services del guardia
+  const [servicesGuard, setServicesGuard] = React.useState<Guard | null>(null);
 
   const guardTable = (TEXT.guards && (TEXT.guards as any).table) ?? (TEXT.guards as any) ?? {};
 
@@ -98,30 +111,52 @@ export default function GuardsTable({
     return digits;
   }
 
+  // ---------------------------------------------------------------------------
+  // Columns: comprimidas todavía más (nombre/apellido más pequeñas)
+  // ---------------------------------------------------------------------------
   const columns: Column<Guard>[] = [
     {
       key: "firstName",
       label: guardTable.headers?.name ?? getText("guards.table.headers.name", "Nombre"),
       sortable: true,
-      render: (guard) => guard.firstName ?? "",
-      headerClassName: "px-2 py-1 text-sm",
-      cellClassName: "px-2 py-1 text-sm",
+      render: (guard) => <div className="truncate text-xs">{guard.firstName ?? ""}</div>,
+      // padding reducido y fuente más pequeña
+      headerClassName: "px-1 py-1 text-xs",
+      cellClassName: "px-1 py-1 text-xs",
+      // anchos compactos (más comprimidos)
+      width: "110px",
+      minWidth: "60px",
+      maxWidth: "150px",
+      headerStyle: { width: "110px", minWidth: "60px", maxWidth: "150px" },
+      cellStyle: { width: "110px", minWidth: "60px", maxWidth: "150px" },
     },
     {
       key: "lastName",
       label: guardTable.headers?.lastName ?? getText("guards.table.headers.lastName", "Apellido"),
       sortable: true,
-      render: (guard) => guard.lastName ?? "",
-      headerClassName: "px-2 py-1 text-sm",
-      cellClassName: "px-2 py-1 text-sm",
+      render: (guard) => <div className="truncate text-xs">{guard.lastName ?? ""}</div>,
+      headerClassName: "px-1 py-1 text-xs",
+      cellClassName: "px-1 py-1 text-xs",
+      width: "100px",
+      minWidth: "50px",
+      maxWidth: "140px",
+      headerStyle: { width: "100px", minWidth: "50px", maxWidth: "140px" },
+      cellStyle: { width: "100px", minWidth: "50px", maxWidth: "140px" },
     },
     {
       key: "email",
       label: guardTable.headers?.email ?? getText("guards.table.headers.email", "Correo"),
       sortable: true,
-      render: (guard) => <ClickableEmail email={guard.email || ""} />,
-      headerClassName: "px-2 py-1 text-sm",
-      cellClassName: "px-2 py-1 text-sm",
+      render: (guard) => (
+        <div className="truncate text-xs">
+          <ClickableEmail email={guard.email || ""} />
+        </div>
+      ),
+      headerClassName: "px-1 py-1 text-xs",
+      cellClassName: "px-1 py-1 text-xs",
+      // email tiene espacio para estirarse si hace falta, pero con un min razonable
+      headerStyle: { minWidth: "140px", maxWidth: "420px" },
+      cellStyle: { minWidth: "140px", maxWidth: "420px" },
     },
     {
       key: "phone",
@@ -146,59 +181,40 @@ export default function GuardsTable({
             }}
             title={linkTitle}
             aria-label={ariaLabel}
-            className="text-blue-600 hover:underline text-sm"
+            className="text-blue-600 hover:underline text-xs truncate block"
+            style={{ maxWidth: 120 }}
           >
             {phone}
           </a>
         );
       },
-      headerClassName: "px-2 py-1 text-sm",
-      cellClassName: "px-2 py-1 text-sm",
-      headerStyle: { width: "140px", minWidth: "120px", maxWidth: "180px" },
-      cellStyle: { width: "140px", minWidth: "120px", maxWidth: "180px" },
+      headerClassName: "px-1 py-1 text-xs",
+      cellClassName: "px-1 py-1 text-xs",
+      headerStyle: { width: "100px", minWidth: "80px", maxWidth: "140px" },
+      cellStyle: { width: "100px", minWidth: "80px", maxWidth: "140px" },
     },
-    {
-      key: "ssn",
-      label: guardTable.headers?.ssn ?? getText("guards.table.headers.ssn", "DNI/SSN"),
-      sortable: false,
-      render: (guard) => {
-        const anyGuard = guard as any;
-        const visible =
-          anyGuard.ssn_visible === true ||
-          anyGuard.ssnVisible === true ||
-          anyGuard.is_ssn_visible === true ||
-          false;
 
-        const ssnValue = guard.ssn ?? "";
-        if (!ssnValue) return "-";
-
-        if (visible) {
-          return <span className="text-sm">{ssnValue}</span>;
-        }
-
-        return <span className="text-sm">{guardTable.ssnHidden ?? "******"}</span>;
-      },
-      headerClassName: "px-2 py-1 text-sm",
-      cellClassName: "px-2 py-1 text-sm",
-      headerStyle: { width: "110px", minWidth: "90px", maxWidth: "140px" },
-      cellStyle: { width: "110px", minWidth: "90px", maxWidth: "140px" },
-    },
-    {
-      key: "birthdate",
-      label: guardTable.headers?.birthdate ?? getText("guards.table.headers.birthdate", "Fecha Nac."),
-      sortable: false,
-      render: (guard) => <span className="text-sm">{guard.birthdate ?? "-"}</span>,
-      headerClassName: "px-2 py-1 text-sm",
-      cellClassName: "px-2 py-1 text-sm",
-      headerStyle: { width: "110px", minWidth: "90px", maxWidth: "140px" },
-      cellStyle: { width: "110px", minWidth: "90px", maxWidth: "140px" },
-    },
+    // Si más columnas son necesarias, añadelas aquí (por ejemplo roles, activo, etc.)
   ];
 
   const searchFields: (keyof Guard)[] = ["firstName", "lastName", "email", "phone"];
 
   const renderActions = (guard: Guard) => (
     <div className="flex items-center gap-1"> {/* gap reducido */}
+      {/* Servicios del guard */}
+     <Button
+  size="icon"
+  variant="ghost"
+  onClick={(e) => {
+    e.stopPropagation();
+    setServicesGuard(guard);
+  }}
+  title={getText("guards.table.serviceButton", "Servicios")}
+  aria-label={getText("guards.table.serviceAria", "Gestionar servicios de {name}", { name: `${guard.firstName ?? ""}` })}
+>
+  <List className="h-4 w-4" />
+</Button>
+
       {/* Turnos */}
       <Button
         size="icon"
@@ -225,6 +241,21 @@ export default function GuardsTable({
         aria-label={getText("guards.table.tariffsAria", "Tarifas de {name}", { name: `${guard.firstName ?? ""}` })}
       >
         <Tag className="h-4 w-4" />
+      </Button>
+
+      {/* Weapons: abrir panel de armas de este guard */}
+      <Button
+        size="icon"
+        variant="ghost"
+        onClick={(e) => {
+          e.stopPropagation();
+          console.debug("[GuardsTable] weapons button clicked for guard id=", guard.id);
+          setWeaponsGuard(guard);
+        }}
+        title={getText("guards.table.weaponsButton", "Armas")}
+        aria-label={getText("guards.table.weaponsAria", "Gestionar armas de {name}", { name: `${guard.firstName ?? ""}` })}
+      >
+        <GiPistolGun className="h-4 w-4" />
       </Button>
 
       {/* Edit */}
@@ -265,7 +296,7 @@ export default function GuardsTable({
         columns={columns}
         getItemId={(guard) => guard.id}
         onSelectItem={(id) => {
-          const guard = guards.find(g => g.id === Number(id));
+          const guard = guards.find((g) => g.id === Number(id));
           if (guard) {
             setDetailsGuard(guard);
           }
@@ -302,7 +333,9 @@ export default function GuardsTable({
               }
             }
             setCreateOpen(false);
-          } } guardId={0}        />
+          }}
+          guardId={0}
+        />
       )}
 
       {editGuard && (
@@ -353,6 +386,27 @@ export default function GuardsTable({
           guardName={`${shiftGuard.firstName ?? ""} ${shiftGuard.lastName ?? ""}`.trim()}
           open={!!shiftGuard}
           onClose={() => setShiftGuard(null)}
+        />
+      )}
+
+      {/* Nuevo: modal/panel de Weapons para el guard */}
+      {weaponsGuard && (
+        <GuardWeaponsModal
+          guard={weaponsGuard}
+          open={!!weaponsGuard}
+          onClose={() => setWeaponsGuard(null)}
+          onUpdated={onRefresh}
+        />
+      )}
+
+      {/* Nuevo: modal/panel de Services para el guard */}
+      {servicesGuard && (
+        <GuardServicesModal
+          open={!!servicesGuard}
+          guardId={servicesGuard.id}
+          guardName={`${servicesGuard.firstName ?? ""} ${servicesGuard.lastName ?? ""}`.trim()}
+          onClose={() => setServicesGuard(null)}
+          onUpdated={onRefresh}
         />
       )}
     </>

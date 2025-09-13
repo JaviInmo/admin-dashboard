@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useI18n } from "@/i18n";
 import { getWeapon } from "@/lib/services/weapons";
-import type { Weapon } from "@/components/Weapons/Types";
+import type { Weapon } from "@/components/Weapons/types";
 import EditWeaponDialog from "@/components/Weapons/Edit/Edit";
 import DeleteWeaponDialog from "@/components/Weapons/Delete/Delete";
 import { toast } from "sonner";
@@ -27,7 +27,7 @@ export default function ShowWeapon({ id, open, onClose, onUpdated }: Props) {
   const [error, setError] = React.useState<string | null>(null);
 
   const [showEdit, setShowEdit] = React.useState(false);
-  const [showDelete, setShowDelete] = React.useState(false);
+  const [/* showDelete */, setShowDelete] = React.useState(false);
 
   const mountedRef = React.useRef(true);
 

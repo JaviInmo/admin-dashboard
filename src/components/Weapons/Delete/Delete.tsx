@@ -1,13 +1,13 @@
-// src/components/Weapons/DeleteWeaponDialog.tsx
 "use client";
 
 import * as React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { useI18n } from "@/i18n";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useI18n } from "@/i18n";
+import { toast } from "sonner";
 
-import type { Weapon } from "@/components/Weapons/Types";
+import type { Weapon } from "@/components/Weapons/types";
 import { deleteWeapon } from "@/lib/services/weapons";
 
 interface Props {
@@ -19,14 +19,14 @@ interface Props {
 export default function DeleteWeaponDialog({ weapon, onClose, onDeleted }: Props) {
   const { TEXT } = useI18n();
 
-  function getText(path: string, vars?: Record<string, string>) {
+  function getText(path: string, vars?: Record<string, string>, fallback?: string) {
     const parts = path.split(".");
     let val: any = TEXT;
     for (const p of parts) {
       val = val?.[p];
       if (val == null) break;
     }
-    let str = typeof val === "string" ? val : path;
+    let str = typeof val === "string" ? val : fallback ?? path;
     if (vars) {
       for (const k of Object.keys(vars)) {
         str = str.replace(new RegExp(`\\{${k}\\}`, "g"), vars[k]);
@@ -38,12 +38,17 @@ export default function DeleteWeaponDialog({ weapon, onClose, onDeleted }: Props
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
+  // Prioriza mostrar el modelo; si no existe, usa serialNumber; si tampoco existe, usa id.
+  const weaponLabel = `${(weapon?.model ?? weapon?.serialNumber ?? "")}`.trim() || `#${weapon?.id ?? "?"}`;
+
   const handleDelete = async () => {
     setError(null);
     setLoading(true);
     try {
       await deleteWeapon(weapon.id);
+      const deletedMsg = getText("weapons.messages.deleted", undefined, "Arma eliminada");
       if (onDeleted) await onDeleted();
+      toast.success(deletedMsg);
       onClose();
     } catch (err: any) {
       const data = err?.response?.data;
@@ -52,7 +57,7 @@ export default function DeleteWeaponDialog({ weapon, onClose, onDeleted }: Props
         else if (data.detail) setError(String(data.detail));
         else setError(JSON.stringify(data));
       } else {
-        setError(getText("weapons.table.actionDelete") || "Error eliminando weapon");
+        setError(getText("weapons.errors.deleteFail", undefined, "Error eliminando arma"));
       }
       console.error(err);
     } finally {
@@ -60,18 +65,21 @@ export default function DeleteWeaponDialog({ weapon, onClose, onDeleted }: Props
     }
   };
 
-  const weaponLabel = `${weapon?.serialNumber ?? ""}`.trim() || `#${weapon?.id ?? "?"}`;
-
   const isMissingWeapon = !weapon || Object.keys(weapon).length === 0;
   const showSkeleton = isMissingWeapon || loading;
 
-  const confirmTitle = getText("weapons.table.actionDeleteConfirm", { name: weaponLabel }) || getText("weapons.table.actionDelete", { name: weaponLabel });
+  const title = getText("weapons.delete.title", undefined, "Eliminar Arma");
+  const confirmTemplate = getText(
+    "weapons.delete.confirm",
+    { name: weaponLabel },
+    `¿Estás seguro que quieres eliminar ${weaponLabel}?`
+  );
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{showSkeleton ? <Skeleton className="h-6 w-3/5 rounded" /> : confirmTitle}</DialogTitle>
+          <DialogTitle>{showSkeleton ? <Skeleton className="h-6 w-3/5 rounded" /> : title}</DialogTitle>
         </DialogHeader>
 
         {showSkeleton ? (
@@ -86,16 +94,16 @@ export default function DeleteWeaponDialog({ weapon, onClose, onDeleted }: Props
           </div>
         ) : (
           <>
-            <p>{getText("common.notFoundDescription")}</p>
+            <p>{confirmTemplate}</p>
 
             {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
 
             <div className="flex justify-end gap-2 mt-4">
               <Button variant="secondary" onClick={onClose} disabled={loading}>
-                {getText("actions.cancel")}
+                {getText("actions.cancel", undefined, "Cancelar")}
               </Button>
               <Button variant="destructive" onClick={handleDelete} disabled={loading}>
-                {loading ? getText("weapons.form.buttons.deleting") || "Deleting..." : getText("weapons.form.buttons.delete") || "Delete"}
+                {loading ? getText("actions.deleting", undefined, "Eliminando...") : getText("actions.delete", undefined, "Eliminar")}
               </Button>
             </div>
           </>

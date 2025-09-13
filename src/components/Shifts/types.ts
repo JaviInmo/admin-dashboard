@@ -58,7 +58,7 @@ export type ServiceDetails = {
   guardName?: string;
   assignedProperty?: number | null;
   propertyName?: string;
-  rate?: string; // decimal as string (Swagger showed string($decimal))
+  rate?: string; // decimal as string
   monthlyBudget?: string; // decimal as string
   contractStartDate?: string; // ISO / date
   schedule?: string[] | null;
@@ -71,6 +71,11 @@ export type ServiceDetails = {
 
 /**
  * Shift (cliente) — campos básicos + campos opcionales que el Swagger expone
+ *
+ * Observaciones:
+ * - Muchos campos son opcionales/nullables según swagger.
+ * - Para facilitar el mapeo desde/ hacia la API, usamos camelCase aquí y
+ *   la capa de servicio se encarga de mapear snake_case <-> camelCase.
  */
 export type Shift = {
   id: number;
@@ -83,13 +88,18 @@ export type Shift = {
   service?: number | null;
   serviceDetails?: ServiceDetails;
 
-  startTime: string; // ISO string
-  endTime: string; // ISO string
+  // planned vs actual times (opcionales según swagger)
+  plannedStartTime?: string | null; // ISO
+  plannedEndTime?: string | null; // ISO
+  startTime?: string | null; // ISO
+  endTime?: string | null; // ISO
 
-  status: "scheduled" | "completed" | "voided" | string;
-  hoursWorked?: number;
+  status?: "scheduled" | "completed" | "voided" | string;
+  hoursWorked?: number | null;
 
   isActive?: boolean;
-  isArmed?: boolean;
-  weaponDetails?: string;
+  isArmed?: boolean | null;
+  // weapon (id) y detalles legibles (weapon_details)
+  weapon?: number | null;
+  weaponDetails?: string | null;
 };

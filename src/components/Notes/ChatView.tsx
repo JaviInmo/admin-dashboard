@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type { Chat, Message, User } from '../../components/Notes/type';
 import { ScrollArea } from '../ui/scroll-area';
-import { Input } from '../ui/input';
+/* import { Input } from '../ui/input'; */
 import { Button } from '../ui/button';
 import { Avatar, AvatarFallback } from '../ui/avatar';
 import { Textarea } from '../ui/textarea';

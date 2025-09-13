@@ -1,4 +1,3 @@
-// src/components/Weapons/CreateWeaponDialog.tsx
 "use client";
 
 import * as React from "react";
@@ -7,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { useI18n } from "@/i18n";
+/* import { Skeleton } from "@/components/ui/skeleton"; */
 
 import type { Guard } from "@/components/Guards/types";
-import type { Weapon } from "@/components/Weapons/Types";
+import type { Weapon } from "@/components/Weapons/types";
 import { getGuard, listGuards } from "@/lib/services/guard";
 import { createWeapon } from "@/lib/services/weapons";
 
@@ -17,6 +17,7 @@ type Props = {
   open: boolean;
   onClose: () => void;
   guardId?: number;
+  lockGuard?: boolean;
   onCreated?: (weapon: Weapon) => void | Promise<void>;
 };
 
@@ -38,8 +39,24 @@ function extractItems<T>(maybe: any): T[] {
   return [];
 }
 
-export default function CreateWeaponDialog({ open, onClose, guardId, onCreated }: Props) {
+export default function CreateWeaponDialog({ open, onClose, guardId, lockGuard = false, onCreated }: Props) {
   const { TEXT } = useI18n();
+
+  function getText(path: string, vars?: Record<string, string>, fallback?: string) {
+    const parts = path.split(".");
+    let val: any = TEXT;
+    for (const p of parts) {
+      val = val?.[p];
+      if (val == null) break;
+    }
+    let str = typeof val === "string" ? val : fallback ?? path;
+    if (vars) {
+      for (const k of Object.keys(vars)) {
+        str = str.replace(new RegExp(`\\{${k}\\}`, "g"), vars[k]);
+      }
+    }
+    return str;
+  }
 
   const [selectedGuard, setSelectedGuard] = React.useState<Guard | null>(null);
   const [guardQuery, setGuardQuery] = React.useState<string>("");
@@ -54,7 +71,9 @@ export default function CreateWeaponDialog({ open, onClose, guardId, onCreated }
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
+  // cuando el modal se abre, si recibimos guardId y lockGuard=true, prefilleamos y bloqueamos
   React.useEffect(() => {
+    let mounted = true;
     if (!open) {
       setSelectedGuard(null);
       setGuardQuery("");
@@ -64,25 +83,32 @@ export default function CreateWeaponDialog({ open, onClose, guardId, onCreated }
       setSerialNumber("");
       setModel("");
       setError(null);
-    } else if (guardId) {
-      let mounted = true;
+      return;
+    }
+
+    if (guardId) {
       (async () => {
         try {
           const g = await getGuard(guardId);
           if (!mounted) return;
           setSelectedGuard(g);
           setGuardQuery(`${g.firstName} ${g.lastName} (${g.email ?? ""})`);
+          if (!lockGuard) setGuardDropdownOpen(true);
         } catch (err) {
           console.error("prefill guard failed", err);
         }
       })();
-      return () => {
-        mounted = false;
-      };
     }
-  }, [open, guardId]);
 
+    return () => {
+      mounted = false;
+    };
+  }, [open, guardId, lockGuard]);
+
+  // búsqueda de guards (solo si no está bloqueado)
   React.useEffect(() => {
+    if (lockGuard) return;
+
     let mounted = true;
     const q = (debouncedGuardQuery ?? "").trim();
     if (q === "") {
@@ -107,7 +133,7 @@ export default function CreateWeaponDialog({ open, onClose, guardId, onCreated }
     return () => {
       mounted = false;
     };
-  }, [debouncedGuardQuery]);
+  }, [debouncedGuardQuery, lockGuard]);
 
   const guardLabel = (g?: Guard | null) => {
     if (!g) return "";
@@ -118,19 +144,25 @@ export default function CreateWeaponDialog({ open, onClose, guardId, onCreated }
     e?.preventDefault?.();
     setError(null);
 
+    const tMissingGuard = getText("weapons.errors.missingGuard", undefined, "Selecciona un guard");
+    const tMissingSerial = getText("weapons.errors.missingSerial", undefined, "Número de serie requerido");
+    const tMissingModel = getText("weapons.errors.missingModel", undefined, "Modelo requerido");
+    const successCreated = getText("weapons.messages.created", undefined, "Arma creada");
+    const createFail = getText("weapons.errors.createFail", undefined, "Error creando arma");
+
     if (!selectedGuard) {
-      setError((TEXT as any)?.weapons?.errors?.missingGuard ?? "Selecciona un guard");
-      toast.error((TEXT as any)?.weapons?.errors?.missingGuard ?? "Guard required");
+      setError(tMissingGuard);
+      toast.error(tMissingGuard);
       return;
     }
     if (!serialNumber.trim()) {
-      setError((TEXT as any)?.weapons?.errors?.missingSerial ?? "Serial required");
-      toast.error((TEXT as any)?.weapons?.errors?.missingSerial ?? "Serial required");
+      setError(tMissingSerial);
+      toast.error(tMissingSerial);
       return;
     }
     if (!model.trim()) {
-      setError((TEXT as any)?.weapons?.errors?.missingModel ?? "Model required");
-      toast.error((TEXT as any)?.weapons?.errors?.missingModel ?? "Model required");
+      setError(tMissingModel);
+      toast.error(tMissingModel);
       return;
     }
 
@@ -141,15 +173,16 @@ export default function CreateWeaponDialog({ open, onClose, guardId, onCreated }
         serialNumber: serialNumber.trim(),
         model: model.trim(),
       });
-      toast.success((TEXT as any)?.weapons?.messages?.created ?? "Weapon created");
+      toast.success(successCreated);
       if (onCreated) await onCreated(created);
       onClose();
     } catch (err: any) {
       console.error("createWeapon error:", err);
       const data = err?.response?.data;
       const message = data?.detail ?? data ?? String(err?.message ?? err);
-      setError(typeof message === "string" ? message : JSON.stringify(message));
-      toast.error(message ?? "Error creando weapon");
+      const messageStr = typeof message === "string" ? message : JSON.stringify(message);
+      setError(messageStr);
+      toast.error(messageStr ?? createFail);
     } finally {
       setLoading(false);
     }
@@ -159,27 +192,34 @@ export default function CreateWeaponDialog({ open, onClose, guardId, onCreated }
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>{(TEXT as any)?.weapons?.create?.title ?? "Crear Weapon"}</DialogTitle>
+          <DialogTitle>{getText("weapons.create.title", undefined, getText("weapons.create.title", undefined, "Crear Arma"))}</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
           <div className="relative">
-            <label className="text-sm text-muted-foreground block mb-1">Guard</label>
+            <label className="text-sm text-muted-foreground block mb-1">
+              {getText("weapons.form.fields.guard", undefined, getText("guards.fields.name", undefined, "Guard"))}
+            </label>
+
             <input
               type="text"
-              className="w-full rounded border px-3 py-2"
+              className={`w-full rounded border px-3 py-2 ${lockGuard ? "bg-gray-100 cursor-not-allowed" : ""}`}
               value={selectedGuard ? guardLabel(selectedGuard) : guardQuery}
               onChange={(e) => {
+                if (lockGuard) return;
                 if (selectedGuard) setSelectedGuard(null);
                 setGuardQuery(e.target.value);
               }}
               onFocus={() => {
+                if (lockGuard) return;
                 if (guardResults.length > 0) setGuardDropdownOpen(true);
               }}
-              placeholder={(TEXT as any)?.guards?.table?.searchPlaceholder ?? "Buscar guard por nombre o email..."}
-              aria-label="Buscar guard"
+              placeholder={getText("guards.table.searchPlaceholder", undefined, "Buscar guard por nombre o email...")}
+              aria-label={getText("weapons.form.fields.guard", undefined, "Guard")}
+              readOnly={lockGuard}
             />
-            {selectedGuard && (
+
+            {!lockGuard && selectedGuard && (
               <button
                 type="button"
                 className="absolute right-2 top-2 text-xs text-muted-foreground"
@@ -188,14 +228,14 @@ export default function CreateWeaponDialog({ open, onClose, guardId, onCreated }
                   setGuardQuery("");
                 }}
               >
-                Clear
+                {getText("actions.reset", undefined, "Clear")}
               </button>
             )}
 
-            {guardDropdownOpen && (guardResults.length > 0 || guardsLoading) && (
+            {!lockGuard && guardDropdownOpen && (guardResults.length > 0 || guardsLoading) && (
               <div className="absolute z-50 left-0 right-0 mt-1 bg-white border rounded shadow max-h-56 overflow-auto">
-                {guardsLoading && <div className="p-2 text-xs text-muted-foreground">Buscando...</div>}
-                {!guardsLoading && guardResults.length === 0 && <div className="p-2 text-xs text-muted-foreground">No matches.</div>}
+                {guardsLoading && <div className="p-2 text-xs text-muted-foreground">{getText("table.loading", undefined, "Buscando...")}</div>}
+                {!guardsLoading && guardResults.length === 0 && <div className="p-2 text-xs text-muted-foreground">{getText("table.noResults", undefined, "No matches.")}</div>}
                 {!guardsLoading &&
                   guardResults.map((g) => (
                     <button
@@ -219,13 +259,13 @@ export default function CreateWeaponDialog({ open, onClose, guardId, onCreated }
           </div>
 
           <div>
-            <label className="text-sm text-muted-foreground block mb-1">Serial Number</label>
-            <Input name="serial" value={serialNumber} onChange={(e) => setSerialNumber(e.target.value)} />
+            <label className="text-sm text-muted-foreground block mb-1">{getText("weapons.form.fields.serialNumber", undefined, "Número de serie")}</label>
+            <Input name="serial" value={serialNumber} onChange={(e) => setSerialNumber(e.target.value)} placeholder={getText("weapons.form.placeholders.serialNumber", undefined, "")} />
           </div>
 
           <div>
-            <label className="text-sm text-muted-foreground block mb-1">Model</label>
-            <Input name="model" value={model} onChange={(e) => setModel(e.target.value)} />
+            <label className="text-sm text-muted-foreground block mb-1">{getText("weapons.form.fields.model", undefined, "Modelo")}</label>
+            <Input name="model" value={model} onChange={(e) => setModel(e.target.value)} placeholder={getText("weapons.form.placeholders.model", undefined, "")} />
           </div>
 
           {error && <p className="text-sm text-red-600">{error}</p>}
@@ -233,10 +273,10 @@ export default function CreateWeaponDialog({ open, onClose, guardId, onCreated }
           <DialogFooter>
             <div className="flex justify-end gap-2 w-full">
               <Button variant="ghost" onClick={onClose} type="button" disabled={loading}>
-                {(TEXT as any)?.actions?.close ?? "Close"}
+                {getText("actions.close", undefined, "Cerrar")}
               </Button>
               <Button type="submit" disabled={loading}>
-                {loading ? ((TEXT as any)?.actions?.saving ?? "Saving...") : ((TEXT as any)?.actions?.create ?? "Create")}
+                {loading ? getText("actions.saving", undefined, "Guardando...") : getText("actions.create", undefined, "Crear")}
               </Button>
             </div>
           </DialogFooter>

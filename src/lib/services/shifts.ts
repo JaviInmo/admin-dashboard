@@ -1,5 +1,5 @@
 // src/lib/services/shifts.ts
-import type { Shift, GuardDetails, PropertyDetails, ServiceDetails, UserShort } from "@/components/Shifts/types";
+import type { Shift } from "@/components/Shifts/types";
 import { endpoints } from "@/lib/endpoints";
 import { api } from "@/lib/http";
 import { drfList, type PaginatedResult } from "@/lib/pagination";
@@ -10,173 +10,101 @@ import { drfList, type PaginatedResult } from "@/lib/pagination";
 type ServerShift = {
   id: number;
   guard: number;
-  guard_details?: Record<string, any>;
+  guard_details?: Record<string, any> | null;
   property: number;
-  property_details?: Record<string, any>;
+  property_details?: Record<string, any> | null;
   service?: number | null;
-  service_details?: Record<string, any>;
-  start_time: string; // ISO
-  end_time: string; // ISO
-  status: string;
-  hours_worked?: number;
-  is_armed?: boolean;
-  weapon_details?: string;
-  is_active?: boolean;
+  service_details?: Record<string, any> | null;
+
+  planned_start_time?: string | null;
+  planned_end_time?: string | null;
+
+  start_time?: string | null;
+  end_time?: string | null;
+
+  hours_worked?: number | null;
+  status?: string | null;
+
+  is_armed?: boolean | null;
+  weapon?: number | null;
+  weapon_details?: string | null;
+
+  created_at?: string | null;
+  updated_at?: string | null;
+
+  is_active?: boolean | null;
 };
 
 /**
  * Payloads para crear/actualizar
+ *
+ * NOTA: aquí usamos nombres tal cual el backend espera (snake_case),
+ * para que puedas enviar el body exactamente como el ejemplo que pasaste.
  */
 export type CreateShiftPayload = {
   guard: number;
   property: number;
   service?: number | null;
-  start_time: string; // ISO
-  end_time: string; // ISO
-  status?: "scheduled" | "completed" | "voided" | string;
+
   is_armed?: boolean;
+  weapon?: number | null;
+
+  planned_start_time?: string | null;
+  planned_end_time?: string | null;
+
+  start_time?: string | null;
+  end_time?: string | null;
+
+  status?: "scheduled" | "completed" | "voided" | string;
 };
 
 export type UpdateShiftPayload = Partial<CreateShiftPayload>;
 
 /**
- * Helpers de mapeo
- */
-function mapUserShort(u: any): UserShort | undefined {
-  if (!u || typeof u !== "object") return undefined;
-  return {
-    id: u.id,
-    username: u.username,
-    email: u.email,
-    firstName: u.first_name ?? u.firstName,
-    lastName: u.last_name ?? u.lastName,
-    isActive: typeof u.is_active === "boolean" ? u.is_active : undefined,
-    isStaff: typeof u.is_staff === "boolean" ? u.is_staff : undefined,
-    isSuperuser: typeof u.is_superuser === "boolean" ? u.is_superuser : undefined,
-    dateJoined: u.date_joined ?? u.dateJoined,
-    lastLogin: u.last_login ?? u.lastLogin,
-  };
-}
-
-function mapGuardDetails(g: any): GuardDetails | undefined {
-  if (!g || typeof g !== "object") return undefined;
-  return {
-    id: g.id,
-    user: g.user,
-    userDetails: mapUserShort(g.user_details),
-    firstName: g.first_name ?? g.firstName,
-    lastName: g.last_name ?? g.lastName,
-    name: g.name,
-    email: g.email,
-    birthDate: g.birth_date ?? g.birthDate,
-    phone: g.phone,
-    ssn: g.ssn,
-    address: g.address,
-  };
-}
-
-function mapClientBrief(c: any) {
-  if (!c || typeof c !== "object") return undefined;
-  return {
-    id: c.id,
-    user: c.user,
-    firstName: c.first_name ?? c.firstName,
-    lastName: c.last_name ?? c.lastName,
-    email: c.email,
-    phone: c.phone,
-    balance: c.balance,
-    createdAt: c.created_at ?? c.createdAt,
-    updatedAt: c.updated_at ?? c.updatedAt,
-    isActive: typeof c.is_active === "boolean" ? c.is_active : undefined,
-  };
-}
-
-function mapPropertyDetails(p: any): PropertyDetails | undefined {
-  if (!p || typeof p !== "object") return undefined;
-  return {
-    id: p.id,
-    owner: p.owner,
-    ownerDetails: mapClientBrief(p.owner_details),
-    name: p.name,
-    alias: p.alias,
-    address: p.address,
-    description: p.description,
-  };
-}
-
-function normalizeScheduleArray(sch: any): string[] | null {
-  if (!Array.isArray(sch)) return null;
-  return sch.map((it) => {
-    if (typeof it === "string") return it;
-    if (it && typeof it === "object") {
-      if ("date" in it && it.date) return String(it.date);
-      if ("start" in it && it.start) return String(it.start);
-      if ("schedule" in it && it.schedule) return String(it.schedule);
-      try {
-        return JSON.stringify(it);
-      } catch {
-        return String(it);
-      }
-    }
-    return String(it);
-  });
-}
-
-function mapServiceDetails(s: any): ServiceDetails | undefined {
-  if (!s || typeof s !== "object") return undefined;
-  return {
-    id: s.id,
-    name: s.name,
-    description: s.description,
-    guard: s.guard ?? null,
-    guardName: s.guard_name ?? s.guardName,
-    assignedProperty: s.assigned_property ?? s.assignedProperty,
-    propertyName: s.property_name ?? s.propertyName,
-    rate: s.rate,
-    monthlyBudget: s.monthly_budget ?? s.monthlyBudget,
-    contractStartDate: s.contract_start_date ?? s.contractStartDate,
-    schedule: normalizeScheduleArray(s.schedule ?? s.schedules ?? null),
-    recurrent: typeof s.recurrent === "boolean" ? s.recurrent : null,
-    totalHours: s.total_hours ?? s.totalHours,
-    createdAt: s.created_at ?? s.createdAt,
-    updatedAt: s.updated_at ?? s.updatedAt,
-    isActive: typeof s.is_active === "boolean" ? s.is_active : undefined,
-  };
-}
-
-/**
- * Mapea ServerShift -> Shift (cliente)
+ * Helper: map ServerShift -> Shift (cliente, camelCase)
  */
 function mapServerShift(s: ServerShift): Shift {
   return {
     id: s.id,
     guard: s.guard,
-    guardDetails: mapGuardDetails(s.guard_details),
+    guardDetails: s.guard_details ?? undefined,
     guardName:
-      // si el backend provee guard_details.name o guard_details.first_name + last_name, priorizamos eso
-      (s.guard_details && (s.guard_details.name || (s.guard_details.first_name && s.guard_details.last_name)))
+      s.guard_details && (s.guard_details.name || (s.guard_details.first_name && s.guard_details.last_name))
         ? (s.guard_details.name ?? `${s.guard_details.first_name} ${s.guard_details.last_name}`)
         : undefined,
     property: s.property,
-    propertyDetails: mapPropertyDetails(s.property_details),
+    propertyDetails: s.property_details ?? undefined,
     propertyName: s.property_details?.name ?? s.property_details?.alias ?? undefined,
     service: s.service ?? null,
-    serviceDetails: mapServiceDetails(s.service_details),
+    serviceDetails: s.service_details ?? undefined,
 
-    startTime: s.start_time,
-    endTime: s.end_time,
+    plannedStartTime: s.planned_start_time ?? null,
+    plannedEndTime: s.planned_end_time ?? null,
 
-    status: s.status ?? "scheduled",
-    hoursWorked: typeof s.hours_worked === "number" ? s.hours_worked : undefined,
+    startTime: s.start_time ?? null,
+    endTime: s.end_time ?? null,
+
+    hoursWorked: typeof s.hours_worked === "number" ? s.hours_worked : null,
+    status: s.status ?? undefined,
+
+    isArmed: typeof s.is_armed === "boolean" ? s.is_armed : null,
+    weapon: s.weapon ?? null,
+    weaponDetails: s.weapon_details ?? null,
+
+    createdAt: s.created_at ?? null,
+    updatedAt: s.updated_at ?? null,
 
     isActive: typeof s.is_active === "boolean" ? s.is_active : undefined,
-    isArmed: typeof s.is_armed === "boolean" ? s.is_armed : undefined,
-    weaponDetails: s.weapon_details,
   } as Shift;
 }
 
 /**
- * listShifts
+ * KEY para react-query / cache
+ */
+export const SHIFTS_KEY = "shifts" as const;
+
+/**
+ * listShifts (GET /shifts/) — paginado servidor
  */
 export async function listShifts(
   page?: number,
@@ -194,155 +122,90 @@ export async function listShifts(
     params.search = String(search).trim();
   }
 
-  return drfList<ServerShift, Shift>(
-    endpoints.shifts,
-    params,
-    mapServerShift,
-  );
+  return drfList<ServerShift, Shift>(endpoints.shifts, params, mapServerShift);
 }
 
-export const SHIFTS_KEY = "shifts" as const;
-
+/**
+ * getShift
+ */
 export async function getShift(id: number): Promise<Shift> {
   const { data } = await api.get<ServerShift>(`${endpoints.shifts}${id}/`);
   return mapServerShift(data);
 }
 
+/**
+ * createShift
+ * Acepta un payload con claves snake_case (tal como tu ejemplo):
+ * {
+ *  "guard": 12,
+ *  "property": 34,
+ *  "is_armed": true,
+ *  "weapon": 5,
+ *  "planned_start_time": "...",
+ *  ...
+ * }
+ */
 export async function createShift(payload: CreateShiftPayload): Promise<Shift> {
-  const body: Record<string, unknown> = {
-    guard: payload.guard,
-    property: payload.property,
-    start_time: payload.start_time,
-    end_time: payload.end_time,
-  };
-
+  // filtrar undefined para enviar sólo campos presentes
+  const body: Record<string, unknown> = {};
+  if (payload.guard !== undefined) body.guard = payload.guard;
+  if (payload.property !== undefined) body.property = payload.property;
   if (payload.service !== undefined) body.service = payload.service;
-  if (payload.status !== undefined) body.status = payload.status;
   if (typeof payload.is_armed === "boolean") body.is_armed = payload.is_armed;
+  if (payload.weapon !== undefined) body.weapon = payload.weapon;
+  if (payload.planned_start_time !== undefined) body.planned_start_time = payload.planned_start_time;
+  if (payload.planned_end_time !== undefined) body.planned_end_time = payload.planned_end_time;
+  if (payload.start_time !== undefined) body.start_time = payload.start_time;
+  if (payload.end_time !== undefined) body.end_time = payload.end_time;
+  if (payload.status !== undefined) body.status = payload.status;
 
   const { data } = await api.post<ServerShift>(endpoints.shifts, body);
   return mapServerShift(data);
 }
 
-export async function updateShift(
-  id: number,
-  payload: UpdateShiftPayload,
-): Promise<Shift> {
+/**
+ * updateShift (PATCH semantics)
+ * Recibe campos en formato snake_case (UpdateShiftPayload = Partial<CreateShiftPayload>)
+ */
+export async function updateShift(id: number, payload: UpdateShiftPayload): Promise<Shift> {
   const body: Record<string, unknown> = {};
-
-  if (payload.guard !== undefined && payload.guard !== null) {
-    body.guard = payload.guard;
-  }
-  if (payload.property !== undefined && payload.property !== null) {
-    body.property = payload.property;
-  }
-  if (payload.service !== undefined) {
-    body.service = payload.service;
-  }
-  if (
-    payload.start_time !== undefined &&
-    payload.start_time !== null &&
-    payload.start_time !== ""
-  ) {
-    body.start_time = payload.start_time;
-  }
-  if (
-    payload.end_time !== undefined &&
-    payload.end_time !== null &&
-    payload.end_time !== ""
-  ) {
-    body.end_time = payload.end_time;
-  }
-  if (payload.status !== undefined && payload.status !== null) {
-    body.status = payload.status;
-  }
-  if (typeof payload.is_armed === "boolean") {
-    body.is_armed = payload.is_armed;
-  }
+  if (payload.guard !== undefined) body.guard = payload.guard;
+  if (payload.property !== undefined) body.property = payload.property;
+  if (payload.service !== undefined) body.service = payload.service;
+  if (typeof payload.is_armed === "boolean") body.is_armed = payload.is_armed;
+  if (payload.weapon !== undefined) body.weapon = payload.weapon;
+  if (payload.planned_start_time !== undefined) body.planned_start_time = payload.planned_start_time;
+  if (payload.planned_end_time !== undefined) body.planned_end_time = payload.planned_end_time;
+  if (payload.start_time !== undefined) body.start_time = payload.start_time;
+  if (payload.end_time !== undefined) body.end_time = payload.end_time;
+  if (payload.status !== undefined) body.status = payload.status;
 
   const { data } = await api.patch<ServerShift>(`${endpoints.shifts}${id}/`, body);
   return mapServerShift(data);
 }
 
+/**
+ * deleteShift
+ */
 export async function deleteShift(id: number): Promise<void> {
   await api.delete(`${endpoints.shifts}${id}/`);
 }
 
 /**
- * Acciones custom
+ * softDeleteShift / restoreShift
  */
 export async function softDeleteShift(id: number): Promise<Shift> {
-  const { data } = await api.post<ServerShift>(`${endpoints.shifts}${id}/soft_delete/`);
+  const { data } = await api.post<ServerShift>(`${endpoints.shifts}${id}/soft_delete/`, {});
   return mapServerShift(data);
 }
 
 export async function restoreShift(id: number): Promise<Shift> {
-  const { data } = await api.post<ServerShift>(`${endpoints.shifts}${id}/restore/`);
+  const { data } = await api.post<ServerShift>(`${endpoints.shifts}${id}/restore/`, {});
   return mapServerShift(data);
 }
 
 /**
- * Listados personalizados que usa la API:
- * - /shifts/by_guard/?guard_id=...
- * - /shifts/by_property/?property_id=...
- * - /shifts/by_service/?service_id=...
- */
-export async function listShiftsByGuard(
-  guardId: number,
-  page?: number,
-  pageSize?: number,
-  ordering?: string,
-): Promise<PaginatedResult<Shift>> {
-  return drfList<ServerShift, Shift>(
-    `${endpoints.shifts}by_guard/`,
-    {
-      guard_id: guardId,
-      page,
-      page_size: pageSize ?? 10,
-      ordering: ordering ?? undefined,
-    },
-    mapServerShift,
-  );
-}
-
-export async function listShiftsByProperty(
-  propertyId: number,
-  page?: number,
-  pageSize?: number,
-  ordering?: string,
-): Promise<PaginatedResult<Shift>> {
-  return drfList<ServerShift, Shift>(
-    `${endpoints.shifts}by_property/`,
-    {
-      property_id: propertyId,
-      page,
-      page_size: pageSize ?? 10,
-      ordering: ordering ?? undefined,
-    },
-    mapServerShift,
-  );
-}
-
-export async function listShiftsByService(
-  serviceId: number,
-  page?: number,
-  pageSize?: number,
-  ordering?: string,
-): Promise<PaginatedResult<Shift>> {
-  return drfList<ServerShift, Shift>(
-    `${endpoints.shifts}by_service/`,
-    {
-      service_id: serviceId,
-      page,
-      page_size: pageSize ?? 10,
-      ordering: ordering ?? undefined,
-    },
-    mapServerShift,
-  );
-}
-
-/**
- * Bulk endpoints (genéricos)
+ * bulk endpoints
  */
 export async function bulkDeleteShifts(data: unknown): Promise<unknown> {
   const { data: res } = await api.post(`${endpoints.shifts}bulk_delete/`, data);
@@ -352,4 +215,66 @@ export async function bulkDeleteShifts(data: unknown): Promise<unknown> {
 export async function bulkUpdateShifts(data: unknown): Promise<unknown> {
   const { data: res } = await api.post(`${endpoints.shifts}bulk_update/`, data);
   return res;
+}
+
+/**
+ * Listados por guard/property/service según swagger:
+ * - GET /shifts/by_guard/?guard_id=...
+ * - GET /shifts/by_property/?property_id=...
+ * - GET /shifts/by_service/?service_id=...
+ *
+ * drfList mapea automáticamente paginado (count, items, next, previous) usando mapServerShift.
+ */
+export async function listShiftsByGuard(
+  guardId: number,
+  page?: number,
+  pageSize?: number,
+  ordering?: string,
+  search?: string,
+): Promise<PaginatedResult<Shift>> {
+  const params: Record<string, unknown> = {
+    guard_id: guardId,
+    page,
+    page_size: pageSize ?? 10,
+    ordering: ordering ?? undefined,
+  };
+  if (search && String(search).trim() !== "") params.search = String(search).trim();
+
+  return drfList<ServerShift, Shift>(`${endpoints.shifts}by_guard/`, params, mapServerShift);
+}
+
+export async function listShiftsByProperty(
+  propertyId: number,
+  page?: number,
+  pageSize?: number,
+  ordering?: string,
+  search?: string,
+): Promise<PaginatedResult<Shift>> {
+  const params: Record<string, unknown> = {
+    property_id: propertyId,
+    page,
+    page_size: pageSize ?? 10,
+    ordering: ordering ?? undefined,
+  };
+  if (search && String(search).trim() !== "") params.search = String(search).trim();
+
+  return drfList<ServerShift, Shift>(`${endpoints.shifts}by_property/`, params, mapServerShift);
+}
+
+export async function listShiftsByService(
+  serviceId: number,
+  page?: number,
+  pageSize?: number,
+  ordering?: string,
+  search?: string,
+): Promise<PaginatedResult<Shift>> {
+  const params: Record<string, unknown> = {
+    service_id: serviceId,
+    page,
+    page_size: pageSize ?? 10,
+    ordering: ordering ?? undefined,
+  };
+  if (search && String(search).trim() !== "") params.search = String(search).trim();
+
+  return drfList<ServerShift, Shift>(`${endpoints.shifts}by_service/`, params, mapServerShift);
 }

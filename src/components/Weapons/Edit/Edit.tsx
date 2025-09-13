@@ -1,4 +1,3 @@
-// src/components/Weapons/EditWeaponDialog.tsx
 "use client";
 
 import * as React from "react";
@@ -9,8 +8,9 @@ import { toast } from "sonner";
 import { useI18n } from "@/i18n";
 import { Skeleton } from "@/components/ui/skeleton";
 
-import type { Weapon } from "@/components/Weapons/Types";
-import { updateWeapon } from "@/lib/services/weapons";
+import type { Weapon } from "@/components/Weapons/types";
+import { updateWeapon, WEAPONS_KEY } from "@/lib/services/weapons";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface Props {
   weapon: Weapon;
@@ -21,6 +21,7 @@ interface Props {
 
 export default function EditWeaponDialog({ weapon, open, onClose, onUpdated }: Props) {
   const { TEXT } = useI18n();
+  const queryClient = useQueryClient();
 
   function getText(path: string, vars?: Record<string, string>) {
     const parts = path.split(".");
@@ -75,10 +76,21 @@ export default function EditWeaponDialog({ weapon, open, onClose, onUpdated }: P
 
     setLoading(true);
     try {
-      await updateWeapon(weapon.id, {
+      const payload = {
         serialNumber: serialNumber.trim(),
         model: model.trim(),
+      };
+      await updateWeapon(weapon.id, payload);
+
+      // Sólo invalidar las queries "by_guard" para forzar refetch del listado por guard.
+      // Evitamos mutar manualmente todas las queries bajo WEAPONS_KEY.
+      await queryClient.invalidateQueries({
+        predicate: (query) =>
+          Array.isArray(query.queryKey) &&
+          query.queryKey[0] === WEAPONS_KEY &&
+          query.queryKey[1] === "by_guard",
       });
+
       toast.success(getText("weapons.form.success") ?? "Weapon updated");
       if (!mountedRef.current) return;
       if (onUpdated) await onUpdated();
@@ -93,8 +105,8 @@ export default function EditWeaponDialog({ weapon, open, onClose, onUpdated }: P
       if (mountedRef.current) setLoading(false);
     }
   };
-
-  const weaponLabel = `${weapon?.serialNumber ?? ""}`.trim() || `#${weapon?.id ?? "?"}`;
+/* 
+  const weaponLabel = `${weapon?.serialNumber ?? ""}`.trim() || `#${weapon?.id ?? "?"}`; */
 
   const FieldSkeleton = ({ rows = 1 }: { rows?: number }) => (
     <div className="space-y-2">
@@ -107,13 +119,19 @@ export default function EditWeaponDialog({ weapon, open, onClose, onUpdated }: P
     </div>
   );
 
+  const rawTitle = getText("weapons.form.editTitle");
+  const modalTitleText = typeof rawTitle === "string" && rawTitle.includes("—")
+    ? rawTitle.replace(/\s*—\s*\d+$/, "").trim()
+    : rawTitle;
+  const titleToShow = modalTitleText && modalTitleText !== "weapons.form.editTitle"
+    ? modalTitleText
+    : "Editar Detalles del Arma";
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="w-full max-w-2xl">
         <DialogHeader>
-          <DialogTitle>
-            {getText("weapons.form.editTitle") ?? "Editar Weapon"} — {weaponLabel}
-          </DialogTitle>
+          <DialogTitle>{titleToShow}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-3 p-4">
@@ -148,7 +166,7 @@ export default function EditWeaponDialog({ weapon, open, onClose, onUpdated }: P
                   {getText("actions.cancel") ?? "Cancel"}
                 </Button>
                 <Button type="submit" disabled={loading}>
-                  {loading ? getText("weapons.form.buttons.saving") || "Saving..." : getText("weapons.form.buttons.save") || "Save"}
+                  {loading ? "Aplicando..." : "Aplicar"}
                 </Button>
               </div>
             </form>
