@@ -14,11 +14,13 @@ import { getShift, updateShift } from "@/lib/services/shifts";
 import { listGuards, getGuard } from "@/lib/services/guard";
 import { listProperties, getProperty } from "@/lib/services/properties";
 import { listServices, getService } from "@/lib/services/services";
+import { listWeaponsByGuard } from "@/lib/services/weapons";
 import type { Shift } from "../types";
 import { useI18n } from "@/i18n";
 import type { Guard } from "@/components/Guards/types";
 import type { AppProperty } from "@/lib/services/properties";
 import type { Service as AppService } from "@/components/Services/types";
+import type { Weapon } from "@/components/Weapons/types";
 
 type EditShiftProps = {
   open: boolean;
@@ -94,13 +96,21 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
   const [serviceDropdownOpen, setServiceDropdownOpen] = React.useState(false);
 
   // datetimes / status / loading
+  const [plannedStart, setPlannedStart] = React.useState<string>("");
+  const [plannedEnd, setPlannedEnd] = React.useState<string>("");
+
   const [start, setStart] = React.useState<string>("");
   const [end, setEnd] = React.useState<string>("");
   const [status, setStatus] = React.useState<Shift["status"]>("scheduled");
   const [loading, setLoading] = React.useState(false);
 
-  // is_armed
+  // is_armed & weapons
   const [isArmed, setIsArmed] = React.useState<boolean>(false);
+  const [weapons, setWeapons] = React.useState<Weapon[]>([]);
+  const [weaponsLoading, setWeaponsLoading] = React.useState(false);
+  const [selectedWeaponId, setSelectedWeaponId] = React.useState<string | null>(null);
+  const [selectedWeaponSerial, setSelectedWeaponSerial] = React.useState<string | null>(null);
+  const [manualSerial, setManualSerial] = React.useState<string>("");
 
   const guardPlaceholder =
     (TEXT as any)?.guards?.table?.searchPlaceholder ?? "Buscar guard por nombre o email...";
@@ -132,11 +142,18 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
       setServicesLoading(false);
       setServiceDropdownOpen(false);
 
+      setPlannedStart("");
+      setPlannedEnd("");
       setStart("");
       setEnd("");
       setStatus("scheduled");
       setIsArmed(false);
       setLoading(false);
+
+      setWeapons([]);
+      setSelectedWeaponId(null);
+      setSelectedWeaponSerial(null);
+      setManualSerial("");
     }
   }, [open, initialShift]);
 
@@ -167,8 +184,12 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
         if (!mounted) return;
 
         setShift(s);
-        setStart(isoToLocalInputValue((s as any).startTime));
-        setEnd(isoToLocalInputValue((s as any).endTime));
+
+        setPlannedStart(isoToLocalInputValue((s as any).plannedStartTime ?? (s as any).planned_start_time));
+        setPlannedEnd(isoToLocalInputValue((s as any).plannedEndTime ?? (s as any).planned_end_time));
+
+        setStart(isoToLocalInputValue((s as any).startTime ?? (s as any).start_time));
+        setEnd(isoToLocalInputValue((s as any).endTime ?? (s as any).end_time));
         setStatus((s as any).status ?? "scheduled");
         setIsArmed(Boolean((s as any).isArmed));
 
@@ -283,6 +304,22 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
           console.error("prefill service failed", e);
           setServiceQuery(String((s as any).service ?? ""));
         }
+
+        // PREFILL weapon info (normalize to strings)
+        try {
+          const maybeWeaponId = (s as any).weapon ?? null;
+          const maybeSerial = (s as any).weaponSerialNumber ?? (s as any).weaponDetails ?? null;
+          if (maybeWeaponId) {
+            setSelectedWeaponId(String(maybeWeaponId));
+            setSelectedWeaponSerial(maybeSerial ? String(maybeSerial) : null);
+          } else if (maybeSerial) {
+            setSelectedWeaponId(null);
+            setManualSerial(String(maybeSerial));
+            setSelectedWeaponSerial(null);
+          }
+        } catch (e) {
+          console.error("prefill weapon failed", e);
+        }
       } catch (err) {
         console.error(err);
         toast.error((TEXT as any)?.shifts?.errors?.fetchFailed ?? "Could not load shift");
@@ -298,6 +335,48 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
       mounted = false;
     };
   }, [open, shiftId, initialShift]);
+
+  // when selectedGuard changes -> fetch weapons
+  React.useEffect(() => {
+    let mounted = true;
+    async function loadWeapons() {
+      setWeapons([]);
+      setSelectedWeaponId(null);
+      setSelectedWeaponSerial(null);
+      setManualSerial("");
+      if (!selectedGuard?.id) return;
+      setWeaponsLoading(true);
+      try {
+        const res = await listWeaponsByGuard(selectedGuard.id, 1, 1000);
+        if (!mounted) return;
+        const items = extractItems<Weapon>(res);
+        setWeapons(items);
+
+        // if shift has a weapon id, try preselect it
+        if (shift?.weapon) {
+          const found = items.find((w) => Number(w.id) === Number(shift.weapon));
+          if (found) {
+            setSelectedWeaponId(String(found.id));
+            setSelectedWeaponSerial(found.serialNumber ?? null);
+            setManualSerial("");
+          } else if (shift?.weaponSerialNumber) {
+            setManualSerial(String(shift.weaponSerialNumber));
+            setSelectedWeaponId(null);
+            setSelectedWeaponSerial(null);
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching weapons for guard:", err);
+        setWeapons([]);
+      } finally {
+        if (mounted) setWeaponsLoading(false);
+      }
+    }
+    loadWeapons();
+    return () => {
+      mounted = false;
+    };
+  }, [selectedGuard, shift?.weapon, shift?.weaponSerialNumber]);
 
   // Guard search
   React.useEffect(() => {
@@ -406,6 +485,8 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
       toast.error((TEXT as any)?.shifts?.errors?.missingDates ?? "Start and end are required");
       return;
     }
+    const plannedStartIso = plannedStart ? toIsoFromDatetimeLocal(plannedStart) : undefined;
+    const plannedEndIso = plannedEnd ? toIsoFromDatetimeLocal(plannedEnd) : undefined;
     const startIso = toIsoFromDatetimeLocal(start);
     const endIso = toIsoFromDatetimeLocal(end);
 
@@ -431,9 +512,26 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
         end_time: endIso,
         status,
       };
+
+      if (plannedStartIso) payload.planned_start_time = plannedStartIso;
+      if (plannedEndIso) payload.planned_end_time = plannedEndIso;
+
       if (selectedGuard) payload.guard = Number(selectedGuard.id);
       if (selectedService) payload.service = Number(selectedService.id);
       if (typeof isArmed === "boolean") payload.is_armed = isArmed;
+
+      // weapon handling: convert selectedWeaponId (string) -> number
+      if (isArmed) {
+        if (selectedWeaponId) {
+          payload.weapon = Number(selectedWeaponId);
+        }
+        const serialToSend = selectedWeaponSerial ?? (manualSerial.trim() !== "" ? manualSerial.trim() : null);
+        if (serialToSend) payload.weapon_serial_number = serialToSend;
+      } else {
+        // optional: if you want to clear weapon when unarmed, send null
+        payload.weapon = null;
+        payload.weapon_serial_number = null;
+      }
 
       const updated = await updateShift(shift.id, payload);
       toast.success((TEXT as any)?.shifts?.messages?.updated ?? "Shift updated");
@@ -452,6 +550,9 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
     }
   }
 
+  // compact input class
+  const inputClass = "w-full rounded border px-3 py-1.5 text-sm";
+
   return (
     <Dialog
       open={open}
@@ -459,21 +560,21 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
         if (!v) onClose();
       }}
     >
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[80vh] sm:max-h-[70vh] overflow-auto">
         <DialogHeader>
-          <DialogTitle>{(TEXT as any)?.shifts?.edit?.title ?? "Editar Turno"}</DialogTitle>
+          <DialogTitle className="text-base">{(TEXT as any)?.shifts?.edit?.title ?? "Editar Turno"}</DialogTitle>
         </DialogHeader>
 
-        <div className="mt-4">
+        <div className="mt-2 p-2">
           {loadingShift ? (
             <div>{(TEXT as any)?.common?.loading ?? "Loading..."}</div>
           ) : !shift ? (
             <div>{(TEXT as any)?.shifts?.errors?.noShift ?? "No shift loaded"}</div>
           ) : (
-            <form onSubmit={onSubmit} className="space-y-4">
+            <form onSubmit={onSubmit} className="space-y-3">
               <div>
                 <label className="text-sm text-muted-foreground block mb-1">Shift ID</label>
-                <input className="w-full rounded border px-3 py-2" value={shift.id} readOnly />
+                <input className={inputClass} value={shift.id} readOnly />
               </div>
 
               {/* Guard select-search */}
@@ -481,7 +582,7 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
                 <label className="text-sm text-muted-foreground block mb-1">Guard</label>
                 <input
                   type="text"
-                  className="w-full rounded border px-3 py-2"
+                  className={inputClass}
                   value={selectedGuard ? guardLabel(selectedGuard) : guardQuery}
                   onChange={(e) => {
                     if (selectedGuard) setSelectedGuard(null);
@@ -507,7 +608,7 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
                 )}
 
                 {guardDropdownOpen && (guardResults.length > 0 || guardsLoading) && (
-                  <div className="absolute z-50 left-0 right-0 mt-1 bg-white border rounded shadow max-h-56 overflow-auto">
+                  <div className="absolute z-50 left-0 right-0 mt-1 bg-white border rounded shadow max-h-40 overflow-auto">
                     {guardsLoading && <div className="p-2 text-xs text-muted-foreground">Buscando...</div>}
                     {!guardsLoading && guardResults.length === 0 && <div className="p-2 text-xs text-muted-foreground">No matches.</div>}
                     {!guardsLoading &&
@@ -537,7 +638,7 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
                 <label className="text-sm text-muted-foreground block mb-1">Property</label>
                 <input
                   type="text"
-                  className="w-full rounded border px-3 py-2"
+                  className={inputClass}
                   value={selectedProperty ? propertyLabel(selectedProperty) : propertyQuery}
                   onChange={(e) => {
                     if (selectedProperty) setSelectedProperty(null);
@@ -563,7 +664,7 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
                 )}
 
                 {propertyDropdownOpen && (propertyResults.length > 0 || propertiesLoading) && (
-                  <div className="absolute z-50 left-0 right-0 mt-1 bg-white border rounded shadow max-h-56 overflow-auto">
+                  <div className="absolute z-50 left-0 right-0 mt-1 bg-white border rounded shadow max-h-40 overflow-auto">
                     {propertiesLoading && <div className="p-2 text-xs text-muted-foreground">Buscando...</div>}
                     {!propertiesLoading && propertyResults.length === 0 && <div className="p-2 text-xs text-muted-foreground">No matches.</div>}
                     {!propertiesLoading &&
@@ -594,7 +695,7 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
                 <label className="text-sm text-muted-foreground block mb-1">Service (opcional)</label>
                 <input
                   type="text"
-                  className="w-full rounded border px-3 py-2"
+                  className={inputClass}
                   value={selectedService ? serviceLabel(selectedService) : serviceQuery}
                   onChange={(e) => {
                     if (selectedService) setSelectedService(null);
@@ -620,7 +721,7 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
                 )}
 
                 {serviceDropdownOpen && (serviceResults.length > 0 || servicesLoading) && (
-                  <div className="absolute z-50 left-0 right-0 mt-1 bg-white border rounded shadow max-h-56 overflow-auto">
+                  <div className="absolute z-50 left-0 right-0 mt-1 bg-white border rounded shadow max-h-40 overflow-auto">
                     {servicesLoading && <div className="p-2 text-xs text-muted-foreground">Buscando...</div>}
                     {!servicesLoading && serviceResults.length === 0 && <div className="p-2 text-xs text-muted-foreground">No matches.</div>}
                     {!servicesLoading &&
@@ -646,12 +747,34 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
                 )}
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Planned start/end */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div>
+                  <label className="text-sm text-muted-foreground block mb-1">Planned Start</label>
+                  <input
+                    type="datetime-local"
+                    className={inputClass}
+                    value={plannedStart}
+                    onChange={(e) => setPlannedStart(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm text-muted-foreground block mb-1">Planned End</label>
+                  <input
+                    type="datetime-local"
+                    className={inputClass}
+                    value={plannedEnd}
+                    onChange={(e) => setPlannedEnd(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div>
                   <label className="text-sm text-muted-foreground block mb-1">Start</label>
                   <input
                     type="datetime-local"
-                    className="w-full rounded border px-3 py-2"
+                    className={inputClass}
                     value={start}
                     onChange={(e) => setStart(e.target.value)}
                   />
@@ -660,7 +783,7 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
                   <label className="text-sm text-muted-foreground block mb-1">End</label>
                   <input
                     type="datetime-local"
-                    className="w-full rounded border px-3 py-2"
+                    className={inputClass}
                     value={end}
                     onChange={(e) => setEnd(e.target.value)}
                   />
@@ -672,7 +795,7 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
                 <select
                   value={status}
                   onChange={(e) => setStatus(e.target.value as Shift["status"])}
-                  className="w-full rounded border px-3 py-2"
+                  className={inputClass}
                 >
                   <option value="scheduled">scheduled</option>
                   <option value="completed">completed</option>
@@ -685,9 +808,66 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
                   <input type="checkbox" checked={isArmed} onChange={(e) => setIsArmed(Boolean(e.target.checked))} />
                   <span className="text-sm">Is armed</span>
                 </label>
-                {/* weapon details are typically readOnly from backend; not sending by default */}
-                {shift?.weaponDetails && (
-                  <div className="text-sm text-muted-foreground">Weapon: {shift.weaponDetails}</div>
+
+                {isArmed && (
+                  <div className="w-full space-y-2">
+                    <div>
+                      <label className="text-sm block mb-1">Select weapon (del guard) — opcional</label>
+                      <select
+                        value={selectedWeaponId ?? ""}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === "__manual") {
+                            setSelectedWeaponId(null);
+                            setSelectedWeaponSerial(null);
+                            return;
+                          }
+                          if (!val) {
+                            setSelectedWeaponId(null);
+                            setSelectedWeaponSerial(null);
+                            return;
+                          }
+                          const idStr = String(val);
+                          setSelectedWeaponId(idStr);
+                          const w = weapons.find((x) => String(x.id) === idStr);
+                          setSelectedWeaponSerial(w?.serialNumber ?? null);
+                          setManualSerial("");
+                        }}
+                        className={inputClass}
+                      >
+                        <option value="">-- Select weapon --</option>
+                        {!weaponsLoading && weapons.length === 0 && <option value="">(no weapons)</option>}
+                        {weaponsLoading && <option value="">Cargando armas...</option>}
+                        {weapons.map((w) => (
+                          <option key={String(w.id)} value={String(w.id)}>
+                            {String(w.model ?? "model")} — {String(w.serialNumber ?? "no-serial")} (#{String(w.id)})
+                          </option>
+                        ))}
+                        <option value="__manual">Other / Manual serial</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-sm block mb-1">Weapon serial (manual / preview)</label>
+                      <input
+                        type="text"
+                        placeholder="Serial number (manual or selected)"
+                        className={inputClass}
+                        value={selectedWeaponSerial ?? manualSerial}
+                        onChange={(e) => {
+                          setManualSerial(e.target.value);
+                          setSelectedWeaponSerial(null);
+                          setSelectedWeaponId(null);
+                        }}
+                      />
+                    </div>
+
+                    <div>
+                      {shift?.weaponDetails && (
+                        <div className="text-sm text-muted-foreground">Weapon: {String(shift.weaponDetails)}</div>
+                      )}
+                    </div>
+                  </div>
                 )}
               </div>
 

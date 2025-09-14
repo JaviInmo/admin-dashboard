@@ -1,4 +1,5 @@
 // src/lib/services/shifts.ts
+
 import type { Shift } from "@/components/Shifts/types";
 import { endpoints } from "@/lib/endpoints";
 import { api } from "@/lib/http";
@@ -29,6 +30,9 @@ type ServerShift = {
   weapon?: number | null;
   weapon_details?: string | null;
 
+  // posible campo para serial si el backend lo expone/acepta
+  weapon_serial_number?: string | null;
+
   created_at?: string | null;
   updated_at?: string | null;
 
@@ -40,6 +44,11 @@ type ServerShift = {
  *
  * NOTA: aquí usamos nombres tal cual el backend espera (snake_case),
  * para que puedas enviar el body exactamente como el ejemplo que pasaste.
+ *
+ * Agregué `weaponSerialNumber` como opción para enviar el número de serie
+ * (weapon_serial_number) en caso de que prefieras enviar el serial en lugar
+ * del id del arma. Muchos backends aceptan solo `weapon` id; si el tuyo
+ * acepta `weapon_serial_number`, esto te permite enviarlo.
  */
 export type CreateShiftPayload = {
   guard: number;
@@ -48,6 +57,7 @@ export type CreateShiftPayload = {
 
   is_armed?: boolean;
   weapon?: number | null;
+  weaponSerialNumber?: string | null; // -> weapon_serial_number
 
   planned_start_time?: string | null;
   planned_end_time?: string | null;
@@ -90,6 +100,7 @@ function mapServerShift(s: ServerShift): Shift {
     isArmed: typeof s.is_armed === "boolean" ? s.is_armed : null,
     weapon: s.weapon ?? null,
     weaponDetails: s.weapon_details ?? null,
+    weaponSerialNumber: s.weapon_serial_number ?? null,
 
     createdAt: s.created_at ?? null,
     updatedAt: s.updated_at ?? null,
@@ -141,6 +152,7 @@ export async function getShift(id: number): Promise<Shift> {
  *  "property": 34,
  *  "is_armed": true,
  *  "weapon": 5,
+ *  "weapon_serial_number": "SN-12345",
  *  "planned_start_time": "...",
  *  ...
  * }
@@ -153,6 +165,8 @@ export async function createShift(payload: CreateShiftPayload): Promise<Shift> {
   if (payload.service !== undefined) body.service = payload.service;
   if (typeof payload.is_armed === "boolean") body.is_armed = payload.is_armed;
   if (payload.weapon !== undefined) body.weapon = payload.weapon;
+  // enviar serial si se proporciona (campo snake_case que puede aceptar el backend)
+  if (payload.weaponSerialNumber !== undefined) body.weapon_serial_number = payload.weaponSerialNumber;
   if (payload.planned_start_time !== undefined) body.planned_start_time = payload.planned_start_time;
   if (payload.planned_end_time !== undefined) body.planned_end_time = payload.planned_end_time;
   if (payload.start_time !== undefined) body.start_time = payload.start_time;
@@ -174,6 +188,7 @@ export async function updateShift(id: number, payload: UpdateShiftPayload): Prom
   if (payload.service !== undefined) body.service = payload.service;
   if (typeof payload.is_armed === "boolean") body.is_armed = payload.is_armed;
   if (payload.weapon !== undefined) body.weapon = payload.weapon;
+  if (payload.weaponSerialNumber !== undefined) body.weapon_serial_number = payload.weaponSerialNumber;
   if (payload.planned_start_time !== undefined) body.planned_start_time = payload.planned_start_time;
   if (payload.planned_end_time !== undefined) body.planned_end_time = payload.planned_end_time;
   if (payload.start_time !== undefined) body.start_time = payload.start_time;

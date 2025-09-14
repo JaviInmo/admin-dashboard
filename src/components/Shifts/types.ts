@@ -84,22 +84,28 @@ export type Shift = {
   guardName?: string; // si el backend provee un nombre directo
   property: number;
   propertyDetails?: PropertyDetails;
-  propertyName?: string; // si el backend provee un name directo
+  propertyName?: string;
   service?: number | null;
   serviceDetails?: ServiceDetails;
 
-  // planned vs actual times (opcionales según swagger)
-  plannedStartTime?: string | null; // ISO
-  plannedEndTime?: string | null; // ISO
-  startTime?: string | null; // ISO
-  endTime?: string | null; // ISO
+  // planned vs actual
+  plannedStartTime?: string | null; // ISO date-time
+  plannedEndTime?: string | null; // ISO date-time
+  startTime?: string | null; // ISO date-time
+  endTime?: string | null; // ISO date-time
 
   status?: "scheduled" | "completed" | "voided" | string;
   hoursWorked?: number | null;
 
   isActive?: boolean;
   isArmed?: boolean | null;
-  // weapon (id) y detalles legibles (weapon_details)
+
+  // weapon (id) y detalles
   weapon?: number | null;
-  weaponDetails?: string | null;
+  weaponDetails?: string | null; // según swagger es string readOnly
+  weaponSerialNumber?: string | null; // si el backend devuelve o acepta serial directamente
+
+  // metadata
+  createdAt?: string | null;
+  updatedAt?: string | null;
 };

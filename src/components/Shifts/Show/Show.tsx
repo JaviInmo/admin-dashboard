@@ -28,6 +28,15 @@ type ShowShiftProps = {
   onDeleted?: (id: number) => void;
 };
 
+function safeDateString(iso?: string | null) {
+  if (!iso) return "-";
+  try {
+    return new Date(iso).toLocaleString();
+  } catch {
+    return String(iso);
+  }
+}
+
 export default function ShowShift({ open, onClose, shiftId, onUpdated, onDeleted }: ShowShiftProps) {
   const { TEXT } = useI18n();
   const [shift, setShift] = React.useState<Shift | null>(null);
@@ -45,14 +54,25 @@ export default function ShowShift({ open, onClose, shiftId, onUpdated, onDeleted
     setShift(null);
     setGuardObj(null);
     setPropertyObj(null);
-    getShift(shiftId)
-      .then((s) => setShift(s as Shift))
-      .catch((err) => {
+
+    let mounted = true;
+    (async () => {
+      try {
+        const s = await getShift(shiftId);
+        if (!mounted) return;
+        setShift(s as Shift);
+      } catch (err) {
         console.error(err);
         toast.error((TEXT as any)?.shifts?.errors?.fetchFailed ?? "Could not load shift");
         onClose();
-      })
-      .finally(() => setLoading(false));
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, shiftId]);
 
@@ -173,6 +193,13 @@ export default function ShowShift({ open, onClose, shiftId, onUpdated, onDeleted
     return "-";
   };
 
+  const renderWeaponSerial = () => {
+    if (!shift) return "-";
+    // prefer explicit serial we mapped (weaponSerialNumber), then weaponDetails as fallback
+    const serial = (shift as any).weaponSerialNumber ?? shift.weaponDetails ?? null;
+    return serial ? String(serial) : "-";
+  };
+
   return (
     <>
       <Dialog
@@ -193,17 +220,28 @@ export default function ShowShift({ open, onClose, shiftId, onUpdated, onDeleted
               <div>{(TEXT as any)?.shifts?.errors?.noShift ?? "No shift"}</div>
             ) : (
               <div className="space-y-3">
-                <div><strong>ID:</strong> {shift.id}</div>
+                <div><strong>ID:</strong> {String(shift.id)}</div>
                 <div><strong>Guard:</strong> {renderGuardLabel()}</div>
                 <div><strong>Property:</strong> {renderPropertyLabel()}</div>
                 <div><strong>Service:</strong> {renderServiceLabel()}</div>
-                <div><strong>Start:</strong> {shift.startTime ? new Date(shift.startTime).toLocaleString() : "-"}</div>
-                <div><strong>End:</strong> {shift.endTime ? new Date(shift.endTime).toLocaleString() : "-"}</div>
-                <div><strong>Status:</strong> {shift.status}</div>
+
+                <div><strong>Planned Start:</strong> {safeDateString((shift as any).plannedStartTime ?? (shift as any).planned_start_time ?? null)}</div>
+                <div><strong>Planned End:</strong> {safeDateString((shift as any).plannedEndTime ?? (shift as any).planned_end_time ?? null)}</div>
+
+                <div><strong>Start:</strong> {safeDateString(shift.startTime ?? (shift as any).start_time ?? null)}</div>
+                <div><strong>End:</strong> {safeDateString(shift.endTime ?? (shift as any).end_time ?? null)}</div>
+
+                <div><strong>Status:</strong> {shift.status ?? "-"}</div>
                 <div><strong>Hours worked:</strong> {shift.hoursWorked ?? "-"}</div>
+
                 <div><strong>Is armed:</strong> {shift.isArmed ? "Yes" : "No"}</div>
-                {shift.weaponDetails && <div><strong>Weapon details:</strong> {shift.weaponDetails}</div>}
+                <div><strong>Weapon serial:</strong> {renderWeaponSerial()}</div>
+                {shift.weaponDetails && <div><strong>Weapon details:</strong> {String(shift.weaponDetails)}</div>}
+
                 <div><strong>Active:</strong> {shift.isActive ? "Yes" : "No"}</div>
+
+                <div><strong>Created at:</strong> {safeDateString((shift as any).createdAt ?? (shift as any).created_at ?? null)}</div>
+                <div><strong>Updated at:</strong> {safeDateString((shift as any).updatedAt ?? (shift as any).updated_at ?? null)}</div>
               </div>
             )}
           </div>
