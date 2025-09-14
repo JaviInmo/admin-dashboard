@@ -1,9 +1,16 @@
 "use client";
 
-import { Pencil, Trash, Tag, Calendar } from "lucide-react";
+import { Pencil, Trash, Tag, Calendar, MoreHorizontal } from "lucide-react";
 import { List } from "lucide-react";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ReusableTable, type Column } from "@/components/ui/reusable-table";
 import { useI18n } from "@/i18n";
 import { GiPistolGun } from "react-icons/gi";
@@ -92,6 +99,25 @@ export default function GuardsTable({
 
   // Nuevo estado: guard para abrir modal de Services del guardia
   const [servicesGuard, setServicesGuard] = React.useState<Guard | null>(null);
+
+  // Estado para controlar si las acciones están agrupadas - guardado en localStorage
+  const [isActionsGrouped, setIsActionsGrouped] = React.useState(() => {
+    try {
+      const saved = localStorage.getItem('guards-table-actions-grouped');
+      return saved ? JSON.parse(saved) : false;
+    } catch {
+      return false;
+    }
+  });
+
+  // Efecto para guardar en localStorage cuando cambie el estado
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('guards-table-actions-grouped', JSON.stringify(isActionsGrouped));
+    } catch (error) {
+      console.warn('No se pudo guardar la configuración en localStorage:', error);
+    }
+  }, [isActionsGrouped]);
 
   const guardTable = (TEXT.guards && (TEXT.guards as any).table) ?? (TEXT.guards as any) ?? {};
 
@@ -199,10 +225,66 @@ export default function GuardsTable({
 
   const searchFields: (keyof Guard)[] = ["firstName", "lastName", "email", "phone"];
 
+  const renderGroupedActions = (guard: Guard) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="sm">
+          <MoreHorizontal className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent>
+        <DropdownMenuItem onClick={(e) => {
+          e.stopPropagation();
+          setServicesGuard(guard);
+        }}>
+          <List className="h-4 w-4 mr-2" />
+          {getText("guards.table.serviceButton", "Servicios")}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={(e) => {
+          e.stopPropagation();
+          setShiftGuard(guard);
+        }}>
+          <Calendar className="h-4 w-4 mr-2" />
+          {getText("guards.table.shiftsButton", "Turnos")}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={(e) => {
+          e.stopPropagation();
+          setTariffGuard(guard);
+        }}>
+          <Tag className="h-4 w-4 mr-2" />
+          {getText("guards.table.tariffsButton", "Tarifas")}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={(e) => {
+          e.stopPropagation();
+          setWeaponsGuard(guard);
+        }}>
+          <GiPistolGun className="h-4 w-4 mr-2" />
+          {getText("guards.table.weaponsButton", "Armas")}
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={(e) => {
+          e.stopPropagation();
+          setEditGuard(guard);
+        }}>
+          <Pencil className="h-4 w-4 mr-2" />
+          {getText("actions.edit", "Editar")}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={(e) => {
+          e.stopPropagation();
+          setDeleteGuard(guard);
+        }}>
+          <Trash className="h-4 w-4 mr-2" />
+          {getText("actions.delete", "Eliminar")}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
   const renderActions = (guard: Guard) => (
-    <div className="flex items-center gap-1"> {/* gap reducido */}
-      {/* Servicios del guard */}
-     <Button
+    isActionsGrouped ? renderGroupedActions(guard) : (
+      <div className="flex items-center gap-1"> {/* gap reducido */}
+        {/* Servicios del guard */}
+       <Button
   size="icon"
   variant="ghost"
   onClick={(e) => {
@@ -285,7 +367,8 @@ export default function GuardsTable({
       >
         <Trash className="h-4 w-4 text-red-500" />
       </Button>
-    </div>
+      </div>
+    )
   );
 
   return (
@@ -318,6 +401,17 @@ export default function GuardsTable({
         toggleSort={toggleSort}
         actions={renderActions}
         isPageLoading={isPageLoading}
+        rightControls={
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={isActionsGrouped}
+              onChange={(e) => setIsActionsGrouped(e.target.checked)}
+              className="w-4 h-4"
+            />
+            <span>Agrupar acciones</span>
+          </label>
+        }
       />
 
       {/* Create Guard dialog */}

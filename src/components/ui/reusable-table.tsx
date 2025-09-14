@@ -57,6 +57,7 @@ export interface ReusableTableProps<T> {
 
   actions?: (item: T) => React.ReactNode;
   actionsHeader?: string;
+  rightControls?: React.ReactNode;
 
   onRefresh?: () => Promise<void>;
   className?: string;
@@ -85,6 +86,7 @@ export function ReusableTable<T extends Record<string, any>>({
   toggleSort,
   actions,
   actionsHeader,
+  rightControls,
   className = "",
 }: ReusableTableProps<T>) {
   const { TEXT } = useI18n();
@@ -517,7 +519,8 @@ export function ReusableTable<T extends Record<string, any>>({
       </div>
 
       {/* Pagination */}
-      <div className="flex justify-center">
+      <div className="flex justify-between items-center">
+        <div></div> {/* Espaciador izquierdo */}
         <ReusablePagination
           currentPage={displayEffectivePage}
           totalPages={displayEffectiveTotalPages}
@@ -528,6 +531,9 @@ export function ReusableTable<T extends Record<string, any>>({
           displayCurrentPage={displayCurrentPage}
           displayTotalPages={displayEffectiveTotalPages}
         />
+        <div className="flex items-center">
+          {rightControls}
+        </div>
       </div>
     </div>
   );
