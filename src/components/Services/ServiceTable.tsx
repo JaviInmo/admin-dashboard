@@ -10,6 +10,8 @@ import type { SortOrder } from "@/lib/sort";
 import type { Service } from "./types";
 import DeleteServiceDialog from "./Delete/Delete";
 import EditServiceDialog from "./Edit/Edit";
+import PropertyServiceEdit from "../Properties/PropertyServiceEdit";
+import GuardServiceEdit from "../Guards/GuardServiceEdit";
 import ShowServiceDialog from "./Show/Show";
 import CreateServiceDialog from "./Create/Create";
 
@@ -47,6 +49,16 @@ export interface ServicesTableProps {
   // shrinkToFit -> fuerza la tabla a "encoger" (table-fixed, truncate, anchos reducidos)
   // útil para que quepa en dialogos más estrechos sin overflow X.
   shrinkToFit?: boolean;
+
+  // context -> para determinar qué modal de edición usar
+  context?: "property" | "guard" | "default";
+
+  // columnsConfig -> para controlar qué columnas mostrar según el contexto
+  columnsConfig?: {
+    showName?: boolean;
+    showGuard?: boolean;
+    showProperty?: boolean;
+  };
 }
 
 export default function ServicesTable({
@@ -70,6 +82,8 @@ export default function ServicesTable({
   compact = false,
   largeMode = false,
   shrinkToFit = false,
+  context = "default",
+  columnsConfig = { showName: true, showGuard: true, showProperty: true },
 }: ServicesTableProps) {
   const { TEXT } = useI18n();
 
@@ -122,7 +136,7 @@ export default function ServicesTable({
     ? "px-2 py-1 text-sm"
     : largeMode
     ? "px-4 py-2 text-base"
-    : "px-2 py-1 text-sm";
+    : "px-3 py-2 text-sm";
 
   const headerCellSmallStyle = compact
     ? { width: "80px", minWidth: "60px" }
@@ -130,7 +144,7 @@ export default function ServicesTable({
     ? { width: "90px", minWidth: "70px" }
     : largeMode
     ? { width: "160px", minWidth: "140px" }
-    : { width: "100px", minWidth: "80px" };
+    : { width: "120px", minWidth: "100px" };
 
   const iconSizeClass = compact
     ? "h-3 w-3"
@@ -160,11 +174,12 @@ export default function ServicesTable({
   );
 
   const columns: Column<Service>[] = [
-    {
-      key: "name",
+    // Columna Name - se muestra según configuración
+    ...(columnsConfig.showName ? [{
+      key: "name" as keyof Service,
       label: tableText.headers?.name ?? "Name",
       sortable: true,
-      render: (s) => (
+      render: (s: Service) => (
         <Trunc title={s.name}>
           <span className="font-medium">{s.name}</span>
         </Trunc>
@@ -172,24 +187,40 @@ export default function ServicesTable({
       headerClassName: sizeHeaderCell,
       cellClassName: `${sizeHeaderCell} max-w-[220px]`,
       autoSize: true,
-    },
-    {
-      key: "guardName",
+    }] : []),
+    
+    // Columna Guard - se muestra según configuración
+    ...(columnsConfig.showGuard ? [{
+      key: "guardName" as keyof Service,
       label: tableText.headers?.guard ?? "Guard",
       sortable: true,
-      render: (s) => <Trunc title={s.guardName}>{s.guardName ?? "-"}</Trunc>,
+      render: (s: Service) => <Trunc title={s.guardName}>{s.guardName ?? "-"}</Trunc>,
       headerClassName: sizeHeaderCell,
       cellClassName: sizeHeaderCell,
-    },
-    {
-      key: "propertyName",
+    }] : []),
+    
+    // Columna Property - se muestra según configuración
+    ...(columnsConfig.showProperty ? [{
+      key: "propertyName" as keyof Service,
       label: tableText.headers?.property ?? "Property",
       sortable: true,
-      render: (s) => (
+      render: (s: Service) => (
         <Trunc title={s.propertyName}>{s.propertyName ?? "-"}</Trunc>
       ),
       headerClassName: sizeHeaderCell,
       cellClassName: sizeHeaderCell,
+    }] : []),
+    {
+      key: "totalHours",
+      label: tableText.headers?.totalHours ?? "Cant. Hrs",
+      sortable: false,
+      render: (s) => (
+        <Trunc title={String(s.totalHours ?? null)}>{s.totalHours ?? "-"}</Trunc>
+      ),
+      headerClassName: sizeHeaderCell,
+      cellClassName: sizeHeaderCell,
+      headerStyle: headerCellSmallStyle,
+      cellStyle: headerCellSmallStyle,
     },
     {
       key: "rate",
@@ -269,7 +300,11 @@ export default function ServicesTable({
     },
   ];
 
-  const searchFields: (keyof Service)[] = ["name", "guardName", "propertyName"];
+  const searchFields: (keyof Service)[] = [
+    ...(columnsConfig.showName ? ["name" as keyof Service] : []),
+    ...(columnsConfig.showGuard ? ["guardName" as keyof Service] : []),
+    ...(columnsConfig.showProperty ? ["propertyName" as keyof Service] : []),
+  ];
 
   const renderActions = (s: Service) => {
     return (
@@ -320,7 +355,7 @@ export default function ServicesTable({
     <>
       <div className="w-full overflow-auto">
         <div
-          className={shrinkToFit ? "w-full" : largeMode ? "min-w-[1200px]" : ""}
+          className={shrinkToFit ? "w-full" : largeMode ? "min-w-[1200px]" : "min-w-[1000px]"}
         >
           <ReusableTable
             className={`${tableClass} ${shrinkToFit ? "table-fixed" : ""}`}
@@ -414,7 +449,27 @@ export default function ServicesTable({
         />
       )}
 
-      {editService && (
+      {editService && context === "property" && (
+        <PropertyServiceEdit
+          service={editService}
+          open={!!editService}
+          onClose={() => setEditService(null)}
+          onUpdated={onRefresh}
+          compact={compact}
+        />
+      )}
+
+      {editService && context === "guard" && (
+        <GuardServiceEdit
+          service={editService}
+          open={!!editService}
+          onClose={() => setEditService(null)}
+          onUpdated={onRefresh}
+          compact={compact}
+        />
+      )}
+
+      {editService && context === "default" && (
         <EditServiceDialog
           service={editService}
           open={!!editService}

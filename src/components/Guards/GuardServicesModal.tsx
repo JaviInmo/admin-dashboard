@@ -153,6 +153,8 @@ export default function GuardServicesModal({ guardId, guardName, open, onClose, 
             largeMode={false}
             shrinkToFit={true}
             compact={false}
+            context="guard"
+            columnsConfig={{ showName: true, showGuard: false, showProperty: true }}
           />
         </div>
 

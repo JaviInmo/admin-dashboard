@@ -45,6 +45,7 @@ export type CreateServicePayload = {
   end_time?: string | null;
   schedule?: Array<string | { [key: string]: any }>; // puede aceptar strings o objetos si el backend lo permite
   recurrent?: boolean;
+  total_hours?: string | null; // Agregado: campo para horas totales
   is_active?: boolean;
 };
 
@@ -176,6 +177,10 @@ export async function createService(payload: CreateServicePayload): Promise<Serv
     body.recurrent = payload.recurrent;
   }
 
+  if (payload.total_hours !== undefined && payload.total_hours !== null && payload.total_hours !== "") {
+    body.total_hours = payload.total_hours;
+  }
+
   if (payload.is_active !== undefined) {
     body.is_active = payload.is_active;
   }
@@ -265,6 +270,14 @@ export async function updateService(id: number, payload: UpdateServicePayload): 
 
   if (payload.recurrent !== undefined) {
     body.recurrent = payload.recurrent;
+  }
+
+  if (payload.total_hours !== undefined) {
+    if (payload.total_hours === "") {
+      // omitimos
+    } else {
+      body.total_hours = payload.total_hours;
+    }
   }
 
   if (payload.is_active !== undefined) {

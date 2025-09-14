@@ -117,7 +117,8 @@ export default function PropertiesServicesModal({ propertyId, propertyName, open
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <DialogContent size="xl" className="max-w-[1200px] w-full max-h-[90vh] overflow-auto">
+      <DialogContent className="w-fit max-w-[95vw] min-w-[1400px] max-h-[90vh] overflow-hidden">
+        <div className="flex flex-col max-h-full">
         <DialogHeader>
           <div className="flex items-center justify-between w-full">
             <DialogTitle className="text-base font-semibold pl-3">
@@ -126,7 +127,7 @@ export default function PropertiesServicesModal({ propertyId, propertyName, open
           </div>
         </DialogHeader>
 
-        <div className="p-3">
+        <div className="px-6 pb-3 flex-1 overflow-auto">
           <ServicesTable
             services={servicesList}
             onRefresh={handleRefresh}
@@ -145,9 +146,11 @@ export default function PropertiesServicesModal({ propertyId, propertyName, open
             createInitialPropertyId={propertyId}
             createInitialPropertyLabel={propertyName ?? undefined}
 
-            largeMode={false}
-            shrinkToFit={true}
+            largeMode={true}
+            shrinkToFit={false}
             compact={false}
+            context="property"
+            columnsConfig={{ showName: true, showGuard: false, showProperty: true }}
           />
         </div>
 
@@ -161,6 +164,7 @@ export default function PropertiesServicesModal({ propertyId, propertyName, open
             </div>
           </div>
         </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   );
