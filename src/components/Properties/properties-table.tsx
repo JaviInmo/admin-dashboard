@@ -1,9 +1,16 @@
 // src/components/Properties/properties-table.tsx
 "use client";
 
-import { Pencil, Trash, User, Calendar, List } from "lucide-react";
+import { Pencil, Trash, User, Calendar, List, MoreHorizontal } from "lucide-react";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ReusableTable, type Column } from "@/components/ui/reusable-table";
 import { ClickableAddress } from "@/components/ui/clickable-address";
 import {
@@ -110,6 +117,25 @@ export default function PropertiesTable({
 
   // Nuevo estado: property para abrir modal de Services
   const [servicesProperty, setServicesProperty] = React.useState<AppProperty | null>(null);
+
+  // Estado para controlar si las acciones están agrupadas - guardado en localStorage
+  const [isActionsGrouped, setIsActionsGrouped] = React.useState(() => {
+    try {
+      const saved = localStorage.getItem('properties-table-actions-grouped');
+      return saved ? JSON.parse(saved) : true; // Por defecto compacto (true)
+    } catch {
+      return true; // Por defecto compacto
+    }
+  });
+
+  // Efecto para guardar en localStorage cuando cambie el estado
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('properties-table-actions-grouped', JSON.stringify(isActionsGrouped));
+    } catch (error) {
+      console.warn('No se pudo guardar la configuración en localStorage:', error);
+    }
+  }, [isActionsGrouped]);
 
   // Safe text getter to avoid TS errors when some keys are missing
   function getText(path: string, fallback?: string) {
@@ -235,41 +261,30 @@ export default function PropertiesTable({
   // Campos de búsqueda
   const searchFields: (keyof AppProperty)[] = ["name", "alias", "address"];
 
-  // Acciones de fila
-  const renderActions = (property: AppProperty) => (
-    <div className="flex items-center gap-1"> {/* gap reducido como en guardias */}
-      {/* Servicios (nuevo botón) */}
-      <Button
-        size="icon"
-        variant="ghost"
-        onClick={(e) => {
+  // Función para renderizar acciones agrupadas (dropdown)
+  const renderGroupedActions = (property: AppProperty) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="sm">
+          <MoreHorizontal className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent>
+        <DropdownMenuItem onClick={(e) => {
           e.stopPropagation();
           setServicesProperty(property);
-        }}
-        title={getText("properties.table.servicesButton", "Services")}
-        aria-label={getText("properties.table.servicesAria", "Ver servicios de la propiedad")}
-      >
-        <List className="h-4 w-4" />
-      </Button>
-
-      {/* Turnos */}
-      <Button
-        size="icon"
-        variant="ghost"
-        onClick={(e) => {
+        }}>
+          <List className="h-4 w-4 mr-2" />
+          {getText("properties.table.servicesButton", "Servicios")}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={(e) => {
           e.stopPropagation();
           setShiftProperty(property);
-        }}
-        title={getText("properties.table.shiftsButton", "Turnos")}
-        aria-label={getText("properties.table.shiftsAria", "Gestionar turnos de la propiedad")}
-      >
-        <Calendar className="h-4 w-4" />
-      </Button>
-      
-      <Button
-        size="icon"
-        variant="ghost"
-        onClick={(e) => {
+        }}>
+          <Calendar className="h-4 w-4 mr-2" />
+          {getText("properties.table.shiftsButton", "Turnos")}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={(e) => {
           e.stopPropagation();
           const ownerIdVal = (property as any).ownerId ?? (property as any).owner ?? null;
           if (ownerIdVal) {
@@ -277,33 +292,100 @@ export default function PropertiesTable({
             setOwnerInitialData((property as any).ownerDetails ?? undefined);
             setOwnerModalOpen(true);
           }
-        }}
-        title="Ver propietario"
-        aria-label="Ver propietario"
-      >
-        <User className="h-4 w-4" />
-      </Button>
-      <Button
-        size="icon"
-        variant="ghost"
-        onClick={(e) => {
+        }}>
+          <User className="h-4 w-4 mr-2" />
+          Ver propietario
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={(e) => {
           e.stopPropagation();
           setEditProperty(property);
-        }}
-      >
-        <Pencil className="h-4 w-4" />
-      </Button>
-      <Button
-        size="icon"
-        variant="ghost"
-        onClick={(e) => {
+        }}>
+          <Pencil className="h-4 w-4 mr-2" />
+          Editar
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={(e) => {
           e.stopPropagation();
           setDeleteProperty(property);
-        }}
-      >
-        <Trash className="h-4 w-4 text-red-500" />
-      </Button>
-    </div>
+        }}>
+          <Trash className="h-4 w-4 mr-2" />
+          Eliminar
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
+  // Acciones de fila
+  const renderActions = (property: AppProperty) => (
+    isActionsGrouped ? renderGroupedActions(property) : (
+      <div className="flex items-center gap-1"> {/* gap reducido como en guardias */}
+        {/* Servicios (nuevo botón) */}
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={(e) => {
+            e.stopPropagation();
+            setServicesProperty(property);
+          }}
+          title={getText("properties.table.servicesButton", "Services")}
+          aria-label={getText("properties.table.servicesAria", "Ver servicios de la propiedad")}
+        >
+          <List className="h-4 w-4" />
+        </Button>
+
+        {/* Turnos */}
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={(e) => {
+            e.stopPropagation();
+            setShiftProperty(property);
+          }}
+          title={getText("properties.table.shiftsButton", "Turnos")}
+          aria-label={getText("properties.table.shiftsAria", "Gestionar turnos de la propiedad")}
+        >
+          <Calendar className="h-4 w-4" />
+        </Button>
+        
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={(e) => {
+            e.stopPropagation();
+            const ownerIdVal = (property as any).ownerId ?? (property as any).owner ?? null;
+            if (ownerIdVal) {
+              setOwnerToShow(Number(ownerIdVal));
+              setOwnerInitialData((property as any).ownerDetails ?? undefined);
+              setOwnerModalOpen(true);
+            }
+          }}
+          title="Ver propietario"
+          aria-label="Ver propietario"
+        >
+          <User className="h-4 w-4" />
+        </Button>
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={(e) => {
+            e.stopPropagation();
+            setEditProperty(property);
+          }}
+        >
+          <Pencil className="h-4 w-4" />
+        </Button>
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={(e) => {
+            e.stopPropagation();
+            setDeleteProperty(property);
+          }}
+        >
+          <Trash className="h-4 w-4 text-red-500" />
+        </Button>
+      </div>
+    )
   );
 
   return (
@@ -337,6 +419,16 @@ export default function PropertiesTable({
         toggleSort={toggleSort as any}
         actions={renderActions}
         isPageLoading={isPageLoading}
+        rightControls={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsActionsGrouped(!isActionsGrouped)}
+            className="text-xs"
+          >
+            {isActionsGrouped ? "Compacto" : "Desplegado"}
+          </Button>
+        }
       />
 
       <CreatePropertyDialog

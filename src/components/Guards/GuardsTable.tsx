@@ -104,9 +104,9 @@ export default function GuardsTable({
   const [isActionsGrouped, setIsActionsGrouped] = React.useState(() => {
     try {
       const saved = localStorage.getItem('guards-table-actions-grouped');
-      return saved ? JSON.parse(saved) : false;
+      return saved ? JSON.parse(saved) : true; // Por defecto compacto (true)
     } catch {
-      return false;
+      return true; // Por defecto compacto
     }
   });
 
@@ -402,15 +402,14 @@ export default function GuardsTable({
         actions={renderActions}
         isPageLoading={isPageLoading}
         rightControls={
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={isActionsGrouped}
-              onChange={(e) => setIsActionsGrouped(e.target.checked)}
-              className="w-4 h-4"
-            />
-            <span>Agrupar acciones</span>
-          </label>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsActionsGrouped(!isActionsGrouped)}
+            className="text-xs"
+          >
+            {isActionsGrouped ? "Compacto" : "Desplegado"}
+          </Button>
         }
       />
 
