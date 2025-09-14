@@ -127,6 +127,7 @@ export function CoverageBar({
   Object.entries(shiftsByColor).forEach(([colorKey, groupShifts]) => {
     const intervals: Array<[number, number]> = [];
     for (const s of groupShifts) {
+      if (!s.startTime || !s.endTime) continue;
       const st = new Date(s.startTime);
       const et = new Date(s.endTime);
       const clamped = clampToDay(st, et, day);

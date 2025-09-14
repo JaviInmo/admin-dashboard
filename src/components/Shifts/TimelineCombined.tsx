@@ -198,6 +198,7 @@ export default function TimelineCombined() {
       displayDays.forEach(day => {
         const dayKey = day.toISOString().split('T')[0];
         const dayShifts = filtered.filter(s => {
+          if (!s.startTime || !s.endTime) return false;
           const shiftStart = new Date(s.startTime);
           const shiftEnd = new Date(s.endTime);
           const dayStart = startOfDay(day);
@@ -243,6 +244,7 @@ export default function TimelineCombined() {
     
     // Calcular horas totales
     const totalHours = guardShifts.reduce((sum, shift) => {
+      if (!shift.startTime || !shift.endTime) return sum;
       const start = new Date(shift.startTime);
       const end = new Date(shift.endTime);
       const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
@@ -262,6 +264,7 @@ export default function TimelineCombined() {
     
     // Calcular horas totales
     const totalHours = propertyShifts.reduce((sum, shift) => {
+      if (!shift.startTime || !shift.endTime) return sum;
       const start = new Date(shift.startTime);
       const end = new Date(shift.endTime);
       const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);

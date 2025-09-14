@@ -127,6 +127,11 @@ const determineShiftStatus = (startTime: Date, endTime: Date, originalStatus: st
 
 // Función para convertir datos de la API a ShiftEvent
 const convertToShiftEvent = (shift: Shift, guard: Guard | undefined, property: AppProperty | undefined): ShiftEvent => {
+  // Validar que startTime y endTime no sean null/undefined
+  if (!shift.startTime || !shift.endTime) {
+    throw new Error(`Shift ${shift.id} has invalid time data`);
+  }
+  
   const startTime = new Date(shift.startTime);
   const endTime = new Date(shift.endTime);
   
@@ -149,7 +154,7 @@ const convertToShiftEvent = (shift: Shift, guard: Guard | undefined, property: A
     propertyAddress: property?.address || 'Dirección no disponible',
     startTime,
     endTime,
-    status: determineShiftStatus(startTime, endTime, shift.status),
+    status: determineShiftStatus(startTime, endTime, shift.status || 'scheduled'),
     type
   };
 };
@@ -192,6 +197,7 @@ export function ShiftsTimeline() {
 
         // Filtrar turnos relevantes (últimos 2 días y próximos 2 días)
         const relevantShifts = shiftsResult.items.filter(shift => {
+          if (!shift.startTime) return false;
           const shiftStart = new Date(shift.startTime);
           return shiftStart >= twoDaysAgo && shiftStart <= twoDaysFromNow;
         });

@@ -37,6 +37,7 @@ export default function TimelineDetails({ displayDays, shifts, guards, selectedC
     dayEnd.setHours(23, 59, 59, 999);
     
     return shifts.filter(shift => {
+      if (!shift.startTime) return false;
       const shiftStart = new Date(shift.startTime);
       return shiftStart >= dayStart && shiftStart <= dayEnd;
     });
@@ -107,14 +108,14 @@ export default function TimelineDetails({ displayDays, shifts, guards, selectedC
             <div className="space-y-2">
               {selectedDayShifts.map((shift) => {
                 const guard = guardMap.get(shift.guard);
-                const startTime = new Date(shift.startTime).toLocaleTimeString(undefined, {
+                const startTime = shift.startTime ? new Date(shift.startTime).toLocaleTimeString(undefined, {
                   hour: '2-digit',
                   minute: '2-digit'
-                });
-                const endTime = new Date(shift.endTime).toLocaleTimeString(undefined, {
+                }) : '--:--';
+                const endTime = shift.endTime ? new Date(shift.endTime).toLocaleTimeString(undefined, {
                   hour: '2-digit',
                   minute: '2-digit'
-                });
+                }) : '--:--';
                 
                 return (
                   <div key={shift.id} className="flex items-center justify-between p-2 bg-muted/50 rounded-md text-xs">
