@@ -47,6 +47,8 @@ import { listShiftsByGuard } from "@/lib/services/shifts";
 import { getProperty } from "@/lib/services/properties";
 import { getGuard } from "@/lib/services/guard";
 import type { AppProperty } from "@/lib/services/properties";
+import { listServicesByProperty } from "@/lib/services/services";
+import type { Service } from "@/components/Services/types";
 import { cn } from "@/lib/utils";
 
 // Colores para propiedades - paleta de 50 colores únicos
@@ -124,8 +126,9 @@ function isSameDay(date1: Date, date2: Date): boolean {
   );
 }
 
-type PropertyWithShifts = {
+type PropertyWithServices = {
   property: AppProperty;
+  services: Service[];
   shifts: Shift[];
   color: string;
   totalHours: number;
@@ -134,7 +137,7 @@ type PropertyWithShifts = {
 type DayWithShifts = {
   date: Date;
   shifts: Shift[];
-  properties: PropertyWithShifts[];
+  properties: PropertyWithServices[];
 };
 
 type Props = {
@@ -168,6 +171,10 @@ export default function GuardsShiftsModalImproved({
   >({});
   const [propertyColors, setPropertyColors] = React.useState<Record<number, string>>({});
   const [loadingProps, setLoadingProps] = React.useState<boolean>(false);
+  
+  // Cache de servicios por propiedad { [propertyId]: Service[] }
+  const [servicesMap, setServicesMap] = React.useState<Record<number, Service[]>>({});
+  const [loadingServices, setLoadingServices] = React.useState<boolean>(false);
   
   // Estados para filtrado de propiedades
   const [propertyTimeFilter, setPropertyTimeFilter] = React.useState<string>("all");
@@ -211,11 +218,12 @@ export default function GuardsShiftsModalImproved({
 
     // Agrupar por propiedades dentro de cada día
     Object.values(dayGroups).forEach((dayData) => {
-      const propertyGroups: Record<number, PropertyWithShifts> = {};
+      const propertyGroups: Record<number, PropertyWithServices> = {};
       
       dayData.shifts.forEach((shift) => {
         const propId = shift.property ? Number(shift.property) : -1;
         const property = propertyMap[propId] || null;
+        const services = servicesMap[propId] || [];
         
         if (!propertyGroups[propId]) {
           propertyGroups[propId] = {
@@ -225,6 +233,7 @@ export default function GuardsShiftsModalImproved({
               alias: '', 
               address: '' 
             } as AppProperty,
+            services: services,
             shifts: [],
             color: propertyColors[propId] || PROPERTY_COLORS[propId % PROPERTY_COLORS.length],
             totalHours: 0,
@@ -239,7 +248,7 @@ export default function GuardsShiftsModalImproved({
     });
 
     return dayGroups;
-  }, [shifts, propertyMap, propertyColors]);
+  }, [shifts, propertyMap, propertyColors, servicesMap]);
 
   // Días con turnos para el calendario
   const daysWithShifts = React.useMemo(() => {
@@ -310,7 +319,7 @@ export default function GuardsShiftsModalImproved({
     setOverlapProperties(overlapDetection.overlappingProperties);
   }, [overlapDetection]);
 
-  // Mapa de fecha -> propiedades con turnos para mostrar círculos
+  // Mapa de fecha -> propiedades con turnos y guardias para mostrar círculos y contadores
   const datePropertyMap = React.useMemo(() => {
     const map: Record<string, Array<{propertyId: number, color: string}>> = {};
     
@@ -331,14 +340,67 @@ export default function GuardsShiftsModalImproved({
     return map;
   }, [shifts, propertyColors]);
 
+  // Mapa de fecha -> información de guardias para contadores y tooltips
+  const dateGuardsMap = React.useMemo(() => {
+    const map: Record<string, {
+      guardCount: number,
+      shiftCount: number,
+      guards: Array<{
+        id: number,
+        name: string,
+        propertyId: number,
+        propertyName: string,
+        startTime: string,
+        endTime: string,
+        color: string
+      }>
+    }> = {};
+    
+    shifts.forEach(shift => {
+      if (!shift.startTime || !shift.endTime) return;
+      const dateKey = new Date(shift.startTime).toDateString();
+      const propertyId = Number(shift.property);
+      const property = propertyMap[propertyId];
+      const color = propertyColors[propertyId] || PROPERTY_COLORS[propertyId % PROPERTY_COLORS.length];
+      
+      if (!map[dateKey]) {
+        map[dateKey] = {
+          guardCount: 0,
+          shiftCount: 0,
+          guards: []
+        };
+      }
+      
+      map[dateKey].shiftCount++;
+      
+      // Agregar información del guardia (evitar duplicados del mismo guardia)
+      const existingGuard = map[dateKey].guards.find(g => g.id === shift.guard);
+      if (!existingGuard) {
+        map[dateKey].guardCount++;
+        map[dateKey].guards.push({
+          id: shift.guard,
+          name: shift.guardName || shift.guardDetails?.name || `Guard ${shift.guard}`,
+          propertyId,
+          propertyName: property?.name || `Property ${propertyId}`,
+          startTime: new Date(shift.startTime).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+          endTime: new Date(shift.endTime).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+          color
+        });
+      }
+    });
+    
+    return map;
+  }, [shifts, propertyMap, propertyColors]);
+
   // Propiedades filtradas - SIEMPRE mostrar todas las propiedades del guardia
   const allProperties = React.useMemo(() => {
     // Mostrar todas las propiedades únicas donde el guardia tiene turnos
-    const propertyGroups: Record<number, PropertyWithShifts> = {};
+    const propertyGroups: Record<number, PropertyWithServices> = {};
     
     shifts.forEach((shift) => {
       const propId = shift.property ? Number(shift.property) : -1;
       const property = propertyMap[propId] || null;
+      const services = servicesMap[propId] || [];
       
       if (!propertyGroups[propId]) {
         propertyGroups[propId] = {
@@ -348,6 +410,7 @@ export default function GuardsShiftsModalImproved({
             alias: '', 
             address: '' 
           } as AppProperty,
+          services: services,
           shifts: [],
           color: propertyColors[propId] || PROPERTY_COLORS[propId % PROPERTY_COLORS.length],
           totalHours: 0,
@@ -359,7 +422,7 @@ export default function GuardsShiftsModalImproved({
     });
     
     return Object.values(propertyGroups);
-  }, [shifts, propertyMap, propertyColors]);
+  }, [shifts, propertyMap, propertyColors, servicesMap]);
 
   // Propiedades filtradas por búsqueda y tiempo
   const filteredProperties = React.useMemo(() => {
@@ -371,7 +434,12 @@ export default function GuardsShiftsModalImproved({
       result = result.filter(prop => 
         prop.property.name?.toLowerCase().includes(query) ||
         prop.property.alias?.toLowerCase().includes(query) ||
-        prop.property.address?.toLowerCase().includes(query)
+        prop.property.address?.toLowerCase().includes(query) ||
+        // Buscar también en servicios
+        prop.services.some(service =>
+          service.name?.toLowerCase().includes(query) ||
+          service.description?.toLowerCase().includes(query)
+        )
       );
     }
     
@@ -521,6 +589,7 @@ export default function GuardsShiftsModalImproved({
 
         if (propIds.length > 0) {
           await fetchAndCacheProperties(propIds);
+          await fetchAndCacheServices(propIds);
         }
       } catch (err) {
         console.error("[ShiftsModal] error fetching:", err);
@@ -643,6 +712,7 @@ export default function GuardsShiftsModalImproved({
 
       if (propIds.length > 0) {
         await fetchAndCacheProperties(propIds);
+        await fetchAndCacheServices(propIds);
       }
       
       toast.success("Datos actualizados");
@@ -675,6 +745,35 @@ export default function GuardsShiftsModalImproved({
       });
     } finally {
       setLoadingProps(false);
+    }
+  }
+
+  // Función para pedir y cachear servicios por property ids
+  async function fetchAndCacheServices(propertyIds: number[]) {
+    if (!propertyIds || propertyIds.length === 0) return;
+    setLoadingServices(true);
+    try {
+      const results = await Promise.allSettled(
+        propertyIds.map(async (id) => {
+          const response = await listServicesByProperty(id, 1, "", 100); // Get up to 100 services per property
+          return { propertyId: id, services: response.items || [] };
+        })
+      );
+      
+      setServicesMap((prev) => {
+        const next = { ...prev };
+        results.forEach((r) => {
+          if (r.status === "fulfilled") {
+            const { propertyId, services } = r.value;
+            next[propertyId] = services;
+          } else {
+            console.error(`listServicesByProperty failed`, r.reason);
+          }
+        });
+        return next;
+      });
+    } finally {
+      setLoadingServices(false);
     }
   }
 
@@ -728,6 +827,9 @@ export default function GuardsShiftsModalImproved({
   // Estado para propiedad preseleccionada en crear turno
   const [createShiftPropertyId, setCreateShiftPropertyId] = React.useState<number | null>(null);
   const [createShiftPreselectedProperty, setCreateShiftPreselectedProperty] = React.useState<AppProperty | null>(null);
+  
+  // Estado para servicio preseleccionado en crear turno
+  const [createShiftPreselectedService, setCreateShiftPreselectedService] = React.useState<Service | null>(null);
 
   return (
     <Dialog
@@ -800,6 +902,7 @@ export default function GuardsShiftsModalImproved({
                 onClick={() => {
                   setCreateShiftPropertyId(null); // No preseleccionar propiedad desde header
                   setCreateShiftPreselectedProperty(null); // No preseleccionar propiedad desde header
+                  setCreateShiftPreselectedService(null); // No preseleccionar servicio desde header
                   setOpenCreate(true);
                 }}
                 className="h-8"
@@ -1028,6 +1131,12 @@ export default function GuardsShiftsModalImproved({
                       {/* Lista de propiedades filtradas */}
                       <ScrollArea className="h-[calc(95vh-360px)] w-full">
                         <div className="space-y-2 px-3 pb-2">
+                          {loadingServices && (
+                            <div className="text-center py-2 bg-muted/20 rounded-lg">
+                              <Loader2 className="h-4 w-4 animate-spin inline mr-2" />
+                              <span className="text-xs text-muted-foreground">Cargando servicios...</span>
+                            </div>
+                          )}
                           {filteredProperties.length === 0 ? (
                             <div className="text-center text-sm text-muted-foreground py-8">
                               {propertySearchQuery.trim() ? 
@@ -1045,7 +1154,7 @@ export default function GuardsShiftsModalImproved({
                               <div
                                 key={propData.property.id}
                                 className={cn(
-                                  "p-2 rounded border transition-all hover:shadow-sm",
+                                  "rounded border transition-all hover:shadow-sm",
                                   // Estilo para solapamiento (prioridad alta)
                                   hasPropertyOverlap 
                                     ? "border-red-400 bg-red-50 shadow-md ring-2 ring-red-200" 
@@ -1054,94 +1163,164 @@ export default function GuardsShiftsModalImproved({
                                       : "border-transparent bg-muted/50 hover:bg-muted"
                                 )}
                               >
-                                <div className="flex items-start justify-between gap-2">
-                                  {/* Indicador de solapamiento */}
-                                  {hasPropertyOverlap && (
-                                    <div className="flex-shrink-0 mt-1">
-                                      <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" title="Propiedad con solapamientos" />
-                                    </div>
-                                  )}
-                                  
-                                  {/* Contenido principal de la propiedad */}
-                                  <div 
-                                    className="flex items-start gap-2 flex-1 min-w-0 cursor-pointer"
-                                    onClick={() => {
-                                      setSelectedPropertyId(
-                                        selectedPropertyId === propData.property.id 
-                                          ? null 
-                                          : propData.property.id
-                                      );
-                                      // Limpiar selección de fecha al seleccionar propiedad
-                                      setSelectedDate(undefined);
-                                    }}
-                                  >
-                                    <div
-                                      className="w-4 h-4 rounded-full mt-0.5 flex-shrink-0 border border-white shadow-sm"
-                                      style={{ backgroundColor: propData.color }}
-                                    />
-                                    <div className="flex-1 min-w-0">
-                                      <div className="font-medium text-xs mb-1">
-                                        {propData.property.name || propData.property.alias || `Propiedad ${propData.property.id}`}
+                                {/* Header de la Propiedad */}
+                                <div className="p-2 border-b bg-muted/30">
+                                  <div className="flex items-start justify-between gap-2">
+                                    {/* Indicador de solapamiento */}
+                                    {hasPropertyOverlap && (
+                                      <div className="flex-shrink-0 mt-1">
+                                        <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" title="Propiedad con solapamientos" />
                                       </div>
-                                      
-                                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                        <span className="flex items-center gap-1">
-                                          <CalendarIcon className="h-3 w-3" />
-                                          {propData.shifts.length}
-                                        </span>
-                                        {propData.totalHours > 0 && (
-                                          <span className="flex items-center gap-1">
-                                            <Clock className="h-3 w-3" />
-                                            {propData.totalHours}h
-                                          </span>
-                                        )}
-                                      </div>
-                                      
-                                      {/* Siguiente turno */}
-                                      {propData.shifts.length > 0 && (
-                                        <div className="text-xs text-muted-foreground pt-1 border-t mt-1">
-                                          {(() => {
-                                            const now = new Date();
-                                            const nextShift = propData.shifts
-                                              .filter((s: Shift) => s.startTime && new Date(s.startTime) > now)
-                                              .sort((a: Shift, b: Shift) => new Date(a.startTime!).getTime() - new Date(b.startTime!).getTime())[0];
-                                            
-                                            if (nextShift) {
-                                              const startDate = new Date(nextShift.startTime!);
-                                              return `Siguiente: ${startDate.toLocaleDateString()} ${startDate.toLocaleTimeString([], {
-                                                hour: "2-digit",
-                                                minute: "2-digit"
-                                              })}`;
-                                            } else {
-                                              return "Sin turnos programados";
-                                            }
-                                          })()}
+                                    )}
+                                    
+                                    {/* Contenido principal de la propiedad */}
+                                    <div 
+                                      className="flex items-start gap-2 flex-1 min-w-0 cursor-pointer"
+                                      onClick={() => {
+                                        setSelectedPropertyId(
+                                          selectedPropertyId === propData.property.id 
+                                            ? null 
+                                            : propData.property.id
+                                        );
+                                        // Limpiar selección de fecha al seleccionar propiedad
+                                        setSelectedDate(undefined);
+                                      }}
+                                    >
+                                      <div
+                                        className="w-4 h-4 rounded-full mt-0.5 flex-shrink-0 border border-white shadow-sm"
+                                        style={{ backgroundColor: propData.color }}
+                                      />
+                                      <div className="flex-1 min-w-0">
+                                        <div className="font-medium text-xs mb-1">
+                                          <MapPin className="h-3 w-3 inline mr-1" />
+                                          {propData.property.name || propData.property.alias || `Propiedad ${propData.property.id}`}
                                         </div>
+                                        
+                                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                          <span className="flex items-center gap-1">
+                                            <CalendarIcon className="h-3 w-3" />
+                                            {propData.shifts.length}
+                                          </span>
+                                          {propData.totalHours > 0 && (
+                                            <span className="flex items-center gap-1">
+                                              <Clock className="h-3 w-3" />
+                                              {propData.totalHours}h
+                                            </span>
+                                          )}
+                                          <span className="flex items-center gap-1">
+                                            <BarChart3 className="h-3 w-3" />
+                                            {propData.services.length}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                    
+                                    {/* Botón + para crear turno */}
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={(e) => {
+                                        e.stopPropagation(); // Evitar que se active el click de la propiedad
+                                        setCreateShiftPropertyId(propData.property.id);
+                                        setCreateShiftPreselectedProperty(propData.property);
+                                        setCreateShiftPreselectedService(null); // No servicio específico desde propiedad
+                                        setOpenCreate(true);
+                                      }}
+                                      className="h-6 w-6 p-0 flex-shrink-0 hover:bg-primary/10 hover:text-primary"
+                                      title={`Crear turno para ${propData.property.name || propData.property.alias || `Propiedad ${propData.property.id}`}`}
+                                      disabled={!propertiesCacheLoaded}
+                                    >
+                                      {!propertiesCacheLoaded ? (
+                                        <Loader2 className="h-3 w-3 animate-spin" />
+                                      ) : (
+                                        <Plus className="h-4 w-4" />
                                       )}
+                                    </Button>
+                                  </div>
+                                </div>
+
+                                {/* Lista de Servicios */}
+                                {propData.services.length > 0 && (
+                                  <div className="p-2 space-y-1">
+                                    {propData.services.map((service) => (
+                                      <div 
+                                        key={service.id}
+                                        className="pl-6 py-1 text-xs border-l-2 border-primary/20 bg-background/50 rounded-r relative group"
+                                      >
+                                        <div className="flex items-center justify-between">
+                                          <div className="flex-grow min-w-0">
+                                            <div className="font-medium text-primary/80">
+                                              {service.name}
+                                            </div>
+                                            {service.description && (
+                                              <div className="text-muted-foreground text-[10px] mt-0.5 truncate">
+                                                {service.description}
+                                              </div>
+                                            )}
+                                            <div className="flex items-center gap-2 mt-1 text-[10px] text-muted-foreground">
+                                              {service.startTime && service.endTime && (
+                                                <span>{service.startTime} - {service.endTime}</span>
+                                              )}
+                                              {service.rate && (
+                                                <span>${service.rate}/hr</span>
+                                              )}
+                                              {service.totalHours && (
+                                                <span>{service.totalHours}h</span>
+                                              )}
+                                              {service.recurrent && (
+                                                <Badge variant="secondary" className="text-[9px] py-0 px-1 h-4">
+                                                  Recurrente
+                                                </Badge>
+                                              )}
+                                            </div>
+                                          </div>
+                                          
+                                          {/* Botón + para crear turno desde servicio */}
+                                          <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            onClick={(e) => {
+                                              e.stopPropagation(); 
+                                              setCreateShiftPropertyId(propData.property.id);
+                                              setCreateShiftPreselectedProperty(propData.property);
+                                              setCreateShiftPreselectedService(service);
+                                              setOpenCreate(true);
+                                            }}
+                                            className="h-5 w-5 p-0 flex-shrink-0 hover:bg-primary/10 hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity"
+                                            title={`Crear turno para servicio: ${service.name}`}
+                                            disabled={!propertiesCacheLoaded}
+                                          >
+                                            <Plus className="h-3 w-3" />
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+
+                                {/* Siguiente turno */}
+                                {propData.shifts.length > 0 && (
+                                  <div className="px-2 pb-2">
+                                    <div className="text-xs text-muted-foreground pt-1 border-t">
+                                      {(() => {
+                                        const now = new Date();
+                                        const nextShift = propData.shifts
+                                          .filter((s: Shift) => s.startTime && new Date(s.startTime) > now)
+                                          .sort((a: Shift, b: Shift) => new Date(a.startTime!).getTime() - new Date(b.startTime!).getTime())[0];
+                                        
+                                        if (nextShift) {
+                                          const startDate = new Date(nextShift.startTime!);
+                                          return `Siguiente: ${startDate.toLocaleDateString()} ${startDate.toLocaleTimeString([], {
+                                            hour: "2-digit",
+                                            minute: "2-digit"
+                                          })}`;
+                                        } else {
+                                          return "Sin turnos programados";
+                                        }
+                                      })()}
                                     </div>
                                   </div>
-                                  
-                                  {/* Botón + para crear turno */}
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={(e) => {
-                                      e.stopPropagation(); // Evitar que se active el click de la propiedad
-                                      setCreateShiftPropertyId(propData.property.id);
-                                      setCreateShiftPreselectedProperty(propData.property);
-                                      setOpenCreate(true);
-                                    }}
-                                    className="h-6 w-6 p-0 flex-shrink-0 hover:bg-primary/10 hover:text-primary"
-                                    title={`Crear turno para ${propData.property.name || propData.property.alias || `Propiedad ${propData.property.id}`}`}
-                                    disabled={!propertiesCacheLoaded}
-                                  >
-                                    {!propertiesCacheLoaded ? (
-                                      <Loader2 className="h-3 w-3 animate-spin" />
-                                    ) : (
-                                      <Plus className="h-4 w-4" />
-                                    )}
-                                  </Button>
-                                </div>
+                                )}
                               </div>
                             );
                             })
@@ -1161,7 +1340,7 @@ export default function GuardsShiftsModalImproved({
                         {selectedDate 
                           ? `Turnos del ${selectedDate.toLocaleDateString()}`
                           : selectedPropertyId
-                            ? `Turnos - ${allProperties.find((p: PropertyWithShifts) => p.property.id === selectedPropertyId)?.property.name || 'Propiedad'}`
+                            ? `Turnos - ${allProperties.find((p: PropertyWithServices) => p.property.id === selectedPropertyId)?.property.name || 'Propiedad'}`
                             : `Todos los Turnos (${filteredShifts.length})`
                         }
                       </CardTitle>
@@ -1201,7 +1380,7 @@ export default function GuardsShiftsModalImproved({
                             </div>
                           ) : selectedDate ? (
                             // Vista especial: mostrar propiedades del día seleccionado
-                            allProperties.filter((propData: PropertyWithShifts) => 
+                            allProperties.filter((propData: PropertyWithServices) => 
                               propData.shifts.some((shift: Shift) => 
                                 shift.startTime && isSameDay(new Date(shift.startTime), selectedDate)
                               )
@@ -1210,11 +1389,11 @@ export default function GuardsShiftsModalImproved({
                                 No hay turnos para {selectedDate.toLocaleDateString()}
                               </div>
                             ) : (
-                              allProperties.filter((propData: PropertyWithShifts) => 
+                              allProperties.filter((propData: PropertyWithServices) => 
                                 propData.shifts.some((shift: Shift) => 
                                   shift.startTime && isSameDay(new Date(shift.startTime), selectedDate)
                                 )
-                              ).map((propData: PropertyWithShifts) => (
+                              ).map((propData: PropertyWithServices) => (
                                 <div
                                   key={propData.property.id}
                                   className="p-2 rounded border bg-card hover:shadow-sm transition-shadow cursor-pointer"
@@ -1432,11 +1611,13 @@ export default function GuardsShiftsModalImproved({
           setOpenCreate(false);
           setCreateShiftPropertyId(null); // Limpiar propiedad preseleccionada
           setCreateShiftPreselectedProperty(null); // Limpiar propiedad preseleccionada
+          setCreateShiftPreselectedService(null); // Limpiar servicio preseleccionado
         }}
         guardId={guardId}
         selectedDate={selectedDate}
         propertyId={createShiftPropertyId}
         preselectedProperty={createShiftPreselectedProperty}
+        preselectedService={createShiftPreselectedService}
         preloadedProperties={allPropertiesCache}
         preloadedGuard={currentGuardCache}
         onCreated={handleCreated}

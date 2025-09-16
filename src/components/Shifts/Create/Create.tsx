@@ -30,6 +30,7 @@ type CreateShiftProps = {
   selectedDate?: Date;
   propertyId?: number | null;
   preselectedProperty?: AppProperty | null;
+  preselectedService?: AppService | null;
   preloadedProperties?: AppProperty[];
   preloadedGuard?: Guard | null;
   onCreated?: (shift: Shift) => void;
@@ -65,6 +66,7 @@ export default function CreateShift({
   selectedDate,
   propertyId,
   preselectedProperty = null,
+  preselectedService = null,
   preloadedProperties = [],
   preloadedGuard = null,
   onCreated,
@@ -223,6 +225,17 @@ export default function CreateShift({
       mounted = false;
     };
   }, [propertyId, open, preloadedProperties, preselectedProperty]);
+
+  // Handle preselected service
+  React.useEffect(() => {
+    if (!open) return;
+
+    if (preselectedService) {
+      setSelectedService(preselectedService);
+      setServiceQuery("");
+      // The timing pre-population will be handled by the selectedService useEffect
+    }
+  }, [preselectedService, open]);
 
   React.useEffect(() => {
     if (!open) return;
@@ -400,6 +413,69 @@ export default function CreateShift({
       mounted = false;
     };
   }, [debouncedServiceQuery]);
+
+  // Pre-populate shift times when a service is selected
+  React.useEffect(() => {
+    if (!selectedService || !open) return;
+
+    const { startTime, endTime } = selectedService;
+
+    // If service has defined times, use them to populate shift times
+    if (startTime && endTime) {
+      const targetDate = selectedDate || new Date();
+      
+      // Parse service times (assuming HH:MM:SS format)
+      const parseTime = (timeStr: string) => {
+        const [hours, minutes] = timeStr.split(':').map(Number);
+        return { hours: isNaN(hours) ? 0 : hours, minutes: isNaN(minutes) ? 0 : minutes };
+      };
+
+      const startTimeObj = parseTime(startTime);
+      const endTimeObj = parseTime(endTime);
+
+      // Create datetime strings for the target date with service times
+      const startDate = new Date(targetDate);
+      startDate.setHours(startTimeObj.hours, startTimeObj.minutes, 0, 0);
+
+      const endDate = new Date(targetDate);
+      endDate.setHours(endTimeObj.hours, endTimeObj.minutes, 0, 0);
+
+      // If end time is before start time, assume it's next day
+      if (endDate <= startDate) {
+        endDate.setDate(endDate.getDate() + 1);
+      }
+
+      const toLocalDateTimeInput = (d: Date) => {
+        const pad = (n: number) => String(n).padStart(2, "0");
+        const YYYY = d.getFullYear();
+        const MM = pad(d.getMonth() + 1);
+        const DD = pad(d.getDate());
+        const hh = pad(d.getHours());
+        const mm = pad(d.getMinutes());
+        return `${YYYY}-${MM}-${DD}T${hh}:${mm}`;
+      };
+
+      setPlannedStart(toLocalDateTimeInput(startDate));
+      setPlannedEnd(toLocalDateTimeInput(endDate));
+    }
+
+    // If service has an assigned property, pre-select it
+    if (selectedService.assignedProperty && selectedService.propertyName) {
+      const serviceProperty: AppProperty = {
+        id: selectedService.assignedProperty,
+        ownerId: 0, // Default value
+        name: selectedService.propertyName,
+        alias: undefined,
+        address: selectedService.propertyName, // Use property name as address fallback
+        description: null,
+        contractStartDate: null,
+        createdAt: null,
+        updatedAt: null
+      };
+      setSelectedProperty(serviceProperty);
+      setPropertyQuery("");
+    }
+  }, [selectedService, selectedDate, open]);
 
   const guardLabel = (g?: Guard | null) => {
     if (!g) return "";

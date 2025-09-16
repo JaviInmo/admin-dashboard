@@ -46,6 +46,8 @@ import { listShiftsByProperty, updateShift, createShift } from "@/lib/services/s
 import { getProperty } from "@/lib/services/properties";
 import type { AppProperty } from "@/lib/services/properties";
 import { listGuards } from "@/lib/services/guard";
+import { listServicesByProperty } from "@/lib/services/services";
+import type { Service } from "@/components/Services/types";
 import type { Guard } from "@/components/Guards/types";
 import { cn } from "@/lib/utils";
 
@@ -209,6 +211,7 @@ export default function PropertyShiftsModalImproved({
   );
   const [selectedPropertyId, setSelectedPropertyId] = React.useState<number | null>(null);
   const [selectedGuardId, setSelectedGuardId] = React.useState<number | null>(null);
+  const [selectedServiceId, setSelectedServiceId] = React.useState<number | null>(null);
 
   // Cache de propiedades { [id]: AppProperty | null }
   const [propertyMap, setPropertyMap] = React.useState<
@@ -228,8 +231,10 @@ export default function PropertyShiftsModalImproved({
   // Cache de todas las propiedades para mejorar rendimiento
   const [allPropertiesCache, setAllPropertiesCache] = React.useState<AppProperty[]>([]);
   const [allGuardsCache, setAllGuardsCache] = React.useState<Guard[]>([]);
+  const [allServicesCache, setAllServicesCache] = React.useState<Service[]>([]);
   const [propertiesCacheLoaded, setPropertiesCacheLoaded] = React.useState<boolean>(false);
   const [guardsCacheLoaded, setGuardsCacheLoaded] = React.useState<boolean>(false);
+  const [servicesCacheLoaded, setServicesCacheLoaded] = React.useState<boolean>(false);
   
   // Cache de guardias { [id]: Guard | null }
   // (deprecated) cache de guardias locales no usado
@@ -300,8 +305,39 @@ export default function PropertyShiftsModalImproved({
 
   // Días con turnos para el calendario
   const daysWithShifts = React.useMemo(() => {
+    // Si hay un servicio seleccionado, solo mostrar días del schedule del servicio
+    if (selectedServiceId !== null) {
+      const selectedService = allServicesCache.find(s => s.id === selectedServiceId);
+      if (selectedService && selectedService.schedule && Array.isArray(selectedService.schedule)) {
+        return selectedService.schedule.map(dateStr => new Date(dateStr));
+      }
+      return []; // Si no tiene schedule, no mostrar días
+    }
+    
+    // Si no hay servicio seleccionado, mostrar días con turnos como antes
     return Object.values(processedData).map(day => day.date);
-  }, [processedData]);
+  }, [processedData, selectedServiceId, allServicesCache]);
+
+  // Función para deshabilitar días cuando hay servicio seleccionado
+  const disabledDays = React.useMemo(() => {
+    if (selectedServiceId === null) return undefined; // No deshabilitar días si no hay servicio seleccionado
+    
+    const selectedService = allServicesCache.find(s => s.id === selectedServiceId);
+    if (!selectedService || !selectedService.schedule || !Array.isArray(selectedService.schedule)) {
+      // Si el servicio no tiene schedule, deshabilitar todos los días
+      return { before: new Date(2100, 0, 1) }; // Deshabilitar todo
+    }
+    
+    // Crear set de fechas válidas del schedule
+    const validDates = new Set(
+      selectedService.schedule.map(dateStr => new Date(dateStr).toDateString())
+    );
+    
+    // Función para verificar si una fecha debe estar deshabilitada
+    return (date: Date) => {
+      return !validDates.has(date.toDateString());
+    };
+  }, [selectedServiceId, allServicesCache]);
 
   // Detectar días con solapamientos
   const overlapDetection = React.useMemo(() => {
@@ -510,15 +546,11 @@ export default function PropertyShiftsModalImproved({
 
   // Lista de guardias filtrada y ordenada
   const allGuards = React.useMemo(() => {
-    console.log("🔄 Procesando allGuards, cache:", allGuardsCache.length, "shifts:", shifts.length);
-    
     // Crear un mapa de guardias desde el cache para acceso rápido
     const guardLookup: Record<number, Guard> = {};
     allGuardsCache.forEach(guard => {
       guardLookup[guard.id] = guard;
     });
-    
-    console.log("🔄 Guard lookup:", Object.keys(guardLookup));
     
     // Obtener todas las guardias únicas de los turnos de esta propiedad
     const guardGroups: Record<number, GuardWithShifts> = {};
@@ -627,6 +659,11 @@ export default function PropertyShiftsModalImproved({
       result = result.filter((shift) => {
         return shift.property === selectedPropertyId;
       });
+    } else if (selectedServiceId !== null) {
+      // Si hay servicio seleccionado, mostrar solo turnos de ese servicio
+      result = result.filter((shift) => {
+        return shift.service === selectedServiceId;
+      });
     }
     
     // Ordenar por fecha: último trabajo realizado primero
@@ -636,7 +673,7 @@ export default function PropertyShiftsModalImproved({
       if (!b.startTime) return -1;
       return new Date(b.startTime).getTime() - new Date(a.startTime).getTime();
     });
-  }, [shifts, selectedDate, selectedGuardId, selectedPropertyId]);
+  }, [shifts, selectedDate, selectedGuardId, selectedPropertyId, selectedServiceId]);
 
   // Estadísticas
   const statistics = React.useMemo(() => {
@@ -877,6 +914,39 @@ export default function PropertyShiftsModalImproved({
     };
   }, [open, propertyCacheLoaded, propertyId]);
 
+  // Precargar servicios de la propiedad actual al abrir el modal
+  React.useEffect(() => {
+    if (!open || servicesCacheLoaded || !propertyId) return;
+    
+    let mounted = true;
+    const loadPropertyServices = async () => {
+      try {
+        const servicesResponse = await listServicesByProperty(propertyId);
+        if (!mounted) return;
+        
+        // Normalizar la respuesta para extraer el array de servicios
+        const servicesData = Array.isArray(servicesResponse) 
+          ? servicesResponse 
+          : (servicesResponse as any)?.results || 
+            (servicesResponse as any)?.items || 
+            (servicesResponse as any)?.data || [];
+        
+        setAllServicesCache(servicesData);
+        setServicesCacheLoaded(true);
+      } catch (error) {
+        console.error("❌ Error cargando servicios de la propiedad:", error);
+        setAllServicesCache([]);
+        setServicesCacheLoaded(true); // Marcar como cargado aunque haya fallado
+      }
+    };
+    
+    loadPropertyServices();
+    
+    return () => {
+      mounted = false;
+    };
+  }, [open, servicesCacheLoaded, propertyId]);
+
   // Función para refrescar/actualizar datos (no duplicar)
   async function refresh() {
     setLoading(true);
@@ -986,6 +1056,9 @@ export default function PropertyShiftsModalImproved({
   // Estado para guardia preseleccionado en crear turno
   const [createShiftGuardId, setCreateShiftGuardId] = React.useState<number | null>(null);
   const [createShiftPreselectedGuard, setCreateShiftPreselectedGuard] = React.useState<Guard | null>(null);
+  
+  // Estado para servicio preseleccionado en crear turno
+  const [createShiftPreselectedService, setCreateShiftPreselectedService] = React.useState<Service | null>(null);
 
   // === Resize (drag) state for timeline ===
   const timelineRef = React.useRef<HTMLDivElement | null>(null);
@@ -1276,6 +1349,39 @@ export default function PropertyShiftsModalImproved({
                     Propiedad filtrada
                   </Badge>
                 )}
+                
+                {/* Selector de servicios */}
+                {servicesCacheLoaded && allServicesCache.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium">Servicio:</span>
+                    <Select
+                      value={selectedServiceId?.toString() || "all"}
+                      onValueChange={(value) => {
+                        setSelectedServiceId(value === "all" ? null : Number(value));
+                      }}
+                    >
+                      <SelectTrigger className="h-6 w-[200px] text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos los servicios</SelectItem>
+                        {allServicesCache.map((service) => (
+                          <SelectItem key={service.id} value={service.id.toString()}>
+                            <div className="flex items-center gap-2">
+                              <span>{service.name}</span>
+                              {service.startTime && service.endTime && (
+                                <span className="text-muted-foreground text-xs">
+                                  ({service.startTime} - {service.endTime})
+                                </span>
+                              )}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                
                 <span className="text-xs bg-muted/50 px-2 py-1 rounded">
                   <BarChart3 className="h-3 w-3 inline mr-1" />
                   {statistics.total} turnos • {statistics.totalHours}h total
@@ -1315,6 +1421,7 @@ export default function PropertyShiftsModalImproved({
                 onClick={() => {
                   setCreateShiftPropertyId(propertyId); // Preseleccionar la propiedad actual
                   setCreateShiftPreselectedProperty(currentPropertyCache); // Preseleccionar la propiedad actual
+                  setCreateShiftPreselectedService(null); // No preseleccionar servicio desde botón principal
                   setOpenCreate(true);
                 }}
                 className="h-8"
@@ -1345,6 +1452,7 @@ export default function PropertyShiftsModalImproved({
                             mode="single"
                             selected={selectedDate}
                             onSelect={setSelectedDate}
+                            disabled={disabledDays}
                             className="w-full"
                             style={{
                               transform: 'scale(1.0)',
@@ -1682,6 +1790,7 @@ export default function PropertyShiftsModalImproved({
                                       // Preseleccionar la propiedad del modal
                                       setCreateShiftPropertyId(propertyId);
                                       setCreateShiftPreselectedProperty(currentPropertyCache);
+                                      setCreateShiftPreselectedService(null); // No preseleccionar servicio desde guardia
                                       setOpenCreate(true);
                                     }}
                                     className="h-6 w-6 p-0 flex-shrink-0 hover:bg-primary/10 hover:text-primary"
@@ -1790,6 +1899,57 @@ export default function PropertyShiftsModalImproved({
                                 </div>
                               );
                             })}
+
+                            {/* Franja naranja para horario del servicio seleccionado */}
+                            {selectedServiceId !== null && (() => {
+                              const selectedService = allServicesCache.find(s => s.id === selectedServiceId);
+                              if (!selectedService || !selectedService.startTime || !selectedService.endTime) return null;
+
+                              // Parsear horarios del servicio
+                              const parseTime = (timeStr: string) => {
+                                const parts = timeStr.split(':');
+                                const hours = parseInt(parts[0], 10) || 0;
+                                const minutes = parseInt(parts[1], 10) || 0;
+                                return { hours, minutes };
+                              };
+
+                              const startTimeObj = parseTime(selectedService.startTime);
+                              const endTimeObj = parseTime(selectedService.endTime);
+
+                              // Calcular posición y altura en el timeline
+                              const startMinutes = startTimeObj.hours * 60 + startTimeObj.minutes;
+                              let endMinutes = endTimeObj.hours * 60 + endTimeObj.minutes;
+                              
+                              // Manejar servicios que cruzan medianoche
+                              if (endMinutes <= startMinutes) {
+                                endMinutes += 24 * 60; // Agregar 24 horas
+                              }
+                              
+                              const durationMinutes = endMinutes - startMinutes;
+                              const topPct = (startMinutes / (24 * 60)) * 100;
+                              const heightPct = (durationMinutes / (24 * 60)) * 100;
+
+                              return (
+                                <div
+                                  key="service-schedule"
+                                  className="absolute left-2 right-2 rounded-lg z-20 border-l-4 border-orange-500 shadow-sm"
+                                  style={{
+                                    top: `${topPct}%`,
+                                    height: `${Math.max(heightPct, 2)}%`, // Mínimo 2% de altura para visibilidad
+                                    backgroundColor: "rgba(249, 115, 22, 0.15)", // naranja con opacidad mejorada
+                                    border: "1px solid rgba(245, 158, 11, 0.4)",
+                                  }}
+                                  title={`Horario del servicio: ${selectedService.name} (${selectedService.startTime} - ${selectedService.endTime})`}
+                                >
+                                  <div className="absolute left-1 top-1 text-[10px] text-orange-800 bg-orange-100/95 px-1.5 py-0.5 rounded-sm font-medium shadow-sm">
+                                    📋 {selectedService.name}
+                                  </div>
+                                  <div className="absolute right-1 top-1 text-[9px] text-orange-700 bg-orange-50/90 px-1 py-0.5 rounded-sm">
+                                    {selectedService.startTime} - {selectedService.endTime}
+                                  </div>
+                                </div>
+                              );
+                            })()}
 
                             {/* Bloques de gaps (fondo) */}
                             {(() => {
@@ -2241,13 +2401,15 @@ export default function PropertyShiftsModalImproved({
           setOpenCreate(false);
           setCreateShiftPropertyId(propertyId); // Mantener la propiedad preseleccionada
           setCreateShiftPreselectedProperty(currentPropertyCache); // Mantener la propiedad preseleccionada
+          setCreateShiftPreselectedService(null); // Limpiar servicio preseleccionado
         }}
         selectedDate={selectedDate}
         propertyId={createShiftPropertyId}
         preselectedProperty={createShiftPreselectedProperty}
+        preselectedService={createShiftPreselectedService}
         preloadedProperties={allPropertiesCache}
-  guardId={createShiftGuardId ?? undefined}
-  preloadedGuard={createShiftPreselectedGuard}
+        guardId={createShiftGuardId ?? undefined}
+        preloadedGuard={createShiftPreselectedGuard}
         onCreated={handleCreated}
       />
 
