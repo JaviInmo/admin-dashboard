@@ -220,15 +220,16 @@ export default function PropertyServiceEdit({ service, open, onClose, onUpdated,
   };
 
   // Función para actualizar horas de una fecha específica
-  const updateDateTime = (date: string, field: 'start' | 'end', value: string) => {
-    setDateTimeMap(prev => ({
-      ...prev,
-      [date]: {
-        ...getDateTimes(date),
-        [field]: value
-      }
-    }));
-  };
+  // NOTA: Comentada porque ahora las horas se muestran como texto de solo lectura
+  // const updateDateTime = (date: string, field: 'start' | 'end', value: string) => {
+  //   setDateTimeMap(prev => ({
+  //     ...prev,
+  //     [date]: {
+  //       ...getDateTimes(date),
+  //       [field]: value
+  //     }
+  //   }));
+  // };
 
   // Función para validar si una fecha está dentro del rango permitido
   const isDateOutOfRange = (date: string): boolean => {
@@ -1442,20 +1443,14 @@ export default function PropertyServiceEdit({ service, open, onClose, onUpdated,
                                             )}
                                           </td>
                                           <td className="p-2">
-                                            <Input 
-                                              type="time" 
-                                              value={dateTimes.start}
-                                              onChange={(e) => updateDateTime(d, 'start', e.currentTarget.value)}
-                                              className="h-6 text-xs w-full"
-                                            />
+                                            <span className="text-xs text-muted-foreground">
+                                              {dateTimes.start || "--:--"}
+                                            </span>
                                           </td>
                                           <td className="p-2">
-                                            <Input 
-                                              type="time" 
-                                              value={dateTimes.end}
-                                              onChange={(e) => updateDateTime(d, 'end', e.currentTarget.value)}
-                                              className="h-6 text-xs w-full"
-                                            />
+                                            <span className="text-xs text-muted-foreground">
+                                              {dateTimes.end || "--:--"}
+                                            </span>
                                           </td>
                                           <td className="p-2 text-center">
                                             <button 
