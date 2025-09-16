@@ -121,7 +121,7 @@ export default function PropertiesServicesModal({ propertyId, propertyName, open
         <div className="flex flex-col max-h-full">
         <DialogHeader>
           <div className="flex items-center justify-between w-full">
-            <DialogTitle className="text-base font-semibold pl-3">
+            <DialogTitle className="text-base font-semibold pl-6 pb-2">
               {TEXT?.services?.title ?? "Services"}{propertyName ? ` — ${propertyName}` : ""}
             </DialogTitle>
           </div>
@@ -156,10 +156,10 @@ export default function PropertiesServicesModal({ propertyId, propertyName, open
 
         <DialogFooter>
           <div className="flex items-center justify-between w-full">
-            <div className="text-xs text-muted-foreground pl-3">
+            <div className="text-xs text-muted-foreground pl-6">
               {TEXT?.pagination?.pageInfo?.replace?.("{current}", String(page)) ?? `Página ${page} de ${totalPages}`}
             </div>
-            <div className="flex items-center gap-2 pr-3">
+            <div className="flex items-center gap-2 pr-6">
               <Button className="border-2 " variant="ghost" onClick={onClose}>Close</Button>
             </div>
           </div>

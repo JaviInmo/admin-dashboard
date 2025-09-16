@@ -191,10 +191,21 @@ function CalendarDayButton({
 
   const hasShifts = Boolean(modifiers.hasShifts)
 
+  // Colores y clases personalizadas para Slate claro cuando está seleccionado
+  const singleSelectedClasses = "bg-slate-100 text-slate-900"
+  const rangeStartClasses = "bg-slate-200 text-slate-900 rounded-l-md"
+  const rangeMiddleClasses = "bg-slate-100/80 text-slate-900"
+  const rangeEndClasses = "bg-slate-200 text-slate-900 rounded-r-md"
+  const hasShiftsClasses = "bg-sky-100 text-sky-800"
+
+  // Cambiamos la variante del Button cuando está seleccionado para que no
+  // se sobreescriban estilos (si tu Button soporta 'default' / 'ghost' / etc.)
+  const buttonVariant = modifiers.selected ? "default" : "ghost"
+
   return (
     <Button
       ref={ref}
-      variant="ghost"
+      variant={buttonVariant as any}
       size="icon"
       data-day={day.date.toLocaleDateString()}
       data-selected-single={isSelectedSingle}
@@ -203,12 +214,17 @@ function CalendarDayButton({
       data-range-middle={modifiers.range_middle}
       data-has-shifts={hasShifts}
       className={cn(
-        // tus clases base ya existentes
         "group/day aspect-square size-auto w-full min-w-(--cell-size) flex-col gap-1 leading-none font-normal [&>span]:text-xs [&>span]:opacity-70",
-        // si tiene turnos y NO está seleccionado, aplicar fondo azul claro
-        hasShifts && !isSelectedSingle && "bg-sky-100 text-sky-800",
-        // si está seleccionado, mantener tu estilo de seleccionado (no lo sobrescribas)
-        isSelectedSingle && "data-[selected-single=true]:bg-primary data-[selected-single=true]:text-primary-foreground",
+        // si tiene turnos y NO está seleccionado
+        hasShifts && !modifiers.selected && hasShiftsClasses,
+        // Selección individual (día único) -> slate claro
+        isSelectedSingle && singleSelectedClasses,
+        // Rango: start / middle / end -> tonos slate
+        modifiers.range_start && rangeStartClasses,
+        modifiers.range_middle && rangeMiddleClasses,
+        modifiers.range_end && rangeEndClasses,
+        // Hoy -> estilo sutil si no está seleccionado
+        modifiers.today && !modifiers.selected && "ring-1 ring-ring",
         defaultClassNames.day,
         className
       )}
@@ -216,6 +232,5 @@ function CalendarDayButton({
     />
   )
 }
-
 
 export { Calendar, CalendarDayButton }
