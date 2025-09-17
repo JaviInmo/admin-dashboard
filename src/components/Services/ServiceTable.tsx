@@ -13,7 +13,7 @@ import EditServiceDialog from "./Edit/Edit";
 import PropertyServiceEdit from "../Properties/PropertyServiceEdit";
 import GuardServiceEdit from "../Guards/GuardServiceEdit";
 import ShowServiceDialog from "./Show/Show";
-import CreateServiceDialog from "./Create/Create";
+// Removed CreateServiceDialog - now using PropertyServiceEdit for both create and edit
 
 export interface ServicesTableProps {
   services: Service[];
@@ -121,11 +121,33 @@ export default function ServicesTable({
     label?: string | null;
   } | null>(null);
 
-  // Estado para prefijar property cuando abrimos CreateServiceDialog desde una property
+  // Estado para prefijar property cuando abrimos desde una propiedad
   const [createInitialProperty, setCreateInitialProperty] = React.useState<{
     id?: number | null;
     label?: string | null;
   } | null>(null);
+
+  // Servicio vacío para modo creación
+  const createEmptyService = React.useMemo((): Service => ({
+    id: 0, // ID temporal para modo creación
+    name: "",
+    description: "",
+    guard: createInitialGuard?.id || createInitialGuardId || null,
+    guardName: createInitialGuard?.label || createInitialGuardLabel || "",
+    assignedProperty: createInitialProperty?.id || createInitialPropertyId || null,
+    propertyName: createInitialProperty?.label || createInitialPropertyLabel || "",
+    rate: "",
+    monthlyBudget: "",
+    totalHours: "",
+    contractStartDate: "",
+    startTime: "",
+    endTime: "",
+    schedule: [],
+    recurrent: false,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  }), [createInitialGuard, createInitialGuardId, createInitialGuardLabel, createInitialProperty, createInitialPropertyId, createInitialPropertyLabel]);
 
   const tableText = TEXT?.services?.table ?? {};
 
@@ -413,14 +435,15 @@ export default function ServicesTable({
       </div>
 
       {createOpen && (
-        <CreateServiceDialog
+        <PropertyServiceEdit
+          service={createEmptyService}
           open={createOpen}
           onClose={() => {
             setCreateOpen(false);
             setCreateInitialGuard(null);
             setCreateInitialProperty(null);
           }}
-          onCreated={async () => {
+          onUpdated={async () => {
             if (onRefresh) {
               const maybe = onRefresh();
               if (maybe && typeof (maybe as any).then === "function") {
@@ -431,20 +454,6 @@ export default function ServicesTable({
             setCreateInitialGuard(null);
             setCreateInitialProperty(null);
           }}
-          initialGuardId={
-            createInitialGuard?.id ?? createInitialGuardId ?? undefined
-          }
-          initialGuardLabel={
-            createInitialGuard?.label ?? createInitialGuardLabel ?? undefined
-          }
-          initialPropertyId={
-            createInitialProperty?.id ?? createInitialPropertyId ?? undefined
-          }
-          initialPropertyLabel={
-            createInitialProperty?.label ??
-            createInitialPropertyLabel ??
-            undefined
-          }
           compact={compact}
         />
       )}

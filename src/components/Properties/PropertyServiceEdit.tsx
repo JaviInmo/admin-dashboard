@@ -22,8 +22,7 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { toast } from "sonner";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
-import { updateService } from "@/lib/services/services";
-import type { UpdateServicePayload } from "@/lib/services/services";
+import { updateService, createService } from "@/lib/services/services";
 import { useI18n } from "@/i18n";
 import type { AppProperty } from "@/lib/services/properties";
 import { listProperties } from "@/lib/services/properties";
@@ -73,10 +72,10 @@ export default function PropertyServiceEdit({
   const [contractStartDate, setContractStartDate] = React.useState<string>(
     () => service.contractStartDate ?? ""
   );
-  const [plannedStart, setPlannedStart] = React.useState<string>(
+  const [start_time, setStart_time] = React.useState<string>(
     () => service.startTime ?? ""
   );
-  const [plannedEnd, setPlannedEnd] = React.useState<string>(
+  const [end_time, setEnd_time] = React.useState<string>(
     () => service.endTime ?? ""
   );
   const [isActive, setIsActive] = React.useState<boolean>(
@@ -182,6 +181,12 @@ export default function PropertyServiceEdit({
   React.useEffect(() => {
     // cuando cambie el service (nuevo open con otro service), prefillea valores
     if (!open) return;
+    
+    // Calcular fechas por defecto (primer y último día del año actual)
+    const currentYear = new Date().getFullYear();
+    const defaultStartDate = `${currentYear}-01-01`;
+    const defaultEndDate = `${currentYear}-12-31`;
+    
     setName(service.name ?? "");
     setDescription(service.description ?? "");
     setPropertyId(service.assignedProperty ?? null);
@@ -190,8 +195,9 @@ export default function PropertyServiceEdit({
     setMonthlyBudget(cleanCurrency(service.monthlyBudget ?? ""));
     setTotalHours(service.totalHours ?? "");
     setContractStartDate(service.contractStartDate ?? "");
-    setPlannedStart(service.startTime ?? "");
-    setPlannedEnd(service.endTime ?? "");
+    // Si no hay fechas definidas, usar el año actual por defecto
+    setStart_time(service.startTime ?? defaultStartDate);
+    setEnd_time(service.endTime ?? defaultEndDate);
     setIsActive(service.isActive ?? true);
     setRecurrent(service.recurrent ?? false);
     setSchedule(Array.isArray(service.schedule) ? service.schedule : []);
@@ -318,10 +324,10 @@ export default function PropertyServiceEdit({
     // Determinar el rango de fechas a usar
     let startDate: Date, endDate: Date;
 
-    if (plannedStart && plannedEnd) {
+    if (start_time && end_time) {
       // Usar fechas de restricción si están disponibles
-      startDate = new Date(plannedStart);
-      endDate = new Date(plannedEnd);
+      startDate = new Date(start_time);
+      endDate = new Date(end_time);
     } else if (periodStart && periodEnd) {
       // Usar fechas del período si están disponibles
       startDate = new Date(periodStart);
@@ -367,10 +373,10 @@ export default function PropertyServiceEdit({
     // Determinar el rango de fechas a usar
     let startDate: Date, endDate: Date;
 
-    if (plannedStart && plannedEnd) {
+    if (start_time && end_time) {
       // Usar fechas de restricción si están disponibles
-      startDate = new Date(plannedStart);
-      endDate = new Date(plannedEnd);
+      startDate = new Date(start_time);
+      endDate = new Date(end_time);
     } else if (periodStart && periodEnd) {
       // Usar fechas del período si están disponibles
       startDate = new Date(periodStart);
@@ -486,10 +492,10 @@ export default function PropertyServiceEdit({
     // Determinar el rango de fechas a usar
     let startDate: string, endDate: string;
 
-    if (plannedStart && plannedEnd) {
+    if (start_time && end_time) {
       // Usar fechas de restricción si están disponibles
-      startDate = plannedStart;
-      endDate = plannedEnd;
+      startDate = start_time;
+      endDate = end_time;
     } else if (periodStart && periodEnd) {
       // Usar fechas del período si están disponibles
       startDate = periodStart;
@@ -529,10 +535,10 @@ export default function PropertyServiceEdit({
     // Determinar el rango de fechas a usar
     let startDate: string, endDate: string;
 
-    if (plannedStart && plannedEnd) {
+    if (start_time && end_time) {
       // Usar fechas de restricción si están disponibles
-      startDate = plannedStart;
-      endDate = plannedEnd;
+      startDate = start_time;
+      endDate = end_time;
     } else if (periodStart && periodEnd) {
       // Usar fechas del período si están disponibles
       startDate = periodStart;
@@ -659,11 +665,11 @@ export default function PropertyServiceEdit({
       return "No hay fechas programadas para este servicio.";
     }
 
-    // Filtrar fechas que están dentro del rango permitido (plannedStart - plannedEnd)
+    // Filtrar fechas que están dentro del rango permitido (start_time - end_time)
     let validDates = schedule;
-    if (plannedStart && plannedEnd) {
-      const startDate = new Date(plannedStart);
-      const endDate = new Date(plannedEnd);
+    if (start_time && end_time) {
+      const startDate = new Date(start_time);
+      const endDate = new Date(end_time);
 
       validDates = schedule.filter((dateStr) => {
         const date = new Date(dateStr);
@@ -688,11 +694,11 @@ export default function PropertyServiceEdit({
     let summary = "";
 
     // Información del rango permitido
-    if (plannedStart && plannedEnd) {
+    if (start_time && end_time) {
       summary += `Servicio planificado del ${new Date(
-        plannedStart
+        start_time
       ).toLocaleDateString("es-ES")} al ${new Date(
-        plannedEnd
+        end_time
       ).toLocaleDateString("es-ES")}. `;
     }
 
@@ -848,16 +854,16 @@ export default function PropertyServiceEdit({
 
   // Función para determinar si una fecha debe estar deshabilitada
   const isDateDisabled = (date: Date): boolean => {
-    // Si no hay rango definido (plannedStart y plannedEnd), todas las fechas están habilitadas
-    if (!plannedStart || !plannedEnd) {
+    // Si no hay rango definido (start_time y end_time), todas las fechas están habilitadas
+    if (!start_time || !end_time) {
       return false;
     }
 
-    // Convertir plannedStart y plannedEnd a objetos Date para comparación
-    const [startYear, startMonth, startDay] = plannedStart
+    // Convertir start_time y end_time a objetos Date para comparación
+    const [startYear, startMonth, startDay] = start_time
       .split("-")
       .map(Number);
-    const [endYear, endMonth, endDay] = plannedEnd.split("-").map(Number);
+    const [endYear, endMonth, endDay] = end_time.split("-").map(Number);
 
     const startDate = new Date(startYear, startMonth - 1, startDay);
     const endDate = new Date(endYear, endMonth - 1, endDay);
@@ -944,7 +950,10 @@ export default function PropertyServiceEdit({
   };
 
   const handleUpdate = async () => {
-    const payload: UpdateServicePayload = {};
+    const isCreate = service.id === 0;
+    
+    // Para creación, necesitamos CreateServicePayload; para edición, UpdateServicePayload
+    const payload: any = {};
 
     if (name !== undefined)
       payload.name = name.trim() === "" ? undefined : name.trim();
@@ -958,16 +967,36 @@ export default function PropertyServiceEdit({
     payload.total_hours = totalHours === "" ? undefined : totalHours;
     payload.contract_start_date =
       contractStartDate === "" ? undefined : contractStartDate;
-    payload.start_time = plannedStart === "" ? undefined : plannedStart;
-    payload.end_time = plannedEnd === "" ? undefined : plannedEnd;
+    
+    // Combinar fecha + hora para enviar datetime completo
+    const formatDateTime = (date: string, time: string): string | undefined => {
+      if (!date || date === "") return undefined;
+      if (!time || time === "") return `${date} 00:00:00`;
+      
+      // El formato es hh:mm[:ss[.uuuuuu]] - segundos y microsegundos son opcionales
+      // Simplemente usar el tiempo tal como viene del input
+      return `${date} ${time}`;
+    };
+    
+    payload.start_time = formatDateTime(start_time, calendarStartTime);
+    payload.end_time = formatDateTime(end_time, calendarEndTime);
     payload.schedule = schedule.length > 0 ? schedule : undefined;
     payload.recurrent = recurrent;
     payload.is_active = isActive;
 
     try {
       setLoading(true);
-      await updateService(service.id, payload);
-      toast.success(TEXT?.services?.messages?.updated ?? "Service updated");
+      
+      if (isCreate) {
+        // Crear nuevo servicio
+        await createService(payload);
+        toast.success(TEXT?.services?.messages?.created ?? "Service created");
+      } else {
+        // Actualizar servicio existente
+        await updateService(service.id, payload);
+        toast.success(TEXT?.services?.messages?.updated ?? "Service updated");
+      }
+      
       qc.invalidateQueries({
         predicate: (q) =>
           Array.isArray(q.queryKey) && q.queryKey[0] === "services",
@@ -978,10 +1007,11 @@ export default function PropertyServiceEdit({
       }
       onClose();
     } catch (err: any) {
+      const action = isCreate ? "create" : "update";
       const msg =
         err?.message ??
         TEXT?.services?.errors?.updateFailed ??
-        "Failed to update service";
+        `Failed to ${action} service`;
       toast.error(String(msg));
     } finally {
       setLoading(false);
@@ -1240,8 +1270,8 @@ export default function PropertyServiceEdit({
                     </label>
                     <Input
                       type="date"
-                      value={plannedStart}
-                      onChange={(e) => setPlannedStart(e.currentTarget.value)}
+                      value={start_time}
+                      onChange={(e) => setStart_time(e.currentTarget.value)}
                     />
                   </div>
                   <div>
@@ -1250,8 +1280,8 @@ export default function PropertyServiceEdit({
                     </label>
                     <Input
                       type="date"
-                      value={plannedEnd}
-                      onChange={(e) => setPlannedEnd(e.currentTarget.value)}
+                      value={end_time}
+                      onChange={(e) => setEnd_time(e.currentTarget.value)}
                     />
                   </div>
                 </div>
@@ -1561,11 +1591,11 @@ export default function PropertyServiceEdit({
 
                                         // Filtrar fechas para asegurar que estén dentro del período permitido
                                         let validDates = combinedDates;
-                                        if (plannedStart && plannedEnd) {
+                                        if (start_time && end_time) {
                                           const startDate = new Date(
-                                            plannedStart
+                                            start_time
                                           );
-                                          const endDate = new Date(plannedEnd);
+                                          const endDate = new Date(end_time);
 
                                           validDates = combinedDates.filter(
                                             (dateStr) => {
@@ -1653,9 +1683,9 @@ export default function PropertyServiceEdit({
                                 }
 
                                 // Filtrar fechas para asegurar que estén dentro del período permitido
-                                if (plannedStart && plannedEnd) {
-                                  const startDate = new Date(plannedStart);
-                                  const endDate = new Date(plannedEnd);
+                                if (start_time && end_time) {
+                                  const startDate = new Date(start_time);
+                                  const endDate = new Date(end_time);
 
                                   newDates = newDates.filter((dateStr) => {
                                     const date = new Date(dateStr);

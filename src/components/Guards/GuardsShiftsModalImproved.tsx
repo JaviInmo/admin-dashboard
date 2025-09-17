@@ -341,6 +341,8 @@ export default function GuardsShiftsModalImproved({
   }, [shifts, propertyColors]);
 
   // Mapa de fecha -> información de guardias para contadores y tooltips
+  // TODO: Esta variable se declara pero no se usa - comentada para evitar error de compilación
+  /*
   const dateGuardsMap = React.useMemo(() => {
     const map: Record<string, {
       guardCount: number,
@@ -391,6 +393,7 @@ export default function GuardsShiftsModalImproved({
     
     return map;
   }, [shifts, propertyMap, propertyColors]);
+  */
 
   // Propiedades filtradas - SIEMPRE mostrar todas las propiedades del guardia
   const allProperties = React.useMemo(() => {

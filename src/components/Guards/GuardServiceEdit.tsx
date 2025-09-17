@@ -141,6 +141,17 @@ export default function GuardServiceEdit({ service, open, onClose, onUpdated, co
   const handleUpdate = async () => {
     const payload: UpdateServicePayload = {};
 
+    // Función para formatear tiempo al formato correcto hh:mm:ss
+    const formatTime = (time: string): string | undefined => {
+      if (!time || time === "") return undefined;
+      // Si ya tiene el formato correcto (hh:mm o hh:mm:ss), lo mantenemos
+      if (time.match(/^\d{2}:\d{2}(:\d{2})?$/)) {
+        // Si no tiene segundos, los agregamos
+        return time.includes(':') && time.split(':').length === 2 ? `${time}:00` : time;
+      }
+      return undefined;
+    };
+
     if (name !== undefined) payload.name = name.trim() === "" ? undefined : name.trim();
     if (description !== undefined) payload.description = description.trim() === "" ? "" : description.trim();
     payload.guard = guardId ?? undefined;
@@ -148,8 +159,8 @@ export default function GuardServiceEdit({ service, open, onClose, onUpdated, co
     payload.rate = rate === "" ? undefined : rate;
     payload.monthly_budget = monthlyBudget === "" ? undefined : monthlyBudget;
     payload.contract_start_date = contractStartDate === "" ? undefined : contractStartDate;
-    payload.start_time = startTime === "" ? undefined : startTime;
-    payload.end_time = endTime === "" ? undefined : endTime;
+    payload.start_time = formatTime(startTime);
+    payload.end_time = formatTime(endTime);
     payload.schedule = schedule.length > 0 ? schedule : undefined;
     payload.recurrent = recurrent;
     payload.is_active = isActive;

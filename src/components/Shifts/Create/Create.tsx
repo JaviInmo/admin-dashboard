@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import { createShift, listShiftsByGuard } from "@/lib/services/shifts";
 import { listGuards, getGuard } from "@/lib/services/guard";
 import { listProperties } from "@/lib/services/properties";
-import { listServices } from "@/lib/services/services";
+import { listServicesByProperty } from "@/lib/services/services";
 import { listWeaponsByGuard } from "@/lib/services/weapons";
 import type { Shift } from "../types";
 import { useI18n } from "@/i18n";
@@ -78,13 +78,12 @@ export default function CreateShift({
     "Buscar guard por nombre o email...";
   const propertyPlaceholder =
     (TEXT as any)?.properties?.table?.searchPlaceholder ?? "Buscar propiedades...";
-  const servicePlaceholder =
-    (TEXT as any)?.services?.table?.searchPlaceholder ?? "Buscar servicios...";
 
   const [selectedGuard, setSelectedGuard] = React.useState<Guard | null>(null);
   const [guardQuery, setGuardQuery] = React.useState<string>("");
   const debouncedGuardQuery = useDebouncedValue(guardQuery, 300);
   const [guardResults, setGuardResults] = React.useState<Guard[]>([]);
+  const [allGuards, setAllGuards] = React.useState<Guard[]>([]); // Pre-loaded guards cache
   const [guardsLoading, setGuardsLoading] = React.useState(false);
   const [guardDropdownOpen, setGuardDropdownOpen] = React.useState(false);
 
@@ -95,19 +94,15 @@ export default function CreateShift({
   const [propertiesLoading, setPropertiesLoading] = React.useState(false);
   const [propertyDropdownOpen, setPropertyDropdownOpen] = React.useState(false);
 
-  // --- Service selection (opcional) ---
+  // --- Service selection from property ---
   const [selectedService, setSelectedService] = React.useState<AppService | null>(null);
-  const [serviceQuery, setServiceQuery] = React.useState<string>("");
-  const debouncedServiceQuery = useDebouncedValue(serviceQuery, 300);
-  const [serviceResults, setServiceResults] = React.useState<AppService[]>([]);
+  const [propertyServices, setPropertyServices] = React.useState<AppService[]>([]);
   const [servicesLoading, setServicesLoading] = React.useState(false);
-  const [serviceDropdownOpen, setServiceDropdownOpen] = React.useState(false);
 
   // PLANNED dates only (create)
   const [plannedStart, setPlannedStart] = React.useState<string>("");
   const [plannedEnd, setPlannedEnd] = React.useState<string>("");
 
-  const [status, setStatus] = React.useState<Shift["status"]>("scheduled");
   const [loading, setLoading] = React.useState(false);
 
   // is_armed (opcional) + weapons
@@ -127,6 +122,7 @@ export default function CreateShift({
       setSelectedGuard(null);
       setGuardQuery("");
       setGuardResults([]);
+      setAllGuards([]);
       setGuardsLoading(false);
       setGuardDropdownOpen(false);
 
@@ -137,14 +133,11 @@ export default function CreateShift({
       setPropertyDropdownOpen(false);
 
       setSelectedService(null);
-      setServiceQuery("");
-      setServiceResults([]);
+      setPropertyServices([]);
       setServicesLoading(false);
-      setServiceDropdownOpen(false);
 
       setPlannedStart("");
       setPlannedEnd("");
-      setStatus("scheduled");
       setIsArmed(false);
       setWeapons([]);
       setSelectedWeaponId(null);
@@ -154,6 +147,36 @@ export default function CreateShift({
       setHasOverlap(false);
       setOverlapMessage("");
     }
+  }, [open]);
+
+  // Pre-load guards when modal opens
+  React.useEffect(() => {
+    if (!open) return;
+    
+    let mounted = true;
+    setGuardsLoading(true);
+    
+    (async () => {
+      try {
+        // Load first 100 guards to have them ready for search
+        const response = await listGuards(1, "", 100);
+        if (!mounted) return;
+        
+        const guards = extractItems<Guard>(response);
+        setAllGuards(guards);
+        setGuardResults(guards); // Initially show all guards
+      } catch (err) {
+        console.error("Error pre-loading guards:", err);
+        setAllGuards([]);
+        setGuardResults([]);
+      } finally {
+        if (mounted) setGuardsLoading(false);
+      }
+    })();
+    
+    return () => {
+      mounted = false;
+    };
   }, [open]);
 
   // initial planned defaults
@@ -232,7 +255,6 @@ export default function CreateShift({
 
     if (preselectedService) {
       setSelectedService(preselectedService);
-      setServiceQuery("");
       // The timing pre-population will be handled by the selectedService useEffect
     }
   }, [preselectedService, open]);
@@ -291,33 +313,83 @@ export default function CreateShift({
     };
   }, [selectedGuard]);
 
-  // guards search
+  // guards search - now uses pre-loaded cache first
   React.useEffect(() => {
-    let mounted = true;
     const q = (debouncedGuardQuery ?? "").trim();
+    
     if (q === "") {
-      setGuardResults([]);
+      // Show all pre-loaded guards when no search query
+      setGuardResults(allGuards);
+      if (allGuards.length > 0) setGuardDropdownOpen(true);
       return;
     }
-    setGuardsLoading(true);
-    (async () => {
-      try {
-        const res = await listGuards(1, q, 10);
-        if (!mounted) return;
-        const items = extractItems<Guard>(res);
-        setGuardResults(items);
-        setGuardDropdownOpen(true);
-      } catch (err) {
-        console.error("listGuards error", err);
-        setGuardResults([]);
-      } finally {
-        if (mounted) setGuardsLoading(false);
+
+    // First, search in pre-loaded cache
+    const localResults = allGuards.filter(guard => {
+      const fullName = `${guard.firstName || ""} ${guard.lastName || ""}`.toLowerCase();
+      const email = (guard.email || "").toLowerCase();
+      const query = q.toLowerCase();
+      
+      return fullName.includes(query) || email.includes(query);
+    });
+
+    if (localResults.length >= 3 || allGuards.length === 0) {
+      // Use local results if we have enough, or if cache is empty (fallback to API)
+      setGuardResults(localResults);
+      setGuardDropdownOpen(true);
+      
+      // If cache is empty, try API as fallback
+      if (allGuards.length === 0) {
+        let mounted = true;
+        setGuardsLoading(true);
+        (async () => {
+          try {
+            const res = await listGuards(1, q, 10);
+            if (!mounted) return;
+            const items = extractItems<Guard>(res);
+            setGuardResults(items);
+            setGuardDropdownOpen(true);
+          } catch (err) {
+            console.error("listGuards API fallback error", err);
+            setGuardResults(localResults); // Keep local results even if API fails
+          } finally {
+            if (mounted) setGuardsLoading(false);
+          }
+        })();
+        return () => {
+          mounted = false;
+        };
       }
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, [debouncedGuardQuery]);
+    } else {
+      // If local results are insufficient, supplement with API call
+      let mounted = true;
+      setGuardsLoading(true);
+      (async () => {
+        try {
+          const res = await listGuards(1, q, 10);
+          if (!mounted) return;
+          const apiItems = extractItems<Guard>(res);
+          
+          // Combine local and API results, avoiding duplicates
+          const localIds = new Set(localResults.map(g => g.id));
+          const newItems = apiItems.filter(g => !localIds.has(g.id));
+          const combinedResults = [...localResults, ...newItems];
+          
+          setGuardResults(combinedResults);
+          setGuardDropdownOpen(true);
+        } catch (err) {
+          console.error("listGuards supplemental error", err);
+          setGuardResults(localResults); // Fallback to local results
+          setGuardDropdownOpen(true);
+        } finally {
+          if (mounted) setGuardsLoading(false);
+        }
+      })();
+      return () => {
+        mounted = false;
+      };
+    }
+  }, [debouncedGuardQuery, allGuards]);
 
   // properties search
   React.useEffect(() => {
@@ -386,33 +458,51 @@ export default function CreateShift({
     };
   }, [debouncedPropertyQuery, preloadedProperties]);
 
-  // services search (opcional)
+  // Load services when property changes
   React.useEffect(() => {
-    let mounted = true;
-    const q = (debouncedServiceQuery ?? "").trim();
-    if (q === "") {
-      setServiceResults([]);
+    if (!selectedProperty?.id) {
+      setPropertyServices([]);
+      setSelectedService(null);
       return;
     }
+
+    let mounted = true;
     setServicesLoading(true);
+    
     (async () => {
       try {
-        const res = await listServices(1, q, 10, "name");
+        const response = await listServicesByProperty(selectedProperty.id, 1, "", 100);
         if (!mounted) return;
-        const items = extractItems<AppService>(res);
-        setServiceResults(items);
-        setServiceDropdownOpen(true);
+        
+        // Extract services array from different response formats
+        let services: AppService[] = [];
+        if (Array.isArray(response)) {
+          services = response;
+        } else if (response?.items) {
+          services = response.items;
+        } else if ((response as any)?.results) {
+          services = (response as any).results;
+        }
+        
+        setPropertyServices(services);
+        
+        // Clear selected service if it's not in the new list
+        if (selectedService && !services.find(s => s.id === selectedService.id)) {
+          setSelectedService(null);
+        }
       } catch (err) {
-        console.error("listServices error", err);
-        setServiceResults([]);
+        console.error("Error loading property services:", err);
+        setPropertyServices([]);
+        setSelectedService(null);
       } finally {
         if (mounted) setServicesLoading(false);
       }
     })();
+    
     return () => {
       mounted = false;
     };
-  }, [debouncedServiceQuery]);
+  }, [selectedProperty?.id, selectedService]);
 
   // Pre-populate shift times when a service is selected
   React.useEffect(() => {
@@ -483,11 +573,22 @@ export default function CreateShift({
   };
   const propertyLabel = (p?: AppProperty | null) => {
     if (!p) return "";
-    return `${p.name ?? p.alias ?? p.address} #${p.id}`;
-  };
-  const serviceLabel = (s?: AppService | null) => {
-    if (!s) return "";
-    return `${s.name} ${s.propertyName ? `— ${s.propertyName}` : ""}`;
+    const alias = p.alias || p.name || "Sin nombre";
+    const ownerDetails = p.ownerDetails;
+    let ownerName = "";
+    
+    if (ownerDetails) {
+      const firstName = ownerDetails.first_name || "";
+      const lastName = ownerDetails.last_name || "";
+      ownerName = `${firstName} ${lastName}`.trim();
+      if (!ownerName) {
+        ownerName = ownerDetails.email || `#${p.ownerId}`;
+      }
+    } else {
+      ownerName = `#${p.ownerId}`;
+    }
+    
+    return `${alias} - ${ownerName}`;
   };
 
   const checkTimeOverlap = (start1: string, end1: string, start2: string, end2: string): boolean => {
@@ -587,7 +688,6 @@ export default function CreateShift({
         property: Number(selectedProperty.id),
         planned_start_time: plannedStartIso,
         planned_end_time: plannedEndIso,
-        status,
       };
 
       if (selectedService) payload.service = Number(selectedService.id);
@@ -772,60 +872,39 @@ export default function CreateShift({
             )}
           </div>
 
-          {/* Service select-search (opcional) */}
-          <div className="relative">
-            <label className="text-sm text-muted-foreground block mb-1">Service (opcional)</label>
-            <input
-              type="text"
-              className={inputClass}
-              value={selectedService ? serviceLabel(selectedService) : serviceQuery}
-              onChange={(e) => {
-                if (selectedService) setSelectedService(null);
-                setServiceQuery(e.target.value);
-              }}
-              onFocus={() => {
-                if (serviceResults.length > 0) setServiceDropdownOpen(true);
-              }}
-              placeholder={servicePlaceholder}
-              aria-label="Buscar servicio"
-            />
-            {selectedService && (
-              <button
-                type="button"
-                className="absolute right-2 top-2 text-xs text-muted-foreground"
-                onClick={() => {
-                  setSelectedService(null);
-                  setServiceQuery("");
-                }}
-              >
-                Clear
-              </button>
-            )}
-
-            {serviceDropdownOpen && (serviceResults.length > 0 || servicesLoading) && (
-              <div className="absolute z-50 left-0 right-0 mt-1 bg-white border rounded shadow max-h-40 overflow-auto">
-                {servicesLoading && <div className="p-2 text-xs text-muted-foreground">Buscando...</div>}
-                {!servicesLoading && serviceResults.length === 0 && <div className="p-2 text-xs text-muted-foreground">No matches.</div>}
-                {!servicesLoading &&
-                  serviceResults.map((s) => (
-                    <button
-                      key={s.id}
-                      type="button"
-                      className="w-full text-left px-3 py-2 hover:bg-muted/10"
-                      onClick={() => {
-                        setSelectedService(s);
-                        setServiceQuery("");
-                        setServiceDropdownOpen(false);
-                      }}
-                    >
-                      <div className="flex justify-between items-center">
-                        <div className="text-sm truncate">{s.name}</div>
-                        <div className="text-xs text-muted-foreground">{s.propertyName ?? ""}</div>
-                      </div>
-                      <div className="text-[11px] text-muted-foreground truncate">{s.description}</div>
-                    </button>
-                  ))}
+          {/* Service select */}
+          <div>
+            <label className="text-sm text-muted-foreground block mb-1">Service</label>
+            {!selectedProperty ? (
+              <div className="w-full rounded border px-3 py-1.5 text-sm text-muted-foreground bg-muted/30">
+                Selecciona una propiedad primero
               </div>
+            ) : (
+              <select
+                className={inputClass}
+                value={selectedService?.id.toString() || ""}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (!value) {
+                    setSelectedService(null);
+                  } else {
+                    const service = propertyServices.find(s => s.id.toString() === value);
+                    setSelectedService(service || null);
+                  }
+                }}
+                disabled={servicesLoading}
+              >
+                <option value="">-- Seleccionar servicio --</option>
+                {servicesLoading && <option value="">Cargando servicios...</option>}
+                {!servicesLoading && propertyServices.length === 0 && (
+                  <option value="">No hay servicios disponibles</option>
+                )}
+                {!servicesLoading && propertyServices.map((service) => (
+                  <option key={service.id} value={service.id.toString()}>
+                    {service.name}{service.description ? ` — ${service.description}` : ""}
+                  </option>
+                ))}
+              </select>
             )}
           </div>
 
@@ -866,19 +945,6 @@ export default function CreateShift({
               </div>
             </div>
           )}
-
-          <div>
-            <label className="text-sm text-muted-foreground block mb-1">Status</label>
-            <select
-              value={status}
-              onChange={(e) => setStatus(e.target.value as Shift["status"])}
-              className={inputClass}
-            >
-              <option value="scheduled">scheduled</option>
-              <option value="completed">completed</option>
-              <option value="voided">voided</option>
-            </select>
-          </div>
 
           <div className="flex flex-col gap-2">
             <label className="flex items-center gap-2">

@@ -10,10 +10,10 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { getShift, updateShift } from "@/lib/services/shifts";
+import { getShift, updateShift, listShiftsByGuard } from "@/lib/services/shifts";
 import { listGuards, getGuard } from "@/lib/services/guard";
 import { listProperties, getProperty } from "@/lib/services/properties";
-import { listServices, getService } from "@/lib/services/services";
+import { listServicesByProperty, getService } from "@/lib/services/services";
 import { listWeaponsByGuard } from "@/lib/services/weapons";
 import type { Shift } from "../types";
 import { useI18n } from "@/i18n";
@@ -21,6 +21,7 @@ import type { Guard } from "@/components/Guards/types";
 import type { AppProperty } from "@/lib/services/properties";
 import type { Service as AppService } from "@/components/Services/types";
 import type { Weapon } from "@/components/Weapons/types";
+
 
 type EditShiftProps = {
   open: boolean;
@@ -33,18 +34,6 @@ type EditShiftProps = {
 function toIsoFromDatetimeLocal(value: string) {
   const d = new Date(value);
   return d.toISOString();
-}
-
-function isoToLocalInputValue(iso?: string) {
-  if (!iso) return "";
-  const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  const year = d.getFullYear();
-  const month = pad(d.getMonth() + 1);
-  const day = pad(d.getDate());
-  const hour = pad(d.getHours());
-  const minute = pad(d.getMinutes());
-  return `${year}-${month}-${day}T${hour}:${minute}`;
 }
 
 function useDebouncedValue<T>(value: T, delay = 300) {
@@ -65,21 +54,33 @@ function extractItems<T>(maybe: any): T[] {
   return [];
 }
 
-export default function EditShift({ open, onClose, shiftId, initialShift, onUpdated }: EditShiftProps) {
+export default function EditShift({
+  open,
+  onClose,
+  shiftId,
+  initialShift,
+  onUpdated,
+}: EditShiftProps) {
   const { TEXT } = useI18n();
 
+  // Estado del shift a editar
   const [shift, setShift] = React.useState<Shift | null>(initialShift ?? null);
   const [loadingShift, setLoadingShift] = React.useState(false);
 
-  // guard
+  const guardPlaceholder =
+    (TEXT as any)?.guards?.table?.searchPlaceholder ??
+    "Buscar guard por nombre o email...";
+  const propertyPlaceholder =
+    (TEXT as any)?.properties?.table?.searchPlaceholder ?? "Buscar propiedades...";
+
   const [selectedGuard, setSelectedGuard] = React.useState<Guard | null>(null);
   const [guardQuery, setGuardQuery] = React.useState<string>("");
   const debouncedGuardQuery = useDebouncedValue(guardQuery, 300);
   const [guardResults, setGuardResults] = React.useState<Guard[]>([]);
+  const [allGuards, setAllGuards] = React.useState<Guard[]>([]); // Pre-loaded guards cache
   const [guardsLoading, setGuardsLoading] = React.useState(false);
   const [guardDropdownOpen, setGuardDropdownOpen] = React.useState(false);
 
-  // property
   const [selectedProperty, setSelectedProperty] = React.useState<AppProperty | null>(null);
   const [propertyQuery, setPropertyQuery] = React.useState<string>("");
   const debouncedPropertyQuery = useDebouncedValue(propertyQuery, 300);
@@ -87,46 +88,42 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
   const [propertiesLoading, setPropertiesLoading] = React.useState(false);
   const [propertyDropdownOpen, setPropertyDropdownOpen] = React.useState(false);
 
-  // service
+  // --- Service selection from property ---
   const [selectedService, setSelectedService] = React.useState<AppService | null>(null);
-  const [serviceQuery, setServiceQuery] = React.useState<string>("");
-  const debouncedServiceQuery = useDebouncedValue(serviceQuery, 300);
-  const [serviceResults, setServiceResults] = React.useState<AppService[]>([]);
+  const [propertyServices, setPropertyServices] = React.useState<AppService[]>([]);
   const [servicesLoading, setServicesLoading] = React.useState(false);
-  const [serviceDropdownOpen, setServiceDropdownOpen] = React.useState(false);
 
-  // datetimes / status / loading
+  // PLANNED dates only (create)
   const [plannedStart, setPlannedStart] = React.useState<string>("");
   const [plannedEnd, setPlannedEnd] = React.useState<string>("");
 
-  const [start, setStart] = React.useState<string>("");
-  const [end, setEnd] = React.useState<string>("");
-  const [status, setStatus] = React.useState<Shift["status"]>("scheduled");
+  // Campos de hora real para turnos pasados/activos (edit)
+  const [realStart, setRealStart] = React.useState<string>("");
+  const [realEnd, setRealEnd] = React.useState<string>("");
+
   const [loading, setLoading] = React.useState(false);
 
-  // is_armed & weapons
+  // is_armed (opcional) + weapons
   const [isArmed, setIsArmed] = React.useState<boolean>(false);
   const [weapons, setWeapons] = React.useState<Weapon[]>([]);
   const [weaponsLoading, setWeaponsLoading] = React.useState(false);
-  const [selectedWeaponId, setSelectedWeaponId] = React.useState<string | null>(null);
+  const [selectedWeaponId, setSelectedWeaponId] = React.useState<number | null>(null);
   const [selectedWeaponSerial, setSelectedWeaponSerial] = React.useState<string | null>(null);
   const [manualSerial, setManualSerial] = React.useState<string>("");
 
-  const guardPlaceholder =
-    (TEXT as any)?.guards?.table?.searchPlaceholder ?? "Buscar guard por nombre o email...";
-  const propertyPlaceholder =
-    (TEXT as any)?.properties?.table?.searchPlaceholder ?? "Buscar propiedades...";
-  const servicePlaceholder =
-    (TEXT as any)?.services?.table?.searchPlaceholder ?? "Buscar servicios...";
+  // overlap detection (based on planned times)
+  const [hasOverlap, setHasOverlap] = React.useState<boolean>(false);
+  const [overlapMessage, setOverlapMessage] = React.useState<string>("");
 
   React.useEffect(() => {
     if (!open) {
       setShift(initialShift ?? null);
       setLoadingShift(false);
-
+      
       setSelectedGuard(null);
       setGuardQuery("");
       setGuardResults([]);
+      setAllGuards([]);
       setGuardsLoading(false);
       setGuardDropdownOpen(false);
 
@@ -137,26 +134,55 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
       setPropertyDropdownOpen(false);
 
       setSelectedService(null);
-      setServiceQuery("");
-      setServiceResults([]);
+      setPropertyServices([]);
       setServicesLoading(false);
-      setServiceDropdownOpen(false);
 
       setPlannedStart("");
       setPlannedEnd("");
-      setStart("");
-      setEnd("");
-      setStatus("scheduled");
+      setRealStart("");
+      setRealEnd("");
       setIsArmed(false);
-      setLoading(false);
-
       setWeapons([]);
       setSelectedWeaponId(null);
       setSelectedWeaponSerial(null);
       setManualSerial("");
+
+      setHasOverlap(false);
+      setOverlapMessage("");
     }
   }, [open, initialShift]);
 
+  // Pre-load guards when modal opens
+  React.useEffect(() => {
+    if (!open) return;
+    
+    let mounted = true;
+    setGuardsLoading(true);
+    
+    (async () => {
+      try {
+        // Load first 100 guards to have them ready for search
+        const response = await listGuards(1, "", 100);
+        if (!mounted) return;
+        
+        const guards = extractItems<Guard>(response);
+        setAllGuards(guards);
+        setGuardResults(guards); // Initially show all guards
+      } catch (err) {
+        console.error("Error pre-loading guards:", err);
+        setAllGuards([]);
+        setGuardResults([]);
+      } finally {
+        if (mounted) setGuardsLoading(false);
+      }
+    })();
+    
+    return () => {
+      mounted = false;
+    };
+  }, [open]);
+
+  // Cargar shift inicial o desde API
   React.useEffect(() => {
     if (!open) return;
 
@@ -185,12 +211,20 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
 
         setShift(s);
 
-        setPlannedStart(isoToLocalInputValue((s as any).plannedStartTime ?? (s as any).planned_start_time));
-        setPlannedEnd(isoToLocalInputValue((s as any).plannedEndTime ?? (s as any).planned_end_time));
+        // Cargar fechas planificadas
+        const plannedStartValue = (s as any).plannedStartTime ?? (s as any).planned_start_time;
+        const plannedEndValue = (s as any).plannedEndTime ?? (s as any).planned_end_time;
+        
+        if (plannedStartValue) setPlannedStart(isoToLocalInputValue(plannedStartValue));
+        if (plannedEndValue) setPlannedEnd(isoToLocalInputValue(plannedEndValue));
 
-        setStart(isoToLocalInputValue((s as any).startTime ?? (s as any).start_time));
-        setEnd(isoToLocalInputValue((s as any).endTime ?? (s as any).end_time));
-        setStatus((s as any).status ?? "scheduled");
+        // Cargar fechas reales (para los campos adicionales)
+        const startValue = (s as any).startTime ?? (s as any).start_time;
+        const endValue = (s as any).endTime ?? (s as any).end_time;
+        
+        if (startValue) setRealStart(isoToLocalInputValue(startValue));
+        if (endValue) setRealEnd(isoToLocalInputValue(endValue));
+
         setIsArmed(Boolean((s as any).isArmed));
 
         // PREFILL GUARD
@@ -205,7 +239,7 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
               email: gd.email ?? "",
             } as Guard;
             setSelectedGuard(gObj);
-            setGuardQuery(`${gObj.firstName} ${gObj.lastName} (${gObj.email ?? ""})`);
+            setGuardQuery(`${gObj.firstName} ${gObj.lastName}`);
           } else if ((s as any).guard) {
             const guardIdNum = Number((s as any).guard);
             try {
@@ -213,7 +247,7 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
               if (!mounted) return;
               if (g) {
                 setSelectedGuard(g);
-                setGuardQuery(`${g.firstName} ${g.lastName} (${g.email ?? ""})`);
+                setGuardQuery(`${g.firstName} ${g.lastName}`);
               } else {
                 setGuardQuery(String((s as any).guard));
               }
@@ -230,7 +264,6 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
         try {
           if ((s as any).propertyDetails) {
             const pd: any = (s as any).propertyDetails;
-
             const pObj = {
               id: Number(pd.id ?? (s as any).property),
               ownerId: pd.owner !== undefined
@@ -244,10 +277,11 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
               alias: pd.alias ?? undefined,
               address: pd.address ?? undefined,
               description: pd.description ?? undefined,
+              ownerDetails: pd.owner_details ?? pd.ownerDetails ?? undefined,
             } as unknown as AppProperty;
 
             setSelectedProperty(pObj);
-            setPropertyQuery(`${pObj.name ?? pObj.alias ?? pObj.address} #${pObj.id}`);
+            setPropertyQuery("");
           } else if ((s as any).property) {
             const propertyIdNum = Number((s as any).property);
             try {
@@ -255,7 +289,7 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
               if (!mounted) return;
               if (p) {
                 setSelectedProperty(p);
-                setPropertyQuery(`${p.name ?? p.alias ?? p.address} #${p.id}`);
+                setPropertyQuery("");
               } else {
                 setPropertyQuery(String((s as any).property));
               }
@@ -279,38 +313,32 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
               propertyName: sd.property_name ?? sd.propertyName ?? undefined,
             } as AppService;
             setSelectedService(svc);
-            setServiceQuery(`${svc.name}`);
           } else if ((s as any).service) {
             const serviceIdNum = Number((s as any).service);
             try {
-              // intentar obtener con getService
               if (typeof getService === "function") {
                 const svc = await getService(serviceIdNum);
                 if (!mounted) return;
                 if (svc) {
                   setSelectedService(svc as AppService);
-                  setServiceQuery(`${svc.name}`);
                 } else {
-                  setServiceQuery(String(serviceIdNum));
+                  // Servicio no encontrado
                 }
-              } else {
-                setServiceQuery(String(serviceIdNum));
               }
             } catch (err) {
-              setServiceQuery(String((s as any).service ?? ""));
+              console.error("Error loading service:", err);
             }
           }
         } catch (e) {
           console.error("prefill service failed", e);
-          setServiceQuery(String((s as any).service ?? ""));
         }
 
-        // PREFILL weapon info (normalize to strings)
+        // PREFILL weapon info
         try {
           const maybeWeaponId = (s as any).weapon ?? null;
           const maybeSerial = (s as any).weaponSerialNumber ?? (s as any).weaponDetails ?? null;
           if (maybeWeaponId) {
-            setSelectedWeaponId(String(maybeWeaponId));
+            setSelectedWeaponId(Number(maybeWeaponId));
             setSelectedWeaponSerial(maybeSerial ? String(maybeSerial) : null);
           } else if (maybeSerial) {
             setSelectedWeaponId(null);
@@ -336,7 +364,46 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
     };
   }, [open, shiftId, initialShift]);
 
-  // when selectedGuard changes -> fetch weapons
+  // Función para convertir ISO a input local
+  function isoToLocalInputValue(iso?: string) {
+    if (!iso) return "";
+    const d = new Date(iso);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const year = d.getFullYear();
+    const month = pad(d.getMonth() + 1);
+    const day = pad(d.getDate());
+    const hour = pad(d.getHours());
+    const minute = pad(d.getMinutes());
+    return `${year}-${month}-${day}T${hour}:${minute}`;
+  }
+
+  // initial planned defaults (solo para crear, pero en edit no los necesitamos)
+  React.useEffect(() => {
+    if (!open || shift) return; // Si ya hay un shift cargado, no hacer nada
+    
+    const targetDate = new Date();
+
+    const startDate = new Date(targetDate);
+    startDate.setHours(8, 0, 0, 0);
+
+    const endDate = new Date(targetDate);
+    endDate.setHours(16, 0, 0, 0);
+
+    const toLocalDateTimeInput = (d: Date) => {
+      const pad = (n: number) => String(n).padStart(2, "0");
+      const YYYY = d.getFullYear();
+      const MM = pad(d.getMonth() + 1);
+      const DD = pad(d.getDate());
+      const hh = pad(d.getHours());
+      const mm = pad(d.getMinutes());
+      return `${YYYY}-${MM}-${DD}T${hh}:${mm}`;
+    };
+
+    setPlannedStart(toLocalDateTimeInput(startDate));
+    setPlannedEnd(toLocalDateTimeInput(endDate));
+  }, [open, shift]);
+
+  // when selectedGuard changes -> fetch weapons for that guard
   React.useEffect(() => {
     let mounted = true;
     async function loadWeapons() {
@@ -351,20 +418,6 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
         if (!mounted) return;
         const items = extractItems<Weapon>(res);
         setWeapons(items);
-
-        // if shift has a weapon id, try preselect it
-        if (shift?.weapon) {
-          const found = items.find((w) => Number(w.id) === Number(shift.weapon));
-          if (found) {
-            setSelectedWeaponId(String(found.id));
-            setSelectedWeaponSerial(found.serialNumber ?? null);
-            setManualSerial("");
-          } else if (shift?.weaponSerialNumber) {
-            setManualSerial(String(shift.weaponSerialNumber));
-            setSelectedWeaponId(null);
-            setSelectedWeaponSerial(null);
-          }
-        }
       } catch (err) {
         console.error("Error fetching weapons for guard:", err);
         setWeapons([]);
@@ -376,37 +429,103 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
     return () => {
       mounted = false;
     };
-  }, [selectedGuard, shift?.weapon, shift?.weaponSerialNumber]);
+  }, [selectedGuard]);
 
-  // Guard search
+  // Effect para cerrar dropdown de guardia al hacer clic fuera
   React.useEffect(() => {
-    let mounted = true;
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest("[data-guard-dropdown]")) {
+        setGuardDropdownOpen(false);
+      }
+    };
+
+    if (guardDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () =>
+        document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [guardDropdownOpen]);
+
+  // guards search - now uses pre-loaded cache first
+  React.useEffect(() => {
     const q = (debouncedGuardQuery ?? "").trim();
+    
     if (q === "") {
-      setGuardResults([]);
+      // Show all pre-loaded guards when no search query (but don't open dropdown automatically)
+      setGuardResults(allGuards);
+      // NO abrir automáticamente: if (allGuards.length > 0) setGuardDropdownOpen(true);
       return;
     }
-    setGuardsLoading(true);
-    (async () => {
-      try {
-        const res = await listGuards(1, q, 10);
-        if (!mounted) return;
-        const items = extractItems<Guard>(res);
-        setGuardResults(items);
-        setGuardDropdownOpen(true);
-      } catch (err) {
-        console.error("listGuards error", err);
-        setGuardResults([]);
-      } finally {
-        if (mounted) setGuardsLoading(false);
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, [debouncedGuardQuery]);
 
-  // Property search
+    // First, search in pre-loaded cache
+    const localResults = allGuards.filter(guard => {
+      const fullName = `${guard.firstName || ""} ${guard.lastName || ""}`.toLowerCase();
+      const email = (guard.email || "").toLowerCase();
+      const query = q.toLowerCase();
+      
+      return fullName.includes(query) || email.includes(query);
+    });
+
+    if (localResults.length >= 3 || allGuards.length === 0) {
+      // Use local results if we have enough, or if cache is empty (fallback to API)
+      setGuardResults(localResults);
+      // NO abrir automáticamente: setGuardDropdownOpen(true);
+      
+      // If cache is empty, try API as fallback
+      if (allGuards.length === 0) {
+        let mounted = true;
+        setGuardsLoading(true);
+        (async () => {
+          try {
+            const res = await listGuards(1, q, 10);
+            if (!mounted) return;
+            const items = extractItems<Guard>(res);
+            setGuardResults(items);
+            // NO abrir automáticamente: setGuardDropdownOpen(true);
+          } catch (err) {
+            console.error("listGuards API fallback error", err);
+            setGuardResults(localResults); // Keep local results even if API fails
+          } finally {
+            if (mounted) setGuardsLoading(false);
+          }
+        })();
+        return () => {
+          mounted = false;
+        };
+      }
+    } else {
+      // If local results are insufficient, supplement with API call
+      let mounted = true;
+      setGuardsLoading(true);
+      (async () => {
+        try {
+          const res = await listGuards(1, q, 10);
+          if (!mounted) return;
+          const apiItems = extractItems<Guard>(res);
+          
+          // Combine local and API results, avoiding duplicates
+          const localIds = new Set(localResults.map(g => g.id));
+          const newItems = apiItems.filter(g => !localIds.has(g.id));
+          const combinedResults = [...localResults, ...newItems];
+          
+          setGuardResults(combinedResults);
+          // setGuardDropdownOpen(true); // Let user click to open
+        } catch (err) {
+          console.error("listGuards supplemental error", err);
+          setGuardResults(localResults); // Fallback to local results
+          // setGuardDropdownOpen(true); // Let user click to open
+        } finally {
+          if (mounted) setGuardsLoading(false);
+        }
+      })();
+      return () => {
+        mounted = false;
+      };
+    }
+  }, [debouncedGuardQuery, allGuards]);
+
+  // properties search - simplificado para edit
   React.useEffect(() => {
     let mounted = true;
     const q = (debouncedPropertyQuery ?? "").trim();
@@ -414,7 +533,9 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
       setPropertyResults([]);
       return;
     }
+
     setPropertiesLoading(true);
+
     (async () => {
       try {
         const res = await listProperties(1, q, 10);
@@ -434,63 +555,255 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
     };
   }, [debouncedPropertyQuery]);
 
-  // Service search
+  // Load services when property changes
   React.useEffect(() => {
-    let mounted = true;
-    const q = (debouncedServiceQuery ?? "").trim();
-    if (q === "") {
-      setServiceResults([]);
+    if (!selectedProperty?.id) {
+      setPropertyServices([]);
+      setSelectedService(null);
       return;
     }
+
+    let mounted = true;
     setServicesLoading(true);
+    
     (async () => {
       try {
-        const res = await listServices(1, q, 10, "name");
+        const response = await listServicesByProperty(selectedProperty.id, 1, "", 100);
         if (!mounted) return;
-        const items = extractItems<AppService>(res);
-        setServiceResults(items);
-        setServiceDropdownOpen(true);
+        
+        // Extract services array from different response formats
+        let services: AppService[] = [];
+        if (Array.isArray(response)) {
+          services = response;
+        } else if (response?.items) {
+          services = response.items;
+        } else if ((response as any)?.results) {
+          services = (response as any).results;
+        }
+        
+        setPropertyServices(services);
+        
+        // Clear selected service if it's not in the new list
+        if (selectedService && !services.find(s => s.id === selectedService.id)) {
+          setSelectedService(null);
+        }
       } catch (err) {
-        console.error("listServices error", err);
-        setServiceResults([]);
+        console.error("Error loading property services:", err);
+        setPropertyServices([]);
+        setSelectedService(null);
       } finally {
         if (mounted) setServicesLoading(false);
       }
     })();
+    
     return () => {
       mounted = false;
     };
-  }, [debouncedServiceQuery]);
+  }, [selectedProperty?.id, selectedService]);
+
+  // Pre-populate shift times when a service is selected (simplificado para edit)
+  React.useEffect(() => {
+    if (!selectedService || !open) return;
+
+    const { startTime, endTime } = selectedService;
+
+    // If service has defined times, use them to populate shift times
+    if (startTime && endTime) {
+      const targetDate = new Date(); // Sin selectedDate en edit
+      
+      // Parse service times (assuming HH:MM:SS format)
+      const parseTime = (timeStr: string) => {
+        const [hours, minutes] = timeStr.split(':').map(Number);
+        return { hours: isNaN(hours) ? 0 : hours, minutes: isNaN(minutes) ? 0 : minutes };
+      };
+
+      const startTimeObj = parseTime(startTime);
+      const endTimeObj = parseTime(endTime);
+
+      // Create datetime strings for the target date with service times
+      const startDate = new Date(targetDate);
+      startDate.setHours(startTimeObj.hours, startTimeObj.minutes, 0, 0);
+
+      const endDate = new Date(targetDate);
+      endDate.setHours(endTimeObj.hours, endTimeObj.minutes, 0, 0);
+
+      // If end time is before start time, assume it's next day
+      if (endDate <= startDate) {
+        endDate.setDate(endDate.getDate() + 1);
+      }
+
+      const toLocalDateTimeInput = (d: Date) => {
+        const pad = (n: number) => String(n).padStart(2, "0");
+        const YYYY = d.getFullYear();
+        const MM = pad(d.getMonth() + 1);
+        const DD = pad(d.getDate());
+        const hh = pad(d.getHours());
+        const mm = pad(d.getMinutes());
+        return `${YYYY}-${MM}-${DD}T${hh}:${mm}`;
+      };
+
+      setPlannedStart(toLocalDateTimeInput(startDate));
+      setPlannedEnd(toLocalDateTimeInput(endDate));
+    }
+
+    // If service has an assigned property, pre-select it
+    if (selectedService.assignedProperty && selectedService.propertyName) {
+      const serviceProperty: AppProperty = {
+        id: selectedService.assignedProperty,
+        ownerId: 0, // Default value
+        name: selectedService.propertyName,
+        alias: undefined,
+        address: selectedService.propertyName, // Use property name as address fallback
+        description: null,
+        contractStartDate: null,
+        createdAt: null,
+        updatedAt: null
+      };
+      setSelectedProperty(serviceProperty);
+      setPropertyQuery("");
+    }
+  }, [selectedService, open]);
+
+  // Función para determinar si el turno ya pasó o está activo
+  const isShiftPastOrActive = React.useMemo(() => {
+    if (!shift) return false;
+    
+    const now = new Date();
+    let shiftDate: Date | null = null;
+    
+    // Priorizar plannedStartTime, luego startTime
+    const timeToCheck = shift.plannedStartTime || shift.startTime;
+    if (timeToCheck) {
+      shiftDate = new Date(timeToCheck);
+    }
+    
+    if (!shiftDate) return false;
+    
+    // Si la fecha del turno es hoy o ya pasó, considerar como pasado/activo
+    const shiftDateOnly = new Date(shiftDate.getFullYear(), shiftDate.getMonth(), shiftDate.getDate());
+    const nowDateOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    return shiftDateOnly <= nowDateOnly;
+  }, [shift]);
+
+  // Función para verificar si hay diferencias entre tiempo planificado y real
+  const hasDifferences = React.useMemo(() => {
+    if (!isShiftPastOrActive) return false;
+    
+    const plannedStartValue = plannedStart;
+    const plannedEndValue = plannedEnd;
+    
+    if (!plannedStartValue || !plannedEndValue || !realStart || !realEnd) return false;
+    
+    return plannedStartValue !== realStart || plannedEndValue !== realEnd;
+  }, [isShiftPastOrActive, plannedStart, plannedEnd, realStart, realEnd]);
 
   const guardLabel = (g?: Guard | null) => {
     if (!g) return "";
-    return `${g.firstName} ${g.lastName} (${g.email ?? ""})`;
+    return `${g.firstName} ${g.lastName}`;
   };
   const propertyLabel = (p?: AppProperty | null) => {
     if (!p) return "";
-    return `${p.name ?? p.alias ?? p.address} #${p.id}`;
+    const alias = p.alias || p.name || "Sin nombre";
+    const ownerDetails = p.ownerDetails;
+    let ownerName = "";
+    
+    if (ownerDetails) {
+      const firstName = ownerDetails.first_name || "";
+      const lastName = ownerDetails.last_name || "";
+      ownerName = `${firstName} ${lastName}`.trim();
+      if (!ownerName) {
+        ownerName = ownerDetails.email || `#${p.ownerId}`;
+      }
+    } else {
+      ownerName = `#${p.ownerId}`;
+    }
+    
+    return `${alias} - ${ownerName}`;
   };
-  const serviceLabel = (s?: AppService | null) => {
-    if (!s) return "";
-    return `${s.name}${s.propertyName ? ` — ${s.propertyName}` : ""}`;
+
+  const checkTimeOverlap = (start1: string, end1: string, start2: string, end2: string): boolean => {
+    const startDate1 = new Date(start1);
+    const endDate1 = new Date(end1);
+    const startDate2 = new Date(start2);
+    const endDate2 = new Date(end2);
+
+    return startDate1 < endDate2 && startDate2 < endDate1;
   };
+
+  const checkForOverlaps = React.useCallback(async () => {
+    // overlap check based on plannedStart/plannedEnd
+    if (!selectedGuard || !plannedStart || !plannedEnd) {
+      setHasOverlap(false);
+      setOverlapMessage("");
+      return;
+    }
+
+    try {
+      const response = await listShiftsByGuard(selectedGuard.id, 1, 1000);
+      const shifts = extractItems<Shift>(response);
+
+      const overlappingShifts = shifts.filter((shift) => {
+        const shiftPlannedStart = (shift as any).plannedStartTime ?? (shift as any).planned_start_time;
+        const shiftPlannedEnd = (shift as any).plannedEndTime ?? (shift as any).planned_end_time;
+
+        if (!shiftPlannedStart || !shiftPlannedEnd) return false;
+
+        return checkTimeOverlap(plannedStart, plannedEnd, shiftPlannedStart, shiftPlannedEnd);
+      });
+
+      if (overlappingShifts.length > 0) {
+        setHasOverlap(true);
+        const dates = overlappingShifts
+          .map((shift) => {
+            const s = (shift as any).plannedStartTime ?? (shift as any).planned_start_time;
+            return new Date(s).toLocaleString();
+          })
+          .join(", ");
+        setOverlapMessage(`Solapamiento detectado con turnos planeados en: ${dates}`);
+      } else {
+        setHasOverlap(false);
+        setOverlapMessage("");
+      }
+    } catch (error) {
+      console.error("Error verificando solapamientos:", error);
+      setHasOverlap(false);
+      setOverlapMessage("");
+    }
+  }, [selectedGuard, plannedStart, plannedEnd]);
+
+  React.useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      checkForOverlaps();
+    }, 500);
+    return () => clearTimeout(timeoutId);
+  }, [checkForOverlaps]);
+
+  // weaponDetails (informativo local)
+  const [weaponDetails, setWeaponDetails] = React.useState<string>("");
 
   async function onSubmit(e?: React.FormEvent) {
     e?.preventDefault?.();
+    
     if (!shift) {
       toast.error((TEXT as any)?.shifts?.errors?.noShift ?? "No shift to edit");
       return;
     }
-    if (!start || !end) {
-      toast.error((TEXT as any)?.shifts?.errors?.missingDates ?? "Start and end are required");
+    
+    if (!plannedStart || !plannedEnd) {
+      toast.error((TEXT as any)?.shifts?.errors?.missingDates ?? "Planned start and end are required");
       return;
     }
-    const plannedStartIso = plannedStart ? toIsoFromDatetimeLocal(plannedStart) : undefined;
-    const plannedEndIso = plannedEnd ? toIsoFromDatetimeLocal(plannedEnd) : undefined;
-    const startIso = toIsoFromDatetimeLocal(start);
-    const endIso = toIsoFromDatetimeLocal(end);
 
-    if (new Date(endIso) <= new Date(startIso)) {
+    if (hasOverlap) {
+      toast.error("No se puede actualizar el turno debido a solapamientos detectados");
+      return;
+    }
+
+    const plannedStartIso = toIsoFromDatetimeLocal(plannedStart);
+    const plannedEndIso = toIsoFromDatetimeLocal(plannedEnd);
+
+    if (new Date(plannedEndIso) <= new Date(plannedStartIso)) {
       toast.error((TEXT as any)?.shifts?.errors?.endBeforeStart ?? "End must be after start");
       return;
     }
@@ -499,6 +812,7 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
       toast.error((TEXT as any)?.shifts?.errors?.missingProperty ?? "Property required");
       return;
     }
+
     if (!selectedGuard) {
       toast.error((TEXT as any)?.shifts?.errors?.missingGuard ?? "Guard required");
       return;
@@ -507,30 +821,28 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
     setLoading(true);
     try {
       const payload: any = {
+        guard: selectedGuard.id,
         property: Number(selectedProperty.id),
-        start_time: startIso,
-        end_time: endIso,
-        status,
+        planned_start_time: plannedStartIso,
+        planned_end_time: plannedEndIso,
       };
 
-      if (plannedStartIso) payload.planned_start_time = plannedStartIso;
-      if (plannedEndIso) payload.planned_end_time = plannedEndIso;
+      // Si el turno es pasado/activo y tenemos horas reales, incluir esas también
+      if (isShiftPastOrActive && realStart && realEnd) {
+        const realStartIso = toIsoFromDatetimeLocal(realStart);
+        const realEndIso = toIsoFromDatetimeLocal(realEnd);
+        payload.start_time = realStartIso;
+        payload.end_time = realEndIso;
+      }
 
-      if (selectedGuard) payload.guard = Number(selectedGuard.id);
       if (selectedService) payload.service = Number(selectedService.id);
       if (typeof isArmed === "boolean") payload.is_armed = isArmed;
 
-      // weapon handling: convert selectedWeaponId (string) -> number
+      // weapon handling: send weapon id (if selected) and/or serial if available
       if (isArmed) {
-        if (selectedWeaponId) {
-          payload.weapon = Number(selectedWeaponId);
-        }
+        if (selectedWeaponId) payload.weapon = selectedWeaponId;
         const serialToSend = selectedWeaponSerial ?? (manualSerial.trim() !== "" ? manualSerial.trim() : null);
         if (serialToSend) payload.weapon_serial_number = serialToSend;
-      } else {
-        // optional: if you want to clear weapon when unarmed, send null
-        payload.weapon = null;
-        payload.weapon_serial_number = null;
       }
 
       const updated = await updateShift(shift.id, payload);
@@ -539,12 +851,36 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
       onClose();
     } catch (err: any) {
       console.error(err);
-      const serverMsg = err?.response?.data?.message ?? err?.message;
-      if (serverMsg) {
-        toast.error(String(serverMsg));
-      } else {
-        toast.error((TEXT as any)?.shifts?.errors?.updateFailed ?? "Could not update shift");
+      let errorMessage = (TEXT as any)?.shifts?.errors?.updateFailed ?? "Could not update shift";
+
+      if (err?.response?.data?.message || err?.message) {
+        const serverMessage = err?.response?.data?.message || err?.message;
+
+        if (
+          serverMessage.toLowerCase().includes("overlap") ||
+          serverMessage.toLowerCase().includes("solapado") ||
+          serverMessage.toLowerCase().includes("conflicto") ||
+          serverMessage.toLowerCase().includes("conflict")
+        ) {
+          errorMessage = "Este turno se solapa con otro turno existente. Por favor, verifica las fechas y horarios.";
+        } else if (
+          serverMessage.toLowerCase().includes("disponib") ||
+          serverMessage.toLowerCase().includes("available") ||
+          serverMessage.toLowerCase().includes("busy")
+        ) {
+          errorMessage = "El guardia no está disponible en el horario seleccionado.";
+        } else if (
+          serverMessage.toLowerCase().includes("validación") ||
+          serverMessage.toLowerCase().includes("validation") ||
+          serverMessage.toLowerCase().includes("invalid")
+        ) {
+          errorMessage = `Datos inválidos: ${serverMessage}`;
+        } else if (serverMessage.length > 10) {
+          errorMessage = serverMessage;
+        }
       }
+
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -562,7 +898,9 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
     >
       <DialogContent className="max-w-lg max-h-[80vh] sm:max-h-[70vh] overflow-auto">
         <DialogHeader>
-          <DialogTitle className="text-base">{(TEXT as any)?.shifts?.edit?.title ?? "Editar Turno"}</DialogTitle>
+          <div className="flex items-center justify-between w-full">
+            <DialogTitle className="text-base">{(TEXT as any)?.shifts?.edit?.title ?? "Editar Turno"}</DialogTitle>
+          </div>
         </DialogHeader>
 
         <div className="mt-2 p-2">
@@ -572,315 +910,316 @@ export default function EditShift({ open, onClose, shiftId, initialShift, onUpda
             <div>{(TEXT as any)?.shifts?.errors?.noShift ?? "No shift loaded"}</div>
           ) : (
             <form onSubmit={onSubmit} className="space-y-3">
-              <div>
-                <label className="text-sm text-muted-foreground block mb-1">Shift ID</label>
-                <input className={inputClass} value={shift.id} readOnly />
-              </div>
-
               {/* Guard select-search */}
               <div className="relative">
-                <label className="text-sm text-muted-foreground block mb-1">Guard</label>
-                <input
-                  type="text"
-                  className={inputClass}
-                  value={selectedGuard ? guardLabel(selectedGuard) : guardQuery}
-                  onChange={(e) => {
-                    if (selectedGuard) setSelectedGuard(null);
-                    setGuardQuery(e.target.value);
-                  }}
-                  onFocus={() => {
-                    if (guardResults.length > 0) setGuardDropdownOpen(true);
-                  }}
-                  placeholder={guardPlaceholder}
-                  aria-label="Buscar guard"
-                />
-                {selectedGuard && (
-                  <button
-                    type="button"
-                    className="absolute right-2 top-2 text-xs text-muted-foreground"
-                    onClick={() => {
-                      setSelectedGuard(null);
-                      setGuardQuery("");
-                    }}
-                  >
-                    Clear
-                  </button>
-                )}
+            <label className="text-sm text-muted-foreground block mb-1">Guard</label>
+            <input
+              type="text"
+              className={inputClass}
+              value={selectedGuard ? guardLabel(selectedGuard) : guardQuery}
+              onChange={(e) => {
+                if (selectedGuard) setSelectedGuard(null);
+                setGuardQuery(e.target.value);
+              }}
+              onFocus={() => {
+                if (guardResults.length > 0) setGuardDropdownOpen(true);
+              }}
+              placeholder={guardPlaceholder}
+              aria-label="Buscar guard"
+            />
+            {selectedGuard && (
+              <button
+                type="button"
+                className="absolute right-2 top-2 text-xs text-muted-foreground"
+                onClick={() => {
+                  setSelectedGuard(null);
+                  setGuardQuery("");
+                }}
+              >
+                Clear
+              </button>
+            )}
 
-                {guardDropdownOpen && (guardResults.length > 0 || guardsLoading) && (
-                  <div className="absolute z-50 left-0 right-0 mt-1 bg-white border rounded shadow max-h-40 overflow-auto">
-                    {guardsLoading && <div className="p-2 text-xs text-muted-foreground">Buscando...</div>}
-                    {!guardsLoading && guardResults.length === 0 && <div className="p-2 text-xs text-muted-foreground">No matches.</div>}
-                    {!guardsLoading &&
-                      guardResults.map((g) => (
-                        <button
-                          key={g.id}
-                          type="button"
-                          className="w-full text-left px-3 py-2 hover:bg-muted/10"
-                          onClick={() => {
-                            setSelectedGuard(g);
-                            setGuardQuery(`${g.firstName} ${g.lastName} (${g.email ?? ""})`);
-                            setGuardDropdownOpen(false);
-                          }}
-                        >
-                          <div className="flex flex-col">
-                            <div className="text-sm truncate">{`${g.firstName} ${g.lastName}`}</div>
-                            <div className="text-[11px] text-muted-foreground truncate">{g.email}</div>
-                          </div>
-                        </button>
-                      ))}
-                  </div>
-                )}
+            {guardDropdownOpen && (guardResults.length > 0 || guardsLoading) && (
+              <div className="absolute z-50 left-0 right-0 mt-1 bg-white border rounded shadow max-h-40 overflow-auto" data-guard-dropdown>
+                {guardsLoading && <div className="p-2 text-xs text-muted-foreground">Buscando...</div>}
+                {!guardsLoading && guardResults.length === 0 && <div className="p-2 text-xs text-muted-foreground">No matches.</div>}
+                {!guardsLoading &&
+                  guardResults.map((g) => (
+                    <button
+                      key={g.id}
+                      type="button"
+                      className="w-full text-left px-3 py-2 hover:bg-muted/10"
+                      onClick={() => {
+                        setSelectedGuard(g);
+                        setGuardQuery("");
+                        setGuardDropdownOpen(false);
+                      }}
+                    >
+                      <div className="flex flex-col">
+                        <div className="text-sm truncate">{`${g.firstName} ${g.lastName}`}</div>
+                        <div className="text-[11px] text-muted-foreground truncate">{g.email}</div>
+                      </div>
+                    </button>
+                  ))}
               </div>
+            )}
+          </div>
 
-              {/* Property select-search */}
-              <div className="relative">
-                <label className="text-sm text-muted-foreground block mb-1">Property</label>
-                <input
-                  type="text"
-                  className={inputClass}
-                  value={selectedProperty ? propertyLabel(selectedProperty) : propertyQuery}
-                  onChange={(e) => {
-                    if (selectedProperty) setSelectedProperty(null);
-                    setPropertyQuery(e.target.value);
-                  }}
-                  onFocus={() => {
-                    if (propertyResults.length > 0) setPropertyDropdownOpen(true);
-                  }}
-                  placeholder={propertyPlaceholder}
-                  aria-label="Buscar propiedad"
-                />
-                {selectedProperty && (
-                  <button
-                    type="button"
-                    className="absolute right-2 top-2 text-xs text-muted-foreground"
-                    onClick={() => {
-                      setSelectedProperty(null);
-                      setPropertyQuery("");
-                    }}
-                  >
-                    Clear
-                  </button>
-                )}
+          {/* Property select-search */}
+          <div className="relative">
+            <label className="text-sm text-muted-foreground block mb-1">Property</label>
+            <input
+              type="text"
+              className={inputClass}
+              value={selectedProperty ? propertyLabel(selectedProperty) : propertyQuery}
+              onChange={(e) => {
+                if (selectedProperty) setSelectedProperty(null);
+                setPropertyQuery(e.target.value);
+              }}
+              onFocus={() => {
+                if (propertyResults.length > 0) setPropertyDropdownOpen(true);
+              }}
+              placeholder={propertyPlaceholder}
+              aria-label="Buscar propiedad"
+            />
+            {selectedProperty && (
+              <button
+                type="button"
+                className="absolute right-2 top-2 text-xs text-muted-foreground"
+                onClick={() => {
+                  setSelectedProperty(null);
+                  setPropertyQuery("");
+                }}
+              >
+                Clear
+              </button>
+            )}
 
-                {propertyDropdownOpen && (propertyResults.length > 0 || propertiesLoading) && (
-                  <div className="absolute z-50 left-0 right-0 mt-1 bg-white border rounded shadow max-h-40 overflow-auto">
-                    {propertiesLoading && <div className="p-2 text-xs text-muted-foreground">Buscando...</div>}
-                    {!propertiesLoading && propertyResults.length === 0 && <div className="p-2 text-xs text-muted-foreground">No matches.</div>}
-                    {!propertiesLoading &&
-                      propertyResults.map((p) => (
-                        <button
-                          key={p.id}
-                          type="button"
-                          className="w-full text-left px-3 py-2 hover:bg-muted/10"
-                          onClick={() => {
-                            setSelectedProperty(p);
-                            setPropertyQuery(propertyLabel(p));
-                            setPropertyDropdownOpen(false);
-                          }}
-                        >
-                          <div className="flex justify-between items-center">
-                            <div className="text-sm truncate">{p.name ?? p.alias ?? p.address}</div>
-                            <div className="text-xs text-muted-foreground">#{p.id}</div>
-                          </div>
-                          <div className="text-[11px] text-muted-foreground truncate">{p.address}</div>
-                        </button>
-                      ))}
-                  </div>
-                )}
+            {propertyDropdownOpen && (propertyResults.length > 0 || propertiesLoading) && (
+              <div className="absolute z-50 left-0 right-0 mt-1 bg-white border rounded shadow max-h-40 overflow-auto">
+                {propertiesLoading && <div className="p-2 text-xs text-muted-foreground">Buscando...</div>}
+                {!propertiesLoading && propertyResults.length === 0 && <div className="p-2 text-xs text-muted-foreground">No matches.</div>}
+                {!propertiesLoading &&
+                  propertyResults.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      className="w-full text-left px-3 py-2 hover:bg-muted/10"
+                      onClick={() => {
+                        setSelectedProperty(p);
+                        setPropertyQuery("");
+                        setPropertyDropdownOpen(false);
+                      }}
+                    >
+                      <div className="flex justify-between items-center">
+                        <div className="text-sm truncate">{p.name ?? p.alias ?? p.address}</div>
+                        <div className="text-xs text-muted-foreground">#{p.id}</div>
+                      </div>
+                      <div className="text-[11px] text-muted-foreground truncate">{p.address}</div>
+                    </button>
+                  ))}
               </div>
+            )}
+          </div>
 
-              {/* Service select-search (opcional) */}
-              <div className="relative">
-                <label className="text-sm text-muted-foreground block mb-1">Service (opcional)</label>
-                <input
-                  type="text"
-                  className={inputClass}
-                  value={selectedService ? serviceLabel(selectedService) : serviceQuery}
-                  onChange={(e) => {
-                    if (selectedService) setSelectedService(null);
-                    setServiceQuery(e.target.value);
-                  }}
-                  onFocus={() => {
-                    if (serviceResults.length > 0) setServiceDropdownOpen(true);
-                  }}
-                  placeholder={servicePlaceholder}
-                  aria-label="Buscar servicio"
-                />
-                {selectedService && (
-                  <button
-                    type="button"
-                    className="absolute right-2 top-2 text-xs text-muted-foreground"
-                    onClick={() => {
-                      setSelectedService(null);
-                      setServiceQuery("");
-                    }}
-                  >
-                    Clear
-                  </button>
-                )}
-
-                {serviceDropdownOpen && (serviceResults.length > 0 || servicesLoading) && (
-                  <div className="absolute z-50 left-0 right-0 mt-1 bg-white border rounded shadow max-h-40 overflow-auto">
-                    {servicesLoading && <div className="p-2 text-xs text-muted-foreground">Buscando...</div>}
-                    {!servicesLoading && serviceResults.length === 0 && <div className="p-2 text-xs text-muted-foreground">No matches.</div>}
-                    {!servicesLoading &&
-                      serviceResults.map((s) => (
-                        <button
-                          key={s.id}
-                          type="button"
-                          className="w-full text-left px-3 py-2 hover:bg-muted/10"
-                          onClick={() => {
-                            setSelectedService(s);
-                            setServiceQuery(serviceLabel(s));
-                            setServiceDropdownOpen(false);
-                          }}
-                        >
-                          <div className="flex justify-between items-center">
-                            <div className="text-sm truncate">{s.name}</div>
-                            <div className="text-xs text-muted-foreground">{s.propertyName ?? ""}</div>
-                          </div>
-                          <div className="text-[11px] text-muted-foreground truncate">{s.description}</div>
-                        </button>
-                      ))}
-                  </div>
-                )}
+          {/* Service select */}
+          <div>
+            <label className="text-sm text-muted-foreground block mb-1">Service</label>
+            {!selectedProperty ? (
+              <div className="w-full rounded border px-3 py-1.5 text-sm text-muted-foreground bg-muted/30">
+                Selecciona una propiedad primero
               </div>
+            ) : (
+              <select
+                className={inputClass}
+                value={selectedService?.id.toString() || ""}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (!value) {
+                    setSelectedService(null);
+                  } else {
+                    const service = propertyServices.find(s => s.id.toString() === value);
+                    setSelectedService(service || null);
+                  }
+                }}
+                disabled={servicesLoading}
+              >
+                <option value="">-- Seleccionar servicio --</option>
+                {servicesLoading && <option value="">Cargando servicios...</option>}
+                {!servicesLoading && propertyServices.length === 0 && (
+                  <option value="">No hay servicios disponibles</option>
+                )}
+                {!servicesLoading && propertyServices.map((service) => (
+                  <option key={service.id} value={service.id.toString()}>
+                    {service.name}{service.description ? ` — ${service.description}` : ""}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
 
-              {/* Planned start/end */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <div>
-                  <label className="text-sm text-muted-foreground block mb-1">Planned Start</label>
-                  <input
-                    type="datetime-local"
-                    className={inputClass}
-                    value={plannedStart}
-                    onChange={(e) => setPlannedStart(e.target.value)}
-                  />
+          {/* Planned start/end only */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div>
+              <label className="text-sm text-muted-foreground block mb-1">Planned Start</label>
+              <input
+                type="datetime-local"
+                className={inputClass}
+                value={plannedStart}
+                onChange={(e) => setPlannedStart(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-sm text-muted-foreground block mb-1">Planned End</label>
+              <input
+                type="datetime-local"
+                className={inputClass}
+                value={plannedEnd}
+                onChange={(e) => setPlannedEnd(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {hasOverlap && overlapMessage && (
+            <div className="bg-red-50 border border-red-200 rounded-md p-2">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
                 </div>
-                <div>
-                  <label className="text-sm text-muted-foreground block mb-1">Planned End</label>
-                  <input
-                    type="datetime-local"
-                    className={inputClass}
-                    value={plannedEnd}
-                    onChange={(e) => setPlannedEnd(e.target.value)}
-                  />
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-red-800">Solapamiento Detectado</h3>
+                  <div className="mt-1 text-sm text-red-700">{overlapMessage}</div>
                 </div>
               </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <div>
-                  <label className="text-sm text-muted-foreground block mb-1">Start</label>
-                  <input
-                    type="datetime-local"
-                    className={inputClass}
-                    value={start}
-                    onChange={(e) => setStart(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="text-sm text-muted-foreground block mb-1">End</label>
-                  <input
-                    type="datetime-local"
-                    className={inputClass}
-                    value={end}
-                    onChange={(e) => setEnd(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-sm text-muted-foreground block mb-1">Status</label>
-                <select
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value as Shift["status"])}
-                  className={inputClass}
-                >
-                  <option value="scheduled">scheduled</option>
-                  <option value="completed">completed</option>
-                  <option value="voided">voided</option>
-                </select>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <label className="flex items-center gap-2">
-                  <input type="checkbox" checked={isArmed} onChange={(e) => setIsArmed(Boolean(e.target.checked))} />
-                  <span className="text-sm">Is armed</span>
-                </label>
-
-                {isArmed && (
-                  <div className="w-full space-y-2">
-                    <div>
-                      <label className="text-sm block mb-1">Select weapon (del guard) — opcional</label>
-                      <select
-                        value={selectedWeaponId ?? ""}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          if (val === "__manual") {
-                            setSelectedWeaponId(null);
-                            setSelectedWeaponSerial(null);
-                            return;
-                          }
-                          if (!val) {
-                            setSelectedWeaponId(null);
-                            setSelectedWeaponSerial(null);
-                            return;
-                          }
-                          const idStr = String(val);
-                          setSelectedWeaponId(idStr);
-                          const w = weapons.find((x) => String(x.id) === idStr);
-                          setSelectedWeaponSerial(w?.serialNumber ?? null);
-                          setManualSerial("");
-                        }}
-                        className={inputClass}
-                      >
-                        <option value="">-- Select weapon --</option>
-                        {!weaponsLoading && weapons.length === 0 && <option value="">(no weapons)</option>}
-                        {weaponsLoading && <option value="">Cargando armas...</option>}
-                        {weapons.map((w) => (
-                          <option key={String(w.id)} value={String(w.id)}>
-                            {String(w.model ?? "model")} — {String(w.serialNumber ?? "no-serial")} (#{String(w.id)})
-                          </option>
-                        ))}
-                        <option value="__manual">Other / Manual serial</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="text-sm block mb-1">Weapon serial (manual / preview)</label>
-                      <input
-                        type="text"
-                        placeholder="Serial number (manual or selected)"
-                        className={inputClass}
-                        value={selectedWeaponSerial ?? manualSerial}
-                        onChange={(e) => {
-                          setManualSerial(e.target.value);
-                          setSelectedWeaponSerial(null);
-                          setSelectedWeaponId(null);
-                        }}
-                      />
-                    </div>
-
-                    <div>
-                      {shift?.weaponDetails && (
-                        <div className="text-sm text-muted-foreground">Weapon: {String(shift.weaponDetails)}</div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <DialogFooter>
-                <div className="flex justify-end gap-2 w-full">
-                  <Button variant="ghost" onClick={onClose} type="button">{(TEXT as any)?.actions?.cancel ?? "Close"}</Button>
-                  <Button type="submit" disabled={loading}>
-                    {loading ? (TEXT as any)?.actions?.saving ?? "Saving..." : (TEXT as any)?.actions?.save ?? "Save"}
-                  </Button>
-                </div>
-              </DialogFooter>
-            </form>
+            </div>
           )}
+
+          <div className="flex flex-col gap-2">
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={isArmed} onChange={(e) => setIsArmed(Boolean(e.target.checked))} />
+              <span className="text-sm">Is armed</span>
+            </label>
+
+            {isArmed && (
+              <div className="space-y-2">
+                <div>
+                  <label className="text-sm block mb-1">Select weapon (del guard) — opcional</label>
+                  <div>
+                    <select
+                      value={selectedWeaponId ?? ""}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === "__manual") {
+                          setSelectedWeaponId(null);
+                          setSelectedWeaponSerial(null);
+                          return;
+                        }
+                        if (!val) {
+                          setSelectedWeaponId(null);
+                          setSelectedWeaponSerial(null);
+                          return;
+                        }
+                        const id = Number(val);
+                        setSelectedWeaponId(id);
+                        const w = weapons.find((x) => Number(x.id) === id);
+                        setSelectedWeaponSerial(w?.serialNumber ?? null);
+                        setManualSerial("");
+                      }}
+                      className={inputClass}
+                    >
+                      <option value="">-- Select weapon --</option>
+                      {!weaponsLoading && weapons.length === 0 && <option value="">(no weapons)</option>}
+                      {weaponsLoading && <option value="">Cargando armas...</option>}
+                      {weapons.map((w) => (
+                        <option key={w.id} value={w.id}>
+                          {w.model ?? "model"} — {w.serialNumber ?? "no-serial"} (#{w.id})
+                        </option>
+                      ))}
+                      <option value="__manual">Other / Manual serial</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-sm block mb-1">Weapon serial (manual / preview)</label>
+                  <input
+                    type="text"
+                    placeholder="Serial number (manual or selected)"
+                    className={inputClass}
+                    value={selectedWeaponSerial ?? manualSerial}
+                    onChange={(e) => {
+                      setManualSerial(e.target.value);
+                      setSelectedWeaponSerial(null);
+                      setSelectedWeaponId(null);
+                    }}
+                  />
+                  <div className="text-[11px] text-muted-foreground mt-1">
+                    {selectedWeaponId ? `Serial seleccionado: ${selectedWeaponSerial ?? ""}` : "Puedes escribir un serial manual si el arma no está en la lista."}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-sm block mb-1">Weapon details (informativo)</label>
+                  <input
+                    type="text"
+                    placeholder="Weapon details (informative)"
+                    value={weaponDetails}
+                    onChange={(e) => setWeaponDetails(e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Campos de hora real para turnos pasados/activos */}
+          {isShiftPastOrActive && (
+            <div className={`grid grid-cols-1 sm:grid-cols-2 gap-2 p-3 rounded-md border-2 ${hasDifferences ? 'bg-yellow-50 border-yellow-200' : 'bg-gray-50 border-gray-200'}`}>
+              <div>
+                <label className="text-sm font-medium text-gray-700 block mb-1">Hora real entrada</label>
+                <input
+                  type="datetime-local"
+                  className={inputClass}
+                  value={realStart}
+                  onChange={(e) => setRealStart(e.target.value)}
+                  placeholder="Hora real de entrada"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 block mb-1">Hora real salida</label>
+                <input
+                  type="datetime-local"
+                  className={inputClass}
+                  value={realEnd}
+                  onChange={(e) => setRealEnd(e.target.value)}
+                  placeholder="Hora real de salida"
+                />
+              </div>
+              {hasDifferences && (
+                <div className="col-span-1 sm:col-span-2">
+                  <div className="text-xs text-yellow-700 bg-yellow-100 p-2 rounded">
+                    ⚠️ Se detectaron diferencias entre los horarios planificados y los horarios reales
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter className="pt-2">
+            <div className="flex justify-end gap-2 w-full">
+              <Button variant="ghost" onClick={onClose} type="button" size="sm">
+                {(TEXT as any)?.actions?.close ?? "Close"}
+              </Button>
+              <Button type="submit" disabled={loading || hasOverlap} size="sm">
+                {loading ? (TEXT as any)?.actions?.saving ?? "Saving..." : (TEXT as any)?.actions?.save ?? "Save"}
+              </Button>
+            </div>
+          </DialogFooter>
+        </form>
+        )}
         </div>
       </DialogContent>
     </Dialog>

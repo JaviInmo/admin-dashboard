@@ -10,7 +10,6 @@ import {
 import { Button } from "@/components/ui/button";
 import type { Service } from "../types";
 import { useI18n } from "@/i18n";
-import { Label } from "@/components/ui/label";
 
 interface ShowServiceDialogProps {
   service: Service;
