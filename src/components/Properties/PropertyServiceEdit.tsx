@@ -178,33 +178,52 @@ export default function PropertyServiceEdit({
   const [resizeStartWidth, setResizeStartWidth] = React.useState(0);
   const dialogRef = React.useRef<HTMLDivElement>(null);
 
+  // Ref para rastrear el ID del servicio anterior y evitar resets innecesarios
+  const previousServiceIdRef = React.useRef<number | null>(null);
+
   React.useEffect(() => {
     // cuando cambie el service (nuevo open con otro service), prefillea valores
-    if (!open) return;
+    // SOLO cuando el modal se abre por primera vez o cuando realmente cambia el servicio
+    if (!open) {
+      // Reset del ref cuando se cierra el modal
+      previousServiceIdRef.current = null;
+      return;
+    }
     
-    // Calcular fechas por defecto (primer y último día del año actual)
-    const currentYear = new Date().getFullYear();
-    const defaultStartDate = `${currentYear}-01-01`;
-    const defaultEndDate = `${currentYear}-12-31`;
+    // Solo hacer reset completo si es un servicio diferente o es la primera vez que se abre
+    const isNewService = previousServiceIdRef.current !== service.id;
     
-    setName(service.name ?? "");
-    setDescription(service.description ?? "");
-    setPropertyId(service.assignedProperty ?? null);
-    setPropertySelectedLabel(service.propertyName ?? "");
-    setRate(cleanCurrency(service.rate ?? ""));
-    setMonthlyBudget(cleanCurrency(service.monthlyBudget ?? ""));
-    setTotalHours(service.totalHours ?? "");
-    setContractStartDate(service.contractStartDate ?? "");
-    // Si no hay fechas definidas, usar el año actual por defecto
-    setStart_time(service.startTime ?? defaultStartDate);
-    setEnd_time(service.endTime ?? defaultEndDate);
-    setIsActive(service.isActive ?? true);
-    setRecurrent(service.recurrent ?? false);
-    setSchedule(Array.isArray(service.schedule) ? service.schedule : []);
-    setScheduleInput("");
-    setLastModifiedField(null); // Reset del campo modificado
-    setPropertyDropdownOpen(false); // Cerrar dropdown
-    setPropertySearchInput(""); // Limpiar búsqueda
+    if (isNewService) {
+      // Calcular fechas por defecto (primer y último día del año actual)
+      const currentYear = new Date().getFullYear();
+      const defaultStartDate = `${currentYear}-01-01`;
+      const defaultEndDate = `${currentYear}-12-31`;
+      
+      setName(service.name ?? "");
+      setDescription(service.description ?? "");
+      setPropertyId(service.assignedProperty ?? null);
+      setPropertySelectedLabel(service.propertyName ?? "");
+      setRate(cleanCurrency(service.rate ?? ""));
+      setMonthlyBudget(cleanCurrency(service.monthlyBudget ?? ""));
+      setTotalHours(service.totalHours ?? "");
+      setContractStartDate(service.contractStartDate ?? "");
+      // Si no hay fechas definidas, usar el año actual por defecto
+      setStart_time(service.startTime ?? defaultStartDate);
+      setEnd_time(service.endTime ?? defaultEndDate);
+      setIsActive(service.isActive ?? true);
+      setRecurrent(service.recurrent ?? false);
+      
+      // Solo resetear schedule para servicios nuevos o diferentes
+      setSchedule(Array.isArray(service.schedule) ? service.schedule : []);
+      
+      setScheduleInput("");
+      setLastModifiedField(null); // Reset del campo modificado
+      setPropertyDropdownOpen(false); // Cerrar dropdown
+      setPropertySearchInput(""); // Limpiar búsqueda
+      
+      // Actualizar el ref
+      previousServiceIdRef.current = service.id;
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, service.id]);
 
@@ -968,18 +987,34 @@ export default function PropertyServiceEdit({
     payload.contract_start_date =
       contractStartDate === "" ? undefined : contractStartDate;
     
-    // Combinar fecha + hora para enviar datetime completo
+    // Función para formatear hora al formato hh:mm
+    const formatTime = (time: string): string | undefined => {
+      if (!time || time === "") return undefined;
+      // Si ya tiene el formato correcto (hh:mm), lo devolvemos tal como está
+      // Si tiene segundos (hh:mm:ss), extraemos solo hh:mm
+      const timeParts = time.split(':');
+      if (timeParts.length >= 2) {
+        return `${timeParts[0]}:${timeParts[1]}`;
+      }
+      return time;
+    };
+
+    // Función para formatear datetime completo (solo para campos de fecha)
     const formatDateTime = (date: string, time: string): string | undefined => {
       if (!date || date === "") return undefined;
-      if (!time || time === "") return `${date} 00:00:00`;
       
-      // El formato es hh:mm[:ss[.uuuuuu]] - segundos y microsegundos son opcionales
-      // Simplemente usar el tiempo tal como viene del input
-      return `${date} ${time}`;
+      // Si no hay tiempo, usar 00:00:00
+      const timeToUse = (!time || time === "") ? "00:00:00" : time;
+      
+      // Crear objeto Date con la fecha y hora locales
+      const localDateTime = new Date(`${date}T${timeToUse}`);
+      
+      // Convertir a formato ISO UTC (2025-09-18T08:45:00Z)
+      return localDateTime.toISOString();
     };
     
-    payload.start_time = formatDateTime(start_time, calendarStartTime);
-    payload.end_time = formatDateTime(end_time, calendarEndTime);
+    payload.start_time = formatTime(calendarStartTime);
+    payload.end_time = formatTime(calendarEndTime);
     payload.schedule = schedule.length > 0 ? schedule : undefined;
     payload.recurrent = recurrent;
     payload.is_active = isActive;
