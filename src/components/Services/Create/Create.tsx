@@ -232,14 +232,14 @@ export default function CreateServiceDialog({
   const dialogClass = compact
     ? "max-w-2xl w-full max-h-[60vh] overflow-auto"
     : "max-w-4xl w-full max-h-[80vh] overflow-auto";
-  const gap = compact ? "gap-2 py-3" : "gap-3 py-4";
+  const gap = compact ? "gap-2 py-3" : "gap-1 py-0";
   const titleClass = compact ? "text-base" : "text-lg";
 
   return (
     <Dialog open={open} onOpenChange={(val) => { if (!val) onClose(); }}>
       <DialogContent className={dialogClass}>
         <DialogHeader>
-          <DialogTitle className={titleClass}>{TEXT?.services?.create?.title ?? "Create Service"}</DialogTitle>
+          <DialogTitle className={`${titleClass} pl-4`}>{TEXT?.services?.create?.title ?? "Create Service"}</DialogTitle>
         </DialogHeader>
 
         <div className={`grid ${gap} px-4`}>
@@ -406,7 +406,7 @@ export default function CreateServiceDialog({
         </div>
 
         <DialogFooter>
-          <div className="flex gap-2 px-4 py-3">
+          <div className="flex gap-2 px-4 py-0">
             <Button variant="ghost" onClick={() => { resetForm(); onClose(); }}>{TEXT?.actions?.cancel ?? "Cancel"}</Button>
             <Button onClick={handleCreate} disabled={loading}>{loading ? TEXT?.actions?.saving ?? "Saving..." : (TEXT?.actions?.create ?? "Create")}</Button>
           </div>

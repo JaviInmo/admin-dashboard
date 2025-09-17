@@ -145,7 +145,7 @@ export default function ServicesPage() {
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
-      <h2 className="text-2xl font-bold">{TEXT?.services?.title ?? "Services"}</h2>
+      <h2 className="text-2xl font-bold ">{TEXT?.services?.title ?? "Services"}</h2>
 
       <ServicesTable
         services={data.items}
