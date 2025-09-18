@@ -19,6 +19,8 @@ type ServerService = {
   rate?: string | null; // decimal string
   monthly_budget?: string | null; // decimal string
   contract_start_date?: string | null; // date
+  start_date?: string | null; // fecha inicio período vigencia
+  end_date?: string | null; // fecha fin período vigencia
   start_time?: string | null; // time string e.g. "22:00:00"
   end_time?: string | null; // time string e.g. "06:00:00"
   schedule?: Array<string | { [key: string]: any }> | null;
@@ -41,8 +43,10 @@ export type CreateServicePayload = {
   rate?: string | null;
   monthly_budget?: string | null;
   contract_start_date?: string | null;
-  start_time?: string | null;
-  end_time?: string | null;
+  start_date?: string | null;  // Fecha inicio del período de vigencia
+  end_date?: string | null;    // Fecha fin del período de vigencia
+  start_time?: string | null;  // Hora inicio del servicio diario
+  end_time?: string | null;    // Hora fin del servicio diario
   schedule?: Array<string | { [key: string]: any }>; // puede aceptar strings o objetos si el backend lo permite
   recurrent?: boolean;
   total_hours?: string | null; // Agregado: campo para horas totales
@@ -86,6 +90,8 @@ function mapServerService(s: ServerService): Service {
     rate: s.rate ?? null,
     monthlyBudget: s.monthly_budget ?? null,
     contractStartDate: s.contract_start_date ?? null,
+    startDate: s.start_date ?? null,
+    endDate: s.end_date ?? null,
     startTime: s.start_time ?? null,
     endTime: s.end_time ?? null,
     schedule,
@@ -158,6 +164,14 @@ export async function createService(payload: CreateServicePayload): Promise<Serv
 
   if (payload.contract_start_date !== undefined && payload.contract_start_date !== null && payload.contract_start_date !== "") {
     body.contract_start_date = payload.contract_start_date;
+  }
+
+  if (payload.start_date !== undefined && payload.start_date !== null && payload.start_date !== "") {
+    body.start_date = payload.start_date;
+  }
+
+  if (payload.end_date !== undefined && payload.end_date !== null && payload.end_date !== "") {
+    body.end_date = payload.end_date;
   }
 
   if (payload.start_time !== undefined && payload.start_time !== null && payload.start_time !== "") {
@@ -241,6 +255,22 @@ export async function updateService(id: number, payload: UpdateServicePayload): 
       // omitimos
     } else {
       body.contract_start_date = payload.contract_start_date;
+    }
+  }
+
+  if (payload.start_date !== undefined) {
+    if (payload.start_date === "") {
+      // omitimos
+    } else {
+      body.start_date = payload.start_date;
+    }
+  }
+
+  if (payload.end_date !== undefined) {
+    if (payload.end_date === "") {
+      // omitimos
+    } else {
+      body.end_date = payload.end_date;
     }
   }
 

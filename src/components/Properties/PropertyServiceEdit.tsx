@@ -73,11 +73,13 @@ export default function PropertyServiceEdit({
     () => service.contractStartDate ?? ""
   );
   const [start_time, setStart_time] = React.useState<string>(
-    () => service.startTime ?? ""
+    () => service.startTime ?? "09:00"
   );
   const [end_time, setEnd_time] = React.useState<string>(
-    () => service.endTime ?? ""
+    () => service.endTime ?? "17:00"
   );
+  const [startDate, setStartDate] = React.useState<string>("");
+  const [endDate, setEndDate] = React.useState<string>("");
   const [isActive, setIsActive] = React.useState<boolean>(
     () => service.isActive ?? true
   );
@@ -137,7 +139,7 @@ export default function PropertyServiceEdit({
   );
   const [scheduleView, setScheduleView] = React.useState<
     "classic" | "calendar"
-  >("classic");
+  >("calendar");
 
   // Estados adicionales para período
   const [periodStart, setPeriodStart] = React.useState<string>("");
@@ -178,52 +180,32 @@ export default function PropertyServiceEdit({
   const [resizeStartWidth, setResizeStartWidth] = React.useState(0);
   const dialogRef = React.useRef<HTMLDivElement>(null);
 
-  // Ref para rastrear el ID del servicio anterior y evitar resets innecesarios
-  const previousServiceIdRef = React.useRef<number | null>(null);
-
   React.useEffect(() => {
     // cuando cambie el service (nuevo open con otro service), prefillea valores
-    // SOLO cuando el modal se abre por primera vez o cuando realmente cambia el servicio
-    if (!open) {
-      // Reset del ref cuando se cierra el modal
-      previousServiceIdRef.current = null;
-      return;
-    }
+    if (!open) return;
     
-    // Solo hacer reset completo si es un servicio diferente o es la primera vez que se abre
-    const isNewService = previousServiceIdRef.current !== service.id;
+    setName(service.name ?? "");
+    setDescription(service.description ?? "");
+    setPropertyId(service.assignedProperty ?? null);
+    setPropertySelectedLabel(service.propertyName ?? "");
+    setRate(cleanCurrency(service.rate ?? ""));
+    setMonthlyBudget(cleanCurrency(service.monthlyBudget ?? ""));
+    setTotalHours(service.totalHours ?? "");
+    setContractStartDate(service.contractStartDate ?? "");
     
-    if (isNewService) {
-      // Calcular fechas por defecto (primer y último día del año actual)
-      const currentYear = new Date().getFullYear();
-      const defaultStartDate = `${currentYear}-01-01`;
-      const defaultEndDate = `${currentYear}-12-31`;
-      
-      setName(service.name ?? "");
-      setDescription(service.description ?? "");
-      setPropertyId(service.assignedProperty ?? null);
-      setPropertySelectedLabel(service.propertyName ?? "");
-      setRate(cleanCurrency(service.rate ?? ""));
-      setMonthlyBudget(cleanCurrency(service.monthlyBudget ?? ""));
-      setTotalHours(service.totalHours ?? "");
-      setContractStartDate(service.contractStartDate ?? "");
-      // Si no hay fechas definidas, usar el año actual por defecto
-      setStart_time(service.startTime ?? defaultStartDate);
-      setEnd_time(service.endTime ?? defaultEndDate);
-      setIsActive(service.isActive ?? true);
-      setRecurrent(service.recurrent ?? false);
-      
-      // Solo resetear schedule para servicios nuevos o diferentes
-      setSchedule(Array.isArray(service.schedule) ? service.schedule : []);
-      
-      setScheduleInput("");
-      setLastModifiedField(null); // Reset del campo modificado
-      setPropertyDropdownOpen(false); // Cerrar dropdown
-      setPropertySearchInput(""); // Limpiar búsqueda
-      
-      // Actualizar el ref
-      previousServiceIdRef.current = service.id;
-    }
+      // Campos de fecha para período de vigencia
+      setStartDate(service.startDate ?? "");
+      setEndDate(service.endDate ?? "");    // Campos de hora para horario diario del servicio  
+    setStart_time(service.startTime ?? "09:00");
+    setEnd_time(service.endTime ?? "17:00");
+    
+    setIsActive(service.isActive ?? true);
+    setRecurrent(service.recurrent ?? false);
+    setSchedule(Array.isArray(service.schedule) ? service.schedule : []);
+    setScheduleInput("");
+    setLastModifiedField(null); // Reset del campo modificado
+    setPropertyDropdownOpen(false); // Cerrar dropdown
+    setPropertySearchInput(""); // Limpiar búsqueda
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, service.id]);
 
@@ -341,25 +323,25 @@ export default function PropertyServiceEdit({
   // Función para obtener todas las fechas de un día de la semana específico en el rango
   const getSpecificWeekdayInRange = (clickedDate: Date): string[] => {
     // Determinar el rango de fechas a usar
-    let startDate: Date, endDate: Date;
+    let startDateRange: Date, endDateRange: Date;
 
-    if (start_time && end_time) {
+    if (startDate && endDate) {
       // Usar fechas de restricción si están disponibles
-      startDate = new Date(start_time);
-      endDate = new Date(end_time);
+      startDateRange = new Date(startDate);
+      endDateRange = new Date(endDate);
     } else if (periodStart && periodEnd) {
       // Usar fechas del período si están disponibles
-      startDate = new Date(periodStart);
-      endDate = new Date(periodEnd);
+      startDateRange = new Date(periodStart);
+      endDateRange = new Date(periodEnd);
     } else {
       // Usar un rango de 6 meses alrededor de la fecha clickeada
-      startDate = new Date(clickedDate);
-      startDate.setMonth(startDate.getMonth() - 3);
-      endDate = new Date(clickedDate);
-      endDate.setMonth(endDate.getMonth() + 3);
+      startDateRange = new Date(clickedDate);
+      startDateRange.setMonth(startDateRange.getMonth() - 3);
+      endDateRange = new Date(clickedDate);
+      endDateRange.setMonth(endDateRange.getMonth() + 3);
     }
 
-    return getWeekdayDatesInRange(clickedDate, startDate, endDate);
+    return getWeekdayDatesInRange(clickedDate, startDateRange, endDateRange);
   };
 
   // Función auxiliar para obtener todos los días de la semana en un rango
@@ -390,25 +372,25 @@ export default function PropertyServiceEdit({
   // Función para obtener todas las fechas de un día del mes específico en el rango
   const getSpecificMonthdayInRange = (clickedDate: Date): string[] => {
     // Determinar el rango de fechas a usar
-    let startDate: Date, endDate: Date;
+    let startDateRange: Date, endDateRange: Date;
 
-    if (start_time && end_time) {
+    if (startDate && endDate) {
       // Usar fechas de restricción si están disponibles
-      startDate = new Date(start_time);
-      endDate = new Date(end_time);
+      startDateRange = new Date(startDate);
+      endDateRange = new Date(endDate);
     } else if (periodStart && periodEnd) {
       // Usar fechas del período si están disponibles
-      startDate = new Date(periodStart);
-      endDate = new Date(periodEnd);
+      startDateRange = new Date(periodStart);
+      endDateRange = new Date(periodEnd);
     } else {
       // Usar un rango de 12 meses alrededor de la fecha clickeada
-      startDate = new Date(clickedDate);
-      startDate.setFullYear(startDate.getFullYear() - 1);
-      endDate = new Date(clickedDate);
-      endDate.setFullYear(endDate.getFullYear() + 1);
+      startDateRange = new Date(clickedDate);
+      startDateRange.setFullYear(startDateRange.getFullYear() - 1);
+      endDateRange = new Date(clickedDate);
+      endDateRange.setFullYear(endDateRange.getFullYear() + 1);
     }
 
-    return getMonthdayDatesInRange(clickedDate, startDate, endDate);
+    return getMonthdayDatesInRange(clickedDate, startDateRange, endDateRange);
   };
 
   // Función auxiliar para obtener todos los días del mes en un rango
@@ -509,28 +491,28 @@ export default function PropertyServiceEdit({
     if (selectedDates.length === 0) return selectedDates;
 
     // Determinar el rango de fechas a usar
-    let startDate: string, endDate: string;
+    let startDateStr: string, endDateStr: string;
 
-    if (start_time && end_time) {
+    if (startDate && endDate) {
       // Usar fechas de restricción si están disponibles
-      startDate = start_time;
-      endDate = end_time;
+      startDateStr = startDate;
+      endDateStr = endDate;
     } else if (periodStart && periodEnd) {
       // Usar fechas del período si están disponibles
-      startDate = periodStart;
-      endDate = periodEnd;
+      startDateStr = periodStart;
+      endDateStr = periodEnd;
     } else {
       // Usar un rango de 6 meses desde la primera fecha seleccionada
       const firstDate = new Date(selectedDates[0]);
-      startDate = new Date(firstDate.getFullYear(), firstDate.getMonth() - 1, 1)
+      startDateStr = new Date(firstDate.getFullYear(), firstDate.getMonth() - 1, 1)
         .toISOString()
         .split("T")[0];
-      endDate = new Date(firstDate.getFullYear(), firstDate.getMonth() + 5, 0)
+      endDateStr = new Date(firstDate.getFullYear(), firstDate.getMonth() + 5, 0)
         .toISOString()
         .split("T")[0];
     }
 
-    const allPeriodDates = generatePeriodDates(startDate, endDate);
+    const allPeriodDates = generatePeriodDates(startDateStr, endDateStr);
     const replicatedDates = new Set<string>();
 
     // Para cada fecha seleccionada, encontrar todas las fechas en el período que caigan en el mismo día de la semana
@@ -552,28 +534,28 @@ export default function PropertyServiceEdit({
     if (selectedDates.length === 0) return selectedDates;
 
     // Determinar el rango de fechas a usar
-    let startDate: string, endDate: string;
+    let startDateStr: string, endDateStr: string;
 
-    if (start_time && end_time) {
+    if (startDate && endDate) {
       // Usar fechas de restricción si están disponibles
-      startDate = start_time;
-      endDate = end_time;
+      startDateStr = startDate;
+      endDateStr = endDate;
     } else if (periodStart && periodEnd) {
       // Usar fechas del período si están disponibles
-      startDate = periodStart;
-      endDate = periodEnd;
+      startDateStr = periodStart;
+      endDateStr = periodEnd;
     } else {
       // Usar un rango de 12 meses desde la primera fecha seleccionada
       const firstDate = new Date(selectedDates[0]);
-      startDate = new Date(firstDate.getFullYear() - 1, firstDate.getMonth(), 1)
+      startDateStr = new Date(firstDate.getFullYear() - 1, firstDate.getMonth(), 1)
         .toISOString()
         .split("T")[0];
-      endDate = new Date(firstDate.getFullYear() + 1, firstDate.getMonth(), 0)
+      endDateStr = new Date(firstDate.getFullYear() + 1, firstDate.getMonth(), 0)
         .toISOString()
         .split("T")[0];
     }
 
-    const allPeriodDates = generatePeriodDates(startDate, endDate);
+    const allPeriodDates = generatePeriodDates(startDateStr, endDateStr);
     const replicatedDates = new Set<string>();
 
     // Para cada fecha seleccionada, encontrar todas las fechas en el período que caigan en el mismo día del mes
@@ -684,15 +666,15 @@ export default function PropertyServiceEdit({
       return "No hay fechas programadas para este servicio.";
     }
 
-    // Filtrar fechas que están dentro del rango permitido (start_time - end_time)
+    // Filtrar fechas que están dentro del rango permitido (startDate - endDate)
     let validDates = schedule;
-    if (start_time && end_time) {
-      const startDate = new Date(start_time);
-      const endDate = new Date(end_time);
+    if (startDate && endDate) {
+      const startDateRange = new Date(startDate);
+      const endDateRange = new Date(endDate);
 
       validDates = schedule.filter((dateStr) => {
         const date = new Date(dateStr);
-        return date >= startDate && date <= endDate;
+        return date >= startDateRange && date <= endDateRange;
       });
     }
 
@@ -713,11 +695,11 @@ export default function PropertyServiceEdit({
     let summary = "";
 
     // Información del rango permitido
-    if (start_time && end_time) {
+    if (startDate && endDate) {
       summary += `Servicio planificado del ${new Date(
-        start_time
+        startDate
       ).toLocaleDateString("es-ES")} al ${new Date(
-        end_time
+        endDate
       ).toLocaleDateString("es-ES")}. `;
     }
 
@@ -873,22 +855,22 @@ export default function PropertyServiceEdit({
 
   // Función para determinar si una fecha debe estar deshabilitada
   const isDateDisabled = (date: Date): boolean => {
-    // Si no hay rango definido (start_time y end_time), todas las fechas están habilitadas
-    if (!start_time || !end_time) {
+    // Si no hay rango definido (startDate y endDate), todas las fechas están habilitadas
+    if (!startDate || !endDate) {
       return false;
     }
 
-    // Convertir start_time y end_time a objetos Date para comparación
-    const [startYear, startMonth, startDay] = start_time
+    // Convertir startDate y endDate a objetos Date para comparación
+    const [startYear, startMonth, startDay] = startDate
       .split("-")
       .map(Number);
-    const [endYear, endMonth, endDay] = end_time.split("-").map(Number);
+    const [endYear, endMonth, endDay] = endDate.split("-").map(Number);
 
-    const startDate = new Date(startYear, startMonth - 1, startDay);
-    const endDate = new Date(endYear, endMonth - 1, endDay);
+    const startDateRange = new Date(startYear, startMonth - 1, startDay);
+    const endDateRange = new Date(endYear, endMonth - 1, endDay);
 
     // Deshabilitar fechas fuera del rango
-    return date < startDate || date > endDate;
+    return date < startDateRange || date > endDateRange;
   };
 
   // Funciones para manejar el redimensionamiento por arrastre
@@ -987,37 +969,20 @@ export default function PropertyServiceEdit({
     payload.contract_start_date =
       contractStartDate === "" ? undefined : contractStartDate;
     
-    // Función para formatear hora al formato hh:mm
-    const formatTime = (time: string): string | undefined => {
-      if (!time || time === "") return undefined;
-      // Si ya tiene el formato correcto (hh:mm), lo devolvemos tal como está
-      // Si tiene segundos (hh:mm:ss), extraemos solo hh:mm
-      const timeParts = time.split(':');
-      if (timeParts.length >= 2) {
-        return `${timeParts[0]}:${timeParts[1]}`;
-      }
-      return time;
-    };
-
-    // Función para formatear datetime completo (solo para campos de fecha)
-    const formatDateTime = (date: string, time: string): string | undefined => {
-      if (!date || date === "") return undefined;
-      
-      // Si no hay tiempo, usar 00:00:00
-      const timeToUse = (!time || time === "") ? "00:00:00" : time;
-      
-      // Crear objeto Date con la fecha y hora locales
-      const localDateTime = new Date(`${date}T${timeToUse}`);
-      
-      // Convertir a formato ISO UTC (2025-09-18T08:45:00Z)
-      return localDateTime.toISOString();
-    };
+    // Campos de fecha para período de vigencia
+    console.log('Debug dates:', { startDate, endDate });
+    payload.start_date = startDate === "" ? undefined : startDate;
+    payload.end_date = endDate === "" ? undefined : endDate;
     
-    payload.start_time = formatTime(calendarStartTime);
-    payload.end_time = formatTime(calendarEndTime);
+    // Campos de hora para horario diario del servicio (formato HH:MM)
+    payload.start_time = start_time === "" ? undefined : start_time;
+    payload.end_time = end_time === "" ? undefined : end_time;
+    
     payload.schedule = schedule.length > 0 ? schedule : undefined;
     payload.recurrent = recurrent;
     payload.is_active = isActive;
+
+    console.log('Payload completo antes de enviar:', payload);
 
     try {
       setLoading(true);
@@ -1301,22 +1266,22 @@ export default function PropertyServiceEdit({
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="text-sm">
-                      {TEXT?.services?.fields?.startTime ?? "Start"}
+                      Inicio
                     </label>
                     <Input
                       type="date"
-                      value={start_time}
-                      onChange={(e) => setStart_time(e.currentTarget.value)}
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.currentTarget.value)}
                     />
                   </div>
                   <div>
                     <label className="text-sm">
-                      {TEXT?.services?.fields?.endTime ?? "End"}
+                      Fin
                     </label>
                     <Input
                       type="date"
-                      value={end_time}
-                      onChange={(e) => setEnd_time(e.currentTarget.value)}
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.currentTarget.value)}
                     />
                   </div>
                 </div>
@@ -1526,8 +1491,7 @@ export default function PropertyServiceEdit({
                   <div>
                     <div className="flex justify-between items-center pb-1 ">
                       <label className="text-sm text-muted-foreground">
-                        Seleccionar fechas en calendario ({schedule.length}{" "}
-                        seleccionadas)
+                        Seleccionar fechas en calendario
                       </label>
                      {schedule.length > 0 && (
                           <Button
@@ -1540,7 +1504,8 @@ export default function PropertyServiceEdit({
                             }}
                             className=" text-xs "
                           >
-                             <Paintbrush />
+                             <Paintbrush className="w-4 h-4 mr-1" />
+                             Limpiar Selección
                           </Button>
                         )}
                     </div>
@@ -1626,18 +1591,18 @@ export default function PropertyServiceEdit({
 
                                         // Filtrar fechas para asegurar que estén dentro del período permitido
                                         let validDates = combinedDates;
-                                        if (start_time && end_time) {
-                                          const startDate = new Date(
-                                            start_time
+                                        if (startDate && endDate) {
+                                          const startDateRange = new Date(
+                                            startDate
                                           );
-                                          const endDate = new Date(end_time);
+                                          const endDateRange = new Date(endDate);
 
                                           validDates = combinedDates.filter(
                                             (dateStr) => {
                                               const date = new Date(dateStr);
                                               return (
-                                                date >= startDate &&
-                                                date <= endDate
+                                                date >= startDateRange &&
+                                                date <= endDateRange
                                               );
                                             }
                                           );
@@ -1718,13 +1683,13 @@ export default function PropertyServiceEdit({
                                 }
 
                                 // Filtrar fechas para asegurar que estén dentro del período permitido
-                                if (start_time && end_time) {
-                                  const startDate = new Date(start_time);
-                                  const endDate = new Date(end_time);
+                                if (startDate && endDate) {
+                                  const startDateRange = new Date(startDate);
+                                  const endDateRange = new Date(endDate);
 
                                   newDates = newDates.filter((dateStr) => {
                                     const date = new Date(dateStr);
-                                    return date >= startDate && date <= endDate;
+                                    return date >= startDateRange && date <= endDateRange;
                                   });
                                 }
 
@@ -1763,7 +1728,7 @@ export default function PropertyServiceEdit({
                               formatMonthDropdown: (date) =>
                                 date.toLocaleString("es", { month: "long" }),
                             }}
-                            className="rounded-md border scale-[0.95] origin-top-left"
+                            className="rounded-md border scale-[0.95] origin-top-left [&_.rdp-day:hover]:bg-blue-100 [&_.rdp-day:hover]:text-blue-800"
                             modifiers={{
                               selected: convertStringArrayToDates(schedule),
                               periodStart: currentPeriodStart

@@ -10,6 +10,8 @@ export type Service = {
   rate: string | null; // decimal string
   monthlyBudget: string | null; // decimal string
   contractStartDate: string | null; // date (ISO) when contract starts
+  startDate: string | null; // fecha inicio período vigencia
+  endDate: string | null; // fecha fin período vigencia
   startTime: string | null; // "HH:MM:SS" or similar
   endTime: string | null; // "HH:MM:SS" or similar
   schedule: string[] | null; // array of date strings (ISO) when scheduled
