@@ -7,3 +7,6 @@ always apply kiss (Keep It Simple, Stupid) principle. Strive for simplicity in y
 
 always apply yagni (You Aren't Gonna Need It) principle. Don't add functionality until it is necessary. Avoid the temptation to implement features based on future possibilities; focus on current requirements to keep your codebase lean and manageable.
 
+no implementes cosas sin consultar antes si quiero que se implementen.
+
+ante cualquier ambigüedad o duda, pregunta primero

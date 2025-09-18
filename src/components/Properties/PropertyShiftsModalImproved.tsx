@@ -49,7 +49,9 @@ import { listGuards } from "@/lib/services/guard";
 import { listServicesByProperty } from "@/lib/services/services";
 import type { Service } from "@/components/Services/types";
 import type { Guard } from "@/components/Guards/types";
+import { listShiftsByService } from "@/lib/services/shifts";
 import { cn } from "@/lib/utils";
+import { es as localeEs } from "date-fns/locale";
 
 // Paletas: vivos primero, luego los restantes; se asignan evitando repetir hasta agotar
 const VIBRANT_COLORS = [
@@ -144,10 +146,22 @@ function normalizeShiftsArray(input: any): Shift[] {
         ? s.property.id
         : undefined);
 
+    const serviceId =
+      s.service ??
+      s.service_id ??
+      (s.service_details
+        ? s.service_details.id ?? s.service_details.pk ?? undefined
+        : undefined) ??
+      (s.service && typeof s.service === "object" ? s.service.id : undefined) ??
+      null;
+
     return {
       id: s.id ?? s.pk ?? 0,
       guard: guardId,
       property: propertyId,
+      service: serviceId,
+      plannedStartTime: s.planned_start_time ?? s.plannedStartTime ?? null,
+      plannedEndTime: s.planned_end_time ?? s.plannedEndTime ?? null,
       startTime: s.start_time ?? s.startTime ?? s.start ?? null,
       endTime: s.end_time ?? s.endTime ?? s.end ?? null,
       status: s.status ?? "scheduled",
@@ -194,6 +208,15 @@ type Props = {
   initialSelectedDate?: Date;
 };
 
+// Función para normalizar fechas de manera consistente (fuera del componente para estabilidad)
+const normalizeDateKey = (date: Date): string => {
+  // Usar formato ISO simple YYYY-MM-DD para evitar problemas de zona horaria
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export default function PropertyShiftsModalImproved({
   propertyId,
   propertyName,
@@ -229,19 +252,13 @@ export default function PropertyShiftsModalImproved({
   const [guardSearchQuery, setGuardSearchQuery] = React.useState<string>("");
   
   // Cache de todas las propiedades para mejorar rendimiento
-  const [allPropertiesCache, setAllPropertiesCache] = React.useState<AppProperty[]>([]);
   const [allGuardsCache, setAllGuardsCache] = React.useState<Guard[]>([]);
   const [allServicesCache, setAllServicesCache] = React.useState<Service[]>([]);
-  const [propertiesCacheLoaded, setPropertiesCacheLoaded] = React.useState<boolean>(false);
   const [guardsCacheLoaded, setGuardsCacheLoaded] = React.useState<boolean>(false);
   const [servicesCacheLoaded, setServicesCacheLoaded] = React.useState<boolean>(false);
   
-  // Cache de guardias { [id]: Guard | null }
-  // (deprecated) cache de guardias locales no usado
-  
-  // Cache del guardia actual para evitar llamadas repetidas
+  // Cache del datos de la propiedad actual
   const [currentPropertyCache, setCurrentPropertyCache] = React.useState<any | null>(null);
-  const [propertyCacheLoaded, setPropertyCacheLoaded] = React.useState<boolean>(false);
 
   // Estados para manejo de solapamientos
   const [overlapDays, setOverlapDays] = React.useState<Set<string>>(new Set());
@@ -251,13 +268,21 @@ export default function PropertyShiftsModalImproved({
 
   // Datos procesados para el calendario estilo Windows
   const processedData = React.useMemo(() => {
+    // Filtrar shifts según servicio seleccionado
+    let relevantShifts = shifts;
+    if (selectedServiceId !== null) {
+      relevantShifts = shifts.filter(shift => shift.service === selectedServiceId);
+    }
+    
     // Agrupar shifts por fecha
     const dayGroups: Record<string, DayWithShifts> = {};
     
-    shifts.forEach((shift) => {
-      if (!shift.startTime) return;
+    relevantShifts.forEach((shift) => {
+      // Usar planned_start_time si start_time es null
+      const startTimeStr = shift.startTime || shift.plannedStartTime;
+      if (!startTimeStr) return;
       
-      const date = new Date(shift.startTime);
+      const date = new Date(startTimeStr);
       const dateKey = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
       
       if (!dayGroups[dateKey]) {
@@ -301,52 +326,95 @@ export default function PropertyShiftsModalImproved({
     });
 
     return dayGroups;
-  }, [shifts, propertyMap, propertyColors]);
+  }, [shifts, propertyMap, propertyColors, selectedServiceId]);
 
   // Días con turnos para el calendario
-  const daysWithShifts = React.useMemo(() => {
-    // Si hay un servicio seleccionado, solo mostrar días del schedule del servicio
-    if (selectedServiceId !== null) {
-      const selectedService = allServicesCache.find(s => s.id === selectedServiceId);
-      if (selectedService && selectedService.schedule && Array.isArray(selectedService.schedule)) {
-        return selectedService.schedule.map(dateStr => new Date(dateStr));
-      }
-      return []; // Si no tiene schedule, no mostrar días
+  // Helpers de fechas (clave YYYY-MM-DD y parser robusto)
+  const dateKey = React.useCallback((d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }, []);
+
+  const parseBackendDate = React.useCallback((dateStr: string): Date | null => {
+    if (!dateStr) return null;
+    // Prefer parse YYYY-MM-DD safely to local date (avoid TZ shifts)
+    const m = /^([0-9]{4})-([0-9]{2})-([0-9]{2})$/.exec(dateStr);
+    if (m) {
+      const y = Number(m[1]);
+      const mo = Number(m[2]) - 1;
+      const d = Number(m[3]);
+      return new Date(y, mo, d, 0, 0, 0, 0);
     }
-    
-    // Si no hay servicio seleccionado, mostrar días con turnos como antes
-    return Object.values(processedData).map(day => day.date);
-  }, [processedData, selectedServiceId, allServicesCache]);
+    // Fallback: try Date constructor (can be ISO with time)
+    const dt = new Date(dateStr);
+    return isNaN(dt.getTime()) ? null : new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
+  }, []);
+
+  // Días con turnos o permitidos para mostrar en el calendario
+  const { allowedDates, allowedSet, fromMonth, toMonth } = React.useMemo(() => {
+    // Si hay servicio seleccionado y tiene schedule, usarlo como días permitidos
+    if (selectedServiceId !== null) {
+      const svc = allServicesCache.find((s) => s.id === selectedServiceId);
+      const dates: Date[] = [];
+      const set = new Set<string>();
+      if (svc?.schedule && Array.isArray(svc.schedule)) {
+        for (const s of svc.schedule) {
+          const d = parseBackendDate(String(s));
+          if (d) {
+            const k = dateKey(d);
+            if (!set.has(k)) {
+              set.add(k);
+              dates.push(d);
+            }
+          }
+        }
+      }
+      // Calcular límites de navegación
+      if (dates.length > 0) {
+        const sorted = [...dates].sort((a, b) => a.getTime() - b.getTime());
+        const min = sorted[0];
+        const max = sorted[sorted.length - 1];
+        const fm = new Date(min.getFullYear(), min.getMonth(), 1);
+        const tm = new Date(max.getFullYear(), max.getMonth(), 1);
+        return { allowedDates: dates, allowedSet: set, fromMonth: fm, toMonth: tm };
+      }
+      return { allowedDates: dates, allowedSet: set, fromMonth: undefined, toMonth: undefined };
+    }
+    // Sin servicio: usar días con turnos (comportamiento previo)
+    const dates = Object.values(processedData).map((day) => day.date);
+    return { allowedDates: dates, allowedSet: null as any, fromMonth: undefined, toMonth: undefined };
+  }, [selectedServiceId, allServicesCache, processedData, parseBackendDate, dateKey]);
 
   // Función para deshabilitar días cuando hay servicio seleccionado
   const disabledDays = React.useMemo(() => {
-    if (selectedServiceId === null) return undefined; // No deshabilitar días si no hay servicio seleccionado
-    
-    const selectedService = allServicesCache.find(s => s.id === selectedServiceId);
-    if (!selectedService || !selectedService.schedule || !Array.isArray(selectedService.schedule)) {
-      // Si el servicio no tiene schedule, deshabilitar todos los días
-      return { before: new Date(2100, 0, 1) }; // Deshabilitar todo
+    if (selectedServiceId === null) return undefined;
+    // Si hay servicio pero sin schedule, deshabilitar todos los días
+    if (!allowedSet || (allowedDates?.length ?? 0) === 0) {
+      return { before: new Date(2100, 0, 1) } as any;
     }
-    
-    // Crear set de fechas válidas del schedule
-    const validDates = new Set(
-      selectedService.schedule.map(dateStr => new Date(dateStr).toDateString())
-    );
-    
-    // Función para verificar si una fecha debe estar deshabilitada
-    return (date: Date) => {
-      return !validDates.has(date.toDateString());
-    };
-  }, [selectedServiceId, allServicesCache]);
+    return (date: Date) => !allowedSet.has(dateKey(date));
+  }, [selectedServiceId, allowedSet, allowedDates, dateKey]);
 
-  // Detectar días con solapamientos
+  // Asegurar que la fecha seleccionada siga siendo válida al cambiar servicio/schedule
+  React.useEffect(() => {
+    if (selectedServiceId !== null && selectedDate && allowedSet) {
+      const k = dateKey(selectedDate);
+      if (!allowedSet.has(k)) {
+        setSelectedDate(undefined);
+      }
+    }
+  }, [selectedServiceId, allowedSet, selectedDate, dateKey]);
+
+  // Detectar días con solapamientos GLOBALES (mismo guardia, cualquier servicio)
   const overlapDetection = React.useMemo(() => {
     const overlaps = new Set<string>();
     const overlapMessages: string[] = [];
     const overlappingShifts = new Set<number>();
     const overlappingProperties = new Set<number>();
 
-  // Función para verificar solapamiento entre dos turnos
+    // Función para verificar solapamiento entre dos turnos
     const checkTimeOverlap = (start1: string, end1: string, start2: string, end2: string): boolean => {
       const startDate1 = new Date(start1);
       const endDate1 = new Date(end1);
@@ -355,22 +423,34 @@ export default function PropertyShiftsModalImproved({
       return startDate1 < endDate2 && startDate2 < endDate1;
     };
 
-    // Verificar solapamientos día por día
+    // Verificar solapamientos día por día (TODOS los turnos, no filtrar por servicio)
     Object.values(processedData).forEach((dayData) => {
-      const dayShifts = dayData.shifts;
-      if (dayShifts.length < 2) return; // No puede haber solapamiento con menos de 2 turnos
+      // Usar todos los shifts sin filtrar por servicio para detectar solapamientos globales
+      const allDayShifts = shifts.filter(shift => {
+        const startTimeStr = shift.startTime || shift.plannedStartTime;
+        if (!startTimeStr) return false;
+        const shiftDate = new Date(startTimeStr);
+        return shiftDate.toDateString() === dayData.date.toDateString();
+      });
 
-      for (let i = 0; i < dayShifts.length; i++) {
-        for (let j = i + 1; j < dayShifts.length; j++) {
-          const shift1 = dayShifts[i];
-          const shift2 = dayShifts[j];
+      if (allDayShifts.length < 2) return; // No puede haber solapamiento con menos de 2 turnos
 
-          // Solo consideramos solapamiento si es el MISMO guardia
+      for (let i = 0; i < allDayShifts.length; i++) {
+        for (let j = i + 1; j < allDayShifts.length; j++) {
+          const shift1 = allDayShifts[i];
+          const shift2 = allDayShifts[j];
+
+          // Solo consideramos solapamiento si es el MISMO guardia (independiente del servicio)
           const g1 = shift1.guard != null ? Number(shift1.guard) : null;
           const g2 = shift2.guard != null ? Number(shift2.guard) : null;
-          if (g1 != null && g2 != null && g1 === g2 && shift1.startTime && shift1.endTime && shift2.startTime && shift2.endTime) {
-            if (checkTimeOverlap(shift1.startTime, shift1.endTime, shift2.startTime, shift2.endTime)) {
-              const dateKey = dayData.date.toLocaleDateString();
+          const start1 = shift1.startTime || shift1.plannedStartTime;
+          const end1 = shift1.endTime || shift1.plannedEndTime;
+          const start2 = shift2.startTime || shift2.plannedStartTime;
+          const end2 = shift2.endTime || shift2.plannedEndTime;
+          
+          if (g1 != null && g2 != null && g1 === g2 && start1 && end1 && start2 && end2) {
+            if (checkTimeOverlap(start1, end1, start2, end2)) {
+              const dateKey = normalizeDateKey(dayData.date);
               overlaps.add(dateKey);
               
               // Marcar turnos específicos con solapamiento
@@ -392,98 +472,181 @@ export default function PropertyShiftsModalImproved({
       overlappingProperties,
       message: overlapMessages.length > 0 ? `Solapamientos detectados en: ${overlapMessages.join(', ')}` : '' 
     };
-  }, [processedData]);
+  }, [shifts, processedData]); // Cambiado: usar shifts completos, no processedData filtrado
 
-  // Actualizar estados de solapamiento
   React.useEffect(() => {
     setOverlapDays(overlapDetection.overlaps);
-  // Overlap alert disabled in Properties view
-  setOverlapShifts(overlapDetection.overlappingShifts);
-  // Calcular guardias con solapamientos a partir de los turnos solapados
+    // Habilitar overlap alert para solapamientos globales
+    setOverlapShifts(overlapDetection.overlappingShifts);
+    // Calcular guardias con solapamientos a partir de los turnos solapados
     const guardIds = new Set<number>();
     overlapDetection.overlappingShifts.forEach((sid) => {
       const sh = shifts.find((s) => s.id === sid);
       if (sh?.guard != null) guardIds.add(Number(sh.guard));
     });
     setOverlapGuards(guardIds);
-  setOverlapAlert(overlapDetection.message);
+    setOverlapAlert(overlapDetection.message);
   }, [overlapDetection, shifts]);
 
-  // Detectar gaps de cobertura por día (solo días con alguna cobertura)
+  // Detectar gaps de cobertura POR SERVICIO (solo días y horarios del servicio seleccionado)
   const gapDetection = React.useMemo(() => {
     const intervalsByDay: Record<string, Array<{ start: number; end: number }>> = {};
+    const gapDays = new Set<string>();
+    const gapsMap: Record<string, Array<{ start: number; end: number }>> = {};
+    const MIN_GAP_MS = 15 * 60 * 1000; // 15 minutos
+
+    // Solo calcular gaps si hay un servicio seleccionado
+    if (selectedServiceId === null) {
+      return { gapDays, gapsMap };
+    }
+
+    // Buscar el servicio seleccionado PRIMERO en allServicesCache, luego en serviceDetails
+    let selectedService: any = allServicesCache.find((s: Service) => s.id === selectedServiceId);
+    
+    // Si no se encuentra en cache, usar serviceDetails del turno
+    if (!selectedService) {
+      const selectedServiceFromShifts = shifts.find(shift => shift.service === selectedServiceId);
+      if (!selectedServiceFromShifts?.serviceDetails) {
+        return { gapDays, gapsMap };
+      }
+      selectedService = selectedServiceFromShifts.serviceDetails as any;
+    }
+
+    // Verificar que tenga las propiedades necesarias (usar ambos formatos posibles)
+    const startTime = selectedService.startTime || selectedService.start_time;
+    const endTime = selectedService.endTime || selectedService.end_time;
+    
+    if (!selectedService.schedule || !startTime || !endTime) {
+      return { gapDays, gapsMap };
+    }
+
+    // Parsear horario del servicio
+    const parseTime = (timeStr: string): { hours: number; minutes: number } => {
+      const [hours, minutes] = timeStr.split(':').map(Number);
+      return { hours: hours || 0, minutes: minutes || 0 };
+    };
+
+    const serviceStartTime = parseTime(startTime);
+    const serviceEndTime = parseTime(endTime);
+
+    // Filtrar shifts solo del servicio seleccionado
+    const serviceShifts = shifts.filter(shift => shift.service === selectedServiceId);
+
     const addInterval = (dateKey: string, start: number, end: number) => {
       if (end <= start) return;
       if (!intervalsByDay[dateKey]) intervalsByDay[dateKey] = [];
       intervalsByDay[dateKey].push({ start, end });
     };
 
-    const toDateKey = (d: Date) => d.toLocaleDateString();
-    const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-    const endOfDay = (d: Date) => startOfDay(d) + 24 * 60 * 60 * 1000;
+    serviceShifts.forEach((s) => {
+      const startTimeStr = s.startTime || s.plannedStartTime;
+      if (!startTimeStr) return;
+      
+      const st = new Date(startTimeStr);
+      const endTimeStr = s.endTime || s.plannedEndTime;
+      const et = endTimeStr ? new Date(endTimeStr) : new Date(st.getTime() + 60 * 60 * 1000);
+      
+      // Solo considerar turnos que están en fechas específicas del schedule del servicio
+      const shiftDateKey = normalizeDateKey(st);
+      const isScheduledDay = selectedService.schedule && Array.isArray(selectedService.schedule) && 
+        selectedService.schedule.includes(shiftDateKey);
+      
+      if (!isScheduledDay) return; // Este turno no está en un día programado del servicio
 
-    shifts.forEach((s) => {
-      if (!s.startTime) return;
-      const st = new Date(s.startTime);
-      const et = s.endTime ? new Date(s.endTime) : new Date(st.getTime() + 60 * 60 * 1000);
-      // Día del inicio
-      const sodStart = startOfDay(st);
-      const eodStart = sodStart + 24 * 60 * 60 * 1000;
-      const dkStart = toDateKey(new Date(sodStart));
-      addInterval(dkStart, Math.max(st.getTime(), sodStart), Math.min(et.getTime(), eodStart));
-      // Si cruza a día siguiente, añadir en el día del fin
-      if (toDateKey(st) !== toDateKey(et)) {
-        const sodEnd = startOfDay(et);
-        const eodEnd = endOfDay(et);
-        const dkEnd = toDateKey(new Date(sodEnd));
-        addInterval(dkEnd, Math.max(st.getTime(), sodEnd), Math.min(et.getTime(), eodEnd));
+      const dkStart = shiftDateKey;
+      
+      // Intersección del turno con la ventana de servicio
+      const serviceDate = new Date(st.getFullYear(), st.getMonth(), st.getDate());
+      const serviceStart = new Date(serviceDate.getTime() + serviceStartTime.hours * 60 * 60 * 1000 + serviceStartTime.minutes * 60 * 1000);
+      let serviceEnd = new Date(serviceDate.getTime() + serviceEndTime.hours * 60 * 60 * 1000 + serviceEndTime.minutes * 60 * 1000);
+      
+      // Si el servicio termina antes de empezar, significa que cruza la medianoche
+      if (serviceEnd <= serviceStart) {
+        serviceEnd = new Date(serviceEnd.getTime() + 24 * 60 * 60 * 1000);
+      }
+      
+      // Convertir turno a hora local para comparar con servicio
+      const shiftStartLocal = new Date(st.getTime());
+      const shiftEndLocal = new Date(et.getTime());
+      
+      const intervalStart = Math.max(shiftStartLocal.getTime(), serviceStart.getTime());
+      const intervalEnd = Math.min(shiftEndLocal.getTime(), serviceEnd.getTime());
+      
+      if (intervalEnd > intervalStart) {
+        addInterval(dkStart, intervalStart, intervalEnd);
       }
     });
 
-    // Merge intervals y calcular gaps
-    const gapsMap: Record<string, Array<{ start: number; end: number }>> = {};
-    const gapDays = new Set<string>();
-    const MIN_GAP_MS = 15 * 60 * 1000; // 15 minutos
+    // Merge intervals y calcular gaps solo dentro del horario del servicio
+    // Usar únicamente las fechas específicas del array 'schedule' del servicio
+    const serviceDays = new Set<string>();
+    if (selectedService.schedule && Array.isArray(selectedService.schedule)) {
+      // Usar directamente las fechas del schedule del backend
+      selectedService.schedule.forEach((dateStr: string) => {
+        // Las fechas del backend vienen como "2025-09-22", usarlas directamente
+        serviceDays.add(dateStr);
+      });
+    }
 
-    Object.entries(intervalsByDay).forEach(([dk, intervals]) => {
-      if (!intervals || intervals.length === 0) return;
-      // Merge
-      const merged = intervals
+    // Ahora procesar cada día que requiere servicio (según el schedule específico)
+    serviceDays.forEach((dk) => {
+      const intervals = intervalsByDay[dk] || []; // Puede estar vacío si no hay turnos
+      
+      // Merge intervals si los hay
+      const merged = intervals.length > 0 ? intervals
         .sort((a, b) => a.start - b.start)
         .reduce((acc: Array<{ start: number; end: number }>, cur) => {
           const last = acc[acc.length - 1];
           if (!last || cur.start > last.end) acc.push({ ...cur });
           else last.end = Math.max(last.end, cur.end);
           return acc;
-        }, []);
+        }, []) : [];
 
-      // Calcular gaps dentro del día
-      const refDate = new Date(dk);
-      const sod = startOfDay(refDate);
-      const eod = sod + 24 * 60 * 60 * 1000;
+      // Calcular ventana de servicio para este día específico usando las horas del servicio
+      // dk es ahora un string "2025-09-22", crear fecha local
+      const [year, month, day] = dk.split('-').map(Number);
+      const serviceDate = new Date(year, month - 1, day); // month - 1 porque Date usa 0-based months
+      const serviceStart = new Date(serviceDate.getTime() + serviceStartTime.hours * 60 * 60 * 1000 + serviceStartTime.minutes * 60 * 1000);
+      let serviceEnd = new Date(serviceDate.getTime() + serviceEndTime.hours * 60 * 60 * 1000 + serviceEndTime.minutes * 60 * 1000);
+      
+      if (serviceEnd <= serviceStart) {
+        serviceEnd = new Date(serviceEnd.getTime() + 24 * 60 * 60 * 1000);
+      }
+
       const gaps: Array<{ start: number; end: number }> = [];
 
-      // Gap inicial
-      if (merged[0].start > sod) gaps.push({ start: sod, end: merged[0].start });
-      // Gaps intermedios
-      for (let i = 0; i < merged.length - 1; i++) {
-        const gapStart = merged[i].end;
-        const gapEnd = merged[i + 1].start;
-        if (gapEnd > gapStart) gaps.push({ start: gapStart, end: gapEnd });
+      if (merged.length === 0) {
+        // No hay turnos en absoluto para este día de servicio - gap completo
+        gaps.push({ start: serviceStart.getTime(), end: serviceEnd.getTime() });
+      } else {
+        // Gap inicial (desde inicio del servicio hasta primera cobertura)
+        if (merged[0].start > serviceStart.getTime()) {
+          gaps.push({ start: serviceStart.getTime(), end: merged[0].start });
+        }
+        
+        // Gaps intermedios
+        for (let i = 0; i < merged.length - 1; i++) {
+          const gapStart = merged[i].end;
+          const gapEnd = merged[i + 1].start;
+          if (gapEnd > gapStart) gaps.push({ start: gapStart, end: gapEnd });
+        }
+        
+        // Gap final (desde última cobertura hasta fin del servicio)
+        if (merged[merged.length - 1].end < serviceEnd.getTime()) {
+          gaps.push({ start: merged[merged.length - 1].end, end: serviceEnd.getTime() });
+        }
       }
-      // Gap final
-      if (merged[merged.length - 1].end < eod) gaps.push({ start: merged[merged.length - 1].end, end: eod });
 
-      // Filtrar gaps pequeños y registrar solo si hay cobertura alguna (merged > 0) y algún gap significativo
+      // Filtrar gaps pequeños y registrar si hay algún gap significativo
       const significant = gaps.filter(g => g.end - g.start >= MIN_GAP_MS);
-      if (merged.length > 0 && significant.length > 0) {
+      if (significant.length > 0) {
         gapsMap[dk] = significant;
         gapDays.add(dk);
       }
     });
 
     return { gapDays, gapsMap };
-  }, [shifts]);
+  }, [shifts, selectedServiceId, allServicesCache]); // Agregado allServicesCache
 
   // Mapa de fecha -> guardias con turnos para mostrar círculos
   const dateGuardMap = React.useMemo(() => {
@@ -492,17 +655,26 @@ export default function PropertyShiftsModalImproved({
     const DAY_MS = 24 * 60 * 60 * 1000;
     const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
-    shifts.forEach((shift) => {
-      if (!shift.startTime) return;
-      const st = new Date(shift.startTime);
-      const et = shift.endTime ? new Date(shift.endTime) : new Date(st.getTime() + 60 * 60 * 1000);
+    // Filtrar shifts según servicio seleccionado
+    let relevantShifts = shifts;
+    if (selectedServiceId !== null) {
+      relevantShifts = shifts.filter(shift => shift.service === selectedServiceId);
+    }
+
+    relevantShifts.forEach((shift) => {
+      // Usar planned_start_time si start_time es null
+      const startTimeStr = shift.startTime || shift.plannedStartTime;
+      if (!startTimeStr) return;
+      const st = new Date(startTimeStr);
+      const endTimeStr = shift.endTime || shift.plannedEndTime;
+      const et = endTimeStr ? new Date(endTimeStr) : new Date(st.getTime() + 60 * 60 * 1000);
       const guardId = Number(shift.guard);
   const color = guardColors[guardId] || VIBRANT_COLORS[guardId % VIBRANT_COLORS.length] || FALLBACK_COLORS[guardId % FALLBACK_COLORS.length];
 
       // Iterate every day touched by the shift (cross-midnight support)
       let dayCursor = startOfDay(st);
       while (dayCursor.getTime() < et.getTime()) {
-        const key = dayCursor.toDateString();
+        const key = normalizeDateKey(dayCursor);
         if (!map[key]) map[key] = [];
         const existing = map[key].find((g) => g.guardId === guardId);
         if (existing) existing.shiftCount += 1;
@@ -512,7 +684,7 @@ export default function PropertyShiftsModalImproved({
     });
 
     return map;
-  }, [shifts, guardColors]);
+  }, [shifts, guardColors, selectedServiceId]);
 
   // Propiedades filtradas - SIEMPRE mostrar todas las propiedades del guardia
   const allProperties = React.useMemo(() => {
@@ -552,7 +724,107 @@ export default function PropertyShiftsModalImproved({
       guardLookup[guard.id] = guard;
     });
     
-    // Obtener todas las guardias únicas de los turnos de esta propiedad
+    // Si hay servicio seleccionado, mostrar guardias que tienen turnos asociados a ese servicio
+    if (selectedServiceId !== null) {
+      const guardGroups: Record<number, GuardWithShifts> = {};
+      
+      // Filtrar turnos que pertenecen al servicio seleccionado
+      const serviceShifts = shifts.filter(shift => shift.service === selectedServiceId);
+      //console.log(`🔍 Turnos del servicio ${selectedServiceId}:`, serviceShifts.length);
+      
+      serviceShifts.forEach((shift) => {
+        const guardId = shift.guard ? Number(shift.guard) : -1;
+        const guard = guardLookup[guardId] || null;
+        
+        // Solo procesar si tenemos ID de guardia válido
+        if (guardId !== -1) {
+          if (!guardGroups[guardId]) {
+            guardGroups[guardId] = {
+              guard: guard || { 
+                id: guardId, 
+                firstName: `Guardia`,
+                lastName: `${guardId}`, 
+                email: '' 
+              } as Guard,
+              shifts: [],
+              color: guardColors[guardId] || VIBRANT_COLORS[guardId % VIBRANT_COLORS.length] || FALLBACK_COLORS[guardId % FALLBACK_COLORS.length],
+              totalHours: 0,
+            };
+          }
+          
+          guardGroups[guardId].shifts.push(shift);
+          guardGroups[guardId].totalHours += shift.hoursWorked || 0;
+        }
+      });
+      
+      const serviceGuards = Object.values(guardGroups);
+      //console.log(`🔍 Guardias encontrados para servicio ${selectedServiceId}:`, serviceGuards.map(g => `${g.guard.firstName} ${g.guard.lastName}`));
+      
+      // Si no hay guardias con turnos para este servicio, devolver array vacío
+      if (serviceGuards.length === 0) {
+        //console.log(`⚠️ No se encontraron guardias con turnos para el servicio ${selectedServiceId}`);
+        return [];
+      }
+      
+      // Aplicar filtros adicionales y ordenamiento
+      let result = serviceGuards;
+
+      // Filtrar por búsqueda
+      if (guardSearchQuery.trim()) {
+        const query = guardSearchQuery.toLowerCase();
+        result = result.filter(guardData => {
+          const guard = guardData.guard;
+          const fullName = `${guard.firstName || ""} ${guard.lastName || ""}`.toLowerCase();
+          const email = (guard.email || "").toLowerCase();
+          return fullName.includes(query) || 
+                 email.includes(query) ||
+                 `guardia ${guard.id}`.includes(query);
+        });
+      }
+
+      // Filtrar por tiempo
+      if (guardTimeFilter !== "all") {
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
+        const thisWeek = new Date(today.getTime() - today.getDay() * 24 * 60 * 60 * 1000);
+        const thisMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+
+        result = result.filter(guardData => {
+          const hasRecentShifts = guardData.shifts.some(shift => {
+            if (!shift.startTime) return false;
+            const shiftDate = new Date(shift.startTime);
+            
+            switch (guardTimeFilter) {
+              case "today": return shiftDate >= today && shiftDate < tomorrow;
+              case "week": return shiftDate >= thisWeek;
+              case "month": return shiftDate >= thisMonth;
+              default: return true;
+            }
+          });
+          
+          return guardTimeFilter === "no-shifts" ? !hasRecentShifts : hasRecentShifts;
+        });
+      }
+      
+      // Ordenar por última fecha de trabajo (más reciente primero)
+      return result.sort((a, b) => {
+        const aLastShift = a.shifts
+          .filter(s => s.startTime)
+          .sort((x, y) => new Date(y.startTime!).getTime() - new Date(x.startTime!).getTime())[0];
+        const bLastShift = b.shifts
+          .filter(s => s.startTime)
+          .sort((x, y) => new Date(y.startTime!).getTime() - new Date(x.startTime!).getTime())[0];
+        
+        if (!aLastShift?.startTime && !bLastShift?.startTime) return 0;
+        if (!aLastShift?.startTime) return 1;
+        if (!bLastShift?.startTime) return -1;
+        
+        return new Date(bLastShift.startTime).getTime() - new Date(aLastShift.startTime).getTime();
+      });
+    }
+    
+    // Si no hay servicio seleccionado, mostrar guardias que tienen turnos en la propiedad
     const guardGroups: Record<number, GuardWithShifts> = {};
     
     shifts.forEach((shift) => {
@@ -635,7 +907,7 @@ export default function PropertyShiftsModalImproved({
       
       return new Date(bLastShift.startTime).getTime() - new Date(aLastShift.startTime).getTime();
     });
-  }, [shifts, allGuardsCache, guardColors, guardSearchQuery, guardTimeFilter]);
+  }, [shifts, allGuardsCache, guardColors, guardSearchQuery, guardTimeFilter, selectedServiceId, allServicesCache]);
 
 
   // Shifts filtrados por propiedad seleccionada, ordenados por fecha (más recientes primero)
@@ -677,14 +949,19 @@ export default function PropertyShiftsModalImproved({
 
   // Estadísticas
   const statistics = React.useMemo(() => {
-    const total = shifts.length;
-    const completed = shifts.filter(s => s.status === 'completed').length;
-    const scheduled = shifts.filter(s => s.status === 'scheduled').length;
-    const voided = shifts.filter(s => s.status === 'voided').length;
-    const totalHours = shifts.reduce((sum, s) => sum + (s.hoursWorked || 0), 0);
+    // Usar turnos filtrados si hay servicio seleccionado
+    const relevantShifts = selectedServiceId !== null 
+      ? shifts.filter(s => s.service === selectedServiceId)
+      : shifts;
+      
+    const total = relevantShifts.length;
+    const completed = relevantShifts.filter(s => s.status === 'completed').length;
+    const scheduled = relevantShifts.filter(s => s.status === 'scheduled').length;
+    const voided = relevantShifts.filter(s => s.status === 'voided').length;
+    const totalHours = relevantShifts.reduce((sum, s) => sum + (s.hoursWorked || 0), 0);
     
     return { total, completed, scheduled, voided, totalHours };
-  }, [shifts]);
+  }, [shifts, selectedServiceId]);
 
   // getProperty label: devuelve string | null (null = no hay nombre aún)
   function getPropertyLabelForShift(s: Shift): string | null {
@@ -763,18 +1040,115 @@ export default function PropertyShiftsModalImproved({
     if (!open) return;
     let mounted = true;
 
-    async function fetchFirst() {
+    async function fetchHierarchicalData() {
       setLoading(true);
       try {
-        const res = await listShiftsByProperty(propertyId, 1, 100, "-start_time"); // Más datos iniciales
-        const normalized = normalizeShiftsArray(res);
+        // 0. Cargar datos básicos de la propiedad actual
+        //console.log(`🔄 Cargando datos de la propiedad ${propertyId}...`);
+        try {
+          const propertyData = await getProperty(propertyId);
+          if (mounted) {
+            setCurrentPropertyCache(propertyData);
+            //console.log(`✅ Datos de la propiedad cargados:`, propertyData.name);
+          }
+        } catch (error) {
+          //console.warn("⚠️ Error cargando datos de la propiedad:", error);
+        }
+        
+        // 1. Cargar servicios de la propiedad primero
+        //console.log(`🔄 Cargando servicios para propiedad ${propertyId}...`);
+        const servicesResponse = await listServicesByProperty(propertyId);
+        const servicesData = Array.isArray(servicesResponse) 
+          ? servicesResponse 
+          : (servicesResponse as any)?.results || 
+            (servicesResponse as any)?.items || 
+            (servicesResponse as any)?.data || [];
+        
         if (!mounted) return;
-        setShifts(normalized);
+        //console.log(`✅ Cargados ${servicesData.length} servicios:`, servicesData.map((s: Service) => s.name));
+        setAllServicesCache(servicesData);
+        setServicesCacheLoaded(true);
+        
+        // 2. Cargar turnos de todos los servicios de la propiedad
+        //console.log("🔄 Cargando turnos de los servicios...");
+        const allShifts: Shift[] = [];
+        
+        // Primero cargar turnos directos de la propiedad (sin servicio específico)
+        const propertyShiftsResponse = await listShiftsByProperty(propertyId, 1, 100, "-start_time");
+        const propertyShifts = normalizeShiftsArray(propertyShiftsResponse);
+        allShifts.push(...propertyShifts);
+        //console.log(`✅ Cargados ${propertyShifts.length} turnos directos de la propiedad`);
+        
+        // Luego cargar turnos específicos de cada servicio
+        const serviceShiftPromises = servicesData.map(async (service: Service) => {
+          try {
+            const serviceShiftsResponse = await listShiftsByService(service.id);
+            const serviceShifts = normalizeShiftsArray(serviceShiftsResponse);
+            //console.log(`✅ Servicio ${service.name}: ${serviceShifts.length} turnos`);
+            return serviceShifts;
+          } catch (error) {
+            //console.warn(`⚠️ Error cargando turnos del servicio ${service.name}:`, error);
+            return [];
+          }
+        });
+        
+        const serviceShiftsResults = await Promise.all(serviceShiftPromises);
+        serviceShiftsResults.forEach(shifts => allShifts.push(...shifts));
+        
+        if (!mounted) return;
+        
+        // Eliminar duplicados basados en ID
+        const uniqueShifts = allShifts.filter((shift, index, self) => 
+          index === self.findIndex(s => s.id === shift.id)
+        );
+        
+        //console.log(`✅ Total de turnos únicos cargados: ${uniqueShifts.length}`);
+        setShifts(uniqueShifts);
 
-        // cargar propiedades faltantes
+        // 3. Cargar guardias de todos los turnos cargados
+        //console.log("🔄 Identificando guardias únicos de los turnos...");
+        const uniqueGuardIds = Array.from(
+          new Set(
+            uniqueShifts
+              .map(shift => shift.guard)
+              .filter((id): id is number => id != null)
+              .map(id => Number(id))
+          )
+        ).filter(id => !Number.isNaN(id));
+        
+        //console.log(`🔄 Cargando datos de ${uniqueGuardIds.length} guardias únicos...`);
+        
+        // Cargar solo los guardias que aparecen en los turnos (más eficiente)
+        if (uniqueGuardIds.length > 0) {
+          try {
+            // Cargar todos los guardias disponibles primero (para tener el cache completo)
+            const allGuardsResponse = await listGuards(1, undefined, 200); // Aumentar límite
+            const allGuardsData = allGuardsResponse.items || [];
+            
+            // Filtrar solo los guardias que tienen turnos en esta propiedad
+            const relevantGuards = allGuardsData.filter(guard => 
+              uniqueGuardIds.includes(guard.id)
+            );
+            
+            if (!mounted) return;
+            
+            //console.log(`✅ Cargados datos de ${relevantGuards.length} guardias relevantes`);
+            setAllGuardsCache(relevantGuards);
+            setGuardsCacheLoaded(true);
+          } catch (error) {
+            //console.error("❌ Error cargando guardias:", error);
+            setGuardsCacheLoaded(true); // Marcar como cargado aunque falle
+          }
+        } else {
+          //console.log("ℹ️ No hay guardias para cargar");
+          setAllGuardsCache([]);
+          setGuardsCacheLoaded(true);
+        }
+
+        // 4. Cargar propiedades faltantes
         const propIds = Array.from(
           new Set(
-            normalized
+            uniqueShifts
               .map((s) => s.property)
               .filter((id) => id != null)
               .map((id) => Number(id))
@@ -782,170 +1156,30 @@ export default function PropertyShiftsModalImproved({
         ).filter((id) => !Number.isNaN(id) && propertyMap[id] === undefined);
 
         if (propIds.length > 0) {
+          //console.log(`🔄 Cargando ${propIds.length} propiedades faltantes...`);
           await fetchAndCacheProperties(propIds);
         }
+
+        //console.log("🎉 Carga jerárquica completada exitosamente");
       } catch (err) {
-        console.error("[ShiftsModal] error fetching:", err);
+        //console.error("❌ Error en carga jerárquica:", err);
         toast.error(
-          TEXT?.shifts?.errors?.fetchFailed ?? "Could not load shifts"
+          TEXT?.shifts?.errors?.fetchFailed ?? "Could not load shifts data"
         );
       } finally {
         if (mounted) setLoading(false);
       }
     }
 
-    fetchFirst();
+    fetchHierarchicalData();
 
     return () => {
       mounted = false;
     };
   }, [open, propertyId]);
 
-  // Precargar cache de propiedades al abrir el modal (solo las usadas por este guardia)
-  React.useEffect(() => {
-    if (!open || propertiesCacheLoaded) return;
-    
-    let mounted = true;
-    const loadGuardProperties = async () => {
-      try {
-        // console.log("Precargando propiedades específicas del guardia...");
-        
-        // Primero obtener los turnos del guardia para ver qué propiedades usa
-        const shiftsResponse = await listShiftsByProperty(propertyId, 1, 500); // Obtener suficientes turnos para ver todas las propiedades
-        const shiftsData = Array.isArray(shiftsResponse) ? shiftsResponse : (shiftsResponse as any)?.results || [];
-        
-        // Extraer IDs únicos de propiedades usadas por este guardia
-        const propertyIds = Array.from(
-          new Set(
-            shiftsData
-              .map((shift: any) => shift.property || shift.property_id)
-              .filter((id: any) => id != null)
-              .map((id: any) => Number(id))
-          )
-        ).filter((id) => !Number.isNaN(id)) as number[];
-        
-        if (!mounted) return;
-        
-        if (propertyIds.length === 0) {
-          // console.log("✅ Guardia sin propiedades asignadas");
-          setAllPropertiesCache([]);
-          setPropertiesCacheLoaded(true);
-          return;
-        }
-        
-        // Cargar solo las propiedades específicas que usa este guardia
-        // console.log(`Cargando ${propertyIds.length} propiedades específicas:`, propertyIds);
-        const propertyPromises = propertyIds.map((id: number) => getProperty(id).catch(err => {
-          console.warn(`Error cargando propiedad ${id}:`, err);
-          return null;
-        }));
-        
-        const properties = (await Promise.all(propertyPromises)).filter(p => p !== null);
-        
-        if (!mounted) return;
-          
-        setAllPropertiesCache(properties);
-        setPropertiesCacheLoaded(true);
-        // console.log(`✅ Precargadas ${properties.length} propiedades específicas del guardia en cache`);
-      } catch (error) {
-        console.error("❌ Error precargando propiedades del guardia:", error);
-      }
-    };
-    
-    loadGuardProperties();
-    
-    return () => {
-      mounted = false;
-    };
-  }, [open, propertiesCacheLoaded, propertyId]);
-
-  // Precargar cache de guardias al abrir el modal (todos los guardias disponibles)
-  React.useEffect(() => {
-    if (!open || guardsCacheLoaded) return;
-    
-    let mounted = true;
-    const loadAllGuards = async () => {
-      try {
-        // Cargar todos los guardias disponibles
-        const guardsResponse = await listGuards(1, undefined, 100);
-        const guardsData = guardsResponse.items || [];
-        
-        if (!mounted) return;
-        
-        setAllGuardsCache(guardsData);
-        setGuardsCacheLoaded(true);
-        
-      } catch (error) {
-        if (!mounted) return;
-        setGuardsCacheLoaded(true);
-      }
-    };
-    
-    loadAllGuards();
-    
-    return () => {
-      mounted = false;
-    };
-  }, [open, guardsCacheLoaded]);
-
-  // Precargar datos del guardia actual al abrir el modal
-  React.useEffect(() => {
-    if (!open || propertyCacheLoaded || !propertyId) return;
-    
-    let mounted = true;
-    const loadCurrentProperty = async () => {
-      try {
-        // console.log(`Precargando datos de la propiedad ${propertyId}...`);
-        const propertyData = await getProperty(propertyId);
-        if (!mounted) return;
-        
-        setCurrentPropertyCache(propertyData);
-        setPropertyCacheLoaded(true);
-        // console.log(`✅ Precargados datos de la propiedad:`, propertyData);
-      } catch (error) {
-        console.error("❌ Error precargando datos de la propiedad:", error);
-      }
-    };
-    
-    loadCurrentProperty();
-    
-    return () => {
-      mounted = false;
-    };
-  }, [open, propertyCacheLoaded, propertyId]);
-
-  // Precargar servicios de la propiedad actual al abrir el modal
-  React.useEffect(() => {
-    if (!open || servicesCacheLoaded || !propertyId) return;
-    
-    let mounted = true;
-    const loadPropertyServices = async () => {
-      try {
-        const servicesResponse = await listServicesByProperty(propertyId);
-        if (!mounted) return;
-        
-        // Normalizar la respuesta para extraer el array de servicios
-        const servicesData = Array.isArray(servicesResponse) 
-          ? servicesResponse 
-          : (servicesResponse as any)?.results || 
-            (servicesResponse as any)?.items || 
-            (servicesResponse as any)?.data || [];
-        
-        setAllServicesCache(servicesData);
-        setServicesCacheLoaded(true);
-      } catch (error) {
-        console.error("❌ Error cargando servicios de la propiedad:", error);
-        setAllServicesCache([]);
-        setServicesCacheLoaded(true); // Marcar como cargado aunque haya fallado
-      }
-    };
-    
-    loadPropertyServices();
-    
-    return () => {
-      mounted = false;
-    };
-  }, [open, servicesCacheLoaded, propertyId]);
+  // NOTA: Los useEffect previos para cargar caches por separado han sido eliminados
+  // ya que ahora se cargan de manera jerárquica en el useEffect principal
 
   // Función para refrescar/actualizar datos (no duplicar)
   async function refresh() {
@@ -971,7 +1205,7 @@ export default function PropertyShiftsModalImproved({
       
       toast.success("Datos actualizados");
     } catch (err) {
-      console.error("[Refresh] error:", err);
+      //console.error("[Refresh] error:", err);
       toast.error("Error al actualizar datos");
     } finally {
       setLoading(false);
@@ -1390,6 +1624,19 @@ export default function PropertyShiftsModalImproved({
             </div>
             
             <div className="flex items-center gap-2 pr-1 flex-shrink-0">
+              {/* Botón para limpiar filtro de servicio */}
+              {selectedServiceId !== null && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setSelectedServiceId(null)}
+                  className="h-8 text-xs"
+                >
+                  <Filter className="h-3 w-3 mr-1" />
+                  Limpiar filtro
+                </Button>
+              )}
+              
               <Button
                 size="sm"
                 variant="ghost"
@@ -1421,14 +1668,20 @@ export default function PropertyShiftsModalImproved({
                 onClick={() => {
                   setCreateShiftPropertyId(propertyId); // Preseleccionar la propiedad actual
                   setCreateShiftPreselectedProperty(currentPropertyCache); // Preseleccionar la propiedad actual
-                  setCreateShiftPreselectedService(null); // No preseleccionar servicio desde botón principal
+                  // Preseleccionar servicio si hay uno seleccionado en el modal
+                  if (selectedServiceId !== null) {
+                    const svc = allServicesCache.find(s => s.id === selectedServiceId) || null;
+                    setCreateShiftPreselectedService(svc);
+                  } else {
+                    setCreateShiftPreselectedService(null);
+                  }
                   setOpenCreate(true);
                 }}
                 className="h-8"
-                disabled={!propertiesCacheLoaded}
+                disabled={!servicesCacheLoaded}
               >
                 <Plus className="h-3 w-3 mr-1" />
-                {!propertiesCacheLoaded ? "Cargando..." : (TEXT?.shifts?.create?.title ?? "Crear")}
+                {!servicesCacheLoaded ? "Cargando..." : (TEXT?.shifts?.create?.title ?? "Crear")}
               </Button>
             </div>
           </div>
@@ -1453,29 +1706,35 @@ export default function PropertyShiftsModalImproved({
                             selected={selectedDate}
                             onSelect={setSelectedDate}
                             disabled={disabledDays}
+                            locale={localeEs}
+                            fromMonth={fromMonth}
+                            toMonth={toMonth}
                             className="w-full"
                             style={{
                               transform: 'scale(1.0)',
                               transformOrigin: 'center'
                             }}
                             modifiers={{
-                              hasShifts: daysWithShifts,
+                              hasShifts: allowedDates,
                             }}
                             modifiersStyles={{
                               hasShifts: {
                                 fontWeight: "bold",
                               }
                             }}
+                            modifiersClassNames={{
+                              disabled: "cursor-not-allowed opacity-50 hover:bg-muted/30"
+                            }}
                             components={{
                               DayButton: (props: any) => {
-                                const dateKey = props.day.date.toDateString();
+                                const dateKey = normalizeDateKey(props.day.date);
                                 const guards = dateGuardMap[dateKey] || [];
                                 const hasShifts = guards.length > 0;
                                 
                                 // Verificar si este día tiene solapamientos
-                                const hasOverlap = overlapDays.has(props.day.date.toLocaleDateString());
+                                const hasOverlap = overlapDays.has(normalizeDateKey(props.day.date));
                                 // Verificar si este día tiene gaps
-                                const hasGap = gapDetection.gapDays.has(props.day.date.toLocaleDateString());
+                                const hasGap = gapDetection.gapDays.has(normalizeDateKey(props.day.date));
                                 
                                 // Verificar si este día tiene turnos del guardia seleccionado
                                 const hasSelectedGuardShift = selectedGuardId ? 
@@ -1790,7 +2049,13 @@ export default function PropertyShiftsModalImproved({
                                       // Preseleccionar la propiedad del modal
                                       setCreateShiftPropertyId(propertyId);
                                       setCreateShiftPreselectedProperty(currentPropertyCache);
-                                      setCreateShiftPreselectedService(null); // No preseleccionar servicio desde guardia
+                                      // Preseleccionar servicio si hay uno seleccionado en el modal
+                                      if (selectedServiceId !== null) {
+                                        const svc = allServicesCache.find(s => s.id === selectedServiceId) || null;
+                                        setCreateShiftPreselectedService(svc);
+                                      } else {
+                                        setCreateShiftPreselectedService(null);
+                                      }
                                       setOpenCreate(true);
                                     }}
                                     className="h-6 w-6 p-0 flex-shrink-0 hover:bg-primary/10 hover:text-primary"
@@ -1999,13 +2264,27 @@ export default function PropertyShiftsModalImproved({
                                 heightPct: number;
                               };
 
-                              // Preparar items del día
+                              // Preparar items del día - filtrar por servicio si está seleccionado
                               const items: Item[] = shifts
                                 .filter((shift) => {
-                                  if (!shift.startTime) return false;
-                                  const st = new Date(shift.startTime).getTime();
-                                  const et = shift.endTime ? new Date(shift.endTime).getTime() : st + 60 * 60 * 1000;
-                                  return st < eod && et > sod; // solapa con el día
+                                  // Usar planned_start_time si start_time es null
+                                  const startTimeStr = shift.startTime || shift.plannedStartTime;
+                                  if (!startTimeStr) return false;
+                                  
+                                  const st = new Date(startTimeStr).getTime();
+                                  const endTimeStr = shift.endTime || shift.plannedEndTime;
+                                  const et = endTimeStr ? new Date(endTimeStr).getTime() : st + 60 * 60 * 1000;
+                                  
+                                  // Filtrar por día
+                                  const overlapsWithDay = st < eod && et > sod;
+                                  if (!overlapsWithDay) return false;
+                                  
+                                  // Filtrar por servicio si hay uno seleccionado
+                                  if (selectedServiceId !== null) {
+                                    return shift.service === selectedServiceId;
+                                  }
+                                  
+                                  return true;
                                 })
                                 .map((shift) => {
                                   const guardId = shift.guard ? Number(shift.guard) : -1;
@@ -2015,8 +2294,12 @@ export default function PropertyShiftsModalImproved({
                                   const rawPhone = getGuardPhone(guard);
                                   const wa = rawPhone ? normalizePhoneForWhatsapp(rawPhone) : null;
 
-                                  let startMs = shift.startTime ? new Date(shift.startTime).getTime() : sod;
-                                  let endMs = shift.endTime ? new Date(shift.endTime).getTime() : Math.min(startMs + 60 * 60 * 1000, eod);
+                                  // Usar planned times como fallback
+                                  const startTimeStr = shift.startTime || shift.plannedStartTime;
+                                  const endTimeStr = shift.endTime || shift.plannedEndTime;
+                                  let startMs = startTimeStr ? new Date(startTimeStr).getTime() : sod;
+                                  let endMs = endTimeStr ? new Date(endTimeStr).getTime() : Math.min(startMs + 60 * 60 * 1000, eod);
+                                  
                                   // Apply draft override if dragging this shift
                                   const draft = draftTimes[shift.id];
                                   if (draft) {
@@ -2407,7 +2690,7 @@ export default function PropertyShiftsModalImproved({
         propertyId={createShiftPropertyId}
         preselectedProperty={createShiftPreselectedProperty}
         preselectedService={createShiftPreselectedService}
-        preloadedProperties={allPropertiesCache}
+        preloadedProperties={allProperties.map(p => p.property).filter(p => p != null)}
         guardId={createShiftGuardId ?? undefined}
         preloadedGuard={createShiftPreselectedGuard}
         onCreated={handleCreated}

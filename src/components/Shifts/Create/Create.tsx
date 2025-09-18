@@ -72,6 +72,7 @@ export default function CreateShift({
   onCreated,
 }: CreateShiftProps) {
   const { TEXT } = useI18n();
+  const guardFieldRef = React.useRef<HTMLDivElement | null>(null);
 
   const guardPlaceholder =
     (TEXT as any)?.guards?.table?.searchPlaceholder ??
@@ -178,6 +179,26 @@ export default function CreateShift({
       mounted = false;
     };
   }, [open]);
+
+  // Close guard dropdown on outside click or Escape
+  React.useEffect(() => {
+    if (!guardDropdownOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (!guardFieldRef.current) return;
+      if (!guardFieldRef.current.contains(e.target as Node)) {
+        setGuardDropdownOpen(false);
+      }
+    };
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setGuardDropdownOpen(false);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [guardDropdownOpen]);
 
   // initial planned defaults
   React.useEffect(() => {
@@ -320,7 +341,8 @@ export default function CreateShift({
     if (q === "") {
       // Show all pre-loaded guards when no search query
       setGuardResults(allGuards);
-      if (allGuards.length > 0) setGuardDropdownOpen(true);
+      // Do NOT auto-open; open only on input focus
+      // if (allGuards.length > 0) setGuardDropdownOpen(true);
       return;
     }
 
@@ -335,8 +357,9 @@ export default function CreateShift({
 
     if (localResults.length >= 3 || allGuards.length === 0) {
       // Use local results if we have enough, or if cache is empty (fallback to API)
-      setGuardResults(localResults);
-      setGuardDropdownOpen(true);
+  setGuardResults(localResults);
+  // Do NOT auto-open; open only on input focus
+  // setGuardDropdownOpen(true);
       
       // If cache is empty, try API as fallback
       if (allGuards.length === 0) {
@@ -348,7 +371,8 @@ export default function CreateShift({
             if (!mounted) return;
             const items = extractItems<Guard>(res);
             setGuardResults(items);
-            setGuardDropdownOpen(true);
+            // Do NOT auto-open; open only on input focus
+            // setGuardDropdownOpen(true);
           } catch (err) {
             console.error("listGuards API fallback error", err);
             setGuardResults(localResults); // Keep local results even if API fails
@@ -376,11 +400,13 @@ export default function CreateShift({
           const combinedResults = [...localResults, ...newItems];
           
           setGuardResults(combinedResults);
-          setGuardDropdownOpen(true);
+          // Do NOT auto-open; open only on input focus
+          // setGuardDropdownOpen(true);
         } catch (err) {
           console.error("listGuards supplemental error", err);
           setGuardResults(localResults); // Fallback to local results
-          setGuardDropdownOpen(true);
+          // Do NOT auto-open; open only on input focus
+          // setGuardDropdownOpen(true);
         } finally {
           if (mounted) setGuardsLoading(false);
         }
@@ -760,9 +786,9 @@ export default function CreateShift({
 
         <form onSubmit={onSubmit} className="space-y-3 mt-2 p-2">
           {/* Guard select-search */}
-          <div className="relative">
+          <div className="relative" ref={guardFieldRef}>
             <label className="text-sm text-muted-foreground block mb-1">Guard</label>
-            <input
+      <input
               type="text"
               className={inputClass}
               value={selectedGuard ? guardLabel(selectedGuard) : guardQuery}
@@ -770,8 +796,9 @@ export default function CreateShift({
                 if (selectedGuard) setSelectedGuard(null);
                 setGuardQuery(e.target.value);
               }}
-              onFocus={() => {
-                if (guardResults.length > 0) setGuardDropdownOpen(true);
+              onClick={() => {
+        // Open only on explicit click
+        setGuardDropdownOpen(true);
               }}
               placeholder={guardPlaceholder}
               aria-label="Buscar guard"
