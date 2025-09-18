@@ -50,6 +50,7 @@ export type CreateServicePayload = {
   schedule?: Array<string | { [key: string]: any }>; // puede aceptar strings o objetos si el backend lo permite
   recurrent?: boolean;
   total_hours?: string | null; // Agregado: campo para horas totales
+  weekly?: string[] | null;    // Agregado: campo para patrón semanal detectado
   is_active?: boolean;
 };
 
@@ -195,6 +196,10 @@ export async function createService(payload: CreateServicePayload): Promise<Serv
     body.total_hours = payload.total_hours;
   }
 
+  if (payload.weekly !== undefined) {
+    body.weekly = payload.weekly;
+  }
+
   if (payload.is_active !== undefined) {
     body.is_active = payload.is_active;
   }
@@ -308,6 +313,10 @@ export async function updateService(id: number, payload: UpdateServicePayload): 
     } else {
       body.total_hours = payload.total_hours;
     }
+  }
+
+  if (payload.weekly !== undefined) {
+    body.weekly = payload.weekly;
   }
 
   if (payload.is_active !== undefined) {

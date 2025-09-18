@@ -894,13 +894,13 @@ export default function PropertyServiceEdit({
       "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"
     ];
 
-    console.log('Debug - Input dates:', dates.slice(0, 10));
+    //console.log('Debug - Input dates:', dates.slice(0, 10));
 
     // Convertir fechas a objetos Date de manera más segura (evitar zona horaria)
     const dateObjects = dates.map(dateStr => {
       const [year, month, day] = dateStr.split('-').map(Number);
       const date = new Date(year, month - 1, day); // mes es 0-indexed en JS
-      console.log(`Debug - Converting: ${dateStr} -> ${date.toLocaleDateString('en-CA')} (day ${date.getDay()}: ${dayNamesEnglish[date.getDay()]})`);
+      //console.log(`Debug - Converting: ${dateStr} -> ${date.toLocaleDateString('en-CA')} (day ${date.getDay()}: ${dayNamesEnglish[date.getDay()]})`);
       return date;
     });
     
@@ -909,21 +909,11 @@ export default function PropertyServiceEdit({
     // Obtener días únicos del patrón
     const uniqueDays = [...new Set(daysOfWeek)].sort();
     
-    console.log('Debug - Processed dates:', {
-      dateObjects: dateObjects.slice(0, 10).map(d => ({
-        original: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`,
-        dayOfWeek: d.getDay(),
-        dayName: dayNamesEnglish[d.getDay()],
-        actualDate: d.toLocaleDateString('en-CA')
-      })),
-      uniqueDays,
-      uniqueDayNames: uniqueDays.map(day => dayNamesEnglish[day])
-    });
     
     // Si hay muy pocas fechas, usar los días únicos directamente
     if (dates.length < 3) {
       const result = uniqueDays.map(day => dayNamesEnglish[day]);
-      console.log('Debug - Simple pattern result:', result);
+      //console.log('Debug - Simple pattern result:', result);
       return result;
     }
 
@@ -945,12 +935,12 @@ export default function PropertyServiceEdit({
     });
 
     const weeks = Object.values(weekGroups);
-    console.log('Debug - Week groups:', weeks.map(week => week.map(day => dayNamesEnglish[day])));
+    //console.log('Debug - Week groups:', weeks.map(week => week.map(day => dayNamesEnglish[day])));
 
     // Si solo tenemos una semana, usar el patrón único
     if (weeks.length <= 1) {
       const result = uniqueDays.map(day => dayNamesEnglish[day]);
-      console.log('Debug - Single week pattern result:', result);
+      //console.log('Debug - Single week pattern result:', result);
       return result;
     }
 
@@ -970,21 +960,17 @@ export default function PropertyServiceEdit({
       const [patternKey, count] = mostCommonPattern;
       const consistencyRatio = count / weeks.length;
       
-      console.log('Debug - Pattern consistency:', {
-        mostCommonPattern: JSON.parse(patternKey).map((day: number) => dayNamesEnglish[day]),
-        consistencyRatio,
-        totalWeeks: weeks.length
-      });
+
       
       if (consistencyRatio >= 0.7) {
         const patternDays = JSON.parse(patternKey) as number[];
         const result = patternDays.map(day => dayNamesEnglish[day]);
-        console.log('Debug - Consistent pattern result:', result);
+        //console.log('Debug - Consistent pattern result:', result);
         return result;
       }
     }
 
-    console.log('Debug - No consistent weekly pattern found');
+    //console.log('Debug - No consistent weekly pattern found');
     return null;
   };
 
@@ -1122,7 +1108,7 @@ export default function PropertyServiceEdit({
     
     payload.is_active = isActive;
 
-    console.log('Payload completo antes de enviar:', payload);
+    //console.log('Payload completo antes de enviar:', payload);
 
     try {
       setLoading(true);
