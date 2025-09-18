@@ -11,6 +11,7 @@ import { createClient, type CreateClientPayload } from "@/lib/services/clients";
 import { useModalCache } from "@/hooks/use-modal-cache";
 import { useI18n } from "@/i18n";
 import { Skeleton } from "@/components/ui/skeleton";
+import { showCreatedToast } from "@/lib/toast-helpers";
 
 type Props = {
   open: boolean;
@@ -86,6 +87,9 @@ export default function CreateClientDialog({ open, onClose, onCreated }: Props) 
   const [billingAddress, setBillingAddress] = React.useState<string>("");
 
   const [loading, setLoading] = React.useState<boolean>(false);
+  const [validationErrors, setValidationErrors] = React.useState<Record<string, string | undefined>>({});
+  const [generalError, setGeneralError] = React.useState<string>("");
+  
   const mountedRef = React.useRef(true);
   const { saveToCache, getFromCache, clearCache } = useModalCache<ClientFormData>();
 
@@ -136,6 +140,8 @@ export default function CreateClientDialog({ open, onClose, onCreated }: Props) 
     setPhone("");
     setAddress("");
     setBillingAddress("");
+    setValidationErrors({});
+    setGeneralError("");
     clearCache("create-client");
   }
 
@@ -159,38 +165,49 @@ export default function CreateClientDialog({ open, onClose, onCreated }: Props) 
     toast.success("Main address copied to billing address");
   }
 
+  function validateForm(): { isValid: boolean; errors: Record<string, string> } {
+    const errors: Record<string, string> = {};
+
+    if (clientType === "person") {
+      if (!firstName.trim()) {
+        errors.firstName = "El nombre es requerido";
+      }
+      if (!lastName.trim()) {
+        errors.lastName = "El apellido es requerido";
+      }
+    } else {
+      if (!firstName.trim()) {
+        errors.firstName = "El nombre de la empresa es requerido";
+      }
+    }
+
+    if (!email.trim()) {
+      errors.email = "El correo electrónico es requerido";
+    } else if (!/\S+@\S+\.\S+/.test(email.trim())) {
+      errors.email = "Por favor ingresa un correo electrónico válido";
+    }
+
+    return { isValid: Object.keys(errors).length === 0, errors };
+  }
+
   async function handleSubmit(e?: React.FormEvent) {
     if (e) e.preventDefault();
+    
+    // Limpiar errores previos
+    setValidationErrors({});
+    setGeneralError("");
+    
+    const { isValid, errors } = validateForm();
+    
+    if (!isValid) {
+      setValidationErrors(errors);
+      setGeneralError("Por favor completa todos los campos requeridos");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      // Validation based on client type
-      if (clientType === "person") {
-        if (!firstName.trim()) {
-          toast.error(FORM.validation.firstNameRequired);
-          setLoading(false);
-          return;
-        }
-        if (!lastName.trim()) {
-          toast.error(FORM.validation.lastNameRequired);
-          setLoading(false);
-          return;
-        }
-      } else {
-        // Company validation
-        if (!firstName.trim()) {
-          toast.error(FORM.validation.companyNameRequired);
-          setLoading(false);
-          return;
-        }
-      }
-      
-      if (!email.trim()) {
-        toast.error(FORM.validation.emailRequired);
-        setLoading(false);
-        return;
-      }
-
       const payload: CreateClientPayload = {
         first_name: firstName.trim(),
         last_name: clientType === "person" ? lastName.trim() : "",
@@ -207,9 +224,15 @@ export default function CreateClientDialog({ open, onClose, onCreated }: Props) 
 
       await createClient(payload);
 
-      toast.success(FORM.success);
+      // Toast moderno verde para creación exitosa
+      const clientName = `${firstName} ${lastName}`.trim() || email || "Cliente";
+      showCreatedToast("Cliente", clientName);
+      
       if (!mountedRef.current) return;
 
+      // Limpiar errores y resetear form
+      setValidationErrors({});
+      setGeneralError("");
       clearCache("create-client");
       resetForm();
 
@@ -218,7 +241,7 @@ export default function CreateClientDialog({ open, onClose, onCreated }: Props) 
     } catch (err: any) {
       console.error("Error creando cliente:", err);
       const server = err?.response?.data ?? err?.message ?? String(err);
-      toast.error(typeof server === "object" ? JSON.stringify(server) : String(server));
+      setGeneralError(typeof server === "object" ? JSON.stringify(server) : String(server));
     } finally {
       if (mountedRef.current) setLoading(false);
     }
@@ -294,18 +317,38 @@ export default function CreateClientDialog({ open, onClose, onCreated }: Props) 
                     <Input
                       name="firstName"
                       value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
+                      onChange={(e) => {
+                        setFirstName(e.target.value);
+                        // Limpiar error cuando el usuario empieza a escribir
+                        if (validationErrors.firstName) {
+                          setValidationErrors(prev => ({ ...prev, firstName: undefined }));
+                        }
+                      }}
                       required
+                      className={validationErrors.firstName ? "border-red-500 focus:border-red-500" : ""}
                     />
+                    {validationErrors.firstName && (
+                      <p className="text-red-500 text-xs mt-1">{validationErrors.firstName}</p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm">{FORM.fields.lastName}</label>
                     <Input
                       name="lastName"
                       value={lastName}
-                      onChange={(e) => setLastName(e.target.value)}
+                      onChange={(e) => {
+                        setLastName(e.target.value);
+                        // Limpiar error cuando el usuario empieza a escribir
+                        if (validationErrors.lastName) {
+                          setValidationErrors(prev => ({ ...prev, lastName: undefined }));
+                        }
+                      }}
                       required
+                      className={validationErrors.lastName ? "border-red-500 focus:border-red-500" : ""}
                     />
+                    {validationErrors.lastName && (
+                      <p className="text-red-500 text-xs mt-1">{validationErrors.lastName}</p>
+                    )}
                   </div>
                 </div>
               ) : (
@@ -315,9 +358,19 @@ export default function CreateClientDialog({ open, onClose, onCreated }: Props) 
                     <Input
                       name="companyName"
                       value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
+                      onChange={(e) => {
+                        setFirstName(e.target.value);
+                        // Limpiar error cuando el usuario empieza a escribir
+                        if (validationErrors.firstName) {
+                          setValidationErrors(prev => ({ ...prev, firstName: undefined }));
+                        }
+                      }}
                       required
+                      className={validationErrors.firstName ? "border-red-500 focus:border-red-500" : ""}
                     />
+                    {validationErrors.firstName && (
+                      <p className="text-red-500 text-xs mt-1">{validationErrors.firstName}</p>
+                    )}
                   </div>
                 </div>
               )}
@@ -329,9 +382,19 @@ export default function CreateClientDialog({ open, onClose, onCreated }: Props) 
                     name="email"
                     type="email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      // Limpiar error cuando el usuario empieza a escribir
+                      if (validationErrors.email) {
+                        setValidationErrors(prev => ({ ...prev, email: undefined }));
+                      }
+                    }}
                     required
+                    className={validationErrors.email ? "border-red-500 focus:border-red-500" : ""}
                   />
+                  {validationErrors.email && (
+                    <p className="text-red-500 text-xs mt-1">{validationErrors.email}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm">{FORM.fields.phone}</label>
@@ -370,6 +433,22 @@ export default function CreateClientDialog({ open, onClose, onCreated }: Props) 
                   name="billingAddress"
                 />
               </div>
+
+              {/* Mensaje de error general */}
+              {generalError && (
+                <div className="bg-red-50 border border-red-200 rounded-md p-3 mt-3">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm text-red-800">{generalError}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="flex justify-end gap-2 mt-3">
                 <Button variant="ghost" onClick={handleClose} disabled={loading}>

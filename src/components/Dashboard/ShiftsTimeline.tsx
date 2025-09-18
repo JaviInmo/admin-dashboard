@@ -21,6 +21,8 @@ interface ShiftEvent {
   endTime: Date;
   status: 'active' | 'upcoming' | 'completed' | 'delayed';
   type: 'regular' | 'overtime' | 'emergency';
+  serviceName?: string;
+  serviceTimeLabel?: string;
 }
 
 const getStatusColor = (status: string) => {
@@ -147,6 +149,14 @@ const convertToShiftEvent = (shift: Shift, guard: Guard | undefined, property: A
     type = 'emergency';
   }
   
+  // construir etiqueta de horario del servicio si existe en detalles (HH:mm)
+  let serviceTimeLabel: string | undefined;
+  const st = shift.serviceDetails?.startTime || (shift.serviceDetails as any)?.start_time;
+  const et = shift.serviceDetails?.endTime || (shift.serviceDetails as any)?.end_time;
+  if (typeof st === 'string' && typeof et === 'string' && st && et) {
+    serviceTimeLabel = `${st} - ${et}`;
+  }
+
   return {
     id: shift.id.toString(),
     guardName: guard ? `${guard.firstName} ${guard.lastName}` : `Guardia #${shift.guard}`,
@@ -155,7 +165,9 @@ const convertToShiftEvent = (shift: Shift, guard: Guard | undefined, property: A
     startTime,
     endTime,
     status: determineShiftStatus(startTime, endTime, shift.status || 'scheduled'),
-    type
+    type,
+  serviceName: shift.serviceDetails?.name || undefined,
+    serviceTimeLabel,
   };
 };
 
@@ -338,13 +350,18 @@ export function ShiftsTimeline() {
                           <User className="h-4 w-4 text-gray-600" />
                           <span className="font-semibold text-gray-900">{event.guardName}</span>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 flex-wrap">
                           <Badge className={getStatusColor(event.status)}>
                             {getStatusText(event.status)}
                           </Badge>
                           {event.type !== 'regular' && (
                             <Badge variant="outline" className={getTypeColor(event.type)}>
                               {event.type === 'emergency' ? 'Emergencia' : 'Horas Extra'}
+                            </Badge>
+                          )}
+                          {event.serviceName && (
+                            <Badge variant="secondary" className="bg-purple-50 text-purple-700 border border-purple-200">
+                              Servicio: {event.serviceName}
                             </Badge>
                           )}
                         </div>
@@ -356,6 +373,11 @@ export function ShiftsTimeline() {
                         <div>
                           <div className="font-medium text-gray-900">{event.propertyName}</div>
                           <div className="text-sm text-gray-600">{event.propertyAddress}</div>
+                          {event.serviceTimeLabel && (
+                            <div className="text-xs text-purple-700 bg-purple-50 px-2 py-0.5 rounded inline-block mt-1 border border-purple-100">
+                              Horario del servicio: {event.serviceTimeLabel}
+                            </div>
+                          )}
                         </div>
                       </div>
 

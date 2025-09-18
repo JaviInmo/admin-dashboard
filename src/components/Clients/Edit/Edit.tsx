@@ -17,6 +17,7 @@ import { useModalCache } from "@/hooks/use-modal-cache";
 import { toast } from "sonner";
 import { useI18n } from "@/i18n";
 import { Skeleton } from "@/components/ui/skeleton";
+import { showUpdatedToast } from "@/lib/toast-helpers";
 
 type Props = {
   client: AppClient;
@@ -39,11 +40,6 @@ export default function EditClientDialog({ client, open, onClose, onUpdated }: P
   const { TEXT, lang } = useI18n();
 
   const FORM = TEXT?.clients?.form ?? {};
-  const UPDATED_SUCCESS =
-    (FORM as any)?.updatedSuccess ??
-    (FORM as any)?.updateSuccess ??
-    (FORM as any)?.success ??
-    (lang === "es" ? "Cliente actualizado" : "Client updated");
 
   const [firstName, setFirstName] = React.useState(client.firstName ?? "");
   const [lastName, setLastName] = React.useState(client.lastName ?? "");
@@ -150,7 +146,10 @@ export default function EditClientDialog({ client, open, onClose, onUpdated }: P
       const cacheKey = `edit-client-${client.id}`;
       clearCache(cacheKey);
 
-      toast.success(UPDATED_SUCCESS);
+      // Toast moderno verde para actualización exitosa
+      const clientName = `${firstName} ${lastName}`.trim() || email || `Cliente #${client.id}`;
+      showUpdatedToast("Cliente", clientName);
+      
       if (onUpdated) await onUpdated();
       onClose();
     } catch (err: any) {

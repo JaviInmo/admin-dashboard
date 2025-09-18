@@ -15,8 +15,8 @@ import { ReusableTable, type Column } from "@/components/ui/reusable-table";
 import { useI18n } from "@/i18n";
 import { GiPistolGun } from "react-icons/gi";
 import type { SortOrder } from "@/lib/sort";
-// ahora sí importamos CreateGuardDialog
-import CreateGuardDialog from "./Create/Create";
+// ahora sí importamos CreateGuard
+import CreateGuard from "./Create/Create";
 import DeleteGuardDialog from "./Delete/Delete";
 import EditGuardDialog from "./Edit/Edit";
 import type { Guard } from "./types";
@@ -387,7 +387,7 @@ export default function GuardsTable({
         title={guardTable.title ?? getText("guards.table.title", "Guards List")}
         searchPlaceholder={guardTable.searchPlaceholder ?? getText("guards.table.searchPlaceholder", "Buscar guardias...")}
         addButtonText={guardTable.add ?? guardTable.addButton ?? getText("guards.table.add", "Agregar")}
-        onAddClick={() => setCreateOpen(true)} // <-- botón de crear ahora abre CreateGuardDialog
+        onAddClick={() => setCreateOpen(true)} // <-- botón de crear ahora abre CreateGuard
         serverSide={serverSide}
         currentPage={currentPage}
         totalPages={totalPages}
@@ -415,7 +415,7 @@ export default function GuardsTable({
 
       {/* Create Guard dialog */}
       {createOpen && (
-        <CreateGuardDialog
+        <CreateGuard
           open={createOpen}
           onClose={() => setCreateOpen(false)}
           onCreated={async () => {
@@ -427,7 +427,6 @@ export default function GuardsTable({
             }
             setCreateOpen(false);
           }}
-          guardId={0}
         />
       )}
 

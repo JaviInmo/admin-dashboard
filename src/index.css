@@ -264,4 +264,62 @@
   .dark .table-loading-pulse {
     animation: enhanced-table-pulse-dark 1.5s ease-in-out infinite;
   }
+
+  /* Estilos modernos para toasts */
+  .modern-toast[data-type="success"] {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+    border: none !important;
+    color: white !important;
+    box-shadow: 0 20px 25px -5px rgba(16, 185, 129, 0.2), 0 10px 10px -5px rgba(16, 185, 129, 0.1) !important;
+    transform: translateY(0);
+    animation: modern-slide-in 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .modern-toast[data-type="success"] [data-icon] {
+    color: white !important;
+  }
+
+  .modern-toast[data-type="success"] [data-close-button] {
+    background: rgba(255, 255, 255, 0.2) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 6px !important;
+  }
+
+  .modern-toast[data-type="success"] [data-close-button]:hover {
+    background: rgba(255, 255, 255, 0.3) !important;
+  }
+
+  @keyframes modern-slide-in {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  /* Toast para otros tipos también */
+  .modern-toast[data-type="error"] {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
+    border: none !important;
+    color: white !important;
+    box-shadow: 0 20px 25px -5px rgba(239, 68, 68, 0.2), 0 10px 10px -5px rgba(239, 68, 68, 0.1) !important;
+  }
+
+  .modern-toast[data-type="info"] {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+    border: none !important;
+    color: white !important;
+    box-shadow: 0 20px 25px -5px rgba(59, 130, 246, 0.2), 0 10px 10px -5px rgba(59, 130, 246, 0.1) !important;
+  }
+
+  .modern-toast[data-type="warning"] {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
+    border: none !important;
+    color: white !important;
+    box-shadow: 0 20px 25px -5px rgba(245, 158, 11, 0.2), 0 10px 10px -5px rgba(245, 158, 11, 0.1) !important;
+  }
 }

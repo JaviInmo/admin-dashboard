@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { createProperty } from "@/lib/services/properties";
 import { listClients, getClient } from "@/lib/services/clients";
 import { useI18n } from "@/i18n";
+import { showCreatedToast } from "@/lib/toast-helpers";
 
 type Props = {
   open?: boolean;
@@ -23,6 +24,7 @@ export default function CreatePropertyDialog({ open = true, onClose, onCreated, 
 
   const [ownerInput, setOwnerInput] = React.useState<string>("");
   const [selectedClient, setSelectedClient] = React.useState<any | null>(null);
+  const [ownerPhone, setOwnerPhone] = React.useState<string>("");
   const [searchResults, setSearchResults] = React.useState<any[]>([]);
   const [searchLoading, setSearchLoading] = React.useState<boolean>(false);
   const [showDropdown, setShowDropdown] = React.useState<boolean>(false);
@@ -36,6 +38,9 @@ export default function CreatePropertyDialog({ open = true, onClose, onCreated, 
   const [initialClientLoading, setInitialClientLoading] = React.useState<boolean>(false);
 
   const [loading, setLoading] = React.useState<boolean>(false);
+  const [validationErrors, setValidationErrors] = React.useState<Record<string, string | undefined>>({});
+  const [generalError, setGeneralError] = React.useState<string>("");
+  
   const mountedRef = React.useRef(true);
   const searchTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -52,6 +57,7 @@ export default function CreatePropertyDialog({ open = true, onClose, onCreated, 
   function resetForm() {
     setOwnerInput("");
     setSelectedClient(null);
+    setOwnerPhone("");
     setSearchResults([]);
     setShowDropdown(false);
     setName("");
@@ -59,6 +65,8 @@ export default function CreatePropertyDialog({ open = true, onClose, onCreated, 
     setAddress("");
     setContractStartDate("");
     setDescription("");
+    setValidationErrors({});
+    setGeneralError("");
   }
 
   // Si vino clientId, cargar details
@@ -76,6 +84,7 @@ export default function CreatePropertyDialog({ open = true, onClose, onCreated, 
           (detail.username ?? `${detail.firstName ?? ""} ${detail.lastName ?? ""}`.trim()) ??
           `#${detail.id}`;
         setOwnerInput(label);
+        setOwnerPhone(detail.phone ?? "");
         setShowDropdown(false);
       } catch (err) {
         console.error("getClient(clientId) failed", err);
@@ -140,6 +149,7 @@ export default function CreatePropertyDialog({ open = true, onClose, onCreated, 
       setSelectedClient(c);
       const label = c.username ?? `${c.first_name ?? c.firstName ?? ""} ${c.last_name ?? c.lastName ?? ""}`.trim() ?? `#${c.id}`;
       setOwnerInput(label);
+      setOwnerPhone(c.phone ?? "");
       setShowDropdown(false);
       return;
     }
@@ -149,12 +159,14 @@ export default function CreatePropertyDialog({ open = true, onClose, onCreated, 
       setSelectedClient(detailed);
       const label = detailed.username ?? `${detailed.firstName ?? ""} ${detailed.lastName ?? ""}`.trim() ?? `#${detailed.id}`;
       setOwnerInput(label);
+      setOwnerPhone(detailed.phone ?? "");
       setShowDropdown(false);
     } catch (err) {
       console.error("getClient failed", err);
       setSelectedClient(c);
       const label = c.username ?? `${c.first_name ?? c.firstName ?? ""} ${c.last_name ?? c.lastName ?? ""}`.trim() ?? `#${c.id}`;
       setOwnerInput(label);
+      setOwnerPhone(c.phone ?? "");
       setShowDropdown(false);
       toast.error(TEXT.properties?.form?.errorUpdate ?? "No se pudo obtener detalles del cliente; el cliente podría no tener un 'user' asociado.");
     } finally {
@@ -162,36 +174,53 @@ export default function CreatePropertyDialog({ open = true, onClose, onCreated, 
     }
   }, [TEXT]);
 
+  function validateForm(): { isValid: boolean; errors: Record<string, string> } {
+    const errors: Record<string, string> = {};
+
+    if (!address || String(address).trim() === "") {
+      errors.address = "La dirección es requerida";
+    }
+
+    if (!selectedClient) {
+      errors.owner = "Debes seleccionar un cliente";
+    } else {
+      const userId = selectedClient.user ?? selectedClient.user_id ?? selectedClient.userId ?? undefined;
+      if (typeof userId === "undefined") {
+        errors.owner = "El cliente seleccionado no tiene user id asociado";
+      }
+    }
+
+    return { isValid: Object.keys(errors).length === 0, errors };
+  }
+
   async function handleSubmit(e?: React.FormEvent) {
     if (e) e.preventDefault();
+    
+    // Limpiar errores previos
+    setValidationErrors({});
+    setGeneralError("");
+    
+    const { isValid, errors } = validateForm();
+    
+    if (!isValid) {
+      setValidationErrors(errors);
+      setGeneralError("Por favor completa todos los campos requeridos");
+      return;
+    }
+
     setLoading(true);
     try {
-      if (!address || String(address).trim() === "") {
-        toast.error(TEXT.properties?.form?.fields?.address ? `${TEXT.properties.form.fields.address} es requerido` : "Address es requerido");
-        setLoading(false);
-        return;
-      }
-
-      if (!selectedClient) {
-        toast.error(TEXT.properties?.form?.ownerHelp ?? "Selecciona un cliente del selector.");
-        setLoading(false);
-        return;
-      }
-
       const userId = selectedClient.user ?? selectedClient.user_id ?? selectedClient.userId ?? undefined;
       const ownerClientId = selectedClient.id ?? undefined;
-
-      if (typeof userId === "undefined") {
-        toast.error(TEXT.properties?.form?.errorUpdate ?? "El cliente seleccionado no tiene user id asociado. No se puede crear la propiedad.");
-        setLoading(false);
-        return;
-      }
 
       // Payload acorde al nuevo swagger: owner, address, owner_details { user }, name, alias, contract_start_date, description
       const payload: any = {
         address,
         owner: ownerClientId,
-        owner_details: { user: Number(userId) },
+        owner_details: { 
+          user: Number(userId),
+          phone: ownerPhone || selectedClient.phone || undefined
+        },
       };
 
       if (name) payload.name = name;
@@ -201,14 +230,22 @@ export default function CreatePropertyDialog({ open = true, onClose, onCreated, 
 
       await createProperty(payload);
 
-      toast.success(TEXT.properties?.form?.createSuccess ?? "Propiedad creada exitosamente");
+      // Toast moderno verde para creación exitosa
+      const propertyName = name || alias || address || "Propiedad";
+      showCreatedToast("Propiedad", propertyName);
+      
       if (!mountedRef.current) return;
+      
+      // Limpiar errores y resetear form
+      setValidationErrors({});
+      setGeneralError("");
+      
       if (onCreated) await onCreated();
       onClose?.();
     } catch (err: any) {
       console.error("Error creando propiedad:", err);
       const server = err?.response?.data ?? err?.message ?? String(err);
-      toast.error(typeof server === "object" ? JSON.stringify(server) : String(server));
+      setGeneralError(typeof server === "object" ? JSON.stringify(server) : String(server));
     } finally {
       if (mountedRef.current) setLoading(false);
     }
@@ -222,6 +259,7 @@ export default function CreatePropertyDialog({ open = true, onClose, onCreated, 
   const namePlaceholder = TEXT.properties?.form?.placeholders?.name ?? "Nombre de la propiedad";
   const aliasLabel = TEXT.properties?.form?.fields?.alias ?? "Alias";
   const aliasPlaceholder = TEXT.properties?.form?.placeholders?.alias ?? "Alias o nombre alternativo";
+  const ownerPhoneLabel = TEXT.properties?.form?.fields?.ownerPhone ?? "Teléfono";
   const addressLabel = TEXT.properties?.form?.fields?.address ?? "Dirección *";
   const addressPlaceholder = TEXT.properties?.form?.placeholders?.address ?? "Dirección de la propiedad";
   const searchingText = TEXT.properties?.form?.searchingText ?? "Buscando...";
@@ -271,10 +309,18 @@ export default function CreatePropertyDialog({ open = true, onClose, onCreated, 
                   <div className="relative">
                     <Input
                       value={ownerInput}
-                      onChange={(e) => { setOwnerInput(e.target.value); setSelectedClient(null); }}
+                      onChange={(e) => { 
+                        setOwnerInput(e.target.value); 
+                        setSelectedClient(null);
+                        // Limpiar error cuando el usuario empieza a escribir
+                        if (validationErrors.owner) {
+                          setValidationErrors(prev => ({ ...prev, owner: undefined }));
+                        }
+                      }}
                       onFocus={() => { if (searchResults.length > 0) setShowDropdown(true); }}
                       placeholder={ownerPlaceholder}
                       name="ownerInput"
+                      className={validationErrors.owner ? "border-red-500 focus:border-red-500" : ""}
                     />
                     {showDropdown && (searchLoading || searchResults.length > 0) && (
                       <div className="absolute z-50 mt-1 w-full max-h-48 overflow-auto rounded border bg-popover p-1">
@@ -297,6 +343,9 @@ export default function CreatePropertyDialog({ open = true, onClose, onCreated, 
                       </div>
                     )}
                   </div>
+                  {validationErrors.owner && (
+                    <p className="text-red-500 text-xs mt-1">{validationErrors.owner}</p>
+                  )}
                 </div>
               )}
 
@@ -311,15 +360,37 @@ export default function CreatePropertyDialog({ open = true, onClose, onCreated, 
                 </div>
               </div>
 
+              {selectedClient && (
+                <div>
+                  <label className="block text-sm">{ownerPhoneLabel}</label>
+                  <Input 
+                    name="ownerPhone" 
+                    value={ownerPhone} 
+                    onChange={(e) => setOwnerPhone(e.target.value)} 
+                    placeholder="Teléfono del propietario"
+                  />
+                </div>
+              )}
+
               <div className="grid grid-cols-1 gap-2">
                 <AddressInput
                   value={address}
-                  onChange={setAddress}
+                  onChange={(newAddress) => {
+                    setAddress(newAddress);
+                    // Limpiar error cuando el usuario empieza a escribir
+                    if (validationErrors.address) {
+                      setValidationErrors(prev => ({ ...prev, address: undefined }));
+                    }
+                  }}
                   label={addressLabel}
                   placeholder={addressPlaceholder}
                   name="address"
                   required
+                  className={validationErrors.address ? "border-red-500 focus:border-red-500" : ""}
                 />
+                {validationErrors.address && (
+                  <p className="text-red-500 text-xs mt-1">{validationErrors.address}</p>
+                )}
               </div>
 
               <div>
@@ -339,6 +410,22 @@ export default function CreatePropertyDialog({ open = true, onClose, onCreated, 
                 </div>
               </div>
             </>
+          )}
+
+          {/* Mensaje de error general */}
+          {generalError && (
+            <div className="bg-red-50 border border-red-200 rounded-md p-3 mt-3">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm text-red-800">{generalError}</p>
+                </div>
+              </div>
+            </div>
           )}
 
           <div className="flex justify-end gap-2 mt-3">

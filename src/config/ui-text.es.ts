@@ -220,7 +220,7 @@ export const ES_TEXT = {
       createTitle: "Crear Propiedad",
       fields: {
         ownerUser: "Propietario ",
-        ownerPhone: "Teléfono propietario",
+        ownerPhone: "Teléfono",
         name: "Nombre",
         alias: "Alias",
         address: "Dirección",
@@ -249,7 +249,7 @@ export const ES_TEXT = {
       },
       searchingText: "Buscando...",
       noResultsText: "No hay resultados",
-      ownerHelp: "Selecciona el cliente propietario. El backend recibirá el id del cliente.",
+      ownerHelp: "",
       serviceTypesTitle: "Tipos de servicio",
       loadingTypesText: "Cargando tipos de servicio",
       noTypesText: "No hay tipos disponibles",

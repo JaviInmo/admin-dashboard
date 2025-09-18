@@ -59,7 +59,14 @@ export default function CreateServiceDialog({
 
   const [rate, setRate] = React.useState<string>("");
   const [monthlyBudget, setMonthlyBudget] = React.useState<string>("");
-  const [contractStartDate, setContractStartDate] = React.useState<string>(""); // date
+  
+  // Configurar fechas por defecto al primer y último día del año en curso
+  const currentYear = new Date().getFullYear();
+  const defaultStartDate = `${currentYear}-01-01`;
+  const defaultEndDate = `${currentYear}-12-31`;
+  
+  const [contractStartDate, setContractStartDate] = React.useState<string>(defaultStartDate);
+  const [contractEndDate, setContractEndDate] = React.useState<string>(defaultEndDate);
   const [startTime, setStartTime] = React.useState<string>(""); // time "HH:MM"
   const [endTime, setEndTime] = React.useState<string>(""); // time "HH:MM"
   const [isActive, setIsActive] = React.useState<boolean>(true);
@@ -140,6 +147,10 @@ export default function CreateServiceDialog({
   }, [open, initialGuardId, initialGuardLabel, initialPropertyId, initialPropertyLabel]);
 
   const resetForm = () => {
+    const currentYear = new Date().getFullYear();
+    const defaultStartDate = `${currentYear}-01-01`;
+    const defaultEndDate = `${currentYear}-12-31`;
+    
     setName("");
     setDescription("");
     setGuardInput("");
@@ -150,7 +161,8 @@ export default function CreateServiceDialog({
     setPropertySelectedLabel("");
     setRate("");
     setMonthlyBudget("");
-    setContractStartDate("");
+    setContractStartDate(defaultStartDate);
+    setContractEndDate(defaultEndDate);
     setStartTime("");
     setEndTime("");
     setSchedule([]);
@@ -173,6 +185,8 @@ export default function CreateServiceDialog({
       rate: rate === "" ? undefined : rate,
       monthly_budget: monthlyBudget === "" ? undefined : monthlyBudget,
       contract_start_date: contractStartDate === "" ? undefined : contractStartDate,
+      start_date: contractStartDate === "" ? undefined : contractStartDate,
+      end_date: contractEndDate === "" ? undefined : contractEndDate,
       start_time: startTime === "" ? undefined : startTime,
       end_time: endTime === "" ? undefined : endTime,
       schedule: schedule.length > 0 ? schedule : undefined,
@@ -359,6 +373,17 @@ export default function CreateServiceDialog({
             <div>
               <label className="text-sm">{TEXT?.services?.fields?.contractStartDate ?? "Contract Start Date"}</label>
               <Input type="date" value={contractStartDate} onChange={(e) => setContractStartDate(e.currentTarget.value)} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-sm">Fecha de Inicio</label>
+              <Input type="date" value={contractStartDate} onChange={(e) => setContractStartDate(e.currentTarget.value)} />
+            </div>
+            <div>
+              <label className="text-sm">Fecha de Fin</label>
+              <Input type="date" value={contractEndDate} onChange={(e) => setContractEndDate(e.currentTarget.value)} />
             </div>
           </div>
 

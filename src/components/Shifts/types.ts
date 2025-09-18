@@ -67,6 +67,9 @@ export type ServiceDetails = {
   createdAt?: string; // ISO
   updatedAt?: string; // ISO
   isActive?: boolean;
+  // Opcionales por si el backend expone horarios del servicio
+  startTime?: string; // e.g. "08:00"
+  endTime?: string;   // e.g. "17:00"
 };
 
 /**

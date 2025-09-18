@@ -9,8 +9,8 @@ import { AddressInput } from "@/components/ui/address-input";
 import type { AppProperty } from "@/lib/services/properties";
 import { partialUpdateProperty } from "@/lib/services/properties";
 import { listClients, getClient } from "@/lib/services/clients";
-import { toast } from "sonner";
 import { useI18n } from "@/i18n";
+import { showUpdatedToast } from "@/lib/toast-helpers";
 
 type Props = {
   property: AppProperty;
@@ -21,7 +21,7 @@ type Props = {
 
 export default function EditPropertyDialog({ property, open, onClose, onUpdated }: Props) {
   const { TEXT } = useI18n();
-
+  
   const asAny = property as any;
 
   const pick = (...keys: string[]) => {
@@ -57,6 +57,9 @@ export default function EditPropertyDialog({ property, open, onClose, onUpdated 
   const [loading, setLoading] = React.useState(false);
   const [initialOwnerLoading, setInitialOwnerLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = React.useState<Record<string, string | undefined>>({});
+  const [generalError, setGeneralError] = React.useState<string>("");
+  
   const mountedRef = React.useRef(true);
 
   const searchTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -150,9 +153,11 @@ export default function EditPropertyDialog({ property, open, onClose, onUpdated 
       : "";
     if (ownerInput && label && ownerInput === label) {
       setSearchResults([]);
+      setShowDropdown(false); // Asegurar que esté cerrado cuando es el cliente actual
       return;
     }
-    if (ownerInput && ownerInput.length >= 1) {
+    if (ownerInput && ownerInput.length >= 1 && !selectedClient) {
+      // Solo mostrar dropdown si no hay cliente seleccionado (está buscando uno nuevo)
       doSearchClients(ownerInput, 1);
       setShowDropdown(true);
     } else {
@@ -161,8 +166,30 @@ export default function EditPropertyDialog({ property, open, onClose, onUpdated 
     }
   }, [ownerInput, selectedClient, doSearchClients]);
 
+  function validateForm(): { isValid: boolean; errors: Record<string, string> } {
+    const errors: Record<string, string> = {};
+
+    if (!address || address.trim() === "") {
+      errors.address = "La dirección es requerida";
+    }
+
+    return { isValid: Object.keys(errors).length === 0, errors };
+  }
+
   async function handleSubmit() {
+    // Limpiar errores previos
+    setValidationErrors({});
+    setGeneralError("");
     setError(null);
+    
+    const { isValid, errors } = validateForm();
+    
+    if (!isValid) {
+      setValidationErrors(errors);
+      setGeneralError("Por favor completa todos los campos requeridos");
+      return;
+    }
+
     setLoading(true);
     try {
       const payload: Record<string, any> = {};
@@ -177,22 +204,33 @@ export default function EditPropertyDialog({ property, open, onClose, onUpdated 
         payload.owner_details = { phone: ownerPhone };
       }
 
-      // Sólo los campos que la API espera ahora
+      // Campos comunes para editar
       if (name !== undefined) payload.name = name || null;
       if (alias !== undefined) payload.alias = alias || null;
       if (address !== undefined) payload.address = address;
       if (contractStartDate !== undefined) payload.contract_start_date = contract_start_date_or_null(contractStartDate);
       if (description !== undefined) payload.description = description || null;
 
+      // Modo editar
       await partialUpdateProperty(property.id, payload);
-      toast.success(FORM.success ?? "");
+      
+      // Limpiar errores y mostrar éxito
+      setValidationErrors({});
+      setGeneralError("");
+      setError(null);
+      
+      // Toast moderno verde para actualización exitosa
+      const propertyName = name || alias || address || `Propiedad #${property.id}`;
+      showUpdatedToast("Propiedad", propertyName);
+      
       if (onUpdated) await onUpdated();
+      
       onClose();
     } catch (err: any) {
       console.error("Error actualizando propiedad", err);
       const msg = err?.response?.data?.detail ?? err?.message ?? FORM.errorUpdate ?? "";
+      setGeneralError(String(msg));
       setError(String(msg));
-      toast.error(String(msg));
     } finally {
       if (mountedRef.current) setLoading(false);
     }
@@ -234,7 +272,10 @@ export default function EditPropertyDialog({ property, open, onClose, onUpdated 
                       setSelectedClient(null);
                     }}
                     onFocus={() => {
-                      if (searchResults.length > 0) setShowDropdown(true);
+                      // Solo mostrar dropdown si hay resultados Y no hay cliente seleccionado
+                      if (searchResults.length > 0 && !selectedClient) {
+                        setShowDropdown(true);
+                      }
                     }}
                     placeholder={PLACEHOLDERS.owner ?? ""}
                   />
@@ -265,7 +306,6 @@ export default function EditPropertyDialog({ property, open, onClose, onUpdated 
                     </div>
                   )}
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">{FORM.ownerHelp ?? ""}</p>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
@@ -290,11 +330,21 @@ export default function EditPropertyDialog({ property, open, onClose, onUpdated 
               <div className="grid grid-cols-1 gap-2">
                 <AddressInput
                   value={address}
-                  onChange={setAddress}
+                  onChange={(newAddress) => {
+                    setAddress(newAddress);
+                    // Limpiar error cuando el usuario empieza a escribir
+                    if (validationErrors.address) {
+                      setValidationErrors(prev => ({ ...prev, address: undefined }));
+                    }
+                  }}
                   label={FIELD.address ?? ""}
                   placeholder={PLACEHOLDERS.address ?? ""}
                   name="address"
+                  className={validationErrors.address ? "border-red-500 focus:border-red-500" : ""}
                 />
+                {validationErrors.address && (
+                  <p className="text-red-500 text-xs mt-1">{validationErrors.address}</p>
+                )}
               </div>
 
               <div>
@@ -315,6 +365,22 @@ export default function EditPropertyDialog({ property, open, onClose, onUpdated 
               </div>
 
               {error && <p className="text-sm text-red-600">{error}</p>}
+
+              {/* Mensaje de error general */}
+              {generalError && (
+                <div className="bg-red-50 border border-red-200 rounded-md p-3 mt-3">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm text-red-800">{generalError}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="flex justify-end items-center gap-2">
                 <Button variant="secondary" onClick={() => onClose()} disabled={loading}>
