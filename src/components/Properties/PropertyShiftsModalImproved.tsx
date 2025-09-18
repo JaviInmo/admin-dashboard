@@ -1249,6 +1249,56 @@ export default function PropertyShiftsModalImproved({
       void fetchAndCacheProperties([propId]);
     }
 
+    // Si el nuevo shift trae guard_details en raw, actualizar el cache de guardias
+    const guardId = s.guard != null ? Number(s.guard) : undefined;
+    if (guardId && raw?.guard_details) {
+      const guardData = raw.guard_details;
+      // Verificar si ya tenemos este guardia en el cache
+      const existingGuard = allGuardsCache.find(g => g.id === guardId);
+      if (!existingGuard) {
+        // Agregar el nuevo guardia al cache
+        const newGuard: Guard = {
+          id: guardData.id || guardId,
+          firstName: guardData.first_name || guardData.firstName || "",
+          lastName: guardData.last_name || guardData.lastName || "",
+          email: guardData.email || "",
+          phone: guardData.phone || "",
+          ssn: guardData.ssn || "",
+          address: guardData.address || "",
+          birthdate: guardData.birth_date || guardData.birthdate || null,
+        };
+        
+        setAllGuardsCache((prev) => [...prev, newGuard]);
+      } else {
+        // Actualizar la información del guardia existente si es necesario
+        const updatedGuard: Guard = {
+          ...existingGuard,
+          firstName: guardData.first_name || guardData.firstName || existingGuard.firstName,
+          lastName: guardData.last_name || guardData.lastName || existingGuard.lastName,
+          email: guardData.email || existingGuard.email,
+          phone: guardData.phone || existingGuard.phone,
+          ssn: guardData.ssn || existingGuard.ssn,
+          address: guardData.address || existingGuard.address,
+          birthdate: guardData.birth_date || guardData.birthdate || existingGuard.birthdate,
+        };
+        
+        setAllGuardsCache((prev) => prev.map(g => g.id === guardId ? updatedGuard : g));
+      }
+    }
+
+    // Si hay un día seleccionado y el turno tiene un guardia, 
+    // no cambiar la selección actual para mantener el timeline visible
+    // Esto permite que el usuario vea inmediatamente el turno creado por drag & drop
+    const newShiftGuardId = s.guard ? Number(s.guard) : null;
+    if (selectedDate && newShiftGuardId) {
+      // Verificar si el turno creado es para el día seleccionado
+      const shiftDate = s.startTime ? new Date(s.startTime) : null;
+      if (shiftDate && isSameDay(shiftDate, selectedDate)) {
+        // Mantener la fecha seleccionada para que el timeline siga visible
+        // El timeline ya mostrará el nuevo turno automáticamente
+      }
+    }
+
     toast.success(TEXT?.shifts?.messages?.created ?? "Shift created");
   }
 
@@ -1265,6 +1315,43 @@ export default function PropertyShiftsModalImproved({
       setPropertyMap((p) => ({ ...p, [propId]: raw.property_details }));
     } else if (propId && propertyMap[propId] === undefined) {
       void fetchAndCacheProperties([propId]);
+    }
+
+    // Si el shift actualizado trae guard_details en raw, actualizar el cache de guardias
+    const guardId = s.guard != null ? Number(s.guard) : undefined;
+    if (guardId && raw?.guard_details) {
+      const guardData = raw.guard_details;
+      // Verificar si ya tenemos este guardia en el cache
+      const existingGuard = allGuardsCache.find(g => g.id === guardId);
+      if (!existingGuard) {
+        // Agregar el nuevo guardia al cache
+        const newGuard: Guard = {
+          id: guardData.id || guardId,
+          firstName: guardData.first_name || guardData.firstName || "",
+          lastName: guardData.last_name || guardData.lastName || "",
+          email: guardData.email || "",
+          phone: guardData.phone || "",
+          ssn: guardData.ssn || "",
+          address: guardData.address || "",
+          birthdate: guardData.birth_date || guardData.birthdate || null,
+        };
+        
+        setAllGuardsCache((prev) => [...prev, newGuard]);
+      } else {
+        // Actualizar la información del guardia existente
+        const updatedGuard: Guard = {
+          ...existingGuard,
+          firstName: guardData.first_name || guardData.firstName || existingGuard.firstName,
+          lastName: guardData.last_name || guardData.lastName || existingGuard.lastName,
+          email: guardData.email || existingGuard.email,
+          phone: guardData.phone || existingGuard.phone,
+          ssn: guardData.ssn || existingGuard.ssn,
+          address: guardData.address || existingGuard.address,
+          birthdate: guardData.birth_date || guardData.birthdate || existingGuard.birthdate,
+        };
+        
+        setAllGuardsCache((prev) => prev.map(g => g.id === guardId ? updatedGuard : g));
+      }
     }
 
     toast.success(TEXT?.shifts?.messages?.updated ?? "Shift updated");
@@ -1537,19 +1624,35 @@ export default function PropertyShiftsModalImproved({
       }
       const endLocal = new Date(startLocal.getTime() + 6 * 60 * 60 * 1000);
 
-      const created = await createShift({
+      // Incluir servicio seleccionado si hay uno
+      const shiftData: any = {
         guard: guardId,
         property: propertyId,
         start_time: startLocal.toISOString(),
         end_time: endLocal.toISOString(),
         status: "scheduled",
-      });
+      };
+      
+      // Si hay un servicio seleccionado, incluirlo en el turno
+      if (selectedServiceId !== null) {
+        shiftData.service = selectedServiceId;
+      }
+
+      const created = await createShift(shiftData);
       handleCreated(created);
+      
+      // Actualizar timeline para mostrar el guardia que acabamos de agregar
+      // Si hay un guardia seleccionado diferente, cambiarlo al que acabamos de crear el turno
+      if (selectedGuardId !== guardId) {
+        setSelectedGuardId(guardId);
+        // Mantener la fecha seleccionada para mostrar el timeline
+        // No limpiar selectedDate para que siga mostrando el timeline del día
+      }
     } catch (err) {
       console.error("createShift (DnD) failed:", err);
       toast.error("No se pudo crear el turno");
     }
-  }, [selectedDate, propertyId]);
+  }, [selectedDate, propertyId, selectedServiceId, selectedGuardId]);
   
   return (
     <Dialog
