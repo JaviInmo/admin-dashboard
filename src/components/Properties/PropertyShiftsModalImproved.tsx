@@ -10,7 +10,6 @@ import {
   Loader2,
   Plus,
   RefreshCw,
-  Eye,
   Pencil,
   Trash,
   Filter,
@@ -966,19 +965,31 @@ export default function PropertyShiftsModalImproved({
   // getProperty label: devuelve string | null (null = no hay nombre aún)
   function getPropertyLabelForShift(s: Shift): string | null {
     const raw = (s as any).__raw;
-    const rawName =
-      raw?.property_details?.name ?? raw?.property_details?.alias ?? null;
-    if (rawName) {
-      const idPart = raw?.property_details?.id ?? s.property;
-      return `${rawName}${idPart ? ` #${idPart}` : ""}`;
+    const rawAlias = raw?.property_details?.alias;
+    const rawName = raw?.property_details?.name;
+    
+    // Mostrar alias + nombre
+    if (rawAlias || rawName) {
+      const parts = [];
+      if (rawAlias) parts.push(rawAlias);
+      if (rawName) parts.push(rawName);
+      return parts.join(' ');
     }
 
     if (s.property != null) {
       const id = Number(s.property);
       const p = propertyMap[id];
       if (p) {
-        const name = p.name ?? p.alias ?? p.address ?? `Property ${p.id}`;
-        return `${name} #${p.id}`;
+        // Mostrar alias + nombre, con fallbacks
+        const parts = [];
+        if (p.alias) parts.push(p.alias);
+        if (p.name) parts.push(p.name);
+        
+        if (parts.length > 0) {
+          return parts.join(' - ');
+        }
+        
+        return p.address || `Property ${p.id}`;
       }
       return null;
     }
@@ -2740,15 +2751,6 @@ export default function PropertyShiftsModalImproved({
                                     </div>
 
                                     <div className="flex items-center gap-2">
-                                      <Button
-                                        size="icon"
-                                        variant="ghost"
-                                        onClick={() => setOpenShowId(s.id)}
-                                        title={TEXT?.actions?.view ?? "Ver"}
-                                      >
-                                        <Eye className="h-4 w-4" />
-                                      </Button>
-
                                       <Button
                                         size="icon"
                                         variant="outline"
