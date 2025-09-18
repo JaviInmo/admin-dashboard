@@ -156,8 +156,8 @@ export default function PropertyServiceEdit({
   }>({});
 
   // Estado para el filtro de fechas
-  const [dateFilter, setDateFilter] = React.useState<"day" | "week" | "month">(
-    "day"
+  const [dateFilter, setDateFilter] = React.useState<"week" | "month">(
+    "week"
   );
 
   // Estado para tracking de período actual en modo período
@@ -254,6 +254,22 @@ export default function PropertyServiceEdit({
         document.removeEventListener("mousedown", handleClickOutside);
     }
   }, [propertyDropdownOpen]);
+
+  // Effect para aplicar automáticamente los horarios cuando cambien
+  React.useEffect(() => {
+    if (schedule.length > 0 && calendarStartTime && calendarEndTime) {
+      setDateTimeMap((prev) => {
+        const newMap = { ...prev };
+        schedule.forEach((date) => {
+          newMap[date] = {
+            start: calendarStartTime,
+            end: calendarEndTime,
+          };
+        });
+        return newMap;
+      });
+    }
+  }, [schedule, calendarStartTime, calendarEndTime]);
 
   const propsQuery = useQuery<AppProperty[], Error>({
     queryKey: ["properties-suggest", propertySearchTerm],
@@ -694,36 +710,16 @@ export default function PropertyServiceEdit({
 
     let summary = "";
 
-    // Información del rango permitido
+    // Información del período de vigencia
     if (startDate && endDate) {
-      summary += `Servicio planificado del ${new Date(
+      summary += `Servicio programado del ${new Date(
         startDate
       ).toLocaleDateString("es-ES")} al ${new Date(
         endDate
       ).toLocaleDateString("es-ES")}. `;
     }
 
-    // Tipo de programación
-    if (scheduleType === "specific") {
-      summary += "Programado para fechas específicas. ";
-    } else {
-      summary += `Programado por período del ${
-        periodStart ? new Date(periodStart).toLocaleDateString("es-ES") : ""
-      } al ${
-        periodEnd ? new Date(periodEnd).toLocaleDateString("es-ES") : ""
-      }. `;
-    }
-
-    // Cantidad y rango de fechas válidas
-    if (totalDates === 1) {
-      summary += `Una sola fecha: ${firstDate.toLocaleDateString("es-ES")}. `;
-    } else {
-      summary += `${totalDates} fechas desde ${firstDate.toLocaleDateString(
-        "es-ES"
-      )} hasta ${lastDate.toLocaleDateString("es-ES")}. `;
-    }
-
-    // Análisis de patrón (días de la semana más comunes) solo para fechas válidas
+    // Análisis detallado de patrones de días
     const dayCount: { [key: number]: number } = {};
     dates.forEach((date) => {
       const day = date.getDay();
@@ -731,105 +727,95 @@ export default function PropertyServiceEdit({
     });
 
     const dayNames = [
-      "domingo",
-      "lunes",
-      "martes",
-      "miércoles",
-      "jueves",
-      "viernes",
-      "sábado",
+      "domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"
     ];
 
-    // Detectar patrones específicos de días laborales
     const workingDays = Object.keys(dayCount).map(Number).sort();
     let dayPattern = "";
 
-    if (workingDays.length > 0 && totalDates > 2) {
-      // Función para detectar rangos consecutivos
-      const getConsecutiveRanges = (days: number[]): string => {
-        const ranges: string[] = [];
-        let start = days[0];
-        let end = days[0];
+    // Detectar patrones específicos de días
+    if (totalDates === 1) {
+      summary += `Programado para una única fecha: ${firstDate.toLocaleDateString("es-ES")} (${dayNames[firstDate.getDay()]}). `;
+    } else if (totalDates === 2) {
+      const day1 = dayNames[dates[0].getDay()];
+      const day2 = dayNames[dates[1].getDay()];
+      summary += `Programado para ${totalDates} fechas: ${day1} ${dates[0].toLocaleDateString("es-ES")} y ${day2} ${dates[1].toLocaleDateString("es-ES")}. `;
+    } else {
+      // Para múltiples fechas, analizar patrones
+      summary += `Programado para ${totalDates} fechas desde ${firstDate.toLocaleDateString("es-ES")} hasta ${lastDate.toLocaleDateString("es-ES")}. `;
 
-        for (let i = 1; i < days.length; i++) {
-          if (days[i] === end + 1) {
-            // Día consecutivo
-            end = days[i];
+      if (workingDays.length > 0) {
+        // Detectar patrones comunes
+        const isConsecutiveDays = workingDays.every((day, index) => 
+          index === 0 || day === workingDays[index - 1] + 1 || 
+          (workingDays[index - 1] === 6 && day === 0) // Domingo después de sábado
+        );
+
+        const isWeekdays = workingDays.every((day) => day >= 1 && day <= 5);
+        const isWeekends = workingDays.every((day) => day === 0 || day === 6);
+
+        if (isWeekdays && workingDays.length === 5 && workingDays.join(",") === "1,2,3,4,5") {
+          dayPattern = "Patrón: días laborales (lunes a viernes)";
+        } else if (isWeekdays && workingDays.length === 6 && workingDays.join(",") === "1,2,3,4,5,6") {
+          dayPattern = "Patrón: lunes a sábado";
+        } else if (isWeekends && workingDays.length === 2) {
+          dayPattern = "Patrón: fines de semana únicamente";
+        } else if (workingDays.length === 1) {
+          const dayName = dayNames[workingDays[0]];
+          const frequency = Math.round(totalDates / getWeeksBetween(firstDate, lastDate));
+          if (frequency >= 2) {
+            dayPattern = `Patrón: todos los ${dayName}s (${frequency} veces por semana aprox.)`;
           } else {
-            // Fin de secuencia, agregar rango
-            if (start === end) {
-              ranges.push(dayNames[start]);
-            } else if (end === start + 1) {
-              ranges.push(`${dayNames[start]} y ${dayNames[end]}`);
-            } else {
-              ranges.push(`de ${dayNames[start]} a ${dayNames[end]}`);
-            }
-            start = days[i];
-            end = days[i];
+            dayPattern = `Patrón: ${dayName}s semanales`;
           }
-        }
-
-        // Agregar el último rango
-        if (start === end) {
-          ranges.push(dayNames[start]);
-        } else if (end === start + 1) {
-          ranges.push(`${dayNames[start]} y ${dayNames[end]}`);
+        } else if (workingDays.length === 2) {
+          const day1 = dayNames[workingDays[0]];
+          const day2 = dayNames[workingDays[1]];
+          dayPattern = `Patrón: ${day1}s y ${day2}s de cada semana`;
+        } else if (workingDays.length === 3) {
+          const dayList = workingDays.map(d => dayNames[d]);
+          dayPattern = `Patrón: ${dayList[0]}s, ${dayList[1]}s y ${dayList[2]}s`;
+        } else if (isConsecutiveDays) {
+          const firstDay = dayNames[workingDays[0]];
+          const lastDay = dayNames[workingDays[workingDays.length - 1]];
+          dayPattern = `Patrón: días consecutivos de ${firstDay} a ${lastDay}`;
+        } else if (checkBiweeklyPattern(dates)) {
+          dayPattern = "Patrón: servicio quincenal (cada 2 semanas)";
+        } else if (checkMonthlyPattern(dates)) {
+          dayPattern = "Patrón: servicio mensual";
         } else {
-          ranges.push(`de ${dayNames[start]} a ${dayNames[end]}`);
+          // Patrón irregular - mostrar días más frecuentes
+          const sortedDays = Object.entries(dayCount)
+            .sort(([, a], [, b]) => b - a)
+            .slice(0, 3)
+            .map(([day, count]) => `${dayNames[parseInt(day)]}s (${count})`);
+          dayPattern = `Patrón irregular: principalmente ${sortedDays.join(", ")}`;
         }
 
-        // Unir rangos con comas y "y"
-        if (ranges.length === 1) {
-          return ranges[0];
-        } else if (ranges.length === 2) {
-          return ranges.join(" y ");
-        } else {
-          return (
-            ranges.slice(0, -1).join(", ") + " y " + ranges[ranges.length - 1]
-          );
+        if (dayPattern) {
+          summary += `${dayPattern}. `;
         }
-      };
-
-      // Patrones especiales primero
-      const isWeekdays = workingDays.every((day) => day >= 1 && day <= 5); // Lunes a viernes
-      const isWeekends = workingDays.every((day) => day === 0 || day === 6); // Fines de semana
-
-      if (
-        isWeekdays &&
-        workingDays.length === 5 &&
-        workingDays.join(",") === "1,2,3,4,5"
-      ) {
-        dayPattern = "de lunes a viernes";
-      } else if (
-        isWeekdays &&
-        workingDays.length === 6 &&
-        workingDays.join(",") === "1,2,3,4,5,6"
-      ) {
-        dayPattern = "de lunes a sábado";
-      } else if (isWeekends) {
-        dayPattern = "fines de semana";
-      } else if (workingDays.length === 1) {
-        dayPattern = `solo ${dayNames[workingDays[0]]}s`;
-      } else if (workingDays.length <= 5) {
-        // Para grupos pequeños, usar la lógica de rangos consecutivos
-        dayPattern = getConsecutiveRanges(workingDays);
-      } else {
-        // Para más de 5 días, mostrar los más frecuentes
-        const mostCommonDays = Object.entries(dayCount)
-          .sort(([, a], [, b]) => b - a)
-          .slice(0, 3)
-          .map(([day]) => dayNames[parseInt(day)]);
-        dayPattern = `principalmente ${mostCommonDays
-          .join(", ")
-          .replace(/, ([^,]*)$/, " y $1")}`;
-      }
-
-      if (dayPattern) {
-        summary += `Horario: ${dayPattern}. `;
       }
     }
 
-    // Información de horarios (solo para fechas válidas)
+    // Análisis de frecuencia temporal
+    if (totalDates > 2) {
+      const totalDays = Math.ceil((lastDate.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      const frequencyNum = (totalDates / totalDays) * 100;
+      const frequency = frequencyNum.toFixed(0);
+      
+      if (totalDates === totalDays) {
+        summary += "Frecuencia: servicio diario continuo. ";
+      } else if (frequencyNum >= 50) {
+        summary += `Frecuencia: alta densidad (${frequency}% de los días). `;
+      } else if (frequencyNum >= 25) {
+        summary += `Frecuencia: densidad media (${frequency}% de los días). `;
+      } else {
+        summary += `Frecuencia: servicio esporádico (${frequency}% de los días). `;
+      }
+    }
+
+    // Información de horarios consolidada
     const uniqueSchedules = new Set();
     validDates.forEach((dateStr) => {
       const times = dateTimeMap[dateStr];
@@ -840,17 +826,166 @@ export default function PropertyServiceEdit({
 
     if (uniqueSchedules.size > 0) {
       if (uniqueSchedules.size === 1) {
-        const schedule = Array.from(uniqueSchedules)[0];
-        summary += `Horario: ${schedule}. `;
+        const scheduleStr = Array.from(uniqueSchedules)[0] as string;
+        const [startTime, endTime] = scheduleStr.split('-');
+        const duration = calculateHourDifference(startTime, endTime);
+        summary += `Horario uniforme: ${startTime} a ${endTime} (${duration} horas por jornada). `;
       } else {
-        summary += `Horarios variables (${uniqueSchedules.size} diferentes). `;
+        const scheduleList = Array.from(uniqueSchedules).slice(0, 3).join(", ");
+        summary += `Horarios variables: ${scheduleList}${uniqueSchedules.size > 3 ? ` y ${uniqueSchedules.size - 3} más` : ""}. `;
       }
     }
 
-    // Total de horas
-    summary += `Total de trabajo: ${totalHours}.`;
+    // Resumen final con métricas
+    const weeksSpanned = getWeeksBetween(firstDate, lastDate);
+    if (weeksSpanned > 1) {
+      summary += `Duración total: ${totalHours} distribuidas en ${totalDates} jornadas durante ${weeksSpanned} semanas.`;
+    } else {
+      summary += `Duración total: ${totalHours} distribuidas en ${totalDates} jornadas.`;
+    }
 
     return summary;
+  };
+
+  // Funciones auxiliares para análisis de patrones
+  const checkBiweeklyPattern = (dates: Date[]): boolean => {
+    if (dates.length < 3) return false;
+    for (let i = 2; i < dates.length; i++) {
+      const daysDiff = Math.ceil((dates[i].getTime() - dates[i-2].getTime()) / (1000 * 60 * 60 * 24));
+      if (Math.abs(daysDiff - 14) > 2) return false; // Tolerancia de 2 días
+    }
+    return true;
+  };
+
+  const checkMonthlyPattern = (dates: Date[]): boolean => {
+    if (dates.length < 2) return false;
+    return dates.every((date, index) => {
+      if (index === 0) return true;
+      const prevDate = dates[index - 1];
+      const daysDiff = Math.ceil((date.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
+      return daysDiff >= 28 && daysDiff <= 31; // Rango de días en un mes
+    });
+  };
+
+  const getWeeksBetween = (startDate: Date, endDate: Date): number => {
+    const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+    return Math.max(1, Math.ceil(daysDiff / 7));
+  };
+
+  const calculateHourDifference = (startTime: string, endTime: string): string => {
+    const [startHour, startMin] = startTime.split(':').map(Number);
+    const [endHour, endMin] = endTime.split(':').map(Number);
+    
+    let totalMinutes = (endHour * 60 + endMin) - (startHour * 60 + startMin);
+    if (totalMinutes < 0) totalMinutes += 24 * 60; // Para casos de cruce de medianoche
+    
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    
+    if (minutes === 0) return `${hours}`;
+    return `${hours}.${Math.round(minutes / 6)}`; // Convertir minutos a decimales
+  };
+
+  // Función para detectar patrón semanal consistente
+  const detectWeeklyPattern = (dates: string[]): string[] | null => {
+    if (dates.length === 0) return null;
+
+    const dayNamesEnglish = [
+      "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"
+    ];
+
+    console.log('Debug - Input dates:', dates.slice(0, 10));
+
+    // Convertir fechas a objetos Date de manera más segura (evitar zona horaria)
+    const dateObjects = dates.map(dateStr => {
+      const [year, month, day] = dateStr.split('-').map(Number);
+      const date = new Date(year, month - 1, day); // mes es 0-indexed en JS
+      console.log(`Debug - Converting: ${dateStr} -> ${date.toLocaleDateString('en-CA')} (day ${date.getDay()}: ${dayNamesEnglish[date.getDay()]})`);
+      return date;
+    });
+    
+    const daysOfWeek = dateObjects.map(date => date.getDay());
+    
+    // Obtener días únicos del patrón
+    const uniqueDays = [...new Set(daysOfWeek)].sort();
+    
+    console.log('Debug - Processed dates:', {
+      dateObjects: dateObjects.slice(0, 10).map(d => ({
+        original: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`,
+        dayOfWeek: d.getDay(),
+        dayName: dayNamesEnglish[d.getDay()],
+        actualDate: d.toLocaleDateString('en-CA')
+      })),
+      uniqueDays,
+      uniqueDayNames: uniqueDays.map(day => dayNamesEnglish[day])
+    });
+    
+    // Si hay muy pocas fechas, usar los días únicos directamente
+    if (dates.length < 3) {
+      const result = uniqueDays.map(day => dayNamesEnglish[day]);
+      console.log('Debug - Simple pattern result:', result);
+      return result;
+    }
+
+    // Para múltiples semanas, verificar consistencia
+    const weekGroups: { [weekKey: string]: number[] } = {};
+    
+    dateObjects.forEach(date => {
+      // Calcular el lunes de esa semana como clave de manera más precisa
+      const monday = new Date(date);
+      const dayOfWeek = date.getDay();
+      const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      monday.setDate(date.getDate() - daysToMonday);
+      const weekKey = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`;
+      
+      if (!weekGroups[weekKey]) {
+        weekGroups[weekKey] = [];
+      }
+      weekGroups[weekKey].push(date.getDay());
+    });
+
+    const weeks = Object.values(weekGroups);
+    console.log('Debug - Week groups:', weeks.map(week => week.map(day => dayNamesEnglish[day])));
+
+    // Si solo tenemos una semana, usar el patrón único
+    if (weeks.length <= 1) {
+      const result = uniqueDays.map(day => dayNamesEnglish[day]);
+      console.log('Debug - Single week pattern result:', result);
+      return result;
+    }
+
+    // Verificar consistencia entre semanas (70% tolerancia)
+    const patternCounts: { [pattern: string]: number } = {};
+    
+    weeks.forEach(week => {
+      const weekPattern = [...new Set(week)].sort();
+      const patternKey = JSON.stringify(weekPattern);
+      patternCounts[patternKey] = (patternCounts[patternKey] || 0) + 1;
+    });
+
+    const mostCommonPattern = Object.entries(patternCounts)
+      .sort(([, a], [, b]) => b - a)[0];
+    
+    if (mostCommonPattern) {
+      const [patternKey, count] = mostCommonPattern;
+      const consistencyRatio = count / weeks.length;
+      
+      console.log('Debug - Pattern consistency:', {
+        mostCommonPattern: JSON.parse(patternKey).map((day: number) => dayNamesEnglish[day]),
+        consistencyRatio,
+        totalWeeks: weeks.length
+      });
+      
+      if (consistencyRatio >= 0.7) {
+        const patternDays = JSON.parse(patternKey) as number[];
+        const result = patternDays.map(day => dayNamesEnglish[day]);
+        console.log('Debug - Consistent pattern result:', result);
+        return result;
+      }
+    }
+
+    console.log('Debug - No consistent weekly pattern found');
+    return null;
   };
 
   // Función para determinar si una fecha debe estar deshabilitada
@@ -970,7 +1105,7 @@ export default function PropertyServiceEdit({
       contractStartDate === "" ? undefined : contractStartDate;
     
     // Campos de fecha para período de vigencia
-    console.log('Debug dates:', { startDate, endDate });
+    //console.log('Debug dates:', { startDate, endDate });
     payload.start_date = startDate === "" ? undefined : startDate;
     payload.end_date = endDate === "" ? undefined : endDate;
     
@@ -980,6 +1115,11 @@ export default function PropertyServiceEdit({
     
     payload.schedule = schedule.length > 0 ? schedule : undefined;
     payload.recurrent = recurrent;
+    
+    // Campo weekly: agregar patrón detectado directamente
+    const weeklyPattern = schedule.length > 0 ? detectWeeklyPattern(schedule) : null;
+    payload.weekly = weeklyPattern;
+    
     payload.is_active = isActive;
 
     console.log('Payload completo antes de enviar:', payload);
@@ -1328,21 +1468,6 @@ export default function PropertyServiceEdit({
                   </Select>
                 </div>
 
-                {/* Checkbox: no se estira */}
-                <div className="flex items-center gap-2 flex-shrink-0 pt-10">
-                  <Checkbox
-                    checked={recurrent}
-                    onCheckedChange={(v) => {
-                      setRecurrent(Boolean(v));
-                      if (!v) setDateFilter("day");
-                    }}
-                    className="h-4 w-4" /* reduce tamaño visual si tu componente acepta className */
-                  />
-                  <span className="text-sm">
-                    {TEXT?.services?.fields?.recurrent ?? "Recurrent"}
-                  </span>
-                </div>
-
                 {/* Select derecho: ocupa el resto */}
                 <div className="flex-1 min-w-0">
                   <label className="text-sm font-medium pb-1 block">
@@ -1393,20 +1518,20 @@ export default function PropertyServiceEdit({
                         </div>
                       </div>
 
-                      {schedule.length > 0 && (
-                        <div className="space-y-3 pt-12 ">
-                          {/* Indicador de horas totales */}
-                          <div className=" rounded-md p-2  border">
-                            <div className="flex justify-between items-center">
-                              <span className="text-sm font-medium ">
-                               Fechas: {schedule.length}
-                              </span>
-                              <span className="text-sm font-bold text-primary">
-                                Total de horas: {formatTotalHours()}
-                              </span>
-                            </div>
+                      <div className="space-y-3 pt-12 ">
+                        {/* Indicador de horas totales */}
+                        <div className=" rounded-md p-2  border">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm font-medium ">
+                             Fechas: {schedule.length}
+                            </span>
+                            <span className="text-sm font-bold text-primary">
+                              Total de horas: {formatTotalHours()}
+                            </span>
                           </div>
+                        </div>
 
+                        {schedule.length > 0 && (
                           <div>
                             <label className="text-sm text-muted-foreground  block">
                               Added dates
@@ -1429,8 +1554,8 @@ export default function PropertyServiceEdit({
                               ))}
                             </ul>
                           </div>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </>
                   ) : (
                     // Período
@@ -1493,21 +1618,19 @@ export default function PropertyServiceEdit({
                       <label className="text-sm text-muted-foreground">
                         Seleccionar fechas en calendario
                       </label>
-                     {schedule.length > 0 && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setSchedule([]);
-                              setDateTimeMap({});
-                              setCurrentPeriodStart(null);
-                            }}
-                            className=" text-xs "
-                          >
-                             <Paintbrush className="w-4 h-4 mr-1" />
-                             Limpiar Selección
-                          </Button>
-                        )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSchedule([]);
+                          setDateTimeMap({});
+                          setCurrentPeriodStart(null);
+                        }}
+                        className=" text-xs "
+                      >
+                         <Paintbrush className="w-4 h-4 mr-1" />
+                         Limpiar Selección
+                      </Button>
                     </div>
                      
 
@@ -1621,13 +1744,13 @@ export default function PropertyServiceEdit({
                                 // Para modo específico, mantener la lógica original
                                 let newDates: string[] = [];
 
-                                // Si no es recurrente, siempre usar modo día
+                                // Si no es recurrente, usar selección individual, si es recurrente usar el filtro
                                 const currentFilter = recurrent
                                   ? dateFilter
-                                  : "day";
+                                  : "week";
 
-                                if (currentFilter === "day") {
-                                  // Modo día: selección normal
+                                if (!recurrent) {
+                                  // Modo individual: selección normal (cuando no es recurrente)
                                   if (schedule.includes(clickedDateStr)) {
                                     // Si ya está seleccionada, la removemos
                                     newDates = schedule.filter(
@@ -1754,26 +1877,43 @@ export default function PropertyServiceEdit({
                           /></div>
                           
 
-                          {/* Filtro de fechas debajo del calendario - solo si es recurrente */}
-                          {recurrent && (
-                            <div className="pr-3 -mt-3">
-                              <Select
-                                value={dateFilter}
-                                onValueChange={(
-                                  value: "day" | "week" | "month"
-                                ) => setDateFilter(value)}
-                              >
-                                <SelectTrigger className="w-full h-7 text-xs">
-                                  <SelectValue placeholder="Seleccionar filtro" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="day">Día</SelectItem>
-                                  <SelectItem value="week">Semana</SelectItem>
-                                  <SelectItem value="month">Mes</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          )}
+                          {/* Filtro de fechas debajo del calendario - con checkbox recurrente a la izquierda */}
+                          <div className="pr-3 -mt-3 flex items-center gap-3">
+                            {/* Checkbox recurrente a la izquierda - completamente clickeable */}
+                            <label className="flex items-center gap-2 flex-shrink-0 cursor-pointer">
+                              <Checkbox
+                                checked={recurrent}
+                                onCheckedChange={(v) => {
+                                  setRecurrent(Boolean(v));
+                                  if (!v) setDateFilter("week");
+                                }}
+                                className="h-4 w-4"
+                              />
+                              <span className="text-xs">
+                                {TEXT?.services?.fields?.recurrent ?? "Recurrent"}
+                              </span>
+                            </label>
+                            
+                            {/* Selector solo visible cuando recurrente está seleccionado */}
+                            {recurrent && (
+                              <div className="flex-1">
+                                <Select
+                                  value={dateFilter}
+                                  onValueChange={(
+                                    value: "week" | "month"
+                                  ) => setDateFilter(value)}
+                                >
+                                  <SelectTrigger className="w-full h-7 text-xs">
+                                    <SelectValue placeholder="Seleccionar filtro" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="week">Semana</SelectItem>
+                                    <SelectItem value="month">Mes</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            )}
+                          </div>
                           <div >
                         
                       </div>
@@ -1787,18 +1927,16 @@ export default function PropertyServiceEdit({
                       <div className="flex-1 min-w-0">
                         <div className="space-y-1">
                           {/* Indicador de horas totales */}
-                          {schedule.length > 0 && (
-                            <div className="bg-muted/20 rounded-md p-2 mb-3  border ">
-                              <div className="flex gap-4 items-center">
-                                <span className="text-sm font-semibold">
-                                  Fechas : {schedule.length}
-                                </span>
-                                <span className="text-sm font-semibold text-primary">
-                                  Total de horas: {formatTotalHours()}
-                                </span>
-                              </div>
+                          <div className="bg-muted/20 rounded-md p-2 mb-3  border ">
+                            <div className="flex gap-4 items-center">
+                              <span className="text-sm font-semibold">
+                                Fechas : {schedule.length}
+                              </span>
+                              <span className="text-sm font-semibold text-primary">
+                                Total de horas: {formatTotalHours()}
+                              </span>
                             </div>
-                          )}
+                          </div>
 
                           {/* Tabla de fechas con altura fija y scroll */}
                           <div className="border rounded-md overflow-hidden h-53">
@@ -1930,26 +2068,6 @@ export default function PropertyServiceEdit({
                                 className="h-7 text-xs"
                               />
                             </div>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="h-7 text-xs flex-1 pr-2"
-                              onClick={() => {
-                                setDateTimeMap((prev) => {
-                                  const newMap = { ...prev };
-                                  schedule.forEach((date) => {
-                                    newMap[date] = {
-                                      start: calendarStartTime,
-                                      end: calendarEndTime,
-                                    };
-                                  });
-                                  return newMap;
-                                });
-                              }}
-                            >
-                              Aplicar
-                            </Button>
                           </div>
                         </div>
                       </div>
@@ -1960,33 +2078,31 @@ export default function PropertyServiceEdit({
               {/* </div> */}
             </div>
             {/* Resumen del Schedule */}
-            {schedule.length > 0 && (
-              <div className="pt-2   bg-blue-50 border border-blue-200 rounded-lg col-span-6">
-                <div className="flex items-start gap-2 p-3">
-                  <div className="w-4 h-4  flex-shrink-0">
-                    <svg
-                      className="w-4 h-4 text-blue-600"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-medium text-blue-900 mb-1">
-                      Resumen del Servicio
-                    </h4>
-                    <p className="text-sm text-blue-800 leading-relaxed">
-                      {generateScheduleSummary()}
-                    </p>
-                  </div>
+            <div className="pt-2 bg-blue-50 border border-blue-200 rounded-lg col-span-6 min-h-[80px]">
+              <div className="flex items-start gap-2 p-3">
+                <div className="w-4 h-4  flex-shrink-0">
+                  <svg
+                    className="w-4 h-4 text-blue-600"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium text-blue-900 mb-1">
+                    Resumen del Servicio
+                  </h4>
+                  <p className="text-sm text-blue-800 leading-relaxed">
+                    {schedule.length > 0 ? generateScheduleSummary() : "Selecciona fechas y horarios para ver el resumen del servicio."}
+                  </p>
                 </div>
               </div>
-            )}
+            </div>
           </div>
         </div>
 
