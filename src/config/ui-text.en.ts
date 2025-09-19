@@ -514,6 +514,7 @@ export const EN_TEXT = {
       endBeforeStart: "End must be after start",
       missingProperty: "Property ID required",
       missingGuard: "Guard ID required",
+      missingService: "Service required",
       createFailed: "Could not create shift",
       fetchFailed: "Could not load shift",
       updateFailed: "Could not update shift",

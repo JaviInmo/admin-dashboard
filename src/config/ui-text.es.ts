@@ -520,6 +520,7 @@ export const ES_TEXT = {
       endBeforeStart: "La fecha de fin debe ser posterior a la de inicio",
       missingProperty: "ID de propiedad requerido",
       missingGuard: "ID de guardia requerido",
+      missingService: "Servicio requerido",
       createFailed: "No se pudo crear el turno",
       fetchFailed: "No se pudo cargar el turno",
       updateFailed: "No se pudo actualizar el turno",

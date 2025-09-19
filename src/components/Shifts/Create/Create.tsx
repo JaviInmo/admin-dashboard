@@ -707,6 +707,11 @@ export default function CreateShift({
       return;
     }
 
+    if (!selectedService) {
+      toast.error((TEXT as any)?.shifts?.errors?.missingService ?? "Service required");
+      return;
+    }
+
     setLoading(true);
     try {
       const payload: any = {

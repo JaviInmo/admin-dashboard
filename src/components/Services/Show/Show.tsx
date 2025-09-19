@@ -11,6 +11,38 @@ import { Button } from "@/components/ui/button";
 import type { Service } from "../types";
 import { useI18n } from "@/i18n";
 
+// Función helper para formatear hora en formato 12h (AM/PM)
+const formatTime12h = (timeStr: string): string => {
+  try {
+    // Si ya está en formato HH:MM, convertir a Date para formatear
+    if (timeStr.match(/^\d{2}:\d{2}$/)) {
+      const [hours, minutes] = timeStr.split(':');
+      const date = new Date();
+      date.setHours(parseInt(hours), parseInt(minutes));
+      return date.toLocaleTimeString('en-US', { 
+        hour: 'numeric', 
+        minute: '2-digit', 
+        hour12: true 
+      });
+    }
+    
+    // Si es una fecha completa, extraer solo la hora
+    const date = new Date(timeStr);
+    if (!isNaN(date.getTime())) {
+      return date.toLocaleTimeString('en-US', { 
+        hour: 'numeric', 
+        minute: '2-digit', 
+        hour12: true 
+      });
+    }
+    
+    // Fallback: retornar el string original
+    return timeStr;
+  } catch {
+    return timeStr;
+  }
+};
+
 interface ShowServiceDialogProps {
   service: Service;
   open: boolean;
@@ -89,13 +121,13 @@ export default function ShowServiceDialog({
                 <strong>
                   {TEXT?.services?.fields?.startTime ?? "Start time"}:
                 </strong>
-                <span>{service.startTime ?? "-"}</span>
+                <span>{service.startTime ? formatTime12h(service.startTime) : "-"}</span>
               </div>
               <div className="flex flex-col pb-2">
                 <strong>
                   {TEXT?.services?.fields?.endTime ?? "End time"}:
                 </strong>
-                <span> {service.endTime ?? "-"}</span>
+                <span>{service.endTime ? formatTime12h(service.endTime) : "-"}</span>
               </div>
             </div>
             <div className="grid grid-cols-2 ">

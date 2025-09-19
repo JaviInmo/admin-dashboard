@@ -41,14 +41,18 @@ import ShowShift from "@/components/Shifts/Show/Show";
 import EditShift from "@/components/Shifts/Edit/Edit";
 import DeleteShift from "@/components/Shifts/Delete/Delete";
 import type { Shift } from "@/components/Shifts/types";
-import { listShiftsByProperty, updateShift, createShift } from "@/lib/services/shifts";
+import {
+  listShiftsByProperty,
+  updateShift, 
+  createShift,
+} from "@/lib/services/shifts";
+import { listShiftsByService } from "@/lib/services/shifts";
 import { getProperty } from "@/lib/services/properties";
+import { getGuard } from "@/lib/services/guard";
 import type { AppProperty } from "@/lib/services/properties";
-import { listGuards } from "@/lib/services/guard";
 import { listServicesByProperty } from "@/lib/services/services";
 import type { Service } from "@/components/Services/types";
 import type { Guard } from "@/components/Guards/types";
-import { listShiftsByService } from "@/lib/services/shifts";
 import { cn } from "@/lib/utils";
 import { es as localeEs } from "date-fns/locale";
 
@@ -265,6 +269,58 @@ export default function PropertyShiftsModalImproved({
   const [overlapShifts, setOverlapShifts] = React.useState<Set<number>>(new Set());
   const [overlapGuards, setOverlapGuards] = React.useState<Set<number>>(new Set());
 
+  // Función helper para calcular horas trabajadas estimadas para turnos planificados
+  const getShiftHours = React.useCallback((shift: Shift): number => {
+    // Si ya tiene horas trabajadas y es mayor a 0, usarlas
+    if (shift.hoursWorked && shift.hoursWorked > 0) {
+      return shift.hoursWorked;
+    }
+    
+    // Si no tiene horas trabajadas pero tiene tiempos planificados, calcular horas estimadas
+    if (shift.plannedStartTime && shift.plannedEndTime) {
+      const startTime = new Date(shift.plannedStartTime);
+      const endTime = new Date(shift.plannedEndTime);
+      const diffMs = endTime.getTime() - startTime.getTime();
+      const diffHours = diffMs / (1000 * 60 * 60);
+      return Math.max(0, Math.round(diffHours * 100) / 100); // Redondear a 2 decimales
+    }
+    
+    // Fallback: 0 horas
+    return 0;
+  }, []);
+
+  // Función helper para formatear hora en formato 12h (AM/PM)
+  const formatTime12h = React.useCallback((timeStr: string): string => {
+    try {
+      // Si ya está en formato HH:MM, convertir a Date para formatear
+      if (timeStr.match(/^\d{2}:\d{2}$/)) {
+        const [hours, minutes] = timeStr.split(':');
+        const date = new Date();
+        date.setHours(parseInt(hours), parseInt(minutes));
+        return date.toLocaleTimeString('en-US', { 
+          hour: 'numeric', 
+          minute: '2-digit', 
+          hour12: true 
+        });
+      }
+      
+      // Si es una fecha completa, extraer solo la hora
+      const date = new Date(timeStr);
+      if (!isNaN(date.getTime())) {
+        return date.toLocaleTimeString('en-US', { 
+          hour: 'numeric', 
+          minute: '2-digit', 
+          hour12: true 
+        });
+      }
+      
+      // Fallback: retornar el string original
+      return timeStr;
+    } catch {
+      return timeStr;
+    }
+  }, []);
+
   // Datos procesados para el calendario estilo Windows
   const processedData = React.useMemo(() => {
     // Filtrar shifts según servicio seleccionado
@@ -318,7 +374,7 @@ export default function PropertyShiftsModalImproved({
         }
         
         propertyGroups[propId].shifts.push(shift);
-        propertyGroups[propId].totalHours += shift.hoursWorked || 0;
+        propertyGroups[propId].totalHours += getShiftHours(shift);
       });
       
       dayData.properties = Object.values(propertyGroups);
@@ -445,7 +501,7 @@ export default function PropertyShiftsModalImproved({
           const start1 = shift1.startTime || shift1.plannedStartTime;
           const end1 = shift1.endTime || shift1.plannedEndTime;
           const start2 = shift2.startTime || shift2.plannedStartTime;
-          const end2 = shift2.endTime || shift2.plannedEndTime;
+          const end2 = shift2.endTime || shift2.endTime;
           
           if (g1 != null && g2 != null && g1 === g2 && start1 && end1 && start2 && end2) {
             if (checkTimeOverlap(start1, end1, start2, end2)) {
@@ -709,7 +765,7 @@ export default function PropertyShiftsModalImproved({
       }
       
       propertyGroups[propId].shifts.push(shift);
-      propertyGroups[propId].totalHours += shift.hoursWorked || 0;
+      propertyGroups[propId].totalHours += getShiftHours(shift);
     });
     
     return Object.values(propertyGroups);
@@ -733,7 +789,12 @@ export default function PropertyShiftsModalImproved({
       
       serviceShifts.forEach((shift) => {
         const guardId = shift.guard ? Number(shift.guard) : -1;
-        const guard = guardLookup[guardId] || null;
+        let guard = guardLookup[guardId] || null;
+        
+        // Si no encontramos el guardia en el cache, buscar en createShiftPreselectedGuard
+        if (!guard && guardId === createShiftPreselectedGuard?.id) {
+          guard = createShiftPreselectedGuard;
+        }
         
         // Solo procesar si tenemos ID de guardia válido
         if (guardId !== -1) {
@@ -752,7 +813,7 @@ export default function PropertyShiftsModalImproved({
           }
           
           guardGroups[guardId].shifts.push(shift);
-          guardGroups[guardId].totalHours += shift.hoursWorked || 0;
+          guardGroups[guardId].totalHours += getShiftHours(shift);
         }
       });
       
@@ -806,20 +867,43 @@ export default function PropertyShiftsModalImproved({
         });
       }
       
-      // Ordenar por última fecha de trabajo (más reciente primero)
+      // Ordenar por próximo turno programado (más próximo primero)
       return result.sort((a, b) => {
-        const aLastShift = a.shifts
-          .filter(s => s.startTime)
-          .sort((x, y) => new Date(y.startTime!).getTime() - new Date(x.startTime!).getTime())[0];
-        const bLastShift = b.shifts
-          .filter(s => s.startTime)
-          .sort((x, y) => new Date(y.startTime!).getTime() - new Date(x.startTime!).getTime())[0];
+        const now = new Date();
         
-        if (!aLastShift?.startTime && !bLastShift?.startTime) return 0;
-        if (!aLastShift?.startTime) return 1;
-        if (!bLastShift?.startTime) return -1;
+        // Encontrar el próximo turno de cada guardia
+        const aNextShift = a.shifts
+          .filter(s => {
+            const shiftTime = s.startTime || s.plannedStartTime;
+            return shiftTime && new Date(shiftTime) > now;
+          })
+          .sort((x, y) => {
+            const xTime = x.startTime || x.plannedStartTime;
+            const yTime = y.startTime || y.plannedStartTime;
+            return new Date(xTime!).getTime() - new Date(yTime!).getTime();
+          })[0];
+          
+        const bNextShift = b.shifts
+          .filter(s => {
+            const shiftTime = s.startTime || s.plannedStartTime;
+            return shiftTime && new Date(shiftTime) > now;
+          })
+          .sort((x, y) => {
+            const xTime = x.startTime || x.plannedStartTime;
+            const yTime = y.startTime || y.plannedStartTime;
+            return new Date(xTime!).getTime() - new Date(yTime!).getTime();
+          })[0];
         
-        return new Date(bLastShift.startTime).getTime() - new Date(aLastShift.startTime).getTime();
+        // Si ninguno tiene próximos turnos, mantener orden actual
+        if (!aNextShift && !bNextShift) return 0;
+        // Si solo uno tiene próximo turno, ese va primero
+        if (!aNextShift) return 1;
+        if (!bNextShift) return -1;
+        
+        // Comparar fechas de próximos turnos (más próximo primero)
+        const aTime = aNextShift.startTime || aNextShift.plannedStartTime;
+        const bTime = bNextShift.startTime || bNextShift.plannedStartTime;
+        return new Date(aTime!).getTime() - new Date(bTime!).getTime();
       });
     }
     
@@ -847,7 +931,7 @@ export default function PropertyShiftsModalImproved({
         }
         
         guardGroups[guardId].shifts.push(shift);
-        guardGroups[guardId].totalHours += shift.hoursWorked || 0;
+        guardGroups[guardId].totalHours += getShiftHours(shift);
       }
     });
     
@@ -891,20 +975,43 @@ export default function PropertyShiftsModalImproved({
       });
     }
     
-    // Ordenar por última fecha de trabajo (más reciente primero)
+    // Ordenar por próximo turno programado (más próximo primero)
     return result.sort((a, b) => {
-      const aLastShift = a.shifts
-        .filter(s => s.startTime)
-        .sort((x, y) => new Date(y.startTime!).getTime() - new Date(x.startTime!).getTime())[0];
-      const bLastShift = b.shifts
-        .filter(s => s.startTime)
-        .sort((x, y) => new Date(y.startTime!).getTime() - new Date(x.startTime!).getTime())[0];
+      const now = new Date();
       
-      if (!aLastShift?.startTime && !bLastShift?.startTime) return 0;
-      if (!aLastShift?.startTime) return 1;
-      if (!bLastShift?.startTime) return -1;
+      // Encontrar el próximo turno de cada guardia
+      const aNextShift = a.shifts
+        .filter(s => {
+          const shiftTime = s.startTime || s.plannedStartTime;
+          return shiftTime && new Date(shiftTime) > now;
+        })
+        .sort((x, y) => {
+          const xTime = x.startTime || x.plannedStartTime;
+          const yTime = y.startTime || y.plannedStartTime;
+          return new Date(xTime!).getTime() - new Date(yTime!).getTime();
+        })[0];
+        
+      const bNextShift = b.shifts
+        .filter(s => {
+          const shiftTime = s.startTime || s.plannedStartTime;
+          return shiftTime && new Date(shiftTime) > now;
+        })
+        .sort((x, y) => {
+          const xTime = x.startTime || x.plannedStartTime;
+          const yTime = y.startTime || y.plannedStartTime;
+          return new Date(xTime!).getTime() - new Date(yTime!).getTime();
+        })[0];
       
-      return new Date(bLastShift.startTime).getTime() - new Date(aLastShift.startTime).getTime();
+      // Si ninguno tiene próximos turnos, mantener orden actual
+      if (!aNextShift && !bNextShift) return 0;
+      // Si solo uno tiene próximo turno, ese va primero
+      if (!aNextShift) return 1;
+      if (!bNextShift) return -1;
+      
+      // Comparar fechas de próximos turnos (más próximo primero)
+      const aTime = aNextShift.startTime || aNextShift.plannedStartTime;
+      const bTime = bNextShift.startTime || bNextShift.plannedStartTime;
+      return new Date(aTime!).getTime() - new Date(bTime!).getTime();
     });
   }, [shifts, allGuardsCache, guardColors, guardSearchQuery, guardTimeFilter, selectedServiceId, allServicesCache]);
 
@@ -957,10 +1064,10 @@ export default function PropertyShiftsModalImproved({
     const completed = relevantShifts.filter(s => s.status === 'completed').length;
     const scheduled = relevantShifts.filter(s => s.status === 'scheduled').length;
     const voided = relevantShifts.filter(s => s.status === 'voided').length;
-    const totalHours = relevantShifts.reduce((sum, s) => sum + (s.hoursWorked || 0), 0);
+    const totalHours = relevantShifts.reduce((sum, s) => sum + getShiftHours(s), 0);
     
     return { total, completed, scheduled, voided, totalHours };
-  }, [shifts, selectedServiceId]);
+  }, [shifts, selectedServiceId, getShiftHours]);
 
   // getProperty label: devuelve string | null (null = no hay nombre aún)
   function getPropertyLabelForShift(s: Shift): string | null {
@@ -986,7 +1093,7 @@ export default function PropertyShiftsModalImproved({
         if (p.name) parts.push(p.name);
         
         if (parts.length > 0) {
-          return parts.join(' - ');
+          return parts.join(' ');
         }
         
         return p.address || `Property ${p.id}`;
@@ -1055,19 +1162,16 @@ export default function PropertyShiftsModalImproved({
       setLoading(true);
       try {
         // 0. Cargar datos básicos de la propiedad actual
-        //console.log(`🔄 Cargando datos de la propiedad ${propertyId}...`);
         try {
           const propertyData = await getProperty(propertyId);
           if (mounted) {
             setCurrentPropertyCache(propertyData);
-            //console.log(`✅ Datos de la propiedad cargados:`, propertyData.name);
           }
         } catch (error) {
-          //console.warn("⚠️ Error cargando datos de la propiedad:", error);
+          console.warn("⚠️ Error cargando datos de la propiedad:", error);
         }
         
         // 1. Cargar servicios de la propiedad primero
-        //console.log(`🔄 Cargando servicios para propiedad ${propertyId}...`);
         const servicesResponse = await listServicesByProperty(propertyId);
         const servicesData = Array.isArray(servicesResponse) 
           ? servicesResponse 
@@ -1076,29 +1180,25 @@ export default function PropertyShiftsModalImproved({
             (servicesResponse as any)?.data || [];
         
         if (!mounted) return;
-        //console.log(`✅ Cargados ${servicesData.length} servicios:`, servicesData.map((s: Service) => s.name));
         setAllServicesCache(servicesData);
         setServicesCacheLoaded(true);
         
         // 2. Cargar turnos de todos los servicios de la propiedad
-        //console.log("🔄 Cargando turnos de los servicios...");
         const allShifts: Shift[] = [];
         
         // Primero cargar turnos directos de la propiedad (sin servicio específico)
         const propertyShiftsResponse = await listShiftsByProperty(propertyId, 1, 100, "-start_time");
         const propertyShifts = normalizeShiftsArray(propertyShiftsResponse);
         allShifts.push(...propertyShifts);
-        //console.log(`✅ Cargados ${propertyShifts.length} turnos directos de la propiedad`);
         
         // Luego cargar turnos específicos de cada servicio
         const serviceShiftPromises = servicesData.map(async (service: Service) => {
           try {
             const serviceShiftsResponse = await listShiftsByService(service.id);
             const serviceShifts = normalizeShiftsArray(serviceShiftsResponse);
-            //console.log(`✅ Servicio ${service.name}: ${serviceShifts.length} turnos`);
             return serviceShifts;
           } catch (error) {
-            //console.warn(`⚠️ Error cargando turnos del servicio ${service.name}:`, error);
+            console.warn(`⚠️ Error cargando turnos del servicio ${service.name}:`, error);
             return [];
           }
         });
@@ -1113,11 +1213,9 @@ export default function PropertyShiftsModalImproved({
           index === self.findIndex(s => s.id === shift.id)
         );
         
-        //console.log(`✅ Total de turnos únicos cargados: ${uniqueShifts.length}`);
         setShifts(uniqueShifts);
 
         // 3. Cargar guardias de todos los turnos cargados
-        //console.log("🔄 Identificando guardias únicos de los turnos...");
         const uniqueGuardIds = Array.from(
           new Set(
             uniqueShifts
@@ -1127,31 +1225,29 @@ export default function PropertyShiftsModalImproved({
           )
         ).filter(id => !Number.isNaN(id));
         
-        //console.log(`🔄 Cargando datos de ${uniqueGuardIds.length} guardias únicos...`);
-        
         // Cargar solo los guardias que aparecen en los turnos (más eficiente)
         if (uniqueGuardIds.length > 0) {
           try {
-            // Cargar todos los guardias disponibles primero (para tener el cache completo)
-            const allGuardsResponse = await listGuards(1, undefined, 200); // Aumentar límite
-            const allGuardsData = allGuardsResponse.items || [];
-            
-            // Filtrar solo los guardias que tienen turnos en esta propiedad
-            const relevantGuards = allGuardsData.filter(guard => 
-              uniqueGuardIds.includes(guard.id)
-            );
+            const guardsPromises = uniqueGuardIds.map(async (guardId) => {
+              try {
+                return await getGuard(guardId);
+              } catch {
+                return null;
+              }
+            });
+
+            const guardsResults = await Promise.all(guardsPromises);
+            const validGuards = guardsResults.filter((guard): guard is Guard => guard !== null);
             
             if (!mounted) return;
             
-            //console.log(`✅ Cargados datos de ${relevantGuards.length} guardias relevantes`);
-            setAllGuardsCache(relevantGuards);
+            setAllGuardsCache(validGuards);
             setGuardsCacheLoaded(true);
           } catch (error) {
-            //console.error("❌ Error cargando guardias:", error);
+            console.error("❌ Error cargando guardias:", error);
             setGuardsCacheLoaded(true); // Marcar como cargado aunque falle
           }
         } else {
-          //console.log("ℹ️ No hay guardias para cargar");
           setAllGuardsCache([]);
           setGuardsCacheLoaded(true);
         }
@@ -1167,13 +1263,11 @@ export default function PropertyShiftsModalImproved({
         ).filter((id) => !Number.isNaN(id) && propertyMap[id] === undefined);
 
         if (propIds.length > 0) {
-          //console.log(`🔄 Cargando ${propIds.length} propiedades faltantes...`);
           await fetchAndCacheProperties(propIds);
         }
 
-        //console.log("🎉 Carga jerárquica completada exitosamente");
       } catch (err) {
-        //console.error("❌ Error en carga jerárquica:", err);
+        console.error("❌ Error en carga jerárquica:", err);
         toast.error(
           TEXT?.shifts?.errors?.fetchFailed ?? "Could not load shifts data"
         );
@@ -1189,10 +1283,7 @@ export default function PropertyShiftsModalImproved({
     };
   }, [open, propertyId]);
 
-  // NOTA: Los useEffect previos para cargar caches por separado han sido eliminados
-  // ya que ahora se cargan de manera jerárquica en el useEffect principal
-
-  // Función para refrescar/actualizar datos (no duplicar)
+  // Función para refrescar/actualizar datos
   async function refresh() {
     setLoading(true);
     try {
@@ -1216,7 +1307,7 @@ export default function PropertyShiftsModalImproved({
       
       toast.success("Datos actualizados");
     } catch (err) {
-      //console.error("[Refresh] error:", err);
+      console.error("[Refresh] error:", err);
       toast.error("Error al actualizar datos");
     } finally {
       setLoading(false);
@@ -1248,8 +1339,32 @@ export default function PropertyShiftsModalImproved({
   }
 
   function handleCreated(s: Shift) {
-    setShifts((p) => [s, ...p]);
+    // PRIMERO: Si tenemos guardia preseleccionado, agregarlo al cache INMEDIATAMENTE
+    const shiftGuardId = s.guard != null ? Number(s.guard) : undefined;
+    if (shiftGuardId && createShiftPreselectedGuard && createShiftPreselectedGuard.id === shiftGuardId) {
+      const existingGuard = allGuardsCache.find(g => g.id === shiftGuardId);
+      if (!existingGuard) {
+        setAllGuardsCache((prev) => [...prev, createShiftPreselectedGuard]);
+      }
+    }
+    
+    // Calcular horas trabajadas estimadas para turnos planificados si no las tiene
+    const enhancedShift = { ...s };
+    if ((!enhancedShift.hoursWorked || enhancedShift.hoursWorked === 0) && enhancedShift.plannedStartTime && enhancedShift.plannedEndTime) {
+      const startTime = new Date(enhancedShift.plannedStartTime);
+      const endTime = new Date(enhancedShift.plannedEndTime);
+      const diffMs = endTime.getTime() - startTime.getTime();
+      enhancedShift.hoursWorked = Math.round(diffMs / (1000 * 60 * 60) * 10) / 10; // Redondear a 1 decimal
+    }
+    
+    // SEGUNDO: Agregar el turno a la lista
+    setShifts((p) => [enhancedShift, ...p]);
+    
     setOpenCreate(false);
+    
+    // Limpiar estado del guardia preseleccionado
+    setCreateShiftGuardId(null);
+    setCreateShiftPreselectedGuard(null);
 
     // si el nuevo shift trae property_details en raw, cachearlo
     const raw = (s as any).__raw;
@@ -1260,14 +1375,21 @@ export default function PropertyShiftsModalImproved({
       void fetchAndCacheProperties([propId]);
     }
 
-    // Si el nuevo shift trae guard_details en raw, actualizar el cache de guardias
+    // Si tenemos guardia preseleccionado del modal, agregarlo al cache si no existe
     const guardId = s.guard != null ? Number(s.guard) : undefined;
-    if (guardId && raw?.guard_details) {
-      const guardData = raw.guard_details;
-      // Verificar si ya tenemos este guardia en el cache
+    if (guardId && createShiftPreselectedGuard && createShiftPreselectedGuard.id === guardId) {
       const existingGuard = allGuardsCache.find(g => g.id === guardId);
       if (!existingGuard) {
-        // Agregar el nuevo guardia al cache
+        setAllGuardsCache((prev) => [...prev, createShiftPreselectedGuard]);
+      }
+    }
+    
+    // TAMBIÉN procesar guard_details del backend si viene (igual que en handleUpdated)
+    if (guardId && raw?.guard_details) {
+      const guardData = raw.guard_details;
+      const existingGuard = allGuardsCache.find(g => g.id === guardId);
+      if (!existingGuard) {
+        // Agregar el nuevo guardia al cache desde el backend
         const newGuard: Guard = {
           id: guardData.id || guardId,
           firstName: guardData.first_name || guardData.firstName || "",
@@ -1281,7 +1403,7 @@ export default function PropertyShiftsModalImproved({
         
         setAllGuardsCache((prev) => [...prev, newGuard]);
       } else {
-        // Actualizar la información del guardia existente si es necesario
+        // Actualizar la información del guardia existente
         const updatedGuard: Guard = {
           ...existingGuard,
           firstName: guardData.first_name || guardData.firstName || existingGuard.firstName,
@@ -1294,19 +1416,6 @@ export default function PropertyShiftsModalImproved({
         };
         
         setAllGuardsCache((prev) => prev.map(g => g.id === guardId ? updatedGuard : g));
-      }
-    }
-
-    // Si hay un día seleccionado y el turno tiene un guardia, 
-    // no cambiar la selección actual para mantener el timeline visible
-    // Esto permite que el usuario vea inmediatamente el turno creado por drag & drop
-    const newShiftGuardId = s.guard ? Number(s.guard) : null;
-    if (selectedDate && newShiftGuardId) {
-      // Verificar si el turno creado es para el día seleccionado
-      const shiftDate = s.startTime ? new Date(s.startTime) : null;
-      if (shiftDate && isSameDay(shiftDate, selectedDate)) {
-        // Mantener la fecha seleccionada para que el timeline siga visible
-        // El timeline ya mostrará el nuevo turno automáticamente
       }
     }
 
@@ -1512,6 +1621,7 @@ export default function PropertyShiftsModalImproved({
       document.body.style.userSelect = "";
       setDragState(null);
   // If it was a move but never activated, treat as click (don't persist here)
+
       if (dragState.mode === "move" && !dragState.activated) {
         return;
       }
@@ -1573,8 +1683,8 @@ export default function PropertyShiftsModalImproved({
       const sod = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
       const startMs = sod.getTime() + snappedMin * 60000;
       const endMs = startMs + 6 * 60 * 60 * 1000; // default 6h
-      const startLbl = new Date(startMs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      const endLbl = new Date(endMs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const startLbl = new Date(startMs).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+      const endLbl = new Date(endMs).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
       setDndPreviewLabel(`${startLbl} – ${endLbl}`);
     }
   }, [selectedDate, isDragOverTimeline, STEP_MINUTES]);
@@ -1719,7 +1829,7 @@ export default function PropertyShiftsModalImproved({
                               <span>{service.name}</span>
                               {service.startTime && service.endTime && (
                                 <span className="text-muted-foreground text-xs">
-                                  ({service.startTime} - {service.endTime})
+                                  ({formatTime12h(service.startTime)} - {formatTime12h(service.endTime)})
                                 </span>
                               )}
                             </div>
@@ -2096,23 +2206,6 @@ export default function PropertyShiftsModalImproved({
                                         <div className="font-medium text-xs truncate">
                                           {guardData.guard.firstName} {guardData.guard.lastName}
                                         </div>
-                                        {(() => {
-                                          const rawPhone = getGuardPhone(guardData.guard);
-                                          if (!rawPhone) return null;
-                                          const wa = normalizePhoneForWhatsapp(rawPhone);
-                                          return (
-                                            <a
-                                              href={`https://wa.me/${wa}`}
-                                              target="_blank"
-                                              rel="noopener noreferrer"
-                                              className="text-xs inline-flex items-center gap-1 underline decoration-dotted text-green-700 hover:text-primary"
-                                              title={`WhatsApp a ${rawPhone}`}
-                                              onClick={(e) => e.stopPropagation()}
-                                            >
-                                              <MessageCircle className="h-3 w-3" /> {rawPhone}
-                                            </a>
-                                          );
-                                        })()}
                                       </div>
                                       
                                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -2134,14 +2227,23 @@ export default function PropertyShiftsModalImproved({
                                           {(() => {
                                             const now = new Date();
                                             const nextShift = guardData.shifts
-                                              .filter((s: Shift) => s.startTime && new Date(s.startTime) > now)
-                                              .sort((a: Shift, b: Shift) => new Date(a.startTime!).getTime() - new Date(b.startTime!).getTime())[0];
+                                              .filter((s: Shift) => {
+                                                const shiftTime = s.startTime || s.plannedStartTime;
+                                                return shiftTime && new Date(shiftTime) > now;
+                                              })
+                                              .sort((a: Shift, b: Shift) => {
+                                                const aTime = a.startTime || a.plannedStartTime;
+                                                const bTime = b.startTime || b.plannedStartTime;
+                                                return new Date(aTime!).getTime() - new Date(bTime!).getTime();
+                                              })[0];
                                             
                                             if (nextShift) {
-                                              const startDate = new Date(nextShift.startTime!);
-                                              return `Siguiente: ${startDate.toLocaleDateString()} ${startDate.toLocaleTimeString([], {
-                                                hour: "2-digit",
-                                                minute: "2-digit"
+                                              const shiftTime = nextShift.startTime || nextShift.plannedStartTime;
+                                              const startDate = new Date(shiftTime!);
+                                              return `Siguiente: ${startDate.toLocaleDateString()} ${startDate.toLocaleTimeString('en-US', {
+                                                hour: "numeric",
+                                                minute: "2-digit",
+                                                hour12: true
                                               })}`;
                                             } else {
                                               return "Sin turnos programados";
@@ -2318,13 +2420,13 @@ export default function PropertyShiftsModalImproved({
                                     backgroundColor: "rgba(249, 115, 22, 0.15)", // naranja con opacidad mejorada
                                     border: "1px solid rgba(245, 158, 11, 0.4)",
                                   }}
-                                  title={`Horario del servicio: ${selectedService.name} (${selectedService.startTime} - ${selectedService.endTime})`}
+                                  title={`Horario del servicio: ${selectedService.name} (${formatTime12h(selectedService.startTime)} - ${formatTime12h(selectedService.endTime)})`}
                                 >
                                   <div className="absolute left-1 top-1 text-[10px] text-orange-800 bg-orange-100/95 px-1.5 py-0.5 rounded-sm font-medium shadow-sm">
                                     📋 {selectedService.name}
                                   </div>
                                   <div className="absolute right-1 top-1 text-[9px] text-orange-700 bg-orange-50/90 px-1 py-0.5 rounded-sm">
-                                    {selectedService.startTime} - {selectedService.endTime}
+                                    {formatTime12h(selectedService.startTime)} - {formatTime12h(selectedService.endTime)}
                                   </div>
                                 </div>
                               );
@@ -2536,7 +2638,7 @@ export default function PropertyShiftsModalImproved({
                                         backgroundColor: it.color + "E6",
                                         backdropFilter: "blur(0.5px)",
                                       }}
-                                      title={`${it.guardName}\n${it.shift.startTime ? new Date(it.shift.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''} - ${it.shift.endTime ? new Date(it.shift.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}`}
+                                      title={`${it.guardName}\n${it.shift.startTime ? new Date(it.shift.startTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : ''} - ${it.shift.endTime ? new Date(it.shift.endTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : ''}`}
                                       onMouseDown={(e) => startMove(e, it.shift.id, it.startMs, it.endMs)}
                                       onClick={(e) => {
                                         // If we were moving and it activated, suppress click opening edit
@@ -2552,28 +2654,28 @@ export default function PropertyShiftsModalImproved({
                                         <span className="font-semibold truncate">{it.guardName}</span>
                                         <div className="flex items-center gap-1">
                                           <span className="font-mono">
-                                            {it.shift.startTime ? new Date(it.shift.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "--:--"}
+                                            {it.shift.startTime ? new Date(it.shift.startTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : "--:--"}
                                             {" "}–{" "}
-                                            {it.shift.endTime ? new Date(it.shift.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "--:--"}
+                                            {it.shift.endTime ? new Date(it.shift.endTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : "--:--"}
                                           </span>
-                                          <div className="flex flex-col items-center gap-0.5 ml-1">
+                                          <div className="flex flex-col items-center gap-0.5 ml-1 relative z-50">
                                             <Button
                                               size="icon"
                                               variant="ghost"
-                                              className="h-6 w-6 p-0 text-white hover:bg-white/20"
+                                              className="h-9 w-9 p-0 text-white hover:bg-white/20 relative z-50"
                                               title="Editar"
                                               onClick={(e) => { e.stopPropagation(); setOpenEditId(it.shift.id); }}
                                             >
-                                              <Pencil className="h-3 w-3" />
+                                              <Pencil className="h-4 w-4" />
                                             </Button>
                                             <Button
                                               size="icon"
                                               variant="ghost"
-                                              className="h-6 w-6 p-0 text-white/90 hover:bg-white/20"
+                                              className="h-9 w-9 p-0 text-white/90 hover:bg-white/20 relative z-50"
                                               title="Eliminar"
                                               onClick={(e) => { e.stopPropagation(); setOpenDeleteId(it.shift.id); }}
                                             >
-                                              <Trash className="h-3 w-3" />
+                                              <Trash className="h-4 w-4" />
                                             </Button>
                                           </div>
                                         </div>
@@ -2584,7 +2686,7 @@ export default function PropertyShiftsModalImproved({
                                           const dt = draftTimes[it.shift.id];
                                           const ms = dt ? (dragState.mode === 'start' ? dt.startMs : dt.endMs) : null;
                                           if (!ms) return null;
-                                          const label = new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                          const label = new Date(ms).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
                                           return (
                                             <div
                                               className={cn(
@@ -2718,16 +2820,18 @@ export default function PropertyShiftsModalImproved({
                                         <div className={cn("text-sm flex items-center gap-2", hasShiftOverlap && "text-red-700")}>
                                           <Clock className={cn("h-3 w-3", hasShiftOverlap && "text-red-600")} />
                                           {s.startTime
-                                            ? new Date(s.startTime).toLocaleTimeString([], {
-                                                hour: "2-digit",
+                                            ? new Date(s.startTime).toLocaleTimeString('en-US', {
+                                                hour: "numeric",
                                                 minute: "2-digit",
+                                                hour12: true
                                               })
                                             : "—"}{" "}
                                           —{" "}
                                           {s.endTime
-                                            ? new Date(s.endTime).toLocaleTimeString([], {
-                                                hour: "2-digit",
+                                            ? new Date(s.endTime).toLocaleTimeString('en-US', {
+                                                hour: "numeric",
                                                 minute: "2-digit",
+                                                hour12: true
                                               })
                                             : "—"}
                                         </div>
