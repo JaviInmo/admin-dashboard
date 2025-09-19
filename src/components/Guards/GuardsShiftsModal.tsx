@@ -117,6 +117,10 @@ export default function GuardsShiftsModal({
   >({});
   const [loadingProps, setLoadingProps] = React.useState<boolean>(false);
 
+  // Cache de guardias para búsqueda rápida
+  const [allGuardsCache, setAllGuardsCache] = React.useState<any[]>([]);
+  const [guardsCacheLoaded, setGuardsCacheLoaded] = React.useState<boolean>(false);
+
   const filteredShifts = React.useMemo(() => {
     if (!selectedDate) return shifts; // Show all shifts when no date selected
     return shifts.filter((shift) => {
@@ -212,6 +216,35 @@ export default function GuardsShiftsModal({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, guardId]);
+
+  // Precargar cache de guardias para búsqueda rápida
+  React.useEffect(() => {
+    if (!open || guardsCacheLoaded) return;
+
+    let mounted = true;
+    const loadGuardsCache = async () => {
+      try {
+        // console.log("Precargando cache de guardias...");
+        const { listGuards } = await import("@/lib/services/guard");
+        const guardsResponse = await listGuards(1, "", 1000); // Cargar hasta 1000 guardias para cache
+        const guardsData = Array.isArray(guardsResponse) ? guardsResponse : (guardsResponse as any)?.results || [];
+
+        if (!mounted) return;
+
+        setAllGuardsCache(guardsData);
+        setGuardsCacheLoaded(true);
+        // console.log(`✅ Precargadas ${guardsData.length} guardias en cache`);
+      } catch (error) {
+        console.error("❌ Error precargando cache de guardias:", error);
+      }
+    };
+
+    loadGuardsCache();
+
+    return () => {
+      mounted = false;
+    };
+  }, [open, guardsCacheLoaded]);
 
   async function loadMore() {
     const nextPage = page + 1;
@@ -637,6 +670,7 @@ export default function GuardsShiftsModal({
         onClose={() => setOpenCreate(false)}
         guardId={guardId}
         selectedDate={selectedDate}
+        preloadedGuards={allGuardsCache}
         onCreated={handleCreated}
       />
 

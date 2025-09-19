@@ -32,6 +32,7 @@ type CreateShiftProps = {
   preselectedProperty?: AppProperty | null;
   preselectedService?: AppService | null;
   preloadedProperties?: AppProperty[];
+  preloadedGuards?: Guard[]; // Agregar propiedad para pasar todos los guardias del cache
   preloadedGuard?: Guard | null;
   onCreated?: (shift: Shift) => void;
 };
@@ -68,6 +69,7 @@ export default function CreateShift({
   preselectedProperty = null,
   preselectedService = null,
   preloadedProperties = [],
+  preloadedGuards = [], // Agregar parámetro para guardias pre-cargadas
   preloadedGuard = null,
   onCreated,
 }: CreateShiftProps) {
@@ -150,7 +152,7 @@ export default function CreateShift({
     }
   }, [open]);
 
-  // Pre-load guards when modal opens
+  // Pre-load guards when modal opens - usar datos pre-cargados si están disponibles
   React.useEffect(() => {
     if (!open) return;
     
@@ -159,7 +161,17 @@ export default function CreateShift({
     
     (async () => {
       try {
-        // Load first 100 guards to have them ready for search
+        // Si tenemos guardias pre-cargadas, usarlas directamente
+        if (preloadedGuards && preloadedGuards.length > 0) {
+          if (mounted) {
+            setAllGuards(preloadedGuards);
+            setGuardResults(preloadedGuards); // Mostrar todas las guardias pre-cargadas inicialmente
+            setGuardsLoading(false);
+          }
+          return;
+        }
+        
+        // Si no hay guardias pre-cargadas, cargar desde el backend (comportamiento anterior)
         const response = await listGuards(1, "", 100);
         if (!mounted) return;
         
@@ -178,7 +190,7 @@ export default function CreateShift({
     return () => {
       mounted = false;
     };
-  }, [open]);
+  }, [open, preloadedGuards]); // Agregar preloadedGuards como dependencia
 
   // Close guard dropdown on outside click or Escape
   React.useEffect(() => {

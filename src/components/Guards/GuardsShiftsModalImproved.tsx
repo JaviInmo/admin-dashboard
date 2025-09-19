@@ -188,6 +188,10 @@ export default function GuardsShiftsModalImproved({
   const [currentGuardCache, setCurrentGuardCache] = React.useState<any | null>(null);
   const [guardCacheLoaded, setGuardCacheLoaded] = React.useState<boolean>(false);
 
+  // Cache de guardias para búsqueda rápida
+  const [allGuardsCache, setAllGuardsCache] = React.useState<any[]>([]);
+  const [guardsCacheLoaded, setGuardsCacheLoaded] = React.useState<boolean>(false);
+
   // Estados para manejo de solapamientos
   const [overlapDays, setOverlapDays] = React.useState<Set<string>>(new Set());
   const [overlapAlert, setOverlapAlert] = React.useState<string>("");
@@ -694,6 +698,35 @@ export default function GuardsShiftsModalImproved({
       mounted = false;
     };
   }, [open, guardCacheLoaded, guardId]);
+
+  // Precargar cache de guardias para búsqueda rápida
+  React.useEffect(() => {
+    if (!open || guardsCacheLoaded) return;
+
+    let mounted = true;
+    const loadGuardsCache = async () => {
+      try {
+        // console.log("Precargando cache de guardias...");
+        const { listGuards } = await import("@/lib/services/guard");
+        const guardsResponse = await listGuards(1, "", 1000); // Cargar hasta 1000 guardias para cache
+        const guardsData = Array.isArray(guardsResponse) ? guardsResponse : (guardsResponse as any)?.results || [];
+
+        if (!mounted) return;
+
+        setAllGuardsCache(guardsData);
+        setGuardsCacheLoaded(true);
+        // console.log(`✅ Precargadas ${guardsData.length} guardias en cache`);
+      } catch (error) {
+        console.error("❌ Error precargando cache de guardias:", error);
+      }
+    };
+
+    loadGuardsCache();
+
+    return () => {
+      mounted = false;
+    };
+  }, [open, guardsCacheLoaded]);
 
   // Función para refrescar/actualizar datos (no duplicar)
   async function refresh() {
@@ -1623,6 +1656,7 @@ export default function GuardsShiftsModalImproved({
         preselectedService={createShiftPreselectedService}
         preloadedProperties={allPropertiesCache}
         preloadedGuard={currentGuardCache}
+        preloadedGuards={allGuardsCache}
         onCreated={handleCreated}
       />
 
