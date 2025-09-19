@@ -53,6 +53,7 @@ import type { AppProperty } from "@/lib/services/properties";
 import { listServicesByProperty } from "@/lib/services/services";
 import type { Service } from "@/components/Services/types";
 import type { Guard } from "@/components/Guards/types";
+import { usePropertiesCache } from "@/hooks/use-properties-cache";
 import { cn } from "@/lib/utils";
 import { es as localeEs } from "date-fns/locale";
 
@@ -231,6 +232,9 @@ export default function PropertyShiftsModalImproved({
 
   const [shifts, setShifts] = React.useState<Shift[]>([]);
   const [loading, setLoading] = React.useState<boolean>(false);
+
+  // Hook de cache para propiedades
+  const { fetchWithCache: fetchPropertyWithCache, getFromCache: getPropertyFromCache } = usePropertiesCache();
 
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(
     initialSelectedDate
@@ -852,8 +856,10 @@ export default function PropertyShiftsModalImproved({
 
         result = result.filter(guardData => {
           const hasRecentShifts = guardData.shifts.some(shift => {
-            if (!shift.startTime) return false;
-            const shiftDate = new Date(shift.startTime);
+            // Usar planned_start_time primero para timeline de fechas
+            const shiftTimeStr = shift.plannedStartTime || shift.startTime;
+            if (!shiftTimeStr) return false;
+            const shiftDate = new Date(shiftTimeStr);
             
             switch (guardTimeFilter) {
               case "today": return shiftDate >= today && shiftDate < tomorrow;
@@ -960,8 +966,10 @@ export default function PropertyShiftsModalImproved({
 
       result = result.filter(guardData => {
         const hasRecentShifts = guardData.shifts.some(shift => {
-          if (!shift.startTime) return false;
-          const shiftDate = new Date(shift.startTime);
+          // Usar planned_start_time primero para timeline de fechas
+          const shiftTimeStr = shift.plannedStartTime || shift.startTime;
+          if (!shiftTimeStr) return false;
+          const shiftDate = new Date(shiftTimeStr);
           
           switch (guardTimeFilter) {
             case "today": return shiftDate >= today && shiftDate < tomorrow;
@@ -1163,12 +1171,26 @@ export default function PropertyShiftsModalImproved({
       try {
         // 0. Cargar datos básicos de la propiedad actual
         try {
-          const propertyData = await getProperty(propertyId);
-          if (mounted) {
-            setCurrentPropertyCache(propertyData);
+          // Primero cargar desde cache inmediatamente si existe
+          const cachedProperty = getPropertyFromCache(propertyId);
+          if (cachedProperty && mounted) {
+            setCurrentPropertyCache(cachedProperty);
+             //console.log(`⚡ Propiedad ${propertyId} cargada desde cache`);
           }
+          
+          // Luego hacer petición al backend para datos frescos
+          await fetchPropertyWithCache(
+            propertyId, 
+            () => getProperty(propertyId),
+            (data, fromCache) => {
+              if (mounted && !fromCache) {
+                setCurrentPropertyCache(data);
+                 //console.log(`✅ Propiedad ${propertyId} actualizada desde backend`);
+              }
+            }
+          );
         } catch (error) {
-          console.warn("⚠️ Error cargando datos de la propiedad:", error);
+           console.warn("⚠️ Error cargando datos de la propiedad:", error);
         }
         
         // 1. Cargar servicios de la propiedad primero
@@ -1319,7 +1341,16 @@ export default function PropertyShiftsModalImproved({
     if (!ids || ids.length === 0) return;
     setLoadingProps(true);
     try {
-      const results = await Promise.allSettled(ids.map((id) => getProperty(id)));
+      const results = await Promise.allSettled(ids.map((id) => 
+        fetchPropertyWithCache(
+          id, 
+          () => getProperty(id),
+          (data) => {
+            // Actualizar propertyMap cuando llegan datos (cache o frescos)
+            setPropertyMap((prev) => ({ ...prev, [id]: data }));
+          }
+        )
+      ));
       setPropertyMap((prev) => {
         const next = { ...prev };
         results.forEach((r, idx) => {
@@ -1627,10 +1658,10 @@ export default function PropertyShiftsModalImproved({
       }
       if (!dt) return;
   try {
-        // Persist changes
+        // Persist changes - usar planned_* en lugar de start_time/end_time
         const updated = await updateShift(dragState.id, {
-          start_time: new Date(dt.startMs).toISOString(),
-          end_time: new Date(dt.endMs).toISOString(),
+          planned_start_time: new Date(dt.startMs).toISOString(),
+          planned_end_time: new Date(dt.endMs).toISOString(),
         });
         // Use existing handler to update state and close any dialogs if needed
         handleUpdated(updated);
@@ -2510,9 +2541,9 @@ export default function PropertyShiftsModalImproved({
                                   const rawPhone = getGuardPhone(guard);
                                   const wa = rawPhone ? normalizePhoneForWhatsapp(rawPhone) : null;
 
-                                  // Usar planned times como fallback
-                                  const startTimeStr = shift.startTime || shift.plannedStartTime;
-                                  const endTimeStr = shift.endTime || shift.plannedEndTime;
+                                  // Usar planned times PRIMERO para timeline de fechas
+                                  const startTimeStr = shift.plannedStartTime || shift.startTime;
+                                  const endTimeStr = shift.plannedEndTime || shift.endTime;
                                   let startMs = startTimeStr ? new Date(startTimeStr).getTime() : sod;
                                   let endMs = endTimeStr ? new Date(endTimeStr).getTime() : Math.min(startMs + 60 * 60 * 1000, eod);
                                   
@@ -2638,7 +2669,7 @@ export default function PropertyShiftsModalImproved({
                                         backgroundColor: it.color + "E6",
                                         backdropFilter: "blur(0.5px)",
                                       }}
-                                      title={`${it.guardName}\n${it.shift.startTime ? new Date(it.shift.startTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : ''} - ${it.shift.endTime ? new Date(it.shift.endTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : ''}`}
+                                      title={`${it.guardName}\n${it.startMs ? new Date(it.startMs).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : ''} - ${it.endMs ? new Date(it.endMs).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : ''}`}
                                       onMouseDown={(e) => startMove(e, it.shift.id, it.startMs, it.endMs)}
                                       onClick={(e) => {
                                         // If we were moving and it activated, suppress click opening edit
@@ -2654,9 +2685,9 @@ export default function PropertyShiftsModalImproved({
                                         <span className="font-semibold truncate">{it.guardName}</span>
                                         <div className="flex items-center gap-1">
                                           <span className="font-mono">
-                                            {it.shift.startTime ? new Date(it.shift.startTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : "--:--"}
+                                            {it.startMs ? new Date(it.startMs).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : "--:--"}
                                             {" "}–{" "}
-                                            {it.shift.endTime ? new Date(it.shift.endTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : "--:--"}
+                                            {it.endMs ? new Date(it.endMs).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : "--:--"}
                                           </span>
                                           <div className="flex flex-col items-center gap-0.5 ml-1 relative z-50">
                                             <Button
@@ -2799,9 +2830,9 @@ export default function PropertyShiftsModalImproved({
                                         style={{ backgroundColor: propColor }}
                                       />
                                       <div>
-                                        {!selectedPropertyId && s.startTime && (
+                                        {!selectedPropertyId && (s.plannedStartTime || s.startTime) && (
                                           <div className="text-xs text-muted-foreground mb-1">
-                                            {new Date(s.startTime).toLocaleDateString()}
+                                            {new Date((s.plannedStartTime || s.startTime)!).toLocaleDateString()}
                                           </div>
                                         )}
 
@@ -2819,16 +2850,16 @@ export default function PropertyShiftsModalImproved({
 
                                         <div className={cn("text-sm flex items-center gap-2", hasShiftOverlap && "text-red-700")}>
                                           <Clock className={cn("h-3 w-3", hasShiftOverlap && "text-red-600")} />
-                                          {s.startTime
-                                            ? new Date(s.startTime).toLocaleTimeString('en-US', {
+                                          {(s.plannedStartTime || s.startTime)
+                                            ? new Date((s.plannedStartTime || s.startTime)!).toLocaleTimeString('en-US', {
                                                 hour: "numeric",
                                                 minute: "2-digit",
                                                 hour12: true
                                               })
                                             : "—"}{" "}
                                           —{" "}
-                                          {s.endTime
-                                            ? new Date(s.endTime).toLocaleTimeString('en-US', {
+                                          {(s.plannedEndTime || s.endTime)
+                                            ? new Date((s.plannedEndTime || s.endTime)!).toLocaleTimeString('en-US', {
                                                 hour: "numeric",
                                                 minute: "2-digit",
                                                 hour12: true

@@ -3,21 +3,27 @@
 import { useMemo, useRef, useEffect, useState } from "react";
 import type { Shift } from "@/components/Shifts/types";
 import type { Guard } from "@/components/Guards/types";
+import type { AppProperty } from "@/lib/services/properties";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { usePropertiesCache } from "@/hooks/use-properties-cache";
 
 type TimelineDetailsProps = {
   displayDays: Date[];
   shifts: Shift[];
   guards: Guard[];
+  properties: AppProperty[];
   selectedColumn: number | null;
   view: "property" | "guard";
 };
 
-export default function TimelineDetails({ displayDays, shifts, guards, selectedColumn }: Omit<TimelineDetailsProps, 'view'>) {
+export default function TimelineDetails({ displayDays, shifts, guards, properties, selectedColumn }: Omit<TimelineDetailsProps, 'view'>) {
   const containerRef = useRef<HTMLDivElement>(null);
   const detailsRef = useRef<HTMLDivElement>(null);
   const [showDetails, setShowDetails] = useState(false);
+
+  // Nuevo: cache de propiedades
+  const { getFromCache } = usePropertiesCache();
 
   // Create guard map for quick lookup
   const guardMap = useMemo(() => {
@@ -25,6 +31,21 @@ export default function TimelineDetails({ displayDays, shifts, guards, selectedC
     guards.forEach(guard => map.set(guard.id, guard));
     return map;
   }, [guards]);
+
+  // Create property map for quick lookup (combina props recibidas + cache persistido)
+  const propertyMap = useMemo(() => {
+    const map = new Map<number, AppProperty>();
+    properties.forEach(property => map.set(property.id, property));
+    // Intentar complementar con cache si faltan
+    // (No sobreescribimos las ya presentes)
+    for (const [idStr, cached] of (getFromCache as any)?.cache?.entries?.() || []) {
+      const id = Number(idStr);
+      if (!map.has(id) && cached?.data) {
+        map.set(id, cached.data);
+      }
+    }
+    return map;
+  }, [properties, getFromCache]);
 
   // Get shifts for the selected day
   const selectedDayShifts = useMemo(() => {
@@ -108,6 +129,7 @@ export default function TimelineDetails({ displayDays, shifts, guards, selectedC
             <div className="space-y-2">
               {selectedDayShifts.map((shift) => {
                 const guard = guardMap.get(shift.guard);
+                const property = shift.property ? propertyMap.get(shift.property) : undefined;
                 const startTime = shift.startTime ? new Date(shift.startTime).toLocaleTimeString(undefined, {
                   hour: '2-digit',
                   minute: '2-digit'
@@ -119,24 +141,29 @@ export default function TimelineDetails({ displayDays, shifts, guards, selectedC
                 
                 return (
                   <div key={shift.id} className="flex items-center justify-between p-2 bg-muted/50 rounded-md text-xs">
-                    <div className="flex items-center gap-2">
-                      <Badge 
-                        variant={
-                          shift.status === "completed" ? "default" : 
-                          shift.status === "scheduled" ? "secondary" : 
-                          "destructive"
-                        }
-                        className="text-xs"
-                      >
-                        {shift.status === "completed" ? "Completado" : 
-                         shift.status === "scheduled" ? "Programado" : 
-                         "Cancelado"}
-                      </Badge>
-                      {guard && (
-                        <span className="font-medium">
-                          {guard.firstName} {guard.lastName}
-                        </span>
-                      )}
+                    <div className="flex flex-col gap-0.5">
+                      <div className="flex items-center gap-2">
+                        <Badge 
+                          variant={
+                            shift.status === "completed" ? "default" : 
+                            shift.status === "scheduled" ? "secondary" : 
+                            "destructive"
+                          }
+                          className="text-xs"
+                        >
+                          {shift.status === "completed" ? "Completado" : 
+                           shift.status === "scheduled" ? "Programado" : 
+                           "Cancelado"}
+                        </Badge>
+                        {guard && (
+                          <span className="font-medium">
+                            {guard.firstName} {guard.lastName}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-muted-foreground">
+                        {property ? property.name : (shift.property ? `Propiedad ${shift.property}` : 'Sin propiedad')}
+                      </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-muted-foreground">

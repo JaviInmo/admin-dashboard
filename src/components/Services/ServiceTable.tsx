@@ -139,6 +139,7 @@ export default function ServicesTable({
     rate: "",
     monthlyBudget: "",
     totalHours: "",
+    scheduled_total_hours: "",
     contractStartDate: "",
     startDate: "",
     endDate: "",

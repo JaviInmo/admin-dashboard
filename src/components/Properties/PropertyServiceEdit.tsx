@@ -67,7 +67,7 @@ export default function PropertyServiceEdit({
     () => service.monthlyBudget ?? ""
   );
   const [totalHours, setTotalHours] = React.useState<string>(
-    () => service.totalHours ?? ""
+    () => service.scheduled_total_hours ?? service.totalHours ?? ""
   );
   const [contractStartDate, setContractStartDate] = React.useState<string>(
     () => service.contractStartDate ?? ""
@@ -146,9 +146,8 @@ export default function PropertyServiceEdit({
   const [periodEnd, setPeriodEnd] = React.useState<string>("");
 
   // Estados para horarios del calendario
-  const [calendarStartTime, setCalendarStartTime] =
-    React.useState<string>("09:00");
-  const [calendarEndTime, setCalendarEndTime] = React.useState<string>("17:00");
+  const [calendarStartTime] = React.useState<string>("09:00");
+  const [calendarEndTime] = React.useState<string>("17:00");
 
   // Estado para manejar horas individuales de cada fecha
   const [dateTimeMap, setDateTimeMap] = React.useState<{
@@ -190,7 +189,7 @@ export default function PropertyServiceEdit({
     setPropertySelectedLabel(service.propertyName ?? "");
     setRate(cleanCurrency(service.rate ?? ""));
     setMonthlyBudget(cleanCurrency(service.monthlyBudget ?? ""));
-    setTotalHours(service.totalHours ?? "");
+    setTotalHours((service as any).scheduledTotalHours ?? (service as any).scheduled_total_hours ?? service.totalHours ?? "");
     setContractStartDate(service.contractStartDate ?? "");
     
       // Campos de fecha para período de vigencia
@@ -207,7 +206,7 @@ export default function PropertyServiceEdit({
     setPropertyDropdownOpen(false); // Cerrar dropdown
     setPropertySearchInput(""); // Limpiar búsqueda
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, service.id]);
+  }, [open]); // Removido service.id para evitar reset de valores editados
 
   React.useEffect(() => {
     const t = setTimeout(
@@ -1075,7 +1074,9 @@ export default function PropertyServiceEdit({
     const isCreate = service.id === 0;
     
     // Para creación, necesitamos CreateServicePayload; para edición, UpdateServicePayload
-    const payload: any = {};
+    const payload: any = {
+      scheduled_total_hours: totalHours || "0"
+    };
 
     if (name !== undefined)
       payload.name = name.trim() === "" ? undefined : name.trim();
@@ -1086,7 +1087,10 @@ export default function PropertyServiceEdit({
     payload.rate = rate === "" ? undefined : cleanCurrency(rate);
     payload.monthly_budget =
       monthlyBudget === "" ? undefined : cleanCurrency(monthlyBudget);
-    payload.total_hours = totalHours === "" ? undefined : totalHours;
+    
+    // FORZAR scheduled_total_hours SIEMPRE en el payload
+    (payload as any).scheduled_total_hours = totalHours || "0";
+    
     payload.contract_start_date =
       contractStartDate === "" ? undefined : contractStartDate;
     
@@ -1095,9 +1099,17 @@ export default function PropertyServiceEdit({
     payload.start_date = startDate === "" ? undefined : startDate;
     payload.end_date = endDate === "" ? undefined : endDate;
     
-    // Campos de hora para horario diario del servicio (formato HH:MM)
-    payload.start_time = start_time === "" ? undefined : start_time;
-    payload.end_time = end_time === "" ? undefined : end_time;
+    // Campos de hora para horario diario del servicio (formato HH:MM:SS)
+    const formatTime = (time: string): string | undefined => {
+      if (!time || time.trim() === "") return undefined;
+      if (time.includes(':') && time.split(':').length === 2) {
+        return `${time}:00`; // Agregar segundos si solo tiene HH:MM
+      }
+      return time; // Ya tiene formato correcto o es inválido
+    };
+    
+    payload.start_time = formatTime(start_time);
+    payload.end_time = formatTime(end_time);
     
     payload.schedule = schedule.length > 0 ? schedule : undefined;
     payload.recurrent = recurrent;
@@ -1107,8 +1119,6 @@ export default function PropertyServiceEdit({
     payload.weekly = weeklyPattern;
     
     payload.is_active = isActive;
-
-    //console.log('Payload completo antes de enviar:', payload);
 
     try {
       setLoading(true);
@@ -1123,6 +1133,7 @@ export default function PropertyServiceEdit({
         toast.success(TEXT?.services?.messages?.updated ?? "Service updated");
       }
       
+      // Invalidar queries para refrescar datos en toda la app
       qc.invalidateQueries({
         predicate: (q) =>
           Array.isArray(q.queryKey) && q.queryKey[0] === "services",
@@ -2034,9 +2045,9 @@ export default function PropertyServiceEdit({
                               </label>
                               <Input
                                 type="time"
-                                value={calendarStartTime}
+                                value={start_time}
                                 onChange={(e) =>
-                                  setCalendarStartTime(e.currentTarget.value)
+                                  setStart_time(e.currentTarget.value)
                                 }
                                 className="h-7 text-xs"
                               />
@@ -2047,9 +2058,9 @@ export default function PropertyServiceEdit({
                               </label>
                               <Input
                                 type="time"
-                                value={calendarEndTime}
+                                value={end_time}
                                 onChange={(e) =>
-                                  setCalendarEndTime(e.currentTarget.value)
+                                  setEnd_time(e.currentTarget.value)
                                 }
                                 className="h-7 text-xs"
                               />

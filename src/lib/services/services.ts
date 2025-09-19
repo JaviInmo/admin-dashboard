@@ -26,6 +26,7 @@ type ServerService = {
   schedule?: Array<string | { [key: string]: any }> | null;
   recurrent?: boolean | null;
   total_hours?: string | null;
+  scheduled_total_hours?: string | null; // Agregado: campo para horas totales programadas
   created_at?: string | null; // date-time
   updated_at?: string | null; // date-time
   is_active?: boolean;
@@ -49,7 +50,8 @@ export type CreateServicePayload = {
   end_time?: string | null;    // Hora fin del servicio diario
   schedule?: Array<string | { [key: string]: any }>; // puede aceptar strings o objetos si el backend lo permite
   recurrent?: boolean;
-  total_hours?: string | null; // Agregado: campo para horas totales
+  total_hours?: string | null; // Agregado: campo para horas totales (legacy)
+  scheduled_total_hours?: string | null; // Agregado: campo para horas totales programadas
   weekly?: string[] | null;    // Agregado: campo para patrón semanal detectado
   is_active?: boolean;
 };
@@ -98,6 +100,7 @@ function mapServerService(s: ServerService): Service {
     schedule,
     recurrent: typeof s.recurrent === "boolean" ? s.recurrent : null,
     totalHours: s.total_hours ?? null,
+    scheduled_total_hours: s.scheduled_total_hours ?? null,
     createdAt: s.created_at ?? null,
     updatedAt: s.updated_at ?? null,
     isActive: typeof s.is_active === "boolean" ? s.is_active : null,
@@ -194,6 +197,10 @@ export async function createService(payload: CreateServicePayload): Promise<Serv
 
   if (payload.total_hours !== undefined && payload.total_hours !== null && payload.total_hours !== "") {
     body.total_hours = payload.total_hours;
+  }
+
+  if (payload.scheduled_total_hours !== undefined && payload.scheduled_total_hours !== null && payload.scheduled_total_hours !== "") {
+    body.scheduled_total_hours = payload.scheduled_total_hours;
   }
 
   if (payload.weekly !== undefined) {
@@ -312,6 +319,14 @@ export async function updateService(id: number, payload: UpdateServicePayload): 
       // omitimos
     } else {
       body.total_hours = payload.total_hours;
+    }
+  }
+
+  if (payload.scheduled_total_hours !== undefined) {
+    if (payload.scheduled_total_hours === "") {
+      // omitimos
+    } else {
+      body.scheduled_total_hours = payload.scheduled_total_hours;
     }
   }
 

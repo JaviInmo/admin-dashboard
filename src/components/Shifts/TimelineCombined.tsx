@@ -552,6 +552,7 @@ export default function TimelineCombined() {
         displayDays={displayDays}
         shifts={filtered}
         guards={guards}
+        properties={properties}
         selectedColumn={selectedColumn}
       />
 

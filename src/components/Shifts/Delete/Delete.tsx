@@ -17,6 +17,7 @@ import type { Shift } from "../types";
 import { useI18n } from "@/i18n";
 import type { Guard } from "@/components/Guards/types";
 import type { AppProperty } from "@/lib/services/properties";
+import { useShiftsCache } from "@/hooks/use-shifts-cache";
 
 type DeleteShiftProps = {
   open: boolean;
@@ -37,6 +38,9 @@ export default function DeleteShift({ open, onClose, shiftId, onDeleted }: Delet
   const [propertyObj, setPropertyObj] = React.useState<AppProperty | null>(null);
   const [loadingNames, setLoadingNames] = React.useState(false);
 
+  // Cache de turnos
+  const { fetchWithCache: fetchShiftWithCache, getFromCache: getShiftFromCache } = useShiftsCache();
+
   React.useEffect(() => {
     if (!open) return;
     setHardDelete(false);
@@ -44,8 +48,25 @@ export default function DeleteShift({ open, onClose, shiftId, onDeleted }: Delet
     setGuardObj(null);
     setPropertyObj(null);
     setLoadingShift(true);
-    getShift(shiftId)
-      .then((s) => setShift(s as Shift))
+    
+    // Primero cargar desde cache inmediatamente si existe
+    const cachedShift = getShiftFromCache(shiftId);
+    if (cachedShift) {
+      setShift(cachedShift as Shift);
+      console.log(`⚡ Turno ${shiftId} cargado desde cache`);
+    }
+    
+    // Luego hacer petición al backend para datos frescos
+    fetchShiftWithCache(
+      shiftId,
+      () => getShift(shiftId),
+      (data, fromCache) => {
+        if (!fromCache && data) {
+          setShift(data as Shift);
+          console.log(`✅ Turno ${shiftId} actualizado desde backend`);
+        }
+      }
+    )
       .catch((err) => {
         console.error(err);
         toast.error((TEXT as any)?.shifts?.errors?.fetchFailed ?? "Could not load shift");

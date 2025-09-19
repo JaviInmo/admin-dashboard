@@ -76,7 +76,7 @@ export default function EditServiceDialog({ service, open, onClose, onUpdated, c
     setSchedule(Array.isArray(service.schedule) ? service.schedule : []);
     setScheduleInput("");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, service.id]);
+  }, [open]); // Removido service.id para evitar reset de valores editados
 
   React.useEffect(() => {
     const t = setTimeout(() => setGuardSearchTerm(guardInput.trim()), 300);
@@ -141,6 +141,15 @@ export default function EditServiceDialog({ service, open, onClose, onUpdated, c
   const handleUpdate = async () => {
     const payload: UpdateServicePayload = {};
 
+    // Formatear tiempo a HH:MM:SS
+    const formatTime = (time: string) => {
+      if (!time) return undefined;
+      if (time.includes(':') && time.split(':').length === 2) {
+        return `${time}:00`; // Agregar segundos si faltan
+      }
+      return time;
+    };
+
     if (name !== undefined) payload.name = name.trim() === "" ? undefined : name.trim();
     if (description !== undefined) payload.description = description.trim() === "" ? "" : description.trim();
     payload.guard = guardId ?? undefined;
@@ -148,8 +157,8 @@ export default function EditServiceDialog({ service, open, onClose, onUpdated, c
     payload.rate = rate === "" ? undefined : rate;
     payload.monthly_budget = monthlyBudget === "" ? undefined : monthlyBudget;
     payload.contract_start_date = contractStartDate === "" ? undefined : contractStartDate;
-    payload.start_time = startTime === "" ? undefined : startTime;
-    payload.end_time = endTime === "" ? undefined : endTime;
+    payload.start_time = formatTime(startTime);
+    payload.end_time = formatTime(endTime);
     payload.schedule = schedule.length > 0 ? schedule : undefined;
     payload.recurrent = recurrent;
     payload.is_active = isActive;

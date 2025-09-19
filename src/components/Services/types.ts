@@ -17,6 +17,7 @@ export type Service = {
   schedule: string[] | null; // array of date strings (ISO) when scheduled
   recurrent: boolean | null; // whether it's recurring
   totalHours: string | null;
+  scheduled_total_hours: string | null; // Horas totales programadas
   createdAt: string | null; // ISO datetime
   updatedAt: string | null; // ISO datetime
   isActive: boolean | null;

@@ -10,13 +10,16 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { getShift, updateShift, listShiftsByGuard } from "@/lib/services/shifts";
+import { getShift, updateShift } from "@/lib/services/shifts";
+// import { listShiftsByGuard } from "@/lib/services/shifts"; // COMENTADO - para solapamientos
 import { listGuards, getGuard } from "@/lib/services/guard";
 import { listProperties, getProperty } from "@/lib/services/properties";
 import { listServicesByProperty, getService } from "@/lib/services/services";
 import { listWeaponsByGuard } from "@/lib/services/weapons";
 import type { Shift } from "../types";
+import { useShiftsCache } from "@/hooks/use-shifts-cache";
 import { useI18n } from "@/i18n";
+import { useServicesCache } from "@/hooks/use-services-cache";
 import type { Guard } from "@/components/Guards/types";
 import type { AppProperty } from "@/lib/services/properties";
 import type { Service as AppService } from "@/components/Services/types";
@@ -111,9 +114,15 @@ export default function EditShift({
   const [selectedWeaponSerial, setSelectedWeaponSerial] = React.useState<string | null>(null);
   const [manualSerial, setManualSerial] = React.useState<string>("");
 
-  // overlap detection (based on planned times)
-  const [hasOverlap, setHasOverlap] = React.useState<boolean>(false);
-  const [overlapMessage, setOverlapMessage] = React.useState<string>("");
+  // COMENTADO - Variables de solapamiento para usar después
+  // const [hasOverlap, setHasOverlap] = React.useState<boolean>(false);
+  // const [overlapMessage, setOverlapMessage] = React.useState<string>("");
+
+  // Cache de servicios
+  const { fetchWithCache: fetchServiceWithCache, getFromCache: getServiceFromCache } = useServicesCache();
+  
+  // Cache de turnos
+  const { fetchWithCache: fetchShiftWithCache, getFromCache: getShiftFromCache } = useShiftsCache();
 
   React.useEffect(() => {
     if (!open) {
@@ -147,8 +156,8 @@ export default function EditShift({
       setSelectedWeaponSerial(null);
       setManualSerial("");
 
-      setHasOverlap(false);
-      setOverlapMessage("");
+      // setHasOverlap(false);           // COMENTADO - solapamiento
+      // setOverlapMessage("");          // COMENTADO - solapamiento
     }
   }, [open, initialShift]);
 
@@ -195,7 +204,24 @@ export default function EditShift({
         if (initialShift) {
           s = initialShift;
         } else if (shiftId) {
-          s = (await getShift(shiftId)) as Shift;
+          // Primero cargar desde cache inmediatamente si existe
+          const cachedShift = getShiftFromCache(shiftId);
+          if (cachedShift && mounted) {
+            s = cachedShift as Shift;
+            //console.log(`⚡ Turno ${shiftId} cargado desde cache`);
+          }
+          
+          // Luego hacer petición al backend para datos frescos
+          await fetchShiftWithCache(
+            shiftId,
+            () => getShift(shiftId),
+            (data, fromCache) => {
+              if (mounted && !fromCache && data) {
+                s = data as Shift;
+                console.log(`✅ Turno ${shiftId} actualizado desde backend`);
+              }
+            }
+          );
         }
 
         if (!s) {
@@ -316,15 +342,24 @@ export default function EditShift({
           } else if ((s as any).service) {
             const serviceIdNum = Number((s as any).service);
             try {
-              if (typeof getService === "function") {
-                const svc = await getService(serviceIdNum);
-                if (!mounted) return;
-                if (svc) {
-                  setSelectedService(svc as AppService);
-                } else {
-                  // Servicio no encontrado
-                }
+              // Primero cargar desde cache inmediatamente si existe
+              const cachedService = getServiceFromCache(serviceIdNum);
+              if (cachedService && mounted) {
+                setSelectedService(cachedService as AppService);
+                console.log(`⚡ Servicio ${serviceIdNum} cargado desde cache`);
               }
+
+              // Luego hacer petición al backend para datos frescos
+              await fetchServiceWithCache(
+                serviceIdNum,
+                () => getService(serviceIdNum),
+                (data, fromCache) => {
+                  if (mounted && !fromCache && data) {
+                    setSelectedService(data as AppService);
+                    console.log(`✅ Servicio ${serviceIdNum} actualizado desde backend`);
+                  }
+                }
+              );
             } catch (err) {
               console.error("Error loading service:", err);
             }
@@ -722,6 +757,8 @@ export default function EditShift({
     return `${alias} - ${ownerName}`;
   };
 
+  // COMENTADO - Funciones de solapamiento para usar después
+  /*
   const checkTimeOverlap = (start1: string, end1: string, start2: string, end2: string): boolean => {
     const startDate1 = new Date(start1);
     const endDate1 = new Date(end1);
@@ -771,13 +808,17 @@ export default function EditShift({
       setOverlapMessage("");
     }
   }, [selectedGuard, plannedStart, plannedEnd]);
+  */
 
+  // COMENTADO - useEffect para solapamientos
+  /*
   React.useEffect(() => {
     const timeoutId = setTimeout(() => {
       checkForOverlaps();
     }, 500);
     return () => clearTimeout(timeoutId);
   }, [checkForOverlaps]);
+  */
 
   // weaponDetails (informativo local)
   const [weaponDetails, setWeaponDetails] = React.useState<string>("");
@@ -795,10 +836,11 @@ export default function EditShift({
       return;
     }
 
-    if (hasOverlap) {
-      toast.error("No se puede actualizar el turno debido a solapamientos detectados");
-      return;
-    }
+    // Los solapamientos son solo advertencia - no bloquean el guardado
+    // if (hasOverlap) {
+    //   toast.error("No se puede actualizar el turno debido a solapamientos detectados");
+    //   return;
+    // }
 
     const plannedStartIso = toIsoFromDatetimeLocal(plannedStart);
     const plannedEndIso = toIsoFromDatetimeLocal(plannedEnd);
@@ -827,13 +869,7 @@ export default function EditShift({
         planned_end_time: plannedEndIso,
       };
 
-      // Si el turno es pasado/activo y tenemos horas reales, incluir esas también
-      if (isShiftPastOrActive && realStart && realEnd) {
-        const realStartIso = toIsoFromDatetimeLocal(realStart);
-        const realEndIso = toIsoFromDatetimeLocal(realEnd);
-        payload.start_time = realStartIso;
-        payload.end_time = realEndIso;
-      }
+      // NO enviar start_time y end_time - solo planned_*
 
       if (selectedService) payload.service = Number(selectedService.id);
       if (typeof isArmed === "boolean") payload.is_armed = isArmed;
@@ -1081,21 +1117,24 @@ export default function EditShift({
             </div>
           </div>
 
+          {/* COMENTADO - Advertencias de solapamiento para usar después
           {hasOverlap && overlapMessage && (
-            <div className="bg-red-50 border border-red-200 rounded-md p-2">
+            <div className="bg-yellow-50 border border-yellow-200 rounded-md p-2">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
-                  <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                   </svg>
                 </div>
                 <div className="ml-3">
-                  <h3 className="text-sm font-medium text-red-800">Solapamiento Detectado</h3>
-                  <div className="mt-1 text-sm text-red-700">{overlapMessage}</div>
+                  <h3 className="text-sm font-medium text-yellow-800">⚠️ Advertencia de Solapamiento</h3>
+                  <div className="mt-1 text-sm text-yellow-700">{overlapMessage}</div>
+                  <div className="mt-1 text-xs text-yellow-600">Esto es solo una advertencia. Puedes guardar el turno si es necesario.</div>
                 </div>
               </div>
             </div>
           )}
+          FIN COMENTADO - Advertencias de solapamiento */}
 
           <div className="flex flex-col gap-2">
             <label className="flex items-center gap-2">
@@ -1213,7 +1252,7 @@ export default function EditShift({
               <Button variant="ghost" onClick={onClose} type="button" size="sm">
                 {(TEXT as any)?.actions?.close ?? "Close"}
               </Button>
-              <Button type="submit" disabled={loading || hasOverlap} size="sm">
+              <Button type="submit" disabled={loading} size="sm">
                 {loading ? (TEXT as any)?.actions?.saving ?? "Saving..." : (TEXT as any)?.actions?.save ?? "Save"}
               </Button>
             </div>

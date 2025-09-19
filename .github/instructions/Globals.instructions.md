@@ -10,3 +10,5 @@ always apply yagni (You Aren't Gonna Need It) principle. Don't add functionality
 no implementes cosas sin consultar antes si quiero que se implementen.
 
 ante cualquier ambigüedad o duda, pregunta primero
+
+NO AGREGEUS LOGS DE DEBUG

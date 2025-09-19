@@ -14,6 +14,7 @@ import { getGuard } from "@/lib/services/guard";
 import { getProperty } from "@/lib/services/properties";
 import type { Shift } from "../types";
 import EditShift from "../Edit/Edit";
+import { useShiftsCache } from "@/hooks/use-shifts-cache";
 import DeleteShift from "../Delete/Delete";
 import { useI18n } from "@/i18n";
 import { toast } from "sonner";
@@ -48,6 +49,9 @@ export default function ShowShift({ open, onClose, shiftId, onUpdated, onDeleted
   const [propertyObj, setPropertyObj] = React.useState<AppProperty | null>(null);
   const [loadingNames, setLoadingNames] = React.useState(false);
 
+  // Cache de turnos
+  const { fetchWithCache: fetchShiftWithCache, getFromCache: getShiftFromCache } = useShiftsCache();
+
   React.useEffect(() => {
     if (!open) return;
     setLoading(true);
@@ -58,9 +62,24 @@ export default function ShowShift({ open, onClose, shiftId, onUpdated, onDeleted
     let mounted = true;
     (async () => {
       try {
-        const s = await getShift(shiftId);
-        if (!mounted) return;
-        setShift(s as Shift);
+        // Primero cargar desde cache inmediatamente si existe
+        const cachedShift = getShiftFromCache(shiftId);
+        if (cachedShift && mounted) {
+          setShift(cachedShift as Shift);
+          console.log(`⚡ Turno ${shiftId} cargado desde cache`);
+        }
+        
+        // Luego hacer petición al backend para datos frescos
+        await fetchShiftWithCache(
+          shiftId,
+          () => getShift(shiftId),
+          (data, fromCache) => {
+            if (mounted && !fromCache && data) {
+              setShift(data as Shift);
+              console.log(`✅ Turno ${shiftId} actualizado desde backend`);
+            }
+          }
+        );
       } catch (err) {
         console.error(err);
         toast.error((TEXT as any)?.shifts?.errors?.fetchFailed ?? "Could not load shift");
