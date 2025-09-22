@@ -3,6 +3,13 @@
 import * as React from "react";
 import type { Shift } from "@/components/Shifts/types";
 
+type ShiftApi = Shift & {
+  planned_start_time?: string | null;
+  planned_end_time?: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
+};
+
 type SimpleGuard = {
   id: number;
   name: string;
@@ -14,7 +21,8 @@ type SimpleGuard = {
 type Props = {
   days: Date[];
   guardsFiltered: SimpleGuard[];
-  shiftsByGuardAndDate: Map<number, Record<string, Shift[]>>;
+  // ahora usamos ShiftApi en lugar de Shift dentro del map/record
+  shiftsByGuardAndDate: Map<number, Record<string, ShiftApi[]>>;
   openCreateForDate: (d: Date, guard?: SimpleGuard | null) => void;
   setActionShift: (s: Shift | null) => void;
   loading: boolean;
@@ -175,12 +183,12 @@ export default function PropertyShiftsTable({
 
             {/* Area derecha: scrollbar horizontal aquí; vertical lo maneja el padre */}
             <div className="flex-1" style={{ minWidth: 0 }}>
-             <div
-  className="overflow-x-auto hide-horizontal-scrollbar"
-  style={{ overflowY: "hidden" }}
-  ref={bodyRightRef}
-  onScroll={onBodyScroll}
->
+              <div
+                className="overflow-x-auto hide-horizontal-scrollbar"
+                style={{ overflowY: "hidden" }}
+                ref={bodyRightRef}
+                onScroll={onBodyScroll}
+              >
                 <div style={{ minWidth: rightMinWidth }}>
                   {guardsFiltered.length === 0 ? (
                     <div className="p-4 text-sm text-muted-foreground"></div>
@@ -227,17 +235,19 @@ export default function PropertyShiftsTable({
                                 }}
                               >
                                 <div className="flex flex-col items-center gap-1">
-                                  {rec.map((s) => {
+                                  {rec.map((s: ShiftApi) => {
                                     const startIso =
                                       s.plannedStartTime ??
-                                      (s as any).planned_start_time ??
+                                      s.planned_start_time ??
                                       s.startTime ??
-                                      (s as any).start_time;
+                                      s.start_time ??
+                                      null;
                                     const endIso =
                                       s.plannedEndTime ??
-                                      (s as any).planned_end_time ??
+                                      s.planned_end_time ??
                                       s.endTime ??
-                                      (s as any).end_time;
+                                      s.end_time ??
+                                      null;
                                     return (
                                       <button
                                         key={s.id}

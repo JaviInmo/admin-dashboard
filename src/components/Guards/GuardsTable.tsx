@@ -25,13 +25,13 @@ import { ClickableEmail } from "../ui/clickable-email";
 /* Modal separado (import) */
 import TariffModal from "./TarifModal";
 import GuardDetailsModal from "./GuardDetailsModal";
-import GuardsShiftsModal from "./GuardsShiftsModalImproved"; // Modal mejorado
+import GuardsShiftsModal from "./asdGuardsShiftsModalImproved"; // Modal mejorado
 
 // Nuevo modal de armas del guardia
 import GuardWeaponsModal from "./GuardWeaponsModal";
 
 // Import modal de servicios del guardia
-import GuardServicesModal from "./GuardServicesModal";
+import GuardServicesModal from "./asdGuardServicesModal";
 
 export interface GuardsTableProps {
   guards: Guard[];

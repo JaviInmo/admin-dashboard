@@ -7,7 +7,7 @@ import { listProperties, type AppProperty } from "@/lib/services/properties";
 import { listShifts } from "@/lib/services/shifts";
 import { listGuards } from "@/lib/services/guard";
 import type { Guard } from "@/components/Guards/types";
-import GuardsShiftsModal from "@/components/Guards/GuardsShiftsModalImproved";
+import GuardsShiftsModal from "@/components/Guards/asdGuardsShiftsModalImproved";
 import type { Shift } from "@/components/Shifts/types";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { CoverageBar } from "./CoverageBar";

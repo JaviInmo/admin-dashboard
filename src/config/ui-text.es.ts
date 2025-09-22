@@ -196,6 +196,8 @@ export const ES_TEXT = {
 
   properties: {
     title: "Gestión de Propiedades",
+    // ADDED: título para la vista de turnos (se permite usar {propertyName} o {propertyId})
+    shiftsTitle: "Turnos — {propertyName}", /* ADDED */
     table: {
       title: "Lista de Propiedades",
       add: "Agregar",
@@ -515,6 +517,8 @@ export const ES_TEXT = {
       subtitle: "Lista de turnos (scrollable)",
       open: "Ver turnos",
     },
+    // ADDED: placeholder para la búsqueda de guardias dentro del header de turnos
+    searchPlaceholder: "Buscar guardias...", /* ADDED */
     errors: {
       missingDates: "Fecha de inicio y fin son requeridas",
       endBeforeStart: "La fecha de fin debe ser posterior a la de inicio",

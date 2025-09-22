@@ -34,7 +34,7 @@ import PropertyDetailsModal from "@/components/Properties/PropertyDetailsModal";
 import PropertiesServicesModal from "@/components/Properties/PropertiesServicesModal";
 
 // Nuevo: modal de Shifts para propiedad (tabla 7 días)
-import PropertyShiftsModal from "@/components/Properties/PropertyShiftsModal";
+import PropertyShiftsModal from "@/components/Properties/properties shifts content/PropertyShiftsModal";
 
 // Componente helper para texto truncado con tooltip
 function TruncatedText({

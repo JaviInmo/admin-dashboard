@@ -31,7 +31,7 @@ type CreateShiftProps = {
   preselectedProperty?: AppProperty | null;
   preselectedService?: AppService | null;
   preloadedProperties?: AppProperty[];
-  preloadedGuards?: Guard[]; // Agregada la lista de guardias precargada
+  preloadedGuards?: Guard[]; // lista de guardias precargada
   preloadedGuard?: Guard | null;
   onCreated?: (shift: Shift) => void;
 };
@@ -50,13 +50,33 @@ function useDebouncedValue<T>(value: T, delay = 300) {
   return v;
 }
 
-function extractItems<T>(maybe: any): T[] {
+/** extrae arrays desde respuestas API comunes sin usar `any` */
+function extractItems<T>(maybe: unknown): T[] {
   if (!maybe) return [];
-  if (Array.isArray(maybe)) return maybe as T[];
-  if (Array.isArray(maybe.results)) return maybe.results as T[];
-  if (Array.isArray(maybe.items)) return maybe.items as T[];
-  if (Array.isArray(maybe.data?.results)) return maybe.data.results as T[];
+  if (Array.isArray(maybe) && maybe.every((x) => typeof x === "object")) return maybe as unknown as T[];
+  if (typeof maybe === "object" && maybe !== null) {
+    const obj = maybe as Record<string, unknown>;
+    if (Array.isArray(obj.results)) return obj.results as unknown as T[];
+    if (Array.isArray(obj.items)) return obj.items as unknown as T[];
+    if (isObject(obj.data) && Array.isArray((obj.data as Record<string, unknown>).results)) {
+      return (obj.data as Record<string, unknown>).results as unknown as T[];
+    }
+  }
   return [];
+}
+
+function isObject(x: unknown): x is Record<string, unknown> {
+  return typeof x === "object" && x !== null;
+}
+
+/** lee una cadena desde un objeto probando varias claves (camelCase / snake_case) */
+function getStringField(obj: unknown, ...keys: string[]): string | undefined {
+  if (!isObject(obj)) return undefined;
+  for (const k of keys) {
+    const v = (obj as Record<string, unknown>)[k];
+    if (typeof v === "string") return v;
+  }
+  return undefined;
 }
 
 export default function CreateShift({
@@ -160,23 +180,21 @@ export default function CreateShift({
 
     (async () => {
       try {
-        // Si tenemos guardias pre-cargadas, usarlas directamente
         if (preloadedGuards && preloadedGuards.length > 0) {
           if (mounted) {
             setAllGuards(preloadedGuards);
-            setGuardResults(preloadedGuards); // Mostrar todas las guardias pre-cargadas inicialmente
+            setGuardResults(preloadedGuards);
             setGuardsLoading(false);
           }
           return;
         }
 
-        // Si no hay guardias pre-cargadas, cargar desde el backend (comportamiento anterior)
         const response = await listGuards(1, "", 100);
         if (!mounted) return;
 
         const guards = extractItems<Guard>(response);
         setAllGuards(guards);
-        setGuardResults(guards); // Initially show all guards
+        setGuardResults(guards);
       } catch (err) {
         console.error("Error pre-loading guards:", err);
         setAllGuards([]);
@@ -189,7 +207,7 @@ export default function CreateShift({
     return () => {
       mounted = false;
     };
-  }, [open, preloadedGuards]); // dependencia en preloadedGuards
+  }, [open, preloadedGuards]);
 
   // Close guard dropdown on outside click or Escape
   React.useEffect(() => {
@@ -287,23 +305,20 @@ export default function CreateShift({
 
     if (preselectedService) {
       setSelectedService(preselectedService);
-      // The timing pre-population will be handled by the selectedService useEffect
     }
   }, [preselectedService, open]);
 
-  // ---------- CAMBIO PRINCIPAL: relleno del guard a partir de preloadedGuards / preloadedGuard ----------
+  // rellenar selectedGuard a partir de preloadedGuards / preloadedGuard / guardId
   React.useEffect(() => {
     if (!open) return;
     if (!guardId) return;
 
-    // 1) Si nos pasaron un guard en preloadedGuard exacto, úsalo.
     if (preloadedGuard && preloadedGuard.id === guardId) {
       setSelectedGuard(preloadedGuard);
       setGuardQuery("");
       return;
     }
 
-    // 2) Si nos pasaron una lista de guardias pre-cargadas, búscalo ahí y úsalo (sin request).
     if (preloadedGuards && Array.isArray(preloadedGuards) && preloadedGuards.length > 0) {
       const found = preloadedGuards.find((g) => Number(g.id) === Number(guardId));
       if (found) {
@@ -313,7 +328,6 @@ export default function CreateShift({
       }
     }
 
-    // 3) Fallback: solicitar al backend (como antes) si no lo encontramos localmente.
     let mounted = true;
     (async () => {
       try {
@@ -329,7 +343,6 @@ export default function CreateShift({
       mounted = false;
     };
   }, [guardId, open, preloadedGuard, preloadedGuards]);
-  // -----------------------------------------------------------------------------------------------
 
   // when selectedGuard changes -> fetch weapons for that guard
   React.useEffect(() => {
@@ -364,13 +377,11 @@ export default function CreateShift({
     const q = (debouncedGuardQuery ?? "").trim();
 
     if (q === "") {
-      // Show all pre-loaded guards when no search query
       setGuardResults(allGuards);
       return;
     }
 
-    // First, search in pre-loaded cache
-    const localResults = allGuards.filter(guard => {
+    const localResults = allGuards.filter((guard) => {
       const fullName = `${guard.firstName || ""} ${guard.lastName || ""}`.toLowerCase();
       const email = (guard.email || "").toLowerCase();
       const query = q.toLowerCase();
@@ -410,8 +421,8 @@ export default function CreateShift({
           if (!mounted) return;
           const apiItems = extractItems<Guard>(res);
 
-          const localIds = new Set(localResults.map(g => g.id));
-          const newItems = apiItems.filter(g => !localIds.has(g.id));
+          const localIds = new Set(localResults.map((g) => g.id));
+          const newItems = apiItems.filter((g) => !localIds.has(g.id));
           const combinedResults = [...localResults, ...newItems];
 
           setGuardResults(combinedResults);
@@ -511,18 +522,10 @@ export default function CreateShift({
         const response = await listServicesByProperty(selectedProperty.id, 1, "", 100);
         if (!mounted) return;
 
-        let services: AppService[] = [];
-        if (Array.isArray(response)) {
-          services = response;
-        } else if (response?.items) {
-          services = response.items;
-        } else if ((response as any)?.results) {
-          services = (response as any).results;
-        }
+        const servicesArr = extractItems<AppService>(response);
+        setPropertyServices(servicesArr);
 
-        setPropertyServices(services);
-
-        if (selectedService && !services.find(s => s.id === selectedService.id)) {
+        if (selectedService && !servicesArr.find((s) => s.id === selectedService.id)) {
           setSelectedService(null);
         }
       } catch (err) {
@@ -590,7 +593,7 @@ export default function CreateShift({
         description: null,
         contractStartDate: null,
         createdAt: null,
-        updatedAt: null
+        updatedAt: null,
       };
       setSelectedProperty(serviceProperty);
       setPropertyQuery("");
@@ -604,18 +607,18 @@ export default function CreateShift({
   const propertyLabel = (p?: AppProperty | null) => {
     if (!p) return "";
     const alias = p.alias || p.name || "Sin nombre";
-    const ownerDetails = p.ownerDetails;
+    const ownerDetails = (p as any).ownerDetails;
     let ownerName = "";
 
     if (ownerDetails) {
-      const firstName = ownerDetails.first_name || "";
-      const lastName = ownerDetails.last_name || "";
+      const firstName = ownerDetails.first_name || ownerDetails.firstName || "";
+      const lastName = ownerDetails.last_name || ownerDetails.lastName || "";
       ownerName = `${firstName} ${lastName}`.trim();
       if (!ownerName) {
-        ownerName = ownerDetails.email || `#${p.ownerId}`;
+        ownerName = ownerDetails.email || `#${(p as any).ownerId ?? 0}`;
       }
     } else {
-      ownerName = `#${p.ownerId}`;
+      ownerName = `#${(p as any).ownerId ?? 0}`;
     }
 
     return `${alias} - ${ownerName}`;
@@ -639,11 +642,13 @@ export default function CreateShift({
 
     try {
       const response = await listShiftsByGuard(selectedGuard.id, 1, 1000);
-      const shifts = extractItems<Shift>(response);
+      const shiftsList = extractItems<Shift>(response);
 
-      const overlappingShifts = shifts.filter((shift) => {
-        const shiftPlannedStart = (shift as any).plannedStartTime ?? (shift as any).planned_start_time;
-        const shiftPlannedEnd = (shift as any).plannedEndTime ?? (shift as any).planned_end_time;
+      const overlappingShifts = shiftsList.filter((shift) => {
+        const shiftPlannedStart =
+          getStringField(shift, "plannedStartTime", "planned_start_time") ?? undefined;
+        const shiftPlannedEnd =
+          getStringField(shift, "plannedEndTime", "planned_end_time") ?? undefined;
 
         if (!shiftPlannedStart || !shiftPlannedEnd) return false;
 
@@ -654,8 +659,8 @@ export default function CreateShift({
         setHasOverlap(true);
         const dates = overlappingShifts
           .map((shift) => {
-            const s = (shift as any).plannedStartTime ?? (shift as any).planned_start_time;
-            return new Date(s).toLocaleString();
+            const s = getStringField(shift, "plannedStartTime", "planned_start_time");
+            return s ? new Date(s).toLocaleString() : "unknown";
           })
           .join(", ");
         setOverlapMessage(`Solapamiento detectado con turnos planeados en: ${dates}`);
@@ -716,7 +721,7 @@ export default function CreateShift({
 
     setLoading(true);
     try {
-      const payload: any = {
+      const payload: Record<string, unknown> = {
         guard: selectedGuard.id,
         property: Number(selectedProperty.id),
         planned_start_time: plannedStartIso,
@@ -736,31 +741,25 @@ export default function CreateShift({
       toast.success((TEXT as any)?.shifts?.messages?.created ?? "Shift created");
       onCreated?.(created as Shift);
       onClose();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
       let errorMessage = (TEXT as any)?.shifts?.errors?.createFailed ?? "Could not create shift";
 
-      if (err?.response?.data?.message || err?.message) {
-        const serverMessage = err?.response?.data?.message || err?.message;
+      const serverMessage =
+        isObject(err) ? (String((err as Record<string, unknown>)["message"] ?? (err as any)?.response?.data?.message ?? "")) : "";
 
+      if (serverMessage) {
+        const lower = serverMessage.toLowerCase();
         if (
-          serverMessage.toLowerCase().includes("overlap") ||
-          serverMessage.toLowerCase().includes("solapado") ||
-          serverMessage.toLowerCase().includes("conflicto") ||
-          serverMessage.toLowerCase().includes("conflict")
+          lower.includes("overlap") ||
+          lower.includes("solapado") ||
+          lower.includes("conflicto") ||
+          lower.includes("conflict")
         ) {
           errorMessage = "Este turno planeado se solapa con otro turno existente. Por favor, verifica las fechas y horarios.";
-        } else if (
-          serverMessage.toLowerCase().includes("disponib") ||
-          serverMessage.toLowerCase().includes("available") ||
-          serverMessage.toLowerCase().includes("busy")
-        ) {
+        } else if (lower.includes("disponib") || lower.includes("available") || lower.includes("busy")) {
           errorMessage = "El guardia no está disponible en el horario seleccionado.";
-        } else if (
-          serverMessage.toLowerCase().includes("validación") ||
-          serverMessage.toLowerCase().includes("validation") ||
-          serverMessage.toLowerCase().includes("invalid")
-        ) {
+        } else if (lower.includes("validación") || lower.includes("validation") || lower.includes("invalid")) {
           errorMessage = `Datos inválidos: ${serverMessage}`;
         } else if (serverMessage.length > 10) {
           errorMessage = serverMessage;
@@ -919,7 +918,7 @@ export default function CreateShift({
                   if (!value) {
                     setSelectedService(null);
                   } else {
-                    const service = propertyServices.find(s => s.id.toString() === value);
+                    const service = propertyServices.find((s) => s.id.toString() === value);
                     setSelectedService(service || null);
                   }
                 }}

@@ -190,6 +190,8 @@ export const EN_TEXT = {
 
   properties: {
     title: "Properties Management",
+    // ADDED: title used by the shifts header; supports {propertyName} and {propertyId}
+    shiftsTitle: "Shifts — {propertyName}", /* ADDED */
     table: {
       title: "Properties List",
       add: "Add",
@@ -509,7 +511,10 @@ export const EN_TEXT = {
       subtitle: "Scrollable list of shifts",
       open: "View shifts",
     },
+    // ADDED: search placeholder for shifts header
+    searchPlaceholder: "Search guards...", /* ADDED */
     errors: {
+      
       missingDates: "Start and end are required",
       endBeforeStart: "End must be after start",
       missingProperty: "Property ID required",
@@ -584,8 +589,8 @@ export const EN_TEXT = {
       guard: "Guard",
       assignedProperty: "Property",
       rate: "Rate per hour",
-      monthlyBudget: "Monthly Budget",
       recurrent: "Recurrent",
+      monthlyBudget: "Monthly Budget",
       schedule: "Schedule",
       startTime: "Start",
       endTime: "End",
