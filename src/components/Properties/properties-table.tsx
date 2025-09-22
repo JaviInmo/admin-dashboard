@@ -1,7 +1,7 @@
 // src/components/Properties/properties-table.tsx
 "use client";
 
-import { Pencil, Trash, User, Calendar, List, MoreHorizontal } from "lucide-react";
+import { Pencil, Trash, User, List, MoreHorizontal, Calendar } from "lucide-react";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,11 +30,11 @@ import EditPropertyDialog from "./Edit/Edit";
 import OwnerDetailsModal from "@/components/Properties/OwnerDetailsModal";
 import PropertyDetailsModal from "@/components/Properties/PropertyDetailsModal";
 
-// Nuevo: modal de turnos para propiedades - versión corregida
-import PropertyShiftsModalImproved from "@/components/Properties/PropertyShiftsModalImproved";
-
 // Nuevo: modal de servicios por propiedad
 import PropertiesServicesModal from "@/components/Properties/PropertiesServicesModal";
+
+// Nuevo: modal de Shifts para propiedad (tabla 7 días)
+import PropertyShiftsModal from "@/components/Properties/PropertyShiftsModal";
 
 // Componente helper para texto truncado con tooltip
 function TruncatedText({
@@ -277,6 +277,7 @@ export default function PropertiesTable({
           <List className="h-4 w-4 mr-2" />
           {getText("properties.table.servicesButton", "Servicios")}
         </DropdownMenuItem>
+
         <DropdownMenuItem onClick={(e) => {
           e.stopPropagation();
           setShiftProperty(property);
@@ -284,6 +285,7 @@ export default function PropertiesTable({
           <Calendar className="h-4 w-4 mr-2" />
           {getText("properties.table.shiftsButton", "Turnos")}
         </DropdownMenuItem>
+
         <DropdownMenuItem onClick={(e) => {
           e.stopPropagation();
           const ownerIdVal = (property as any).ownerId ?? (property as any).owner ?? null;
@@ -346,7 +348,7 @@ export default function PropertiesTable({
         >
           <Calendar className="h-4 w-4" />
         </Button>
-        
+
         <Button
           size="icon"
           variant="ghost"
@@ -478,16 +480,6 @@ export default function PropertiesTable({
         />
       )}
 
-      {/* Nuevo: modal de Shifts para propiedades */}
-      {shiftProperty && (
-        <PropertyShiftsModalImproved
-          propertyId={shiftProperty.id}
-          propertyName={shiftProperty.name || shiftProperty.alias || `Propiedad ${shiftProperty.id}`}
-          open={!!shiftProperty}
-          onClose={() => setShiftProperty(null)}
-        />
-      )}
-
       {/* Nuevo: modal de Services para la propiedad seleccionada */}
       {servicesProperty && (
         <PropertiesServicesModal
@@ -496,6 +488,16 @@ export default function PropertiesTable({
           open={!!servicesProperty}
           onClose={() => setServicesProperty(null)}
           onUpdated={onRefresh}
+        />
+      )}
+
+      {/* Nuevo: modal de Shifts para propiedades — tabla 7 días */}
+      {shiftProperty && (
+        <PropertyShiftsModal
+          propertyId={shiftProperty.id}
+          propertyName={shiftProperty.name || shiftProperty.alias || `Propiedad ${shiftProperty.id}`}
+          open={!!shiftProperty}
+          onClose={() => setShiftProperty(null)}
         />
       )}
     </>

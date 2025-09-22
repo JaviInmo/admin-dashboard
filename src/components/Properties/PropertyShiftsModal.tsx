@@ -1,3 +1,4 @@
+// src/components/Properties/PropertyShiftsModal.tsx
 "use client";
 
 import * as React from "react";
@@ -9,698 +10,759 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  CalendarIcon,
-  Loader2,
-  Plus,
-  RefreshCw,
-  Eye,
-  Pencil,
-  Trash,
-} from "lucide-react";
-import { toast } from "sonner";
+import { listShiftsByProperty } from "@/lib/services/shifts";
+import type { Shift } from "@/components/Shifts/types";
 import { useI18n } from "@/i18n";
+import { toast } from "sonner";
+import { Calendar, ChevronLeft, ChevronRight, Search } from "lucide-react";
 
 import CreateShift from "@/components/Shifts/Create/Create";
-import ShowShift from "@/components/Shifts/Show/Show";
 import EditShift from "@/components/Shifts/Edit/Edit";
 import DeleteShift from "@/components/Shifts/Delete/Delete";
-import type { Shift } from "@/components/Shifts/types";
-import { listShiftsByGuard } from "@/lib/services/shifts";
-import { getProperty } from "@/lib/services/properties";
-import type { AppProperty } from "@/lib/services/properties";
 
-/**
- * Normaliza la respuesta del backend a la forma `Shift` que espera la UI.
- */
-function normalizeShiftsArray(input: any): Shift[] {
-  if (!input) return [];
-  const arr = Array.isArray(input)
-    ? input
-    : Array.isArray(input?.results)
-    ? input.results
-    : Array.isArray(input?.items)
-    ? input.items
-    : null;
-  if (!arr) return [];
-  return arr.map((s: any) => {
-    const guardId =
-      s.guard ??
-      s.guard_id ??
-      (s.guard_details
-        ? s.guard_details.id ?? s.guard_details.pk ?? undefined
-        : undefined) ??
-      (s.guard && typeof s.guard === "object" ? s.guard.id : undefined);
-
-    const propertyId =
-      s.property ??
-      s.property_id ??
-      (s.property_details
-        ? s.property_details.id ?? s.property_details.pk ?? undefined
-        : undefined) ??
-      (s.property && typeof s.property === "object"
-        ? s.property.id
-        : undefined);
-
-    return {
-      id: s.id ?? s.pk ?? 0,
-      guard: guardId,
-      property: propertyId,
-      startTime: s.start_time ?? s.startTime ?? s.start ?? null,
-      endTime: s.end_time ?? s.endTime ?? s.end ?? null,
-      status: s.status ?? "scheduled",
-      hoursWorked: s.hours_worked ?? s.hoursWorked ?? s.hours ?? 0,
-      isActive: s.is_active ?? s.isActive ?? true,
-      __raw: s,
-    } as Shift;
-  });
-}
-
-function isSameDay(date1: Date, date2: Date): boolean {
-  return (
-    date1.getFullYear() === date2.getFullYear() &&
-    date1.getMonth() === date2.getMonth() &&
-    date1.getDate() === date2.getDate()
-  );
-}
+// shadcn table components
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 type Props = {
-  guardId: number;
-  guardName?: string;
+  propertyId: number;
+  propertyName?: string;
   open: boolean;
   onClose: () => void;
 };
 
-export default function GuardsShiftsModal({
-  guardId,
-  guardName,
+function pad(n: number) {
+  return String(n).padStart(2, "0");
+}
+
+function isoToLocalDateKey(iso?: string | null) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function isoToLocalTime(iso?: string | null) {
+  if (!iso) return "-";
+  try {
+    const d = new Date(iso);
+    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  } catch {
+    return String(iso);
+  }
+}
+
+export default function PropertyShiftsModal({
+  propertyId,
+  propertyName,
   open,
   onClose,
 }: Props) {
   const { TEXT } = useI18n();
 
+  const [loading, setLoading] = React.useState(false);
   const [shifts, setShifts] = React.useState<Shift[]>([]);
-  const [page, setPage] = React.useState<number>(1);
-  const [loading, setLoading] = React.useState<boolean>(false);
-  const [hasNext, setHasNext] = React.useState<boolean>(false);
+  const [error, setError] = React.useState<string | null>(null);
 
-  const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(
-    undefined
+  const [startDate, setStartDate] = React.useState<Date>(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  });
+
+  const [viewMode, setViewMode] = React.useState<"week" | "month" | "year">(
+    "week"
   );
-  const [daysWithShifts, setDaysWithShifts] = React.useState<Date[]>([]);
 
-  // Cache de propiedades { [id]: AppProperty | null }
-  const [propertyMap, setPropertyMap] = React.useState<
-    Record<number, AppProperty | null>
-  >({});
-  const [loadingProps, setLoadingProps] = React.useState<boolean>(false);
+  const [guardSearch, setGuardSearch] = React.useState<string>("");
 
-  // Cache de guardias para búsqueda rápida
-  const [allGuardsCache, setAllGuardsCache] = React.useState<any[]>([]);
-  const [guardsCacheLoaded, setGuardsCacheLoaded] = React.useState<boolean>(false);
+  const [createOpen, setCreateOpen] = React.useState(false);
+  const [createDate, setCreateDate] = React.useState<Date | null>(null);
+  const [createGuardId, setCreateGuardId] = React.useState<number | null>(null);
 
-  const filteredShifts = React.useMemo(() => {
-    if (!selectedDate) return shifts; // Show all shifts when no date selected
-    return shifts.filter((shift) => {
-      if (!shift.startTime) return false;
-      const shiftDate = new Date(shift.startTime);
-      return isSameDay(shiftDate, selectedDate);
-    });
-  }, [shifts, selectedDate]);
+  const [actionShift, setActionShift] = React.useState<Shift | null>(null);
+  const [openEdit, setOpenEdit] = React.useState(false);
+  const [openDelete, setOpenDelete] = React.useState(false);
 
-  // getProperty label: devuelve string | null (null = no hay nombre aún)
-  function getPropertyLabelForShift(s: Shift): string | null {
-    const raw = (s as any).__raw;
-    const rawName =
-      raw?.property_details?.name ?? raw?.property_details?.alias ?? null;
-    if (rawName) {
-      const idPart = raw?.property_details?.id ?? s.property;
-      return `${rawName}${idPart ? ` #${idPart}` : ""}`;
-    }
+  const preselectedPropertyObj = React.useMemo(() => {
+    return {
+      id: propertyId,
+      ownerId: 0,
+      name: propertyName ?? "",
+      alias: undefined,
+      address: propertyName ?? "",
+      description: null,
+      contractStartDate: null,
+      createdAt: null,
+      updatedAt: null,
+    } as const;
+  }, [propertyId, propertyName]);
 
-    if (s.property != null) {
-      const id = Number(s.property);
-      const p = propertyMap[id];
-      if (p) {
-        const name = p.name ?? p.alias ?? p.address ?? `Property ${p.id}`;
-        return `${name} #${p.id}`;
-      }
-      // todavía no existe nombre en cache
-      return null;
-    }
+  const preloadedPropertiesArray = React.useMemo(() => {
+    return [
+      {
+        id: propertyId,
+        ownerId: 0,
+        name: propertyName ?? "",
+        alias: undefined,
+        address: propertyName ?? "",
+        description: null,
+        contractStartDate: null,
+        createdAt: null,
+        updatedAt: null,
+      },
+    ];
+  }, [propertyId, propertyName]);
 
-    return null;
-  }
-
-  // Cargar shifts (primera página o cuando se abre)
-  React.useEffect(() => {
-    if (!open) return;
-    let mounted = true;
-
-    async function fetchFirst() {
-      setLoading(true);
-      try {
-        const res = await listShiftsByGuard(guardId, 1, 50, "-start_time");
-        const normalized = normalizeShiftsArray(res);
-        if (!mounted) return;
-        setShifts(normalized);
-        setPage(1);
-        setHasNext(Boolean(res?.next ?? res?.previous ?? res?.items ?? false));
-
-        // construir daysWithShifts
-        const daysWithShiftsSet = new Set<string>();
-        normalized.forEach((shift) => {
-          if (shift.startTime) {
-            const date = new Date(shift.startTime);
-            date.setHours(0, 0, 0, 0);
-            daysWithShiftsSet.add(date.toDateString());
-          }
-        });
-        setDaysWithShifts(
-          Array.from(daysWithShiftsSet).map((dateStr) => {
-            const d = new Date(dateStr);
-            d.setHours(0, 0, 0, 0);
-            return d;
-          })
-        );
-
-        // cargar propiedades faltantes
-        const propIds = Array.from(
-          new Set(
-            normalized
-              .map((s) => s.property)
-              .filter((id) => id != null)
-              .map((id) => Number(id))
-          )
-        ).filter((id) => !Number.isNaN(id) && propertyMap[id] === undefined);
-
-        if (propIds.length > 0) {
-          await fetchAndCacheProperties(propIds);
-        }
-      } catch (err) {
-        console.error("[ShiftsModal] error fetching:", err);
-        toast.error(
-          TEXT?.shifts?.errors?.fetchFailed ?? "Could not load shifts"
-        );
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    }
-
-    fetchFirst();
-
-    return () => {
-      mounted = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, guardId]);
-
-  // Precargar cache de guardias para búsqueda rápida
-  React.useEffect(() => {
-    if (!open || guardsCacheLoaded) return;
-
-    let mounted = true;
-    const loadGuardsCache = async () => {
-      try {
-        // console.log("Precargando cache de guardias...");
-        const { listGuards } = await import("@/lib/services/guard");
-        const guardsResponse = await listGuards(1, "", 1000); // Cargar hasta 1000 guardias para cache
-        const guardsData = Array.isArray(guardsResponse) ? guardsResponse : (guardsResponse as any)?.results || [];
-
-        if (!mounted) return;
-
-        setAllGuardsCache(guardsData);
-        setGuardsCacheLoaded(true);
-        // console.log(`✅ Precargadas ${guardsData.length} guardias en cache`);
-      } catch (error) {
-        console.error("❌ Error precargando cache de guardias:", error);
-      }
-    };
-
-    loadGuardsCache();
-
-    return () => {
-      mounted = false;
-    };
-  }, [open, guardsCacheLoaded]);
-
-  async function loadMore() {
-    const nextPage = page + 1;
+  const fetchShifts = React.useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
-      const res = await listShiftsByGuard(guardId, nextPage, 50, "-start_time");
-      const newItems = normalizeShiftsArray(res);
-      setShifts((p) => [...p, ...newItems]);
-      setPage(nextPage);
-      setHasNext(Boolean(res?.next ?? res?.previous ?? res?.items ?? false));
-
-      const daysWithShiftsSet = new Set(
-        daysWithShifts.map((d) => d.toDateString())
+      const res = await listShiftsByProperty(
+        propertyId,
+        1,
+        1000,
+        "planned_start_time"
       );
-      newItems.forEach((shift) => {
-        if (shift.startTime) {
-          const date = new Date(shift.startTime);
-          daysWithShiftsSet.add(date.toDateString());
-        }
-      });
-      setDaysWithShifts(
-        Array.from(daysWithShiftsSet).map((dateStr) => new Date(dateStr))
-      );
-
-      // fetch propiedades de nuevos items si faltan
-      const propIds = Array.from(
-        new Set(
-          newItems
-            .map((s) => s.property)
-            .filter((id) => id != null)
-            .map((id) => Number(id))
-        )
-      ).filter((id) => !Number.isNaN(id) && propertyMap[id] === undefined);
-
-      if (propIds.length > 0) {
-        await fetchAndCacheProperties(propIds);
-      }
+      const items: Shift[] =
+        (res as any)?.items ??
+        (res as any)?.results ??
+        (Array.isArray(res) ? res : res?.data?.results ?? []);
+      setShifts(items as Shift[]);
     } catch (err) {
-      console.error("[LoadMore] error:", err);
-      toast.error(TEXT?.shifts?.errors?.fetchFailed ?? "Could not load shifts");
+      console.error("Error fetching shifts by property:", err);
+      setError(
+        (TEXT as any)?.shifts?.errors?.fetchFailed ??
+          "No se pudieron cargar los turnos"
+      );
+      toast.error(
+        (TEXT as any)?.shifts?.errors?.fetchFailed ?? "Could not load shifts"
+      );
     } finally {
       setLoading(false);
     }
-  }
+  }, [propertyId, TEXT]);
 
-  // Función para pedir y cachear propiedades por ids
-  async function fetchAndCacheProperties(ids: number[]) {
-    if (!ids || ids.length === 0) return;
-    setLoadingProps(true);
-    try {
-      const results = await Promise.allSettled(ids.map((id) => getProperty(id)));
-      setPropertyMap((prev) => {
-        const next = { ...prev };
-        results.forEach((r, idx) => {
-          const id = ids[idx];
-          if (r.status === "fulfilled") {
-            next[id] = r.value ?? null;
-          } else {
-            console.error(`getProperty(${id}) failed`, r.reason);
-            next[id] = null;
-          }
+  React.useEffect(() => {
+    if (!open) return;
+    let mounted = true;
+    (async () => {
+      if (!mounted) return;
+      await fetchShifts();
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [open, propertyId, fetchShifts]);
+
+  const guardsAll = React.useMemo(() => {
+    const map = new Map<
+      number,
+      {
+        id: number;
+        name: string;
+        firstName?: string;
+        lastName?: string;
+        email?: string;
+      }
+    >();
+    shifts.forEach((s) => {
+      const gid = Number(s.guard ?? (s.guardDetails as any)?.id ?? -1);
+      if (gid === -1 || Number.isNaN(gid)) return;
+      let name = (s.guardName as string) ?? (s.guardDetails as any)?.name ?? "";
+      let firstName = undefined;
+      let lastName = undefined;
+      let email = undefined;
+      const gd = s.guardDetails as any;
+      if (gd) {
+        firstName = gd.first_name ?? gd.firstName ?? undefined;
+        lastName = gd.last_name ?? gd.lastName ?? undefined;
+        email = gd.email ?? undefined;
+        if (!name)
+          name = `${firstName ?? ""}${lastName ? ` ${lastName}` : ""}`.trim();
+      }
+      if (!name) name = `#${gid}`;
+      if (!map.has(gid))
+        map.set(gid, {
+          id: gid,
+          name: name.trim() || `#${gid}`,
+          firstName,
+          lastName,
+          email,
         });
-        return next;
-      });
-    } finally {
-      setLoadingProps(false);
-    }
-  }
-
-  function handleCreated(s: Shift) {
-    setShifts((p) => [s, ...p]);
-    setOpenCreate(false);
-
-    if (s.startTime) {
-      const newDate = new Date(s.startTime);
-      const dateExists = daysWithShifts.some((d) => isSameDay(d, newDate));
-      if (!dateExists) {
-        setDaysWithShifts((prev) => [...prev, newDate]);
-      }
-    }
-
-    // si el nuevo shift trae property_details en raw, cachearlo
-    const raw = (s as any).__raw;
-    const propId = s.property != null ? Number(s.property) : undefined;
-    if (propId && raw?.property_details) {
-      setPropertyMap((p) => ({ ...p, [propId]: raw.property_details }));
-    } else if (propId && propertyMap[propId] === undefined) {
-      void fetchAndCacheProperties([propId]);
-    }
-
-    toast.success(TEXT?.shifts?.messages?.created ?? "Shift created");
-  }
-
-  function handleUpdated(s: Shift) {
-    setShifts((p) => p.map((x) => (x.id === s.id ? s : x)));
-    setOpenShowId(null);
-    setOpenEditId(null);
-    setOpenDeleteId(null);
-
-    const daysWithShiftsSet = new Set<string>();
-    shifts
-      .map((shift) => (shift.id === s.id ? s : shift))
-      .forEach((shift) => {
-        if (shift.startTime) {
-          const date = new Date(shift.startTime);
-          daysWithShiftsSet.add(date.toDateString());
-        }
-      });
-    setDaysWithShifts(
-      Array.from(daysWithShiftsSet).map((dateStr) => new Date(dateStr))
-    );
-
-    // actualizar cache si viene property_details
-    const raw = (s as any).__raw;
-    const propId = s.property != null ? Number(s.property) : undefined;
-    if (propId && raw?.property_details) {
-      setPropertyMap((p) => ({ ...p, [propId]: raw.property_details }));
-    } else if (propId && propertyMap[propId] === undefined) {
-      void fetchAndCacheProperties([propId]);
-    }
-
-    toast.success(TEXT?.shifts?.messages?.updated ?? "Shift updated");
-  }
-
-  function handleDeleted(id: number) {
-    setShifts((p) => p.filter((x) => x.id !== id));
-    setOpenShowId(null);
-    setOpenEditId(null);
-    setOpenDeleteId(null);
-
-    const remainingShifts = shifts.filter((x) => x.id !== id);
-    const daysWithShiftsSet = new Set<string>();
-    remainingShifts.forEach((shift) => {
-      if (shift.startTime) {
-        const date = new Date(shift.startTime);
-        daysWithShiftsSet.add(date.toDateString());
-      }
     });
-    setDaysWithShifts(
-      Array.from(daysWithShiftsSet).map((dateStr) => new Date(dateStr))
-    );
+    return Array.from(map.values());
+  }, [shifts]);
 
-    toast.success(TEXT?.shifts?.messages?.deleted ?? "Shift deleted");
+  const guardsFiltered = React.useMemo(() => {
+    const q = (guardSearch ?? "").trim().toLowerCase();
+    if (q === "") return guardsAll;
+    return guardsAll.filter((g) => {
+      return (
+        (g.name ?? "").toLowerCase().includes(q) ||
+        (g.email ?? "").toLowerCase().includes(q) ||
+        String(g.id).includes(q)
+      );
+    });
+  }, [guardsAll, guardSearch]);
+
+  const days = React.useMemo(() => {
+    if (viewMode === "week") {
+      return Array.from({ length: 7 }).map((_, i) => {
+        const d = new Date(startDate);
+        d.setDate(startDate.getDate() + i);
+        return d;
+      });
+    }
+    if (viewMode === "month") {
+      const y = startDate.getFullYear();
+      const m = startDate.getMonth();
+      const daysInMonth = new Date(y, m + 1, 0).getDate();
+      return Array.from({ length: daysInMonth }).map((_, i) => {
+        const d = new Date(y, m, i + 1);
+        d.setHours(0, 0, 0, 0);
+        return d;
+      });
+    }
+    const y = startDate.getFullYear();
+    const start = new Date(y, 0, 1);
+    const end = new Date(y, 11, 31);
+    const arr: Date[] = [];
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      arr.push(new Date(d));
+    }
+    return arr;
+  }, [startDate, viewMode]);
+
+  const shiftsByGuardAndDate = React.useMemo(() => {
+    const out = new Map<number, Record<string, Shift[]>>();
+    shifts.forEach((s) => {
+      const gid = Number(s.guard ?? (s.guardDetails as any)?.id ?? -1);
+      if (gid === -1 || Number.isNaN(gid)) return;
+      const startIso = (s.plannedStartTime ??
+        (s as any).planned_start_time ??
+        null) as string | null;
+      const dateKey =
+        isoToLocalDateKey(startIso) ??
+        isoToLocalDateKey(s.startTime ?? (s as any).start_time ?? null);
+      if (!dateKey) return;
+      if (!out.has(gid)) out.set(gid, {});
+      const rec = out.get(gid)!;
+      rec[dateKey] = rec[dateKey] ?? [];
+      rec[dateKey].push(s);
+    });
+    out.forEach((rec) => {
+      Object.keys(rec).forEach((k) => {
+        rec[k].sort((a, b) => {
+          const ta = new Date(
+            a.plannedStartTime ??
+              (a as any).planned_start_time ??
+              a.startTime ??
+              0
+          ).getTime();
+          const tb = new Date(
+            b.plannedStartTime ??
+              (b as any).planned_start_time ??
+              b.startTime ??
+              0
+          ).getTime();
+          return ta - tb;
+        });
+      });
+    });
+    return out;
+  }, [shifts]);
+
+  function moveBack() {
+    if (viewMode === "week") {
+      const nd = new Date(startDate);
+      nd.setDate(startDate.getDate() - 7);
+      setStartDate(nd);
+    } else if (viewMode === "month") {
+      const nd = new Date(startDate);
+      nd.setMonth(startDate.getMonth() - 1, 1);
+      nd.setHours(0, 0, 0, 0);
+      setStartDate(nd);
+    } else {
+      const nd = new Date(startDate);
+      nd.setFullYear(startDate.getFullYear() - 1, 0, 1);
+      nd.setHours(0, 0, 0, 0);
+      setStartDate(nd);
+    }
+  }
+  function moveNext() {
+    if (viewMode === "week") {
+      const nd = new Date(startDate);
+      nd.setDate(startDate.getDate() + 7);
+      setStartDate(nd);
+    } else if (viewMode === "month") {
+      const nd = new Date(startDate);
+      nd.setMonth(startDate.getMonth() + 1, 1);
+      nd.setHours(0, 0, 0, 0);
+      setStartDate(nd);
+    } else {
+      const nd = new Date(startDate);
+      nd.setFullYear(startDate.getFullYear() + 1, 0, 1);
+      nd.setHours(0, 0, 0, 0);
+      setStartDate(nd);
+    }
+  }
+  function goToday() {
+    const nd = new Date();
+    nd.setHours(0, 0, 0, 0);
+    setStartDate(nd);
   }
 
-  const [openCreate, setOpenCreate] = React.useState(false);
-  const [openShowId, setOpenShowId] = React.useState<number | null>(null);
-  const [openEditId, setOpenEditId] = React.useState<number | null>(null);
-  const [openDeleteId, setOpenDeleteId] = React.useState<number | null>(null);
+  function openCreateForDate(d: Date, guardId?: number | null) {
+    setCreateDate(d);
+    setCreateGuardId(guardId ?? null);
+    setCreateOpen(true);
+  }
 
-  return (
-    <Dialog
-      open={open}
-      onOpenChange={(val) => {
-        if (!val) onClose();
-      }}
-    >
-      {/* Hacemos el DialogContent un flex column para que el footer quede fuera del área scrolleable */}
-      <DialogContent size="xl" className="max-h-[90vh] flex flex-col">
-        <DialogHeader>
-          <div className="flex items-center justify-between w-full pt-4">
-            <div>
-              <DialogTitle className="text-lg px-2">
-                {guardName
-                  ? `${TEXT?.shifts?.show?.title ?? "Turnos"} | ${guardName}`
-                  : TEXT?.shifts?.show?.title ?? "Turnos"}
-              </DialogTitle>
-              <div className="text-xs text-muted-foreground px-2">
-                {selectedDate
-                  ? `Turnos para ${selectedDate.toLocaleDateString()}`
-                  : "Todos los turnos del guardia"}
-              </div>
+  function handleCreateDone(_: Shift) {
+    setCreateOpen(false);
+    setCreateDate(null);
+    setCreateGuardId(null);
+    fetchShifts();
+  }
+  function handleEditDone(_: Shift) {
+    setOpenEdit(false);
+    setActionShift(null);
+    fetchShifts();
+  }
+  function handleDeleteDone(_: number) {
+    setOpenDelete(false);
+    setActionShift(null);
+    fetchShifts();
+  }
+
+  const dayColMinWidth = viewMode === "week" ? 110 : 80;
+  const maxVisibleGuards = 8;
+  const rowHeight = 44;
+  const bodyMaxHeight = maxVisibleGuards * rowHeight + 2;
+
+  // Calculate the real minimum width of the table so it doesn't "squeeze"
+  const tableMinWidth = React.useMemo(() => {
+    const firstCol = 200; // same min width as first column
+    return firstCol + days.length * dayColMinWidth;
+  }, [days.length, dayColMinWidth]);
+
+  // ref to the horizontal-scrolling wrapper so we can reset scrollLeft when viewMode changes
+  const outerWrapperRef = React.useRef<HTMLDivElement | null>(null);
+
+  // When viewMode or days change, reset horizontal scroll so user sees the start of the table
+  React.useEffect(() => {
+    if (!outerWrapperRef.current) return;
+    // snap to start (no animation) — keeps columns consistent when switching to month
+    outerWrapperRef.current.scrollLeft = 0;
+  }, [viewMode, days.length]);
+
+  const ActionsDialog = ({
+    shift,
+    open,
+    onClose,
+  }: {
+    shift: Shift | null;
+    open: boolean;
+    onClose: () => void;
+  }) => {
+    if (!shift) return null;
+    return (
+      <Dialog
+        open={open}
+        onOpenChange={(v) => {
+          if (!v) onClose();
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {(TEXT as any)?.shifts?.actionsTitle ?? "Acciones del turno"}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-3 mt-2">
+            <div className="text-sm">
+              <strong>ID:</strong> {shift.id}
             </div>
-            <div className="flex items-center gap-2 pr-1">
+            <div className="text-sm">
+              <strong>
+                {(TEXT as any)?.shifts?.labels?.plannedStart ?? "Planned"}:
+              </strong>{" "}
+              {shift.plannedStartTime ??
+                (shift as any).planned_start_time ??
+                "-"}
+            </div>
+            <div className="text-sm">
+              <strong>
+                {(TEXT as any)?.shifts?.labels?.plannedEnd ?? "Planned End"}:
+              </strong>{" "}
+              {shift.plannedEndTime ?? (shift as any).planned_end_time ?? "-"}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <div className="flex justify-end gap-2 w-full">
+              <Button variant="ghost" onClick={onClose}>
+                {(TEXT as any)?.actions?.close ?? "Close"}
+              </Button>
               <Button
-                size="sm"
-                onClick={() => setOpenCreate(true)}
-                disabled={!selectedDate}
+                onClick={() => {
+                  setOpenEdit(true);
+                }}
               >
-                <Plus className="h-4 w-4 mr-1" />
-                {TEXT?.shifts?.create?.title ??
-                  TEXT?.actions?.create ??
-                  "Crear"}
+                {(TEXT as any)?.actions?.edit ?? "Edit"}
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  setOpenDelete(true);
+                }}
+              >
+                {(TEXT as any)?.actions?.delete ?? "Delete"}
               </Button>
             </div>
-          </div>
-        </DialogHeader>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  };
 
-        {/* Área principal: le damos flex-1 y min-h-0 para que el ScrollArea pueda controlar el scroll */}
-        <div className="flex gap-6 flex-1 min-h-0">
-          {/* Left column: Calendar */}
-          <div className="w-80 flex-shrink-0">
-            <div className="border rounded-lg p-4">
-              <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
-                <CalendarIcon className="h-4 w-4" />
-                Calendario
-              </h3>
-              <Calendar
-                mode="single"
-                selected={selectedDate}
-                onSelect={setSelectedDate}
-                modifiers={{
-                  hasShifts: daysWithShifts,
-                }}
-                modifiersStyles={{
-                  hasShifts: {
-                    backgroundColor: "hsl(var(--primary))",
-                    color: "hsl(var(--primary-foreground))",
-                    fontWeight: "bold",
-                  },
-                }}
-                className="rounded-md border-0"
-              />
-              <div className="mt-3 text-xs text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded bg-primary"></div>
-                  <span>Días con turnos</span>
+  return (
+    <>
+      <Dialog
+        open={open}
+        onOpenChange={(v) => {
+          if (!v) onClose();
+        }}
+      >
+        <DialogContent size="xl">
+          <DialogHeader>
+            <div className="flex items-start justify-between gap-3 w-full pt-4">
+              <div className="flex items-center gap-3">
+                <Calendar className="h-5 w-5" />
+                <div>
+                  <DialogTitle className="text-base">
+                    {(TEXT as any)?.properties?.shiftsTitle ??
+                      `Turnos — ${propertyName ?? `#${propertyId}`}`}
+                  </DialogTitle>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    {viewMode === "week"
+                      ? "Semana"
+                      : viewMode === "month"
+                      ? "Mes"
+                      : "Año"}{" "}
+                    •{" "}
+                    {viewMode === "week"
+                      ? `${days[0].toLocaleDateString()} — ${days[
+                          days.length - 1
+                        ].toLocaleDateString()}`
+                      : viewMode === "month"
+                      ? days[0].toLocaleDateString(undefined, {
+                          month: "long",
+                          year: "numeric",
+                        })
+                      : `Año ${startDate.getFullYear()}`}
+                  </div>
                 </div>
-                {selectedDate && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setSelectedDate(undefined)}
-                    className="mt-2 h-6 px-2 text-xs"
+              </div>
+
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 border rounded px-2 py-1 bg-white">
+                  <Search className="h-4 w-4 text-muted-foreground" />
+                  <input
+                    type="search"
+                    placeholder={
+                      (TEXT as any)?.shifts?.searchPlaceholder ??
+                      "Buscar guardias..."
+                    }
+                    value={guardSearch}
+                    onChange={(e) => setGuardSearch(e.target.value)}
+                    className="text-sm outline-none w-48 "
+                  />
+                </div>
+
+                <div className="flex border rounded overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("week")}
+                    className={`px-3 py-1 text-sm ${
+                      viewMode === "week" ? "bg-muted/10" : "bg-white"
+                    }`}
                   >
-                    Ver todos los turnos
+                    Semana
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("month")}
+                    className={`px-3 py-1 text-sm ${
+                      viewMode === "month" ? "bg-muted/10" : "bg-white"
+                    }`}
+                  >
+                    Mes
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("year")}
+                    className={`px-3 py-1 text-sm ${
+                      viewMode === "year" ? "bg-muted/10" : "bg-white"
+                    }`}
+                  >
+                    Año
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={moveBack}
+                    title="Anterior"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
                   </Button>
-                )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={goToday}
+                    title="Hoy"
+                  >
+                    Hoy
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={moveNext}
+                    title="Siguiente"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             </div>
-          </div>
+          </DialogHeader>
 
-          {/* Right column: Shifts list (ScrollArea integrado) */}
-          <div className="flex-1 flex flex-col min-h-0">
-            {/* ScrollArea ocupa todo el espacio disponible y no empuja el footer */}
-            <ScrollArea className="flex-1 min-h-0">
-              <div className="space-y-3 pr-4 p-3">
-                {/* Skeleton cuando cargan la lista (primer fetch) */}
-                {loading && shifts.length === 0 ? (
-                  <div className="space-y-3">
-                    {[1, 2, 3].map((i) => (
-                      <div
-                        key={i}
-                        className="flex items-center justify-between gap-4 rounded-md border p-3 shadow-sm bg-card"
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="mt-1 text-muted-foreground">
-                            <div className="h-5 w-5 rounded bg-muted/30 animate-pulse" />
-                          </div>
-                          <div className="w-full">
-                            <div className="h-3 w-24 rounded bg-muted/30 animate-pulse mb-2"></div>
-                            <div className="h-4 w-40 rounded bg-muted/30 animate-pulse mb-1"></div>
-                            <div className="h-3 w-28 rounded bg-muted/30 animate-pulse"></div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="h-8 w-8 rounded-full bg-muted/30 animate-pulse" />
-                          <div className="h-8 w-8 rounded-full bg-muted/30 animate-pulse" />
-                          <div className="h-8 w-8 rounded-full bg-muted/30 animate-pulse" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : filteredShifts.length === 0 ? (
-                  <div className="rounded border border-dashed border-muted/50 p-4 text-sm text-muted-foreground text-center">
-                    {selectedDate
-                      ? `No hay turnos para ${selectedDate.toLocaleDateString()}`
-                      : "No hay turnos para este guardia"}
-                  </div>
-                ) : (
-                  filteredShifts.map((s) => {
-                    const propertyLabel = getPropertyLabelForShift(s);
-                    return (
-                      <div
-                        key={s.id}
-                        className="flex items-center justify-between gap-4 rounded-md border p-3 shadow-sm bg-card"
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="mt-1 text-muted-foreground">
-                            <CalendarIcon className="h-5 w-5" />
-                          </div>
-                          <div>
-                            {!selectedDate && s.startTime && (
-                              <div className="text-xs text-muted-foreground mb-1">
-                                {new Date(s.startTime).toLocaleDateString()}
-                              </div>
-                            )}
-
-                            {/* Nombre de la propiedad destacado / skeleton si está cargando */}
-                            <div className="text-sm font-semibold">
-                              {propertyLabel !== null ? (
-                                propertyLabel
-                              ) : loadingProps ? (
-                                <span className="inline-block h-4 w-44 rounded bg-muted/30 animate-pulse" />
-                              ) : s.property != null ? (
-                                `Property ID: ${s.property}`
-                              ) : (
-                                "-"
-                              )}
-                            </div>
-
-                            {/* Rango horario */}
-                            <div className="text-sm">
-                              {s.startTime
-                                ? new Date(s.startTime).toLocaleTimeString([], {
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  })
-                                : "—"}{" "}
-                              —{" "}
-                              {s.endTime
-                                ? new Date(s.endTime).toLocaleTimeString([], {
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  })
-                                : "—"}
-                            </div>
-
-                            {/* Estado y horas trabajadas */}
-                            <div className="text-xs text-muted-foreground">
-                              {s.status} · {s.hoursWorked}h
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => setOpenShowId(s.id)}
-                            title={TEXT?.actions?.view ?? "Ver"}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-
-                          <Button
-                            size="icon"
-                            variant="outline"
-                            onClick={() => setOpenEditId(s.id)}
-                            title={TEXT?.actions?.edit ?? "Editar"}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-
-                          <Button
-                            size="icon"
-                            variant="destructive"
-                            onClick={() => setOpenDeleteId(s.id)}
-                            title={TEXT?.actions?.delete ?? "Eliminar"}
-                          >
-                            <Trash className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
+          <div className="mt-4">
+            {loading ? (
+              <div className="p-4">
+                {(TEXT as any)?.common?.loading ?? "Cargando..."}
               </div>
-            </ScrollArea>
-          </div>
-        </div>
-
-        <DialogFooter>
-          <div className="flex items-center w-full gap-2">
-            {hasNext ? (
-              <>
-                <div className="flex-1">
-                  <Button
-                    variant="outline"
-                    onClick={loadMore}
-                    disabled={loading}
-                    className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 text-sm
-                               disabled:opacity-70 disabled:cursor-not-allowed
-                               focus:outline-none focus:ring-2 focus:ring-offset-0 text-white bg-black"
-                    aria-label={
-                      loading
-                        ? TEXT?.common?.loading ?? "Loading..."
-                        : TEXT?.actions?.refresh ?? "Cargar más"
-                    }
-                  >
-                    {loading ? (
-                      <Loader2
-                        className="h-4 w-4 animate-spin"
-                        aria-hidden="true"
-                      />
-                    ) : (
-                      <RefreshCw className="h-4 w-4" aria-hidden="true" />
-                    )}
-                    <span>
-                      {loading
-                        ? TEXT?.common?.loading ?? "Loading..."
-                        : TEXT?.actions?.refresh ?? "Cargar más"}
-                    </span>
-                  </Button>
-                </div>
-                <div>
-                  <Button
-                    variant="outline"
-                    onClick={onClose}
-                    className="text-sm px-3 py-2 bg-transparent"
-                  >
-                    {TEXT?.actions?.close ?? "Close"}
-                  </Button>
-                </div>
-              </>
+            ) : error ? (
+              <div className="p-4 text-sm text-red-600">{error}</div>
             ) : (
-              <div className="ml-auto">
-                <Button
-                  variant="outline"
-                  onClick={onClose}
-                  className="text-sm px-3 py-2 bg-transparent"
-                >
-                  {TEXT?.actions?.close ?? "Close"}
-                </Button>
+              <div
+                className="rounded-lg border bg-white overflow-x-auto"
+                ref={outerWrapperRef}
+              >
+                {/* wrapper interior: obligamos al ancho real de la tabla (suma de columnas) */}
+                <div style={{ minWidth: `${tableMinWidth}px` }} className="overflow-hidden">
+                  {/* contenedor que hace el scroll vertical del body y es el ancestor para sticky top */}
+                  <div
+                    style={{
+                      maxHeight:
+                        guardsFiltered.length > 8 ? `${bodyMaxHeight}px` : undefined,
+                      overflowY: "auto", // solo scroll vertical aquí
+                      overflowX: "hidden", // evitar doble scroll x
+                    }}
+                  >
+                    <Table
+                      className="table-fixed border-collapse text-sm"
+                      style={{ minWidth: `${tableMinWidth}px` }} // garantiza que la tabla tenga el ancho necesario
+                    >
+                      <TableHeader>
+                        <TableRow className="bg-gray-50">
+                          <TableHead
+                            className="sticky left-0 top-0 z-20 bg-gray-50 border px-2 py-2 text-left font-bold"
+                            style={{ minWidth: 200 }}
+                          >
+                            Guardias
+                          </TableHead>
+
+                          {days.map((d) => {
+                            const label = d.toLocaleDateString(undefined, {
+                              weekday: "short",
+                              month: "numeric",
+                              day: "numeric",
+                            });
+                            return (
+                              <TableHead
+                                key={d.toISOString()}
+                                className="border px-2 py-2 text-center font-bold sticky top-0 bg-gray-50"
+                                style={{ minWidth: dayColMinWidth }}
+                              >
+                                <div className="text-xs">{label}</div>
+                              </TableHead>
+                            );
+                          })}
+                        </TableRow>
+                      </TableHeader>
+
+                      <TableBody>
+                        {guardsFiltered.length === 0 ? (
+                          <TableRow>
+                            <TableCell
+                              colSpan={days.length + 1}
+                              className="p-4 text-sm text-muted-foreground"
+                            >
+                              No hay turnos/guardias en el rango seleccionado.
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          guardsFiltered.map((g) => {
+                            return (
+                              <TableRow
+                                key={g.id}
+                                className="hover:bg-muted/5"
+                                style={{ height: rowHeight }}
+                              >
+                                <TableCell
+                                  className="sticky left-0 z-10 bg-white border px-2 py-2 font-medium"
+                                  style={{ minWidth: 200 }}
+                                >
+                                  <div className="text-sm truncate">{g.name}</div>
+                                </TableCell>
+
+                                {days.map((d) => {
+                                  const key = `${d.getFullYear()}-${pad(
+                                    d.getMonth() + 1
+                                  )}-${pad(d.getDate())}`;
+                                  const rec =
+                                    shiftsByGuardAndDate.get(g.id)?.[key] ?? [];
+                                  if (!rec || rec.length === 0) {
+                                    return (
+                                      <TableCell
+                                        key={key}
+                                        className="border px-2 py-2 text-center text-xs text-muted-foreground cursor-pointer hover:bg-muted/5"
+                                        style={{ minWidth: dayColMinWidth }}
+                                        onClick={() => {
+                                          openCreateForDate(d, g.id);
+                                        }}
+                                      >
+                                        <div className="select-none">+</div>
+                                      </TableCell>
+                                    );
+                                  }
+                                  return (
+                                    <TableCell
+                                      key={key}
+                                      className="border px-2 py-2 text-center align-top"
+                                      style={{ minWidth: dayColMinWidth }}
+                                    >
+                                      <div className="flex flex-col items-center gap-1">
+                                        {rec.map((s) => {
+                                          const startIso =
+                                            s.plannedStartTime ??
+                                            (s as any).planned_start_time ??
+                                            s.startTime ??
+                                            (s as any).start_time;
+                                          const endIso =
+                                            s.plannedEndTime ??
+                                            (s as any).planned_end_time ??
+                                            s.endTime ??
+                                            (s as any).end_time;
+                                          return (
+                                            <button
+                                              key={s.id}
+                                              type="button"
+                                              className="text-xs underline decoration-dotted hover:bg-muted/10 px-1 rounded"
+                                              onClick={(ev) => {
+                                                ev.stopPropagation();
+                                                setActionShift(s);
+                                              }}
+                                            >
+                                              {`${isoToLocalTime(startIso)} — ${isoToLocalTime(
+                                                endIso
+                                              )}`}
+                                            </button>
+                                          );
+                                        })}
+                                      </div>
+                                    </TableCell>
+                                  );
+                                })}
+                              </TableRow>
+                            );
+                          })
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
               </div>
             )}
           </div>
-        </DialogFooter>
-      </DialogContent>
 
-      <CreateShift
-        open={openCreate}
-        onClose={() => setOpenCreate(false)}
-        guardId={guardId}
-        selectedDate={selectedDate}
-        preloadedGuards={allGuardsCache}
-        onCreated={handleCreated}
+          <DialogFooter>
+            <div className="flex justify-between items-center w-full">
+              <div className="text-xs text-muted-foreground">
+                {(TEXT as any)?.properties?.shiftsFooter ??
+                  "Usa los controles para navegar semanas/meses/años. Haz click en + para crear un turno o en un turno existente para ver acciones."}
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={onClose}>
+                  {(TEXT as any)?.actions?.close ?? "Close"}
+                </Button>
+              </div>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {createOpen && createDate && (
+        <CreateShift
+          open={createOpen}
+          onClose={() => {
+            setCreateOpen(false);
+            setCreateDate(null);
+            setCreateGuardId(null);
+          }}
+          propertyId={propertyId}
+          selectedDate={createDate}
+          preselectedProperty={preselectedPropertyObj as any}
+          preloadedProperties={preloadedPropertiesArray as any}
+          guardId={createGuardId ?? undefined}
+          preloadedGuard={
+            createGuardId
+              ? ({
+                  id: createGuardId,
+                  firstName: undefined,
+                  lastName: undefined,
+                } as any)
+              : null
+          }
+          onCreated={(shift) => handleCreateDone(shift)}
+        />
+      )}
+
+      <ActionsDialog
+        shift={actionShift}
+        open={!!actionShift && !openEdit && !openDelete}
+        onClose={() => setActionShift(null)}
       />
 
-      {openShowId !== null && (
-        <ShowShift
-          open={openShowId !== null}
-          onClose={() => setOpenShowId(null)}
-          shiftId={openShowId as number}
-          onUpdated={handleUpdated}
-          onDeleted={handleDeleted}
-        />
-      )}
-
-      {openEditId !== null && (
+      {actionShift && (
         <EditShift
-          open={openEditId !== null}
-          onClose={() => setOpenEditId(null)}
-          shiftId={openEditId as number}
-          onUpdated={handleUpdated}
+          open={openEdit}
+          onClose={() => setOpenEdit(false)}
+          shiftId={actionShift.id}
+          initialShift={actionShift}
+          onUpdated={(s) => handleEditDone(s)}
         />
       )}
 
-      {openDeleteId !== null && (
+      {actionShift && (
         <DeleteShift
-          open={openDeleteId !== null}
-          onClose={() => setOpenDeleteId(null)}
-          shiftId={openDeleteId as number}
-          onDeleted={handleDeleted}
+          open={openDelete}
+          onClose={() => setOpenDelete(false)}
+          shiftId={actionShift.id}
+          onDeleted={(id) => handleDeleteDone(id)}
         />
       )}
-    </Dialog>
+    </>
   );
 }
