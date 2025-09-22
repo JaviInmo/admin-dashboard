@@ -25,7 +25,8 @@ import { ClickableEmail } from "../ui/clickable-email";
 /* Modal separado (import) */
 import TariffModal from "./TarifModal";
 import GuardDetailsModal from "./GuardDetailsModal";
-import GuardsShiftsModal from "./asdGuardsShiftsModalImproved"; // Modal mejorado
+// Import correcto del modal nuevo (ruta al archivo que creaste)
+import GuardShiftsModal from "@/components/Guards/guard shifts content/GuardShiftsModal";
 
 // Nuevo modal de armas del guardia
 import GuardWeaponsModal from "./GuardWeaponsModal";
@@ -471,9 +472,9 @@ export default function GuardsTable({
         />
       )}
 
-      {/* Nuevo: modal de Shifts */}
+      {/* Nuevo: modal de Shifts (USAR EL NUEVO GuardShiftsModal) */}
       {shiftGuard && (
-        <GuardsShiftsModal
+        <GuardShiftsModal
           guardId={shiftGuard.id}
           guardName={`${shiftGuard.firstName ?? ""} ${shiftGuard.lastName ?? ""}`.trim()}
           open={!!shiftGuard}

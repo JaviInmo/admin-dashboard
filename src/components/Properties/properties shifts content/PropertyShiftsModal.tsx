@@ -95,7 +95,7 @@ export default function PropertyShiftsModal({ propertyId, propertyName, open, on
     guardsFiltered,
     days,
     shiftsByGuardAndDate,
-  } = useShiftsDerived(shifts, guardSearch, startDate, viewMode) as UseShiftsDerivedReturn;
+  } = useShiftsDerived(shifts, guardSearch, startDate, viewMode) as unknown as UseShiftsDerivedReturn;
 
   const [createOpen, setCreateOpen] = React.useState(false);
   const [createDate, setCreateDate] = React.useState<Date | null>(null);
