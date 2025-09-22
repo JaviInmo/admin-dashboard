@@ -22,7 +22,6 @@ import type { AppProperty } from "@/lib/services/properties";
 import type { Service as AppService } from "@/components/Services/types";
 import type { Weapon } from "@/components/Weapons/types";
 
-
 type CreateShiftProps = {
   open: boolean;
   onClose: () => void;
@@ -32,7 +31,7 @@ type CreateShiftProps = {
   preselectedProperty?: AppProperty | null;
   preselectedService?: AppService | null;
   preloadedProperties?: AppProperty[];
-  preloadedGuards?: Guard[]; // Agregar propiedad para pasar todos los guardias del cache
+  preloadedGuards?: Guard[]; // Agregada la lista de guardias precargada
   preloadedGuard?: Guard | null;
   onCreated?: (shift: Shift) => void;
 };
@@ -69,7 +68,7 @@ export default function CreateShift({
   preselectedProperty = null,
   preselectedService = null,
   preloadedProperties = [],
-  preloadedGuards = [], // Agregar parámetro para guardias pre-cargadas
+  preloadedGuards = [], // recibimos lista pre-cargada
   preloadedGuard = null,
   onCreated,
 }: CreateShiftProps) {
@@ -155,10 +154,10 @@ export default function CreateShift({
   // Pre-load guards when modal opens - usar datos pre-cargados si están disponibles
   React.useEffect(() => {
     if (!open) return;
-    
+
     let mounted = true;
     setGuardsLoading(true);
-    
+
     (async () => {
       try {
         // Si tenemos guardias pre-cargadas, usarlas directamente
@@ -170,11 +169,11 @@ export default function CreateShift({
           }
           return;
         }
-        
+
         // Si no hay guardias pre-cargadas, cargar desde el backend (comportamiento anterior)
         const response = await listGuards(1, "", 100);
         if (!mounted) return;
-        
+
         const guards = extractItems<Guard>(response);
         setAllGuards(guards);
         setGuardResults(guards); // Initially show all guards
@@ -186,11 +185,11 @@ export default function CreateShift({
         if (mounted) setGuardsLoading(false);
       }
     })();
-    
+
     return () => {
       mounted = false;
     };
-  }, [open, preloadedGuards]); // Agregar preloadedGuards como dependencia
+  }, [open, preloadedGuards]); // dependencia en preloadedGuards
 
   // Close guard dropdown on outside click or Escape
   React.useEffect(() => {
@@ -292,16 +291,29 @@ export default function CreateShift({
     }
   }, [preselectedService, open]);
 
+  // ---------- CAMBIO PRINCIPAL: relleno del guard a partir de preloadedGuards / preloadedGuard ----------
   React.useEffect(() => {
     if (!open) return;
     if (!guardId) return;
 
+    // 1) Si nos pasaron un guard en preloadedGuard exacto, úsalo.
     if (preloadedGuard && preloadedGuard.id === guardId) {
       setSelectedGuard(preloadedGuard);
       setGuardQuery("");
       return;
     }
 
+    // 2) Si nos pasaron una lista de guardias pre-cargadas, búscalo ahí y úsalo (sin request).
+    if (preloadedGuards && Array.isArray(preloadedGuards) && preloadedGuards.length > 0) {
+      const found = preloadedGuards.find((g) => Number(g.id) === Number(guardId));
+      if (found) {
+        setSelectedGuard(found);
+        setGuardQuery("");
+        return;
+      }
+    }
+
+    // 3) Fallback: solicitar al backend (como antes) si no lo encontramos localmente.
     let mounted = true;
     (async () => {
       try {
@@ -316,7 +328,8 @@ export default function CreateShift({
     return () => {
       mounted = false;
     };
-  }, [guardId, open, preloadedGuard]);
+  }, [guardId, open, preloadedGuard, preloadedGuards]);
+  // -----------------------------------------------------------------------------------------------
 
   // when selectedGuard changes -> fetch weapons for that guard
   React.useEffect(() => {
@@ -349,12 +362,10 @@ export default function CreateShift({
   // guards search - now uses pre-loaded cache first
   React.useEffect(() => {
     const q = (debouncedGuardQuery ?? "").trim();
-    
+
     if (q === "") {
       // Show all pre-loaded guards when no search query
       setGuardResults(allGuards);
-      // Do NOT auto-open; open only on input focus
-      // if (allGuards.length > 0) setGuardDropdownOpen(true);
       return;
     }
 
@@ -363,17 +374,13 @@ export default function CreateShift({
       const fullName = `${guard.firstName || ""} ${guard.lastName || ""}`.toLowerCase();
       const email = (guard.email || "").toLowerCase();
       const query = q.toLowerCase();
-      
+
       return fullName.includes(query) || email.includes(query);
     });
 
     if (localResults.length >= 3 || allGuards.length === 0) {
-      // Use local results if we have enough, or if cache is empty (fallback to API)
-  setGuardResults(localResults);
-  // Do NOT auto-open; open only on input focus
-  // setGuardDropdownOpen(true);
-      
-      // If cache is empty, try API as fallback
+      setGuardResults(localResults);
+
       if (allGuards.length === 0) {
         let mounted = true;
         setGuardsLoading(true);
@@ -383,11 +390,9 @@ export default function CreateShift({
             if (!mounted) return;
             const items = extractItems<Guard>(res);
             setGuardResults(items);
-            // Do NOT auto-open; open only on input focus
-            // setGuardDropdownOpen(true);
           } catch (err) {
             console.error("listGuards API fallback error", err);
-            setGuardResults(localResults); // Keep local results even if API fails
+            setGuardResults(localResults);
           } finally {
             if (mounted) setGuardsLoading(false);
           }
@@ -397,7 +402,6 @@ export default function CreateShift({
         };
       }
     } else {
-      // If local results are insufficient, supplement with API call
       let mounted = true;
       setGuardsLoading(true);
       (async () => {
@@ -405,20 +409,15 @@ export default function CreateShift({
           const res = await listGuards(1, q, 10);
           if (!mounted) return;
           const apiItems = extractItems<Guard>(res);
-          
-          // Combine local and API results, avoiding duplicates
+
           const localIds = new Set(localResults.map(g => g.id));
           const newItems = apiItems.filter(g => !localIds.has(g.id));
           const combinedResults = [...localResults, ...newItems];
-          
+
           setGuardResults(combinedResults);
-          // Do NOT auto-open; open only on input focus
-          // setGuardDropdownOpen(true);
         } catch (err) {
           console.error("listGuards supplemental error", err);
-          setGuardResults(localResults); // Fallback to local results
-          // Do NOT auto-open; open only on input focus
-          // setGuardDropdownOpen(true);
+          setGuardResults(localResults);
         } finally {
           if (mounted) setGuardsLoading(false);
         }
@@ -506,13 +505,12 @@ export default function CreateShift({
 
     let mounted = true;
     setServicesLoading(true);
-    
+
     (async () => {
       try {
         const response = await listServicesByProperty(selectedProperty.id, 1, "", 100);
         if (!mounted) return;
-        
-        // Extract services array from different response formats
+
         let services: AppService[] = [];
         if (Array.isArray(response)) {
           services = response;
@@ -521,10 +519,9 @@ export default function CreateShift({
         } else if ((response as any)?.results) {
           services = (response as any).results;
         }
-        
+
         setPropertyServices(services);
-        
-        // Clear selected service if it's not in the new list
+
         if (selectedService && !services.find(s => s.id === selectedService.id)) {
           setSelectedService(null);
         }
@@ -536,7 +533,7 @@ export default function CreateShift({
         if (mounted) setServicesLoading(false);
       }
     })();
-    
+
     return () => {
       mounted = false;
     };
@@ -548,11 +545,9 @@ export default function CreateShift({
 
     const { startTime, endTime } = selectedService;
 
-    // If service has defined times, use them to populate shift times
     if (startTime && endTime) {
       const targetDate = selectedDate || new Date();
-      
-      // Parse service times (assuming HH:MM:SS format)
+
       const parseTime = (timeStr: string) => {
         const [hours, minutes] = timeStr.split(':').map(Number);
         return { hours: isNaN(hours) ? 0 : hours, minutes: isNaN(minutes) ? 0 : minutes };
@@ -561,14 +556,12 @@ export default function CreateShift({
       const startTimeObj = parseTime(startTime);
       const endTimeObj = parseTime(endTime);
 
-      // Create datetime strings for the target date with service times
       const startDate = new Date(targetDate);
       startDate.setHours(startTimeObj.hours, startTimeObj.minutes, 0, 0);
 
       const endDate = new Date(targetDate);
       endDate.setHours(endTimeObj.hours, endTimeObj.minutes, 0, 0);
 
-      // If end time is before start time, assume it's next day
       if (endDate <= startDate) {
         endDate.setDate(endDate.getDate() + 1);
       }
@@ -587,14 +580,13 @@ export default function CreateShift({
       setPlannedEnd(toLocalDateTimeInput(endDate));
     }
 
-    // If service has an assigned property, pre-select it
     if (selectedService.assignedProperty && selectedService.propertyName) {
       const serviceProperty: AppProperty = {
         id: selectedService.assignedProperty,
-        ownerId: 0, // Default value
+        ownerId: 0,
         name: selectedService.propertyName,
         alias: undefined,
-        address: selectedService.propertyName, // Use property name as address fallback
+        address: selectedService.propertyName,
         description: null,
         contractStartDate: null,
         createdAt: null,
@@ -614,7 +606,7 @@ export default function CreateShift({
     const alias = p.alias || p.name || "Sin nombre";
     const ownerDetails = p.ownerDetails;
     let ownerName = "";
-    
+
     if (ownerDetails) {
       const firstName = ownerDetails.first_name || "";
       const lastName = ownerDetails.last_name || "";
@@ -625,7 +617,7 @@ export default function CreateShift({
     } else {
       ownerName = `#${p.ownerId}`;
     }
-    
+
     return `${alias} - ${ownerName}`;
   };
 
@@ -639,7 +631,6 @@ export default function CreateShift({
   };
 
   const checkForOverlaps = React.useCallback(async () => {
-    // overlap check based on plannedStart/plannedEnd
     if (!selectedGuard || !plannedStart || !plannedEnd) {
       setHasOverlap(false);
       setOverlapMessage("");
@@ -686,7 +677,6 @@ export default function CreateShift({
     return () => clearTimeout(timeoutId);
   }, [checkForOverlaps]);
 
-  // weaponDetails (informativo local)
   const [weaponDetails, setWeaponDetails] = React.useState<string>("");
 
   async function onSubmit(e?: React.FormEvent) {
@@ -736,7 +726,6 @@ export default function CreateShift({
       if (selectedService) payload.service = Number(selectedService.id);
       if (typeof isArmed === "boolean") payload.is_armed = isArmed;
 
-      // weapon handling: send weapon id (if selected) and/or serial if available
       if (isArmed) {
         if (selectedWeaponId) payload.weapon = selectedWeaponId;
         const serialToSend = selectedWeaponSerial ?? (manualSerial.trim() !== "" ? manualSerial.trim() : null);
@@ -784,7 +773,6 @@ export default function CreateShift({
     }
   }
 
-  // compact input class
   const inputClass = "w-full rounded border px-3 py-1.5 text-sm";
 
   return (
@@ -805,7 +793,7 @@ export default function CreateShift({
           {/* Guard select-search */}
           <div className="relative" ref={guardFieldRef}>
             <label className="text-sm text-muted-foreground block mb-1">Guard</label>
-      <input
+            <input
               type="text"
               className={inputClass}
               value={selectedGuard ? guardLabel(selectedGuard) : guardQuery}
@@ -814,8 +802,7 @@ export default function CreateShift({
                 setGuardQuery(e.target.value);
               }}
               onClick={() => {
-        // Open only on explicit click
-        setGuardDropdownOpen(true);
+                setGuardDropdownOpen(true);
               }}
               placeholder={guardPlaceholder}
               aria-label="Buscar guard"

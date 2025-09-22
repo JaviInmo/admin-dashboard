@@ -1,4 +1,3 @@
-// src/components/Properties/PropertyShiftsModal.tsx
 "use client";
 
 import * as React from "react";
@@ -11,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { listShiftsByProperty } from "@/lib/services/shifts";
+
 import type { Shift } from "@/components/Shifts/types";
 import { useI18n } from "@/i18n";
 import { toast } from "sonner";
@@ -20,21 +20,21 @@ import CreateShift from "@/components/Shifts/Create/Create";
 import EditShift from "@/components/Shifts/Edit/Edit";
 import DeleteShift from "@/components/Shifts/Delete/Delete";
 
-// shadcn table components
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import PropertyShiftsTable from "@/components/Properties/PropertyShiftsTable";
 
 type Props = {
   propertyId: number;
   propertyName?: string;
   open: boolean;
   onClose: () => void;
+};
+
+type SimpleGuard = {
+  id: number;
+  name: string;
+  email?: string;
+  firstName?: string;
+  lastName?: string;
 };
 
 function pad(n: number) {
@@ -45,16 +45,6 @@ function isoToLocalDateKey(iso?: string | null) {
   if (!iso) return null;
   const d = new Date(iso);
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-
-function isoToLocalTime(iso?: string | null) {
-  if (!iso) return "-";
-  try {
-    const d = new Date(iso);
-    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  } catch {
-    return String(iso);
-  }
 }
 
 export default function PropertyShiftsModal({
@@ -84,6 +74,9 @@ export default function PropertyShiftsModal({
   const [createOpen, setCreateOpen] = React.useState(false);
   const [createDate, setCreateDate] = React.useState<Date | null>(null);
   const [createGuardId, setCreateGuardId] = React.useState<number | null>(null);
+  const [createPreloadedGuard, setCreatePreloadedGuard] = React.useState<
+    SimpleGuard | null
+  >(null);
 
   const [actionShift, setActionShift] = React.useState<Shift | null>(null);
   const [openEdit, setOpenEdit] = React.useState(false);
@@ -171,6 +164,7 @@ export default function PropertyShiftsModal({
         email?: string;
       }
     >();
+    // iteramos shifts en orden; si un shift tiene guardDetails/name lo usamos
     shifts.forEach((s) => {
       const gid = Number(s.guard ?? (s.guardDetails as any)?.id ?? -1);
       if (gid === -1 || Number.isNaN(gid)) return;
@@ -318,18 +312,55 @@ export default function PropertyShiftsModal({
     setStartDate(nd);
   }
 
-  function openCreateForDate(d: Date, guardId?: number | null) {
+  // openCreateForDateLocal
+  function openCreateForDateLocal(d: Date, guard?: SimpleGuard | null) {
     setCreateDate(d);
-    setCreateGuardId(guardId ?? null);
+    setCreateGuardId(guard ? guard.id : null);
+    setCreatePreloadedGuard(guard ?? null);
     setCreateOpen(true);
   }
 
-  function handleCreateDone(_: Shift) {
+  // handleCreateDone actualizado:
+  async function handleCreateDone(created?: Shift) {
+    // cerrar modal y limpiar
     setCreateOpen(false);
     setCreateDate(null);
     setCreateGuardId(null);
-    fetchShifts();
+    setCreatePreloadedGuard(null);
+
+    if (created) {
+      // refrescar desde backend para asegurar que shifts y guard info estén completos
+      await fetchShifts();
+
+      // localizar fila del guard y hacer scrollIntoView
+      const gid = Number(created.guard ?? (created as any).guardDetails?.id ?? -1);
+      if (gid !== -1 && outerWrapperRef.current) {
+        // damos un pequeño delay para que DOM se haya actualizado
+        setTimeout(() => {
+          try {
+            const root = outerWrapperRef.current!;
+            const el = root.querySelector(`[data-guard-row="guard-${gid}"]`) as HTMLElement | null;
+            if (el) {
+              // hacemos scroll en el scrollable ancestor (el contenedor padre del body)
+              el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+            } else {
+              // fallback: scroll top
+              const scrollable = root.querySelector('[style*="overflow-y: auto"]') as HTMLElement | null;
+              if (scrollable) scrollable.scrollTop = 0;
+            }
+          } catch (err) {
+            // swallow
+            console.warn("scrollIntoView guard row failed:", err);
+          }
+        }, 60);
+      }
+      return;
+    }
+
+    // si no hay created, solo refrescamos
+    await fetchShifts();
   }
+
   function handleEditDone(_: Shift) {
     setOpenEdit(false);
     setActionShift(null);
@@ -346,19 +377,15 @@ export default function PropertyShiftsModal({
   const rowHeight = 44;
   const bodyMaxHeight = maxVisibleGuards * rowHeight + 2;
 
-  // Calculate the real minimum width of the table so it doesn't "squeeze"
   const tableMinWidth = React.useMemo(() => {
-    const firstCol = 200; // same min width as first column
+    const firstCol = 200;
     return firstCol + days.length * dayColMinWidth;
   }, [days.length, dayColMinWidth]);
 
-  // ref to the horizontal-scrolling wrapper so we can reset scrollLeft when viewMode changes
   const outerWrapperRef = React.useRef<HTMLDivElement | null>(null);
 
-  // When viewMode or days change, reset horizontal scroll so user sees the start of the table
   React.useEffect(() => {
     if (!outerWrapperRef.current) return;
-    // snap to start (no animation) — keeps columns consistent when switching to month
     outerWrapperRef.current.scrollLeft = 0;
   }, [viewMode, days.length]);
 
@@ -406,28 +433,26 @@ export default function PropertyShiftsModal({
             </div>
           </div>
 
-          <DialogFooter>
-            <div className="flex justify-end gap-2 w-full">
-              <Button variant="ghost" onClick={onClose}>
-                {(TEXT as any)?.actions?.close ?? "Close"}
-              </Button>
-              <Button
-                onClick={() => {
-                  setOpenEdit(true);
-                }}
-              >
-                {(TEXT as any)?.actions?.edit ?? "Edit"}
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={() => {
-                  setOpenDelete(true);
-                }}
-              >
-                {(TEXT as any)?.actions?.delete ?? "Delete"}
-              </Button>
-            </div>
-          </DialogFooter>
+          <div className="mt-4 flex justify-end gap-2 w-full">
+            <Button variant="ghost" onClick={onClose}>
+              {(TEXT as any)?.actions?.close ?? "Close"}
+            </Button>
+            <Button
+              onClick={() => {
+                setOpenEdit(true);
+              }}
+            >
+              {(TEXT as any)?.actions?.edit ?? "Edit"}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                setOpenDelete(true);
+              }}
+            >
+              {(TEXT as any)?.actions?.delete ?? "Delete"}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     );
@@ -487,35 +512,42 @@ export default function PropertyShiftsModal({
                   />
                 </div>
 
-                <div className="flex border rounded overflow-hidden">
-                  <button
-                    type="button"
-                    onClick={() => setViewMode("week")}
-                    className={`px-3 py-1 text-sm ${
-                      viewMode === "week" ? "bg-muted/10" : "bg-white"
-                    }`}
-                  >
-                    Semana
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setViewMode("month")}
-                    className={`px-3 py-1 text-sm ${
-                      viewMode === "month" ? "bg-muted/10" : "bg-white"
-                    }`}
-                  >
-                    Mes
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setViewMode("year")}
-                    className={`px-3 py-1 text-sm ${
-                      viewMode === "year" ? "bg-muted/10" : "bg-white"
-                    }`}
-                  >
-                    Año
-                  </button>
-                </div>
+               <div className="flex border rounded overflow-hidden">
+  <Button
+    type="button"
+    onClick={() => setViewMode("week")}
+    className={`px-3 py-1 text-sm transition-colors ${
+      viewMode === "week"
+        ? "bg-black text-white"
+        : "bg-white text-black hover:bg-gray-100"
+    }`}
+  >
+    Semana
+  </Button>
+  <Button
+    type="button"
+    onClick={() => setViewMode("month")}
+    className={`px-3 py-1 text-sm transition-colors ${
+      viewMode === "month"
+        ? "bg-black text-white"
+        : "bg-white text-black hover:bg-gray-100"
+    }`}
+  >
+    Mes
+  </Button>
+  <Button
+    type="button"
+    onClick={() => setViewMode("year")}
+    className={`px-3 py-1 text-sm transition-colors ${
+      viewMode === "year"
+        ? "bg-black text-white"
+        : "bg-white text-black hover:bg-gray-100"
+    }`}
+  >
+    Año
+  </Button>
+</div>
+
 
                 <div className="flex items-center gap-1">
                   <Button
@@ -547,163 +579,49 @@ export default function PropertyShiftsModal({
             </div>
           </DialogHeader>
 
-          <div className="mt-4">
-            {loading ? (
-              <div className="p-4">
-                {(TEXT as any)?.common?.loading ?? "Cargando..."}
-              </div>
-            ) : error ? (
-              <div className="p-4 text-sm text-red-600">{error}</div>
-            ) : (
-              <div
-                className="rounded-lg border bg-white overflow-x-auto"
-                ref={outerWrapperRef}
-              >
-                {/* wrapper interior: obligamos al ancho real de la tabla (suma de columnas) */}
-                <div style={{ minWidth: `${tableMinWidth}px` }} className="overflow-hidden">
-                  {/* contenedor que hace el scroll vertical del body y es el ancestor para sticky top */}
-                  <div
-                    style={{
-                      maxHeight:
-                        guardsFiltered.length > 8 ? `${bodyMaxHeight}px` : undefined,
-                      overflowY: "auto", // solo scroll vertical aquí
-                      overflowX: "hidden", // evitar doble scroll x
-                    }}
-                  >
-                    <Table
-                      className="table-fixed border-collapse text-sm"
-                      style={{ minWidth: `${tableMinWidth}px` }} // garantiza que la tabla tenga el ancho necesario
-                    >
-                      <TableHeader>
-                        <TableRow className="bg-gray-50">
-                          <TableHead
-                            className="sticky left-0 top-0 z-20 bg-gray-50 border px-2 py-2 text-left font-bold"
-                            style={{ minWidth: 200 }}
-                          >
-                            Guardias
-                          </TableHead>
-
-                          {days.map((d) => {
-                            const label = d.toLocaleDateString(undefined, {
-                              weekday: "short",
-                              month: "numeric",
-                              day: "numeric",
-                            });
-                            return (
-                              <TableHead
-                                key={d.toISOString()}
-                                className="border px-2 py-2 text-center font-bold sticky top-0 bg-gray-50"
-                                style={{ minWidth: dayColMinWidth }}
-                              >
-                                <div className="text-xs">{label}</div>
-                              </TableHead>
-                            );
-                          })}
-                        </TableRow>
-                      </TableHeader>
-
-                      <TableBody>
-                        {guardsFiltered.length === 0 ? (
-                          <TableRow>
-                            <TableCell
-                              colSpan={days.length + 1}
-                              className="p-4 text-sm text-muted-foreground"
-                            >
-                              No hay turnos/guardias en el rango seleccionado.
-                            </TableCell>
-                          </TableRow>
-                        ) : (
-                          guardsFiltered.map((g) => {
-                            return (
-                              <TableRow
-                                key={g.id}
-                                className="hover:bg-muted/5"
-                                style={{ height: rowHeight }}
-                              >
-                                <TableCell
-                                  className="sticky left-0 z-10 bg-white border px-2 py-2 font-medium"
-                                  style={{ minWidth: 200 }}
-                                >
-                                  <div className="text-sm truncate">{g.name}</div>
-                                </TableCell>
-
-                                {days.map((d) => {
-                                  const key = `${d.getFullYear()}-${pad(
-                                    d.getMonth() + 1
-                                  )}-${pad(d.getDate())}`;
-                                  const rec =
-                                    shiftsByGuardAndDate.get(g.id)?.[key] ?? [];
-                                  if (!rec || rec.length === 0) {
-                                    return (
-                                      <TableCell
-                                        key={key}
-                                        className="border px-2 py-2 text-center text-xs text-muted-foreground cursor-pointer hover:bg-muted/5"
-                                        style={{ minWidth: dayColMinWidth }}
-                                        onClick={() => {
-                                          openCreateForDate(d, g.id);
-                                        }}
-                                      >
-                                        <div className="select-none">+</div>
-                                      </TableCell>
-                                    );
-                                  }
-                                  return (
-                                    <TableCell
-                                      key={key}
-                                      className="border px-2 py-2 text-center align-top"
-                                      style={{ minWidth: dayColMinWidth }}
-                                    >
-                                      <div className="flex flex-col items-center gap-1">
-                                        {rec.map((s) => {
-                                          const startIso =
-                                            s.plannedStartTime ??
-                                            (s as any).planned_start_time ??
-                                            s.startTime ??
-                                            (s as any).start_time;
-                                          const endIso =
-                                            s.plannedEndTime ??
-                                            (s as any).planned_end_time ??
-                                            s.endTime ??
-                                            (s as any).end_time;
-                                          return (
-                                            <button
-                                              key={s.id}
-                                              type="button"
-                                              className="text-xs underline decoration-dotted hover:bg-muted/10 px-1 rounded"
-                                              onClick={(ev) => {
-                                                ev.stopPropagation();
-                                                setActionShift(s);
-                                              }}
-                                            >
-                                              {`${isoToLocalTime(startIso)} — ${isoToLocalTime(
-                                                endIso
-                                              )}`}
-                                            </button>
-                                          );
-                                        })}
-                                      </div>
-                                    </TableCell>
-                                  );
-                                })}
-                              </TableRow>
-                            );
-                          })
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </div>
-              </div>
-            )}
+          {/* Tabla */}
+          <div className="max-w-7xl overflow-x-hidden">
+            <PropertyShiftsTable
+              days={days}
+              guardsFiltered={guardsFiltered}
+              shiftsByGuardAndDate={shiftsByGuardAndDate}
+              openCreateForDate={openCreateForDateLocal}
+              setActionShift={setActionShift}
+              loading={loading}
+              error={error}
+              dayColMinWidth={dayColMinWidth}
+              tableMinWidth={tableMinWidth}
+              bodyMaxHeight={guardsFiltered.length > 8 ? `${bodyMaxHeight}px` : undefined}
+              rowHeight={rowHeight}
+              outerWrapperRef={outerWrapperRef}
+            />
           </div>
+
+         
 
           <DialogFooter>
             <div className="flex justify-between items-center w-full">
-              <div className="text-xs text-muted-foreground">
+              <div className="text-xs text-muted-foreground pt-3">
                 {(TEXT as any)?.properties?.shiftsFooter ??
                   "Usa los controles para navegar semanas/meses/años. Haz click en + para crear un turno o en un turno existente para ver acciones."}
               </div>
               <div className="flex gap-2">
+                 {/* Botón externo */}
+         
+            <Button
+              onClick={() => {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                setCreateDate(today);
+                setCreateGuardId(null);
+                setCreatePreloadedGuard(null);
+                setCreateOpen(true);
+              }}
+            
+            >
+              Crear turno
+            </Button>
+       
                 <Button variant="outline" onClick={onClose}>
                   {(TEXT as any)?.actions?.close ?? "Close"}
                 </Button>
@@ -713,6 +631,7 @@ export default function PropertyShiftsModal({
         </DialogContent>
       </Dialog>
 
+      {/* CreateShift modal: PASAMOS preloadedGuards (caché) y preloadedGuard (objeto si existe) */}
       {createOpen && createDate && (
         <CreateShift
           open={createOpen}
@@ -720,22 +639,19 @@ export default function PropertyShiftsModal({
             setCreateOpen(false);
             setCreateDate(null);
             setCreateGuardId(null);
+            setCreatePreloadedGuard(null);
           }}
           propertyId={propertyId}
           selectedDate={createDate}
           preselectedProperty={preselectedPropertyObj as any}
           preloadedProperties={preloadedPropertiesArray as any}
           guardId={createGuardId ?? undefined}
-          preloadedGuard={
-            createGuardId
-              ? ({
-                  id: createGuardId,
-                  firstName: undefined,
-                  lastName: undefined,
-                } as any)
-              : null
-          }
-          onCreated={(shift) => handleCreateDone(shift)}
+          preloadedGuards={guardsAll as any}
+          preloadedGuard={createPreloadedGuard as any}
+          onCreated={(shift) => {
+            // CreateShift devuelve el shift creado
+            handleCreateDone(shift);
+          }}
         />
       )}
 

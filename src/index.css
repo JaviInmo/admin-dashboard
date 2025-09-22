@@ -323,3 +323,14 @@
     box-shadow: 0 20px 25px -5px rgba(245, 158, 11, 0.2), 0 10px 10px -5px rgba(245, 158, 11, 0.1) !important;
   }
 }
+
+/* Oculta scrollbars horizontales en la mayoría de navegadores */
+.hide-horizontal-scrollbar {
+  -ms-overflow-style: none; /* IE 10+ */
+  scrollbar-width: none; /* Firefox */
+}
+
+/* WebKit (Chrome, Edge, Safari) — ponemos la altura a 0 para ocultar solo la barra horizontal */
+.hide-horizontal-scrollbar::-webkit-scrollbar {
+  height: 0;
+}
