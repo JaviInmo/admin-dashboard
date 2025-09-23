@@ -4,7 +4,7 @@ import { UserList } from './UserList';
 import { ChatList } from './ChatList';
 import { ChatView } from './ChatView';
 import { mockData } from '../../components/Notes/MockData';
-import { MessageSquare } from 'lucide-react';
+
 
 export const NotesContainer: React.FC = () => {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
@@ -84,17 +84,9 @@ export const NotesContainer: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center space-x-3">
-        <MessageSquare className="h-8 w-8 text-primary" />
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900">Sistema de Notas</h1>
-          <p className="text-slate-600">
-            Gestiona tus conversaciones y notas organizadas por usuario y temática
-          </p>
-        </div>
-      </div>
+     
 
-      <Card className="h-[700px] shadow-xl border-0 bg-white/80 backdrop-blur-sm">
+      <Card className="h-[700px] shadow-xl border-2 bg-white/80 backdrop-blur-sm">
         <div className="flex h-full">
           <UserList
             users={mockData.users}

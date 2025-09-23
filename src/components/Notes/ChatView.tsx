@@ -128,7 +128,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             {selectedUser && (
-              <Avatar className="h-8 w-8">
+              <Avatar className="h-8 w-8 mb-4">
                 <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white text-sm">
                   {selectedUser.name.split(' ').map(n => n[0]).join('')}
                 </AvatarFallback>

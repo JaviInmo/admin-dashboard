@@ -192,6 +192,12 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
       icon: Package2,
       path: "/services",
     },
+    {
+      key: "Notes",
+      label: TEXT.menu?.services ?? "Notes",
+      icon: Package2,
+      path: "/notes",
+    },
   ];
 
   const renderMainContent = () => {
