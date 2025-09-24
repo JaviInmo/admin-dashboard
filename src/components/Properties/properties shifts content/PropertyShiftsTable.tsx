@@ -2,8 +2,10 @@
 
 import * as React from "react";
 import { MessageCircle, Mail } from "lucide-react";
+import { GiPistolGun } from "react-icons/gi";
 import type { Shift } from "@/components/Shifts/types";
 import { getDayCoverageInfo } from "./coverageGaps";
+import { useI18n } from "@/i18n";
 
 type ShiftApi = Shift & {
   planned_start_time?: string | null;
@@ -81,6 +83,7 @@ export default function PropertyShiftsTable({
   services,
   onDayHover,
 }: Props) {
+  const { TEXT } = useI18n();
   const FIRST_COL_WIDTH = 200;
   const rightMinWidth = Math.max(0, tableMinWidth - FIRST_COL_WIDTH);
 
@@ -119,13 +122,13 @@ export default function PropertyShiftsTable({
   return (
     <div className="mt-4">
       {loading ? (
-        <div className="p-4">Cargando...</div>
+        <div className="p-4">{TEXT?.common?.loading ?? "Loading..."}</div>
       ) : error ? (
         <div className="p-4 text-sm text-red-600">{error}</div>
       ) : (
-        <div className="rounded-lg border bg-white" ref={outerWrapperRef}>
+        <div className="rounded-lg border bg-card" ref={outerWrapperRef}>
           {/* HEADER (fuera del scroll vertical) */}
-          <div className="flex items-stretch border-b bg-gray-50">
+          <div className="flex items-stretch border-b bg-muted/50">
             {/* Cabecera izquierda */}
             <div
               style={{
@@ -135,7 +138,7 @@ export default function PropertyShiftsTable({
               }}
               className="border-r px-2 py-2 flex items-center font-bold text-left"
             >
-              Guardias
+              {TEXT?.guards?.table?.title ?? "Guards"}
             </div>
 
             {/* Cabecera derecha (scrollable horizontalmente) */}
@@ -159,7 +162,7 @@ export default function PropertyShiftsTable({
                       key={d.toISOString()}
                       data-date={dateKey}
                       className={`border-l px-2 py-2 text-center font-bold flex-1 ${
-                        shouldHighlight ? 'bg-yellow-100' : ''
+                        shouldHighlight ? 'bg-yellow-100 dark:bg-yellow-900/30' : ''
                       }`}
                       style={{ minWidth: dayColMinWidth }}
                       onMouseEnter={() => onDayHover?.(d)}
@@ -194,7 +197,7 @@ export default function PropertyShiftsTable({
                     className="p-4 text-sm text-muted-foreground"
                     style={{ height: rowHeight }}
                   >
-                    No hay turnos/guardias en el rango seleccionado.
+                    {TEXT?.shifts?.noShiftsInRange ?? "No shifts/guards in the selected range."}
                   </div>
                 ) : (
                   <div>
@@ -275,7 +278,7 @@ export default function PropertyShiftsTable({
                                 <div
                                   key={key}
                                   className={`border-l px-2 py-2 text-center text-xs text-muted-foreground cursor-pointer hover:bg-muted/5 select-none flex-1 ${
-                                    shouldHighlight ? 'bg-yellow-50' : ''
+                                    shouldHighlight ? 'bg-yellow-50 dark:bg-yellow-900/20' : ''
                                   }`}
                                   style={{
                                     minWidth: dayColMinWidth,
@@ -295,7 +298,7 @@ export default function PropertyShiftsTable({
                               <div
                                 key={key}
                                 className={`border-l px-2 py-2 text-center align-top flex-1 ${
-                                  shouldHighlight ? 'bg-yellow-50' : ''
+                                  shouldHighlight ? 'bg-yellow-50 dark:bg-yellow-900/20' : ''
                                 }`}
                                 style={{
                                   minWidth: dayColMinWidth,
@@ -322,7 +325,7 @@ export default function PropertyShiftsTable({
                                       <button
                                         key={s.id}
                                         type="button"
-                                        className="text-xs underline decoration-dotted hover:bg-muted/10 px-1 rounded cursor-pointer w-full"
+                                        className="text-xs underline decoration-dotted hover:bg-muted/10 px-1 rounded cursor-pointer w-full flex items-center justify-center gap-1"
                                         onClick={(ev) => {
                                           ev.stopPropagation();
                                           setActionShift(s);
@@ -331,9 +334,14 @@ export default function PropertyShiftsTable({
                                           // For now, we'll keep the action dialog, but user wants direct edit
                                         }}
                                       >
-                                        {`${isoToLocalTime(startIso)}-${isoToLocalTime(
-                                          endIso
-                                        )}`}
+                                        <span>
+                                          {`${isoToLocalTime(startIso)}-${isoToLocalTime(
+                                            endIso
+                                          )}`}
+                                        </span>
+                                        {(s.isArmed || s.weapon) && (
+                                          <GiPistolGun className="h-3 w-3 text-red-600 flex-shrink-0" />
+                                        )}
                                       </button>
                                     );
                                   })}

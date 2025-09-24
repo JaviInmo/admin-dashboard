@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { getClient, CLIENT_KEY, type AppClient } from "@/lib/services/clients";
 import { Mail, Phone, MapPin, Calendar, } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useI18n } from "@/i18n";
 
 /**
  * OwnerDetailsModal — versión visualmente mejorada
@@ -40,6 +41,7 @@ export default function OwnerDetailsModal({
   onClose,
   onUpdated,
 }: OwnerDetailsModalProps) {
+  const { TEXT } = useI18n();
   const queryClient = useQueryClient();
 
   const { data, isLoading, isFetching, isError, error, refetch } = useQuery<
@@ -111,19 +113,19 @@ export default function OwnerDetailsModal({
               </div>
               <div>
                 <DialogTitle className="text-lg leading-5">
-                  {name ?? "Propietario"}
+                  {name ?? TEXT?.properties?.ownerDetails?.title ?? "Owner"}
                 </DialogTitle>
                 <div className="mt-1 flex items-center gap-2">
                   {(data as any)?.username && (
                     <div className="text-sm text-muted-foreground">
-                      @{(data as any).username}
+                      @{TEXT?.properties?.ownerDetails?.username ?? "Username"}: {(data as any).username}
                     </div>
                   )}
                   <Badge
                     variant={(data as any)?.isActive ? "secondary" : "outline"}
                     className="text-xs"
                   >
-                    {(data as any)?.isActive ? "Activo" : "Inactivo"}
+                    {(data as any)?.isActive ? TEXT?.properties?.ownerDetails?.statusActive ?? "Active" : TEXT?.properties?.ownerDetails?.statusInactive ?? "Inactive"}
                   </Badge>
                 </div>
               </div>
@@ -150,17 +152,17 @@ export default function OwnerDetailsModal({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <InfoItem
                   icon={<Mail className="h-4 w-4" />}
-                  label="Correo"
+                  label={TEXT?.properties?.ownerDetails?.labels?.email ?? "Email"}
                   value={data.email ?? "-"}
                 />
                 <InfoItem
                   icon={<Phone className="h-4 w-4" />}
-                  label="Teléfono"
+                  label={TEXT?.properties?.ownerDetails?.labels?.phone ?? "Phone"}
                   value={data.phone ?? "-"}
                 />
                 <InfoItem
                   icon={<MapPin className="h-4 w-4" />}
-                  label="Dirección"
+                  label={TEXT?.properties?.ownerDetails?.labels?.address ?? "Address"}
                   value={(data as any).address ?? "-"}
                 />
                 {/* Balance oculto a petición */}
@@ -169,14 +171,14 @@ export default function OwnerDetailsModal({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <InfoItem
                   icon={<Calendar className="h-4 w-4" />}
-                  label="Creado"
+                  label={TEXT?.properties?.ownerDetails?.labels?.created ?? "Created"}
                   value={formatDateMaybe(
                     (data as any).created_at ?? (data as any).createdAt
                   )}
                 />
                 <InfoItem
                   icon={<Calendar className="h-4 w-4" />}
-                  label="Actualizado"
+                  label={TEXT?.properties?.ownerDetails?.labels?.updated ?? "Updated"}
                   value={formatDateMaybe(
                     (data as any).updated_at ?? (data as any).updatedAt
                   )}
@@ -187,13 +189,13 @@ export default function OwnerDetailsModal({
 
           {!isLoading && !isFetching && !data && !isError && (
             <div className="text-sm text-muted-foreground">
-              No se encontraron datos del propietario.
+              {TEXT?.properties?.ownerDetails?.messages?.noData ?? "No owner data found."}
             </div>
           )}
 
           {isError && (
             <div className="text-sm text-red-600">
-              Error al cargar propietario:{" "}
+              {TEXT?.properties?.ownerDetails?.messages?.errorLoading ?? "Error loading owner:"}{" "}
               {(error as any)?.message ?? String(error)}
             </div>
           )}
@@ -202,7 +204,7 @@ export default function OwnerDetailsModal({
         <DialogFooter>
           <div className="flex justify-end gap-2 w-full">
             {/* Sólo botón de refrescar (la X en el header cierra) */}
-            <Button onClick={handleRefresh}>Refrescar</Button>
+            <Button onClick={handleRefresh}>{TEXT?.properties?.ownerDetails?.buttons?.refresh ?? "Refresh"}</Button>
           </div>
         </DialogFooter>
       </DialogContent>

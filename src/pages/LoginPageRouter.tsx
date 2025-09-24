@@ -91,7 +91,7 @@ export default function LoginPage() {
               className="w-full"
               disabled={loading}
             >
-              {loading ? 'Cargando...' : (TEXT.login.submit || 'Iniciar Sesión')}
+              {loading ? (TEXT.common?.loading || 'Cargando...') : (TEXT.login.submit || 'Iniciar Sesión')}
             </Button>
           </form>
         </CardContent>

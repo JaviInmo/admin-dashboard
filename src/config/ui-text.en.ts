@@ -187,6 +187,33 @@ export const EN_TEXT = {
     propertiesLoading: "Loading properties...",
     errorLoading: "Error loading clients",
     propertiesError: "Error loading properties",
+    clientDetails: {
+      labels: {
+        clientId: "Client #",
+        firstName: "First Name",
+        lastName: "Last Name",
+        email: "Email",
+        phone: "Phone",
+        balance: "Balance",
+        createdAt: "Created Date",
+        updatedAt: "Last Updated",
+        primaryAddress: "Primary Address",
+        billingAddress: "Billing Address",
+      },
+      status: {
+        active: "Active",
+        inactive: "Inactive",
+      },
+      sections: {
+        addresses: "Addresses",
+      },
+      buttons: {
+        close: "Close",
+      },
+      tooltips: {
+        openInWhatsapp: "Open in WhatsApp",
+      },
+    },
   },
 
   properties: {
@@ -271,6 +298,47 @@ export const EN_TEXT = {
       full: "Full",
     },
     help: "Check to grant, uncheck to revoke.",
+    ownerDetails: {
+      title: "Owner",
+      username: "Username",
+      statusActive: "Active",
+      statusInactive: "Inactive",
+      labels: {
+        email: "Email",
+        phone: "Phone",
+        address: "Address",
+        created: "Created",
+        updated: "Updated",
+      },
+      buttons: {
+        refresh: "Refresh",
+      },
+      messages: {
+        noData: "No owner data found.",
+        errorLoading: "Error loading owner:",
+      },
+    },
+    propertyDetails: {
+      title: "Property",
+      labels: {
+        name: "Name",
+        alias: "Alias/Nick",
+        address: "Address",
+        contractStartDate: "Contract Start Date",
+        created: "Created",
+        updated: "Updated",
+        description: "Description",
+        owner: "Owner",
+        ownerEmail: "Owner Email",
+        ownerPhone: "Owner Phone",
+      },
+      sections: {
+        ownerInfo: "Owner Information",
+      },
+      buttons: {
+        close: "Close",
+      },
+    },
   },
 
   guards: {
@@ -447,6 +515,42 @@ export const EN_TEXT = {
       createSuccess: "User created",
     },
     permissionsHelp: "Permissions are applied as resource.action.",
+    permissionsTable: {
+      title: "User Permissions",
+      subtitle: "Manage permissions and access for",
+      refresh: "Refresh",
+      refreshSuccess: "Options reloaded",
+      refreshError: "Error reloading options",
+      save: "Save changes",
+      saving: "Saving...",
+      saveSuccess: "Changes saved successfully",
+      saveError: "Error saving changes",
+      loadingOptions: "Loading options and permissions…",
+      noOptions: "No permission options available.",
+      loadError: "Error loading permissions/user",
+      grantError: "Error granting permissions",
+      revokeError: "Error revoking permissions",
+      grantPropertyError: "Error granting property access",
+      updatePropertyError: "Error updating access",
+      revokePropertyError: "Error revoking access",
+      grantReason: "Granted from UI",
+      revokeReason: "Revoked from UI",
+      updateReason: "Updated from UI",
+      resourcePermissions: {
+        title: "Permissions by resource",
+        subtitle: "Configure specific permissions for each resource type",
+        note: "Changes are applied with grant/revoke by resource/action using administrative endpoints.",
+      },
+      propertyAccess: {
+        title: "Property Access",
+        subtitle: "Manage specific access to each property in the system",
+        searchPlaceholder: "Search...",
+        searchAriaLabel: "Search",
+        noProperties: "No properties found.",
+        noMatches: "No matches found.",
+        note: "Check to grant, uncheck to revoke. Access type is sent in the request.",
+      },
+    },
   },
 
   permissions: {
@@ -498,6 +602,28 @@ export const EN_TEXT = {
     create: {
       title: "Create Shift",
       propertyPlaceholder: "Property ID (number)",
+      searchGuardPlaceholder: "Search guard by name or email...",
+      searchPropertyPlaceholder: "Search properties...",
+      searching: "Searching...",
+      noMatches: "No matches",
+      clear: "Clear",
+      selectPropertyFirst: "Select a property first",
+      selectService: "-- Select service --",
+      loadingServices: "Loading services...",
+      noServicesAvailable: "No services available",
+      plannedStart: "Planned Start",
+      plannedEnd: "Planned End",
+      overlapDetected: "Overlap Detected",
+      isArmed: "Is armed",
+      selectWeapon: "Select weapon (from guard) — optional",
+      noWeapons: "(no weapons)",
+      loadingWeapons: "Loading weapons...",
+      otherManualSerial: "Other / Manual serial",
+      weaponSerialPlaceholder: "Serial number (manual or selected)",
+      selectedSerial: "Selected serial: {serial}",
+      manualSerialHelp: "You can enter a manual serial if the weapon is not in the list.",
+      weaponModel: "Model",
+      weaponSerial: "Serial",
     },
     edit: {
       title: "Edit Shift",
@@ -514,6 +640,7 @@ export const EN_TEXT = {
     },
     // ADDED: search placeholder for shifts header
     searchPlaceholder: "Search guards...", /* ADDED */
+    noShiftsInRange: "No shifts/guards in the selected range.",
     errors: {
       
       missingDates: "Start and end are required",

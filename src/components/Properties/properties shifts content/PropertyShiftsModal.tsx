@@ -469,12 +469,6 @@ export default function PropertyShiftsModal({ propertyId, propertyName, property
                 )}
               </div>
               <div className="flex gap-2">
-                <Button onClick={() => {
-                  const today = new Date(); today.setHours(0, 0, 0, 0);
-                  setCreateDate(today); setCreateGuardId(null); setCreatePreloadedGuard(null); setCreateOpen(true);
-                }}>
-                  Crear turno
-                </Button>
                 <Button variant="outline" onClick={onClose}>
                   {TEXT?.actions?.close ?? "Close"}
                 </Button>

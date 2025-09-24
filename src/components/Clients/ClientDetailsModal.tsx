@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Mail, Phone, MapPin, Calendar, User, DollarSign, Check, X } from "lucide-react";
 import type { Client } from "./types";
 import { ClickableEmail } from "@/components/ui/clickable-email";
+import { useI18n } from "@/i18n/index";
 
 type ClientDetailsModalProps = {
   client: Client;
@@ -25,12 +26,13 @@ export default function ClientDetailsModal({
   open,
   onClose,
 }: ClientDetailsModalProps) {
+  const { TEXT } = useI18n();
   const fullName = React.useMemo(() => {
     const first = client.firstName || "";
     const last = client.lastName || "";
     const name = `${first} ${last}`.trim();
-    return name || client.username || `Cliente #${client.id}`;
-  }, [client]);
+    return name || client.username || `${TEXT?.clients?.clientDetails?.labels?.clientId ?? "Client #"}${client.id}`;
+  }, [client, TEXT]);
 
   const initials = React.useMemo(() => {
     const first = client.firstName || "";
@@ -107,12 +109,12 @@ export default function ClientDetailsModal({
                     {isActive ? (
                       <>
                         <Check className="h-3 w-3" />
-                        Activo
+                        {TEXT?.clients?.clientDetails?.status?.active ?? "Active"}
                       </>
                     ) : (
                       <>
                         <X className="h-3 w-3" />
-                        Inactivo
+                        {TEXT?.clients?.clientDetails?.status?.inactive ?? "Inactive"}
                       </>
                     )}
                   </Badge>
@@ -127,17 +129,17 @@ export default function ClientDetailsModal({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <InfoItem
                 icon={<User className="h-4 w-4" />}
-                label="Nombre"
+                label={TEXT?.clients?.clientDetails?.labels?.firstName ?? "First Name"}
                 value={client.firstName || "-"}
               />
               <InfoItem
                 icon={<User className="h-4 w-4" />}
-                label="Apellido"
+                label={TEXT?.clients?.clientDetails?.labels?.lastName ?? "Last Name"}
                 value={client.lastName || "-"}
               />
               <InfoItem
                 icon={<Mail className="h-4 w-4" />}
-                label="Correo"
+                label={TEXT?.clients?.clientDetails?.labels?.email ?? "Email"}
                 value={
                   client.email ? (
                     <ClickableEmail email={client.email} />
@@ -148,7 +150,7 @@ export default function ClientDetailsModal({
               />
               <InfoItem
                 icon={<Phone className="h-4 w-4" />}
-                label="Teléfono"
+                label={TEXT?.clients?.clientDetails?.labels?.phone ?? "Phone"}
                 value={
                   client.phone ? (
                     <a
@@ -156,7 +158,7 @@ export default function ClientDetailsModal({
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-blue-600 hover:underline"
-                      title="Abrir en WhatsApp"
+                      title={TEXT?.clients?.clientDetails?.tooltips?.openInWhatsapp ?? "Open in WhatsApp"}
                     >
                       {client.phone}
                     </a>
@@ -171,13 +173,13 @@ export default function ClientDetailsModal({
               {client.balance !== undefined && (
                 <InfoItem
                   icon={<DollarSign className="h-4 w-4" />}
-                  label="Balance"
+                  label={TEXT?.clients?.clientDetails?.labels?.balance ?? "Balance"}
                   value={`$${(client.balance || 0).toFixed(2)}`}
                 />
               )}
               <InfoItem
                 icon={<Calendar className="h-4 w-4" />}
-                label="Fecha de Creación"
+                label={TEXT?.clients?.clientDetails?.labels?.createdAt ?? "Created Date"}
                 value={formatDateMaybe(client.created_at)}
               />
             </div>
@@ -185,7 +187,7 @@ export default function ClientDetailsModal({
             {client.updated_at && (
               <InfoItem
                 icon={<Calendar className="h-4 w-4" />}
-                label="Última Actualización"
+                label={TEXT?.clients?.clientDetails?.labels?.updatedAt ?? "Last Updated"}
                 value={formatDateMaybe(client.updated_at)}
               />
             )}
@@ -193,19 +195,19 @@ export default function ClientDetailsModal({
             {/* Sección de direcciones - completa abajo */}
             {(client.address || client.billingAddress) && (
               <div className="border-t pt-4">
-                <h4 className="text-sm font-medium text-muted-foreground mb-3">Direcciones</h4>
+                <h4 className="text-sm font-medium text-muted-foreground mb-3">{TEXT?.clients?.clientDetails?.sections?.addresses ?? "Addresses"}</h4>
                 <div className="space-y-3">
                   {client.address && (
                     <InfoItem
                       icon={<MapPin className="h-4 w-4" />}
-                      label="Dirección Principal"
+                      label={TEXT?.clients?.clientDetails?.labels?.primaryAddress ?? "Primary Address"}
                       value={client.address}
                     />
                   )}
                   {client.billingAddress && (
                     <InfoItem
                       icon={<MapPin className="h-4 w-4" />}
-                      label="Dirección de Facturación"
+                      label={TEXT?.clients?.clientDetails?.labels?.billingAddress ?? "Billing Address"}
                       value={client.billingAddress}
                     />
                   )}
@@ -218,7 +220,7 @@ export default function ClientDetailsModal({
         <DialogFooter>
           <div className="flex justify-end gap-2 w-full">
             <Button variant="outline" onClick={onClose}>
-              Cerrar
+              {TEXT?.clients?.clientDetails?.buttons?.close ?? "Close"}
             </Button>
           </div>
         </DialogFooter>

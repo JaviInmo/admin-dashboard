@@ -73,10 +73,10 @@ export default function EditShift({
   const [loadingShift, setLoadingShift] = React.useState(false);
 
   const guardPlaceholder =
-    (TEXT as any)?.guards?.table?.searchPlaceholder ??
+    (TEXT as any)?.shifts?.create?.searchGuardPlaceholder ??
     "Buscar guard por nombre o email...";
   const propertyPlaceholder =
-    (TEXT as any)?.properties?.table?.searchPlaceholder ?? "Buscar propiedades...";
+    (TEXT as any)?.shifts?.create?.searchPropertyPlaceholder ?? "Buscar propiedades...";
 
   const [selectedGuard, setSelectedGuard] = React.useState<Guard | null>(null);
   const [guardQuery, setGuardQuery] = React.useState<string>("");
@@ -361,7 +361,7 @@ export default function EditShift({
         // PREFILL weapon info
         try {
           const maybeWeaponId = (s as any).weapon ?? null;
-          const maybeSerial = (s as any).weaponSerialNumber ?? (s as any).weaponDetails ?? null;
+          const maybeSerial = (s as any).weaponSerialNumber ?? null;
           if (maybeWeaponId) {
             setSelectedWeaponId(Number(maybeWeaponId));
             setSelectedWeaponSerial(maybeSerial ? String(maybeSerial) : null);
@@ -441,6 +441,13 @@ export default function EditShift({
         if (!mounted) return;
         const items = extractItems<Weapon>(res);
         setWeapons(items);
+        
+        // Auto-select if only one weapon
+        if (items.length === 1) {
+          const weapon = items[0];
+          setSelectedWeaponId(weapon.id);
+          setSelectedWeaponSerial(weapon.serialNumber ?? null);
+        }
       } catch (err) {
         console.error("Error fetching weapons for guard:", err);
         setWeapons([]);
@@ -923,14 +930,14 @@ export default function EditShift({
                   setGuardQuery("");
                 }}
               >
-                Clear
+                {(TEXT as any)?.shifts?.create?.clear ?? "Clear"}
               </button>
             )}
 
             {guardDropdownOpen && (guardResults.length > 0 || guardsLoading) && (
               <div className="absolute z-50 left-0 right-0 mt-1 bg-white border rounded shadow max-h-40 overflow-auto" data-guard-dropdown>
-                {guardsLoading && <div className="p-2 text-xs text-muted-foreground">Buscando...</div>}
-                {!guardsLoading && guardResults.length === 0 && <div className="p-2 text-xs text-muted-foreground">No matches.</div>}
+                {guardsLoading && <div className="p-2 text-xs text-muted-foreground">{(TEXT as any)?.shifts?.create?.searching ?? "Buscando..."}</div>}
+                {!guardsLoading && guardResults.length === 0 && <div className="p-2 text-xs text-muted-foreground">{(TEXT as any)?.shifts?.create?.noMatches ?? "No matches."}</div>}
                 {!guardsLoading &&
                   guardResults.map((g) => (
                     <button
@@ -971,7 +978,7 @@ export default function EditShift({
             <label className="text-sm text-muted-foreground block mb-1">Service</label>
             {!selectedProperty ? (
               <div className="w-full rounded border px-3 py-1.5 text-sm text-muted-foreground bg-muted/30">
-                Selecciona una propiedad primero
+                {(TEXT as any)?.shifts?.create?.selectPropertyFirst ?? "Selecciona una propiedad primero"}
               </div>
             ) : (
               <select
@@ -988,10 +995,10 @@ export default function EditShift({
                 }}
                 disabled={servicesLoading}
               >
-                <option value="">-- Seleccionar servicio --</option>
-                {servicesLoading && <option value="">Cargando servicios...</option>}
+                <option value="">{(TEXT as any)?.shifts?.create?.selectService ?? "-- Seleccionar servicio --"}</option>
+                {servicesLoading && <option value="">{(TEXT as any)?.shifts?.create?.loadingServices ?? "Cargando servicios..."}</option>}
                 {!servicesLoading && propertyServices.length === 0 && (
-                  <option value="">No hay servicios disponibles</option>
+                  <option value="">{(TEXT as any)?.shifts?.create?.noServicesAvailable ?? "No hay servicios disponibles"}</option>
                 )}
                 {!servicesLoading && propertyServices.map((service) => (
                   <option key={service.id} value={service.id.toString()}>
@@ -1005,7 +1012,7 @@ export default function EditShift({
           {/* Planned start/end only */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div>
-              <label className="text-sm text-muted-foreground block mb-1">Planned Start</label>
+              <label className="text-sm text-muted-foreground block mb-1">{(TEXT as any)?.shifts?.create?.plannedStart ?? "Planned Start"}</label>
               <input
                 type="datetime-local"
                 className={inputClass}
@@ -1014,7 +1021,7 @@ export default function EditShift({
               />
             </div>
             <div>
-              <label className="text-sm text-muted-foreground block mb-1">Planned End</label>
+              <label className="text-sm text-muted-foreground block mb-1">{(TEXT as any)?.shifts?.create?.plannedEnd ?? "Planned End"}</label>
               <input
                 type="datetime-local"
                 className={inputClass}
@@ -1046,42 +1053,71 @@ export default function EditShift({
           <div className="flex flex-col gap-2">
             <label className="flex items-center gap-2">
               <input type="checkbox" checked={isArmed} onChange={(e) => setIsArmed(Boolean(e.target.checked))} />
-              <span className="text-sm">Is armed</span>
+              <span className="text-sm">{(TEXT as any)?.shifts?.create?.isArmed ?? "Is armed"}</span>
             </label>
 
             {isArmed && (
               <div className="space-y-2">
-                {selectedWeaponId ? (
+                {weapons.length === 1 ? (
+                  // Single weapon: show model and serial fields (read-only)
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="text-sm block mb-1">Modelo</label>
+                      <label className="text-sm block mb-1">{(TEXT as any)?.shifts?.create?.weaponModel ?? "Modelo"}</label>
                       <input
                         type="text"
-                        className={inputClass}
-                        value={weapons.find(w => w.id === selectedWeaponId)?.model ?? ""}
+                        className={`${inputClass} bg-gray-50`}
+                        value={weapons[0]?.model ?? ""}
                         disabled
+                        readOnly
                       />
                     </div>
                     <div>
-                      <label className="text-sm block mb-1">Serial</label>
+                      <label className="text-sm block mb-1">{(TEXT as any)?.shifts?.create?.weaponSerial ?? "Serie"}</label>
                       <input
                         type="text"
-                        className={inputClass}
-                        value={selectedWeaponSerial ?? ""}
+                        className={`${inputClass} bg-gray-50`}
+                        value={weapons[0]?.serialNumber ?? ""}
                         disabled
+                        readOnly
                       />
                     </div>
                   </div>
-                ) : weapons.length === 0 ? (
-                  <div className="text-sm text-muted-foreground bg-muted/30 p-2 rounded">
-                    Este guardia no tiene arma registrada
+                ) : weapons.length > 1 ? (
+                  // Multiple weapons: show dropdown with "model - serial"
+                  <div>
+                    <label className="text-sm block mb-1">{(TEXT as any)?.shifts?.create?.selectWeapon ?? "Seleccionar arma"}</label>
+                    <select
+                      value={selectedWeaponId ?? ""}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (!val) {
+                          setSelectedWeaponId(null);
+                          setSelectedWeaponSerial(null);
+                          return;
+                        }
+                        const id = Number(val);
+                        setSelectedWeaponId(id);
+                        const w = weapons.find((x) => Number(x.id) === id);
+                        setSelectedWeaponSerial(w?.serialNumber ?? null);
+                        setManualSerial("");
+                      }}
+                      className={inputClass}
+                    >
+                      <option value="">{(TEXT as any)?.shifts?.create?.selectWeapon ?? "-- Seleccionar arma --"}</option>
+                      {weapons.map((w) => (
+                        <option key={w.id} value={w.id}>
+                          {w.model ?? "Sin modelo"} - {w.serialNumber ?? "Sin serie"}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 ) : (
+                  // No weapons: show manual serial input
                   <div>
-                    <label className="text-sm block mb-1">Weapon serial (manual)</label>
+                    <label className="text-sm block mb-1">{(TEXT as any)?.shifts?.create?.weaponSerial ?? "Serie del arma"}</label>
                     <input
                       type="text"
-                      placeholder="Serial number (manual)"
+                      placeholder={(TEXT as any)?.shifts?.create?.weaponSerialPlaceholder ?? "Número de serie"}
                       className={inputClass}
                       value={manualSerial}
                       onChange={(e) => {
@@ -1090,6 +1126,9 @@ export default function EditShift({
                         setSelectedWeaponId(null);
                       }}
                     />
+                    <div className="text-[11px] text-muted-foreground mt-1">
+                      {(TEXT as any)?.shifts?.create?.manualSerialHelp ?? "Ingresa el número de serie manualmente"}
+                    </div>
                   </div>
                 )}
 

@@ -22,6 +22,7 @@ import {
   AlertTriangle,
   MessageCircle,
   MoveVertical,
+  Shield,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useI18n } from "@/i18n";
@@ -173,7 +174,8 @@ function normalizeShiftsArray(input: any): Shift[] {
       status: s.status ?? "scheduled",
       hoursWorked: s.hours_worked ?? s.hoursWorked ?? s.hours ?? 0,
       isActive: s.is_active ?? s.isActive ?? true,
-      __raw: s,
+      isArmed: s.is_armed ?? s.isArmed ?? null,
+      weapon: s.weapon ?? null,
     } as Shift;
   });
 }
@@ -3016,6 +3018,9 @@ export default function PropertyShiftsModalImproved({
 
                                         <div className={cn("text-sm flex items-center gap-2", hasShiftOverlap && "text-red-700")}>
                                           <Clock className={cn("h-3 w-3", hasShiftOverlap && "text-red-600")} />
+                                          {(s.isArmed || s.weapon) && (
+                                            <Shield className={cn("h-3 w-3 text-blue-600", hasShiftOverlap && "text-red-600")} />
+                                          )}
                                           {(s.plannedStartTime || s.startTime)
                                             ? new Date((s.plannedStartTime || s.startTime)!).toLocaleTimeString('en-US', {
                                                 hour: "numeric",

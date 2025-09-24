@@ -11,8 +11,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Mail, Phone, MapPin, Calendar, User, Building } from "lucide-react";
-import type { AppProperty } from "@/lib/services/properties";
 import { ClickableAddress } from "@/components/ui/clickable-address";
+import { useI18n } from "@/i18n";
+import type { AppProperty } from "@/lib/services/properties";
 
 type PropertyDetailsModalProps = {
   property: AppProperty & { ownerName?: string };
@@ -25,6 +26,7 @@ export default function PropertyDetailsModal({
   open,
   onClose,
 }: PropertyDetailsModalProps) {
+  const { TEXT } = useI18n();
   const initials = React.useMemo(() => {
     const name = property.name || property.alias || "";
     if (name.length >= 2) {
@@ -91,7 +93,7 @@ export default function PropertyDetailsModal({
                     </div>
                   )}
                   <Badge variant="secondary" className="text-xs">
-                    Propiedad
+                    {TEXT?.properties?.propertyDetails?.title ?? "Property"}
                   </Badge>
                 </div>
               </div>
@@ -105,21 +107,20 @@ export default function PropertyDetailsModal({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <InfoItem
                 icon={<Building className="h-4 w-4" />}
-                label="Nombre"
+                label={TEXT?.properties?.propertyDetails?.labels?.name ?? "Name"}
                 value={property.name || "-"}
               />
               <InfoItem
                 icon={<Building className="h-4 w-4" />}
-                label="Alias/Nick"
+                label={TEXT?.properties?.propertyDetails?.labels?.alias ?? "Alias/Nick"}
                 value={property.alias || "-"}
               />
             </div>
 
-            {/* Dirección en sección completa */}
             {property.address && (
               <InfoItem
                 icon={<MapPin className="h-4 w-4" />}
-                label="Dirección"
+                label={TEXT?.properties?.propertyDetails?.labels?.address ?? "Address"}
                 value={<ClickableAddress address={property.address} />}
               />
             )}
@@ -127,12 +128,12 @@ export default function PropertyDetailsModal({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <InfoItem
                 icon={<Calendar className="h-4 w-4" />}
-                label="Fecha de Inicio"
+                label={TEXT?.properties?.propertyDetails?.labels?.contractStartDate ?? "Contract Start Date"}
                 value={formatDateMaybe((property as any).contractStartDate ?? (property as any).contract_start_date)}
               />
               <InfoItem
                 icon={<Calendar className="h-4 w-4" />}
-                label="Creado"
+                label={TEXT?.properties?.propertyDetails?.labels?.created ?? "Created"}
                 value={formatDateMaybe((property as any).created_at ?? (property as any).createdAt)}
               />
             </div>
@@ -141,24 +142,24 @@ export default function PropertyDetailsModal({
             <div>
               <InfoItem
                 icon={<Building className="h-4 w-4" />}
-                label="Descripción"
+                label={TEXT?.properties?.propertyDetails?.labels?.description ?? "Description"}
                 value={property.description ?? "-"}
               />
             </div>
 
             {/* Información del propietario */}
             <div className="border-t pt-4">
-              <h4 className="text-sm font-medium text-muted-foreground mb-3">Información del Propietario</h4>
+              <h4 className="text-sm font-medium text-muted-foreground mb-3">{TEXT?.properties?.propertyDetails?.sections?.ownerInfo ?? "Owner Information"}</h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <InfoItem
                   icon={<User className="h-4 w-4" />}
-                  label="Propietario"
+                  label={TEXT?.properties?.propertyDetails?.labels?.owner ?? "Owner"}
                   value={(property as any).ownerName || `#${(property as any).ownerId ?? (property as any).owner ?? property.id}`}
                 />
                 {ownerEmail && (
                   <InfoItem
                     icon={<Mail className="h-4 w-4" />}
-                    label="Email del Propietario"
+                    label={TEXT?.properties?.propertyDetails?.labels?.ownerEmail ?? "Owner Email"}
                     value={
                       <a
                         href={`mailto:${ownerEmail}`}
@@ -173,7 +174,7 @@ export default function PropertyDetailsModal({
                 {ownerPhone && (
                   <InfoItem
                     icon={<Phone className="h-4 w-4" />}
-                    label="Teléfono del Propietario"
+                    label={TEXT?.properties?.propertyDetails?.labels?.ownerPhone ?? "Owner Phone"}
                     value={
                       <a
                         href={`https://wa.me/${encodeURIComponent(normalizePhoneForWhatsapp(ownerPhone))}`}
@@ -190,11 +191,10 @@ export default function PropertyDetailsModal({
               </div>
             </div>
 
-            {/* Fecha actualizado (sección aparte para más claridad) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <InfoItem
                 icon={<Calendar className="h-4 w-4" />}
-                label="Actualizado"
+                label={TEXT?.properties?.propertyDetails?.labels?.updated ?? "Updated"}
                 value={formatDateMaybe((property as any).updated_at ?? (property as any).updatedAt)}
               />
             </div>
@@ -204,7 +204,7 @@ export default function PropertyDetailsModal({
         <DialogFooter>
           <div className="flex justify-end gap-2 w-full">
             <Button variant="outline" onClick={onClose}>
-              Cerrar
+              {TEXT?.properties?.propertyDetails?.buttons?.close ?? "Close"}
             </Button>
           </div>
         </DialogFooter>

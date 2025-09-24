@@ -7,7 +7,7 @@ const queryClient = new QueryClient();
 
 export function Providers({ children }: PropsWithChildren) {
 	return (
-		<ThemeProvider defaultTheme="light" storageKey="dashboard-ui-theme">
+		<ThemeProvider defaultTheme="system" storageKey="dashboard-ui-theme">
 			<QueryClientProvider client={queryClient}>
 				<ReactQueryDevtools initialIsOpen={false} />
 				{children}

@@ -134,14 +134,14 @@ export default function DeleteShift({ open, onClose, shiftId, onDeleted }: Delet
   }
 
   const renderGuardLabel = () => {
-    if (loadingNames) return "Cargando...";
+    if (loadingNames) return (TEXT as any)?.common?.loading ?? "Cargando...";
     if (guardObj) return `${guardObj.firstName} ${guardObj.lastName}${guardObj.email ? ` (${guardObj.email})` : ""}`;
     if (shift?.guard != null) return String(shift.guard);
     return "-";
   };
 
   const renderPropertyLabel = () => {
-    if (loadingNames) return "Cargando...";
+    if (loadingNames) return (TEXT as any)?.common?.loading ?? "Cargando...";
     if (propertyObj) return `${propertyObj.name ?? propertyObj.alias ?? propertyObj.address} #${propertyObj.id}`;
     if (shift?.property != null) return String(shift.property);
     return "-";

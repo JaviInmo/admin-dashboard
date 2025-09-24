@@ -193,6 +193,33 @@ export const ES_TEXT = {
     propertiesLoading: "Cargando propiedades...",
     errorLoading: "Error al cargar clientes",
     propertiesError: "Error al cargar propiedades",
+    clientDetails: {
+      labels: {
+        clientId: "Cliente #",
+        firstName: "Nombre",
+        lastName: "Apellido",
+        email: "Correo",
+        phone: "Teléfono",
+        balance: "Balance",
+        createdAt: "Fecha de Creación",
+        updatedAt: "Última Actualización",
+        primaryAddress: "Dirección Principal",
+        billingAddress: "Dirección de Facturación",
+      },
+      status: {
+        active: "Activo",
+        inactive: "Inactivo",
+      },
+      sections: {
+        addresses: "Direcciones",
+      },
+      buttons: {
+        close: "Cerrar",
+      },
+      tooltips: {
+        openInWhatsapp: "Abrir en WhatsApp",
+      },
+    },
   },
 
   properties: {
@@ -277,6 +304,47 @@ export const ES_TEXT = {
       full: "Completo",
     },
     help: "Marcar para otorgar, desmarcar para revocar.",
+    ownerDetails: {
+      title: "Propietario",
+      username: "Usuario",
+      statusActive: "Activo",
+      statusInactive: "Inactivo",
+      labels: {
+        email: "Correo",
+        phone: "Teléfono",
+        address: "Dirección",
+        created: "Creado",
+        updated: "Actualizado",
+      },
+      buttons: {
+        refresh: "Refrescar",
+      },
+      messages: {
+        noData: "No se encontraron datos del propietario.",
+        errorLoading: "Error al cargar propietario:",
+      },
+    },
+    propertyDetails: {
+      title: "Propiedad",
+      labels: {
+        name: "Nombre",
+        alias: "Alias/Nick",
+        address: "Dirección",
+        contractStartDate: "Fecha de Inicio",
+        created: "Creado",
+        updated: "Actualizado",
+        description: "Descripción",
+        owner: "Propietario",
+        ownerEmail: "Email del Propietario",
+        ownerPhone: "Teléfono del Propietario",
+      },
+      sections: {
+        ownerInfo: "Información del Propietario",
+      },
+      buttons: {
+        close: "Cerrar",
+      },
+    },
   },
 
   guards: {
@@ -453,6 +521,42 @@ export const ES_TEXT = {
       createSuccess: "Usuario creado",
     },
     permissionsHelp: "Los permisos se aplican como resource.action.",
+    permissionsTable: {
+      title: "Permisos del usuario",
+      subtitle: "Gestiona los permisos y accesos de",
+      refresh: "Refrescar",
+      refreshSuccess: "Opciones recargadas",
+      refreshError: "Error recargando opciones",
+      save: "Guardar cambios",
+      saving: "Guardando...",
+      saveSuccess: "Cambios guardados correctamente",
+      saveError: "Error guardando cambios",
+      loadingOptions: "Cargando opciones y permisos…",
+      noOptions: "No hay opciones de permisos disponibles.",
+      loadError: "Error cargando permisos/usuario",
+      grantError: "Error otorgando permisos",
+      revokeError: "Error revocando permisos",
+      grantPropertyError: "Error otorgando accesos a propiedades",
+      updatePropertyError: "Error actualizando accesos",
+      revokePropertyError: "Error revocando accesos",
+      grantReason: "Otorgado desde UI",
+      revokeReason: "Revocado desde UI",
+      updateReason: "Actualizado desde UI",
+      resourcePermissions: {
+        title: "Permisos por recurso",
+        subtitle: "Configura los permisos específicos para cada tipo de recurso",
+        note: "Los cambios se aplican con grant/revoke por resource/action usando los endpoints administrativos.",
+      },
+      propertyAccess: {
+        title: "Acceso a propiedades",
+        subtitle: "Gestiona el acceso específico a cada propiedad del sistema",
+        searchPlaceholder: "Buscar...",
+        searchAriaLabel: "Buscar",
+        noProperties: "No se encontraron propiedades disponibles.",
+        noMatches: "No se encontraron coincidencias.",
+        note: "Marcar para otorgar, desmarcar para revocar. El tipo de acceso se envía en la petición.",
+      },
+    },
   },
 
   permissions: {
@@ -504,6 +608,28 @@ export const ES_TEXT = {
     create: {
       title: "Crear Turno",
       propertyPlaceholder: "ID de propiedad (número)",
+      searchGuardPlaceholder: "Buscar guard por nombre o email...",
+      searchPropertyPlaceholder: "Buscar propiedades...",
+      searching: "Buscando...",
+      noMatches: "No hay coincidencias",
+      clear: "Limpiar",
+      selectPropertyFirst: "Selecciona una propiedad primero",
+      selectService: "-- Seleccionar servicio --",
+      loadingServices: "Cargando servicios...",
+      noServicesAvailable: "No hay servicios disponibles",
+      plannedStart: "Inicio Planeado",
+      plannedEnd: "Fin Planeado",
+      overlapDetected: "Solapamiento Detectado",
+      isArmed: "Armado",
+      selectWeapon: "Seleccionar arma (del guard) — opcional",
+      noWeapons: "(sin armas)",
+      loadingWeapons: "Cargando armas...",
+      otherManualSerial: "Otra / Serial manual",
+      weaponSerialPlaceholder: "Número de serie (manual o seleccionado)",
+      selectedSerial: "Serial seleccionado: {serial}",
+      manualSerialHelp: "Puedes escribir un serial manual si el arma no está en la lista.",
+      weaponModel: "Modelo",
+      weaponSerial: "Serie",
     },
     edit: {
       title: "Editar Turno",
@@ -520,6 +646,7 @@ export const ES_TEXT = {
     },
     // ADDED: placeholder para la búsqueda de guardias dentro del header de turnos
     searchPlaceholder: "Buscar guardias...", /* ADDED */
+    noShiftsInRange: "No hay turnos/guardias en el rango seleccionado.",
     errors: {
       missingDates: "Fecha de inicio y fin son requeridas",
       endBeforeStart: "La fecha de fin debe ser posterior a la de inicio",
