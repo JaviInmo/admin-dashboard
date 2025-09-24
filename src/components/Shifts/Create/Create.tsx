@@ -506,7 +506,7 @@ export default function CreateShift({
     };
   }, [debouncedPropertyQuery, preloadedProperties]);
 
-  // Load services when property changes
+  // Load services when property changes or selected date changes
   React.useEffect(() => {
     if (!selectedProperty?.id) {
       setPropertyServices([]);
@@ -522,10 +522,26 @@ export default function CreateShift({
         const response = await listServicesByProperty(selectedProperty.id, 1, "", 100);
         if (!mounted) return;
 
-        const servicesArr = extractItems<AppService>(response);
+        let servicesArr = extractItems<AppService>(response);
+
+        // Filtrar servicios por fecha específica si hay fecha seleccionada
+        if (selectedDate) {
+          // Convertir la fecha seleccionada a formato YYYY-MM-DD
+          const selectedDateStr = selectedDate.toISOString().split('T')[0];
+
+          // Filtrar servicios que tienen la fecha seleccionada en su schedule
+          servicesArr = servicesArr.filter((service: any) => {
+            return service.schedule && Array.isArray(service.schedule) &&
+                   service.schedule.includes(selectedDateStr);
+          });
+        }
+
         setPropertyServices(servicesArr);
 
-        if (selectedService && !servicesArr.find((s) => s.id === selectedService.id)) {
+        // Preseleccionar el primer servicio disponible si hay fecha seleccionada
+        if (selectedDate && servicesArr.length > 0 && !selectedService) {
+          setSelectedService(servicesArr[0]);
+        } else if (selectedService && !servicesArr.find((s) => s.id === selectedService.id)) {
           setSelectedService(null);
         }
       } catch (err) {
@@ -540,7 +556,7 @@ export default function CreateShift({
     return () => {
       mounted = false;
     };
-  }, [selectedProperty?.id, selectedService]);
+  }, [selectedProperty?.id, selectedDate, selectedService]);
 
   // Pre-populate shift times when a service is selected
   React.useEffect(() => {

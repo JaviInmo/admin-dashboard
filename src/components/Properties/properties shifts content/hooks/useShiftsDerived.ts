@@ -36,7 +36,8 @@ export function useShiftsDerived(
   shifts: Shift[],
   guardSearch: string,
   startDate: Date,
-  viewMode: "week" | "month" | "year"
+  viewMode: "week" | "month" | "year",
+  serviceId: number | null = null
 ): {
   guardsAll: SimpleGuard[];
   guardsFiltered: SimpleGuard[];
@@ -45,8 +46,14 @@ export function useShiftsDerived(
 } {
   // guardsAll
   const guardsAll = React.useMemo(() => {
+    // Filter shifts by service if serviceId is provided
+    const filteredShifts = serviceId ? shifts.filter(s => {
+      const shiftServiceId = Number(s.service ?? s.serviceDetails?.id ?? -1);
+      return shiftServiceId === serviceId;
+    }) : shifts;
+    
     const map = new Map<number, SimpleGuard>();
-    shifts.forEach((s) => {
+    filteredShifts.forEach((s) => {
       const gid = Number(s.guard ?? s.guardDetails?.id ?? -1);
       if (gid === -1 || Number.isNaN(gid)) return;
 
@@ -78,7 +85,7 @@ export function useShiftsDerived(
       }
     });
     return Array.from(map.values());
-  }, [shifts]);
+  }, [shifts, serviceId]);
 
   const guardsFiltered = React.useMemo(() => {
     const q = (guardSearch ?? "").trim().toLowerCase();
@@ -128,9 +135,15 @@ export function useShiftsDerived(
   }, [startDate, viewMode]);
 
   const shiftsByGuardAndDate = React.useMemo(() => {
+    // Filter shifts by service if serviceId is provided
+    const filteredShifts = serviceId ? shifts.filter(s => {
+      const shiftServiceId = Number(s.service ?? s.serviceDetails?.id ?? -1);
+      return shiftServiceId === serviceId;
+    }) : shifts;
+    
     const out = new Map<number, Record<string, Shift[]>>();
 
-    shifts.forEach((s) => {
+    filteredShifts.forEach((s) => {
       const gid = Number(s.guard ?? s.guardDetails?.id ?? -1);
       if (gid === -1 || Number.isNaN(gid)) return;
 
@@ -178,7 +191,7 @@ export function useShiftsDerived(
     });
 
     return out;
-  }, [shifts]);
+  }, [shifts, serviceId]);
 
   return { guardsAll, guardsFiltered, days, shiftsByGuardAndDate };
 }

@@ -141,9 +141,9 @@ export default function PropertyShiftsTable({
             </div>
           </div>
 
-          {/* BODY: único contenedor con scroll vertical (así ambas columnas se mueven en Y) */}
+          {/* BODY: altura fija para mantener consistencia del modal */}
           <div
-            style={{ maxHeight: bodyMaxHeight, overflowY: "auto" }}
+            style={{ height: bodyMaxHeight, overflowY: "auto" }}
             className="flex"
           >
             {/* Columna izquierda: sticky left para evitar que se desplace en X,
@@ -198,6 +198,14 @@ export default function PropertyShiftsTable({
                         </div>
                       </div>
                     ))}
+                    {/* Espacio vacío para mantener altura fija del modal */}
+                    {(() => {
+                      const totalRowsHeight = guardsFiltered.length * rowHeight;
+                      const remainingHeight = Math.max(0, (bodyMaxHeight as number) - totalRowsHeight);
+                      return remainingHeight > 0 ? (
+                        <div style={{ height: remainingHeight }} />
+                      ) : null;
+                    })()}
                   </div>
                 )}
               </div>
@@ -293,6 +301,14 @@ export default function PropertyShiftsTable({
                           })}
                         </div>
                       ))}
+                      {/* Espacio vacío para mantener altura fija del modal */}
+                      {(() => {
+                        const totalRowsHeight = guardsFiltered.length * rowHeight;
+                        const remainingHeight = Math.max(0, (bodyMaxHeight as number) - totalRowsHeight);
+                        return remainingHeight > 0 ? (
+                          <div style={{ height: remainingHeight }} />
+                        ) : null;
+                      })()}
                     </div>
                   )}
                 </div>

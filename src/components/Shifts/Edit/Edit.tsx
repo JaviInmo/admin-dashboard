@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import { getShift, updateShift, deleteShift } from "@/lib/services/shifts";
 // import { listShiftsByGuard } from "@/lib/services/shifts"; // COMENTADO - para solapamientos
 import { listGuards, getGuard } from "@/lib/services/guard";
-import { listProperties, getProperty } from "@/lib/services/properties";
+import { getProperty } from "@/lib/services/properties";
 import { listServicesByProperty, getService } from "@/lib/services/services";
 import { listWeaponsByGuard } from "@/lib/services/weapons";
 import type { Shift } from "../types";
@@ -87,11 +87,6 @@ export default function EditShift({
   const [guardDropdownOpen, setGuardDropdownOpen] = React.useState(false);
 
   const [selectedProperty, setSelectedProperty] = React.useState<AppProperty | null>(null);
-  const [propertyQuery, setPropertyQuery] = React.useState<string>("");
-  const debouncedPropertyQuery = useDebouncedValue(propertyQuery, 300);
-  const [propertyResults, setPropertyResults] = React.useState<AppProperty[]>([]);
-  const [propertiesLoading, setPropertiesLoading] = React.useState(false);
-  const [propertyDropdownOpen, setPropertyDropdownOpen] = React.useState(false);
 
   // --- Service selection from property ---
   const [selectedService, setSelectedService] = React.useState<AppService | null>(null);
@@ -111,7 +106,6 @@ export default function EditShift({
   // is_armed (opcional) + weapons
   const [isArmed, setIsArmed] = React.useState<boolean>(false);
   const [weapons, setWeapons] = React.useState<Weapon[]>([]);
-  const [weaponsLoading, setWeaponsLoading] = React.useState(false);
   const [selectedWeaponId, setSelectedWeaponId] = React.useState<number | null>(null);
   const [selectedWeaponSerial, setSelectedWeaponSerial] = React.useState<string | null>(null);
   const [manualSerial, setManualSerial] = React.useState<string>("");
@@ -139,10 +133,6 @@ export default function EditShift({
       setGuardDropdownOpen(false);
 
       setSelectedProperty(null);
-      setPropertyQuery("");
-      setPropertyResults([]);
-      setPropertiesLoading(false);
-      setPropertyDropdownOpen(false);
 
       setSelectedService(null);
       setPropertyServices([]);
@@ -309,7 +299,6 @@ export default function EditShift({
             } as unknown as AppProperty;
 
             setSelectedProperty(pObj);
-            setPropertyQuery("");
           } else if ((s as any).property) {
             const propertyIdNum = Number((s as any).property);
             try {
@@ -317,17 +306,16 @@ export default function EditShift({
               if (!mounted) return;
               if (p) {
                 setSelectedProperty(p);
-                setPropertyQuery("");
               } else {
-                setPropertyQuery(String((s as any).property));
+                // Property not found, keep as null
               }
             } catch (err) {
-              setPropertyQuery(String((s as any).property ?? ""));
+              // Could not load property, keep as null
             }
           }
         } catch (e) {
           console.error("prefill property failed", e);
-          setPropertyQuery(String((s as any).property ?? ""));
+          // Keep selectedProperty as null
         }
 
         // PREFILL SERVICE (opcional)
@@ -440,7 +428,6 @@ export default function EditShift({
     setPlannedEnd(toLocalDateTimeInput(endDate));
   }, [open, shift]);
 
-  // when selectedGuard changes -> fetch weapons for that guard
   React.useEffect(() => {
     let mounted = true;
     async function loadWeapons() {
@@ -449,7 +436,6 @@ export default function EditShift({
       setSelectedWeaponSerial(null);
       setManualSerial("");
       if (!selectedGuard?.id) return;
-      setWeaponsLoading(true);
       try {
         const res = await listWeaponsByGuard(selectedGuard.id, 1, 1000);
         if (!mounted) return;
@@ -458,8 +444,6 @@ export default function EditShift({
       } catch (err) {
         console.error("Error fetching weapons for guard:", err);
         setWeapons([]);
-      } finally {
-        if (mounted) setWeaponsLoading(false);
       }
     }
     loadWeapons();
@@ -562,35 +546,7 @@ export default function EditShift({
     }
   }, [debouncedGuardQuery, allGuards]);
 
-  // properties search - simplificado para edit
-  React.useEffect(() => {
-    let mounted = true;
-    const q = (debouncedPropertyQuery ?? "").trim();
-    if (q === "") {
-      setPropertyResults([]);
-      return;
-    }
-
-    setPropertiesLoading(true);
-
-    (async () => {
-      try {
-        const res = await listProperties(1, q, 10);
-        if (!mounted) return;
-        const items = extractItems<AppProperty>(res);
-        setPropertyResults(items);
-        setPropertyDropdownOpen(true);
-      } catch (err) {
-        console.error("listProperties error", err);
-        setPropertyResults([]);
-      } finally {
-        if (mounted) setPropertiesLoading(false);
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, [debouncedPropertyQuery]);
+  // properties search - disabled in edit mode
 
   // Load services when property changes
   React.useEffect(() => {
@@ -697,7 +653,6 @@ export default function EditShift({
         updatedAt: null
       };
       setSelectedProperty(serviceProperty);
-      setPropertyQuery("");
     }
   }, [selectedService, open]);
 
@@ -741,22 +696,17 @@ export default function EditShift({
   };
   const propertyLabel = (p?: AppProperty | null) => {
     if (!p) return "";
-    const alias = p.alias || p.name || "Sin nombre";
-    const ownerDetails = p.ownerDetails;
-    let ownerName = "";
-    
-    if (ownerDetails) {
-      const firstName = ownerDetails.first_name || "";
-      const lastName = ownerDetails.last_name || "";
-      ownerName = `${firstName} ${lastName}`.trim();
-      if (!ownerName) {
-        ownerName = ownerDetails.email || `#${p.ownerId}`;
-      }
+    const alias = p.alias || "";
+    const name = p.name || "";
+    if (alias && name) {
+      return `${alias} - ${name}`;
+    } else if (alias) {
+      return alias;
+    } else if (name) {
+      return name;
     } else {
-      ownerName = `#${p.ownerId}`;
+      return "Sin nombre";
     }
-    
-    return `${alias} - ${ownerName}`;
   };
 
   // COMENTADO - Funciones de solapamiento para usar después
@@ -822,8 +772,7 @@ export default function EditShift({
   }, [checkForOverlaps]);
   */
 
-  // weaponDetails (informativo local)
-  const [weaponDetails, setWeaponDetails] = React.useState<string>("");
+
 
   async function onSubmit(e?: React.FormEvent) {
     e?.preventDefault?.();
@@ -1004,61 +953,17 @@ export default function EditShift({
             )}
           </div>
 
-          {/* Property select-search */}
+          {/* Property select-search - disabled in edit mode */}
           <div className="relative">
             <label className="text-sm text-muted-foreground block mb-1">Property</label>
             <input
               type="text"
               className={inputClass}
-              value={selectedProperty ? propertyLabel(selectedProperty) : propertyQuery}
-              onChange={(e) => {
-                if (selectedProperty) setSelectedProperty(null);
-                setPropertyQuery(e.target.value);
-              }}
-              onFocus={() => {
-                if (propertyResults.length > 0) setPropertyDropdownOpen(true);
-              }}
+              value={selectedProperty ? propertyLabel(selectedProperty) : ""}
+              disabled
               placeholder={propertyPlaceholder}
-              aria-label="Buscar propiedad"
+              aria-label="Propiedad (no editable)"
             />
-            {selectedProperty && (
-              <button
-                type="button"
-                className="absolute right-2 top-2 text-xs text-muted-foreground"
-                onClick={() => {
-                  setSelectedProperty(null);
-                  setPropertyQuery("");
-                }}
-              >
-                Clear
-              </button>
-            )}
-
-            {propertyDropdownOpen && (propertyResults.length > 0 || propertiesLoading) && (
-              <div className="absolute z-50 left-0 right-0 mt-1 bg-white border rounded shadow max-h-40 overflow-auto">
-                {propertiesLoading && <div className="p-2 text-xs text-muted-foreground">Buscando...</div>}
-                {!propertiesLoading && propertyResults.length === 0 && <div className="p-2 text-xs text-muted-foreground">No matches.</div>}
-                {!propertiesLoading &&
-                  propertyResults.map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      className="w-full text-left px-3 py-2 hover:bg-muted/10"
-                      onClick={() => {
-                        setSelectedProperty(p);
-                        setPropertyQuery("");
-                        setPropertyDropdownOpen(false);
-                      }}
-                    >
-                      <div className="flex justify-between items-center">
-                        <div className="text-sm truncate">{p.name ?? p.alias ?? p.address}</div>
-                        <div className="text-xs text-muted-foreground">#{p.id}</div>
-                      </div>
-                      <div className="text-[11px] text-muted-foreground truncate">{p.address}</div>
-                    </button>
-                  ))}
-              </div>
-            )}
           </div>
 
           {/* Service select */}
@@ -1146,72 +1051,48 @@ export default function EditShift({
 
             {isArmed && (
               <div className="space-y-2">
-                <div>
-                  <label className="text-sm block mb-1">Select weapon (del guard) — opcional</label>
+                {selectedWeaponId ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-sm block mb-1">Modelo</label>
+                      <input
+                        type="text"
+                        className={inputClass}
+                        value={weapons.find(w => w.id === selectedWeaponId)?.model ?? ""}
+                        disabled
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm block mb-1">Serial</label>
+                      <input
+                        type="text"
+                        className={inputClass}
+                        value={selectedWeaponSerial ?? ""}
+                        disabled
+                      />
+                    </div>
+                  </div>
+                ) : weapons.length === 0 ? (
+                  <div className="text-sm text-muted-foreground bg-muted/30 p-2 rounded">
+                    Este guardia no tiene arma registrada
+                  </div>
+                ) : (
                   <div>
-                    <select
-                      value={selectedWeaponId ?? ""}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        if (val === "__manual") {
-                          setSelectedWeaponId(null);
-                          setSelectedWeaponSerial(null);
-                          return;
-                        }
-                        if (!val) {
-                          setSelectedWeaponId(null);
-                          setSelectedWeaponSerial(null);
-                          return;
-                        }
-                        const id = Number(val);
-                        setSelectedWeaponId(id);
-                        const w = weapons.find((x) => Number(x.id) === id);
-                        setSelectedWeaponSerial(w?.serialNumber ?? null);
-                        setManualSerial("");
-                      }}
+                    <label className="text-sm block mb-1">Weapon serial (manual)</label>
+                    <input
+                      type="text"
+                      placeholder="Serial number (manual)"
                       className={inputClass}
-                    >
-                      <option value="">-- Select weapon --</option>
-                      {!weaponsLoading && weapons.length === 0 && <option value="">(no weapons)</option>}
-                      {weaponsLoading && <option value="">Cargando armas...</option>}
-                      {weapons.map((w) => (
-                        <option key={w.id} value={w.id}>
-                          {w.model ?? "model"} — {w.serialNumber ?? "no-serial"} (#{w.id})
-                        </option>
-                      ))}
-                      <option value="__manual">Other / Manual serial</option>
-                    </select>
+                      value={manualSerial}
+                      onChange={(e) => {
+                        setManualSerial(e.target.value);
+                        setSelectedWeaponSerial(null);
+                        setSelectedWeaponId(null);
+                      }}
+                    />
                   </div>
-                </div>
+                )}
 
-                <div>
-                  <label className="text-sm block mb-1">Weapon serial (manual / preview)</label>
-                  <input
-                    type="text"
-                    placeholder="Serial number (manual or selected)"
-                    className={inputClass}
-                    value={selectedWeaponSerial ?? manualSerial}
-                    onChange={(e) => {
-                      setManualSerial(e.target.value);
-                      setSelectedWeaponSerial(null);
-                      setSelectedWeaponId(null);
-                    }}
-                  />
-                  <div className="text-[11px] text-muted-foreground mt-1">
-                    {selectedWeaponId ? `Serial seleccionado: ${selectedWeaponSerial ?? ""}` : "Puedes escribir un serial manual si el arma no está en la lista."}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-sm block mb-1">Weapon details (informativo)</label>
-                  <input
-                    type="text"
-                    placeholder="Weapon details (informative)"
-                    value={weaponDetails}
-                    onChange={(e) => setWeaponDetails(e.target.value)}
-                    className={inputClass}
-                  />
-                </div>
               </div>
             )}
           </div>

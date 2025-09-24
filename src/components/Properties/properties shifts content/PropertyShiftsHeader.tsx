@@ -1,6 +1,6 @@
 // src/components/Properties/properties shifts content/PropertyShiftsHeader.tsx
 
-import { Search, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -9,6 +9,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+
+type Service = {
+  id: number;
+  name: string;
+};
 
 type Props = {
   TEXT?: UiTextFragment;
@@ -23,6 +28,9 @@ type Props = {
   moveNext: () => void;
   goToday: () => void;
   onCreateClick: () => void;
+  services: Service[];
+  selectedServiceId: number | null;
+  onServiceChange: (serviceId: number | null) => void;
 };
 
 /**
@@ -60,6 +68,9 @@ export default function PropertyShiftsHeader({
   moveNext,
   goToday,
   onCreateClick,
+  services,
+  selectedServiceId,
+  onServiceChange,
 }: Props) {
   // título: preferimos TEXT.properties.shiftsTitle si existe (puede incluir placeholders),
   // si no, fallback a `Turnos — ${propertyName ?? `#${propertyId}`}`
@@ -74,9 +85,26 @@ export default function PropertyShiftsHeader({
   return (
     <div className="flex items-start justify-between gap-3 w-full pt-4">
       <div className="flex items-center gap-3">
-        <Calendar className="h-5 w-5" />
         <div>
-          <div className="text-base">{title}</div>
+          <div className="flex items-center gap-2">
+            <div className="text-base">{title}</div>
+            <Select 
+              value={selectedServiceId?.toString() ?? "all"} 
+              onValueChange={(value) => onServiceChange(value === "all" ? null : Number(value))}
+            >
+              <SelectTrigger className="w-40 h-6 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                {services.map((service) => (
+                  <SelectItem key={service.id} value={service.id.toString()}>
+                    {service.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="text-xs text-muted-foreground mt-0.5">
             {/* resumen de periodo (si days vacío, evitamos crash) */}
             {days && days.length > 0 ? (

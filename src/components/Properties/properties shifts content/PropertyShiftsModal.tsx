@@ -17,6 +17,7 @@ import ShiftActionsDialog from "@/components/Properties/properties shifts conten
 import { useShifts } from "@/components/Properties/properties shifts content/hooks/useShifts";
 import { useShiftsDerived } from "@/components/Properties/properties shifts content/hooks/useShiftsDerived";
 
+import { listServicesByProperty } from "@/lib/services/services";
 import type { Shift } from "@/components/Shifts/types";
 import type { AppProperty } from "@/lib/services/properties";
 import type { Guard } from "@/components/Guards/types";
@@ -88,6 +89,8 @@ export default function PropertyShiftsModal({ propertyId, propertyName, open, on
   });
   const [viewMode, setViewMode] = React.useState<"week" | "month" | "year">("week");
   const [guardSearch, setGuardSearch] = React.useState<string>("");
+  const [selectedServiceId, setSelectedServiceId] = React.useState<number | null>(null);
+  const [services, setServices] = React.useState<Array<{id: number, name: string}>>([]);
 
   // Forzamos el tipo del retorno para que guardsAll / guardsFiltered no sean any
   const {
@@ -95,7 +98,7 @@ export default function PropertyShiftsModal({ propertyId, propertyName, open, on
     guardsFiltered,
     days,
     shiftsByGuardAndDate,
-  } = useShiftsDerived(shifts, guardSearch, startDate, viewMode) as unknown as UseShiftsDerivedReturn;
+  } = useShiftsDerived(shifts, guardSearch, startDate, viewMode, selectedServiceId) as unknown as UseShiftsDerivedReturn;
 
   const [createOpen, setCreateOpen] = React.useState(false);
   const [createDate, setCreateDate] = React.useState<Date | null>(null);
@@ -122,6 +125,27 @@ export default function PropertyShiftsModal({ propertyId, propertyName, open, on
     (async () => {
       if (!mounted) return;
       await fetchShifts();
+      
+      // Load services for the property
+      try {
+        const response = await listServicesByProperty(propertyId, 1, "", 100);
+        if (!mounted) return;
+        
+        // Extract services array from different response formats
+        let servicesList: Array<{id: number, name: string}> = [];
+        if (Array.isArray(response)) {
+          servicesList = response;
+        } else if (response?.items) {
+          servicesList = response.items;
+        } else if ((response as any)?.results) {
+          servicesList = (response as any).results;
+        }
+        
+        setServices(servicesList);
+      } catch (err) {
+        console.error("Error loading property services:", err);
+        setServices([]);
+      }
     })();
     return () => {
       mounted = false;
@@ -301,6 +325,9 @@ export default function PropertyShiftsModal({ propertyId, propertyName, open, on
                 const today = new Date(); today.setHours(0, 0, 0, 0);
                 setCreateDate(today); setCreateGuardId(null); setCreatePreloadedGuard(null); setCreateOpen(true);
               }}
+              services={services}
+              selectedServiceId={selectedServiceId}
+              onServiceChange={setSelectedServiceId}
             />
           </DialogHeader>
 
