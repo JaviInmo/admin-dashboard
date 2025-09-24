@@ -1,13 +1,12 @@
 "use client";
 
 import * as React from "react";
+import { MessageCircle, Mail } from "lucide-react";
 import type { Shift } from "@/components/Shifts/types";
 
 type ShiftApi = Shift & {
   planned_start_time?: string | null;
   planned_end_time?: string | null;
-  start_time?: string | null;
-  end_time?: string | null;
 };
 
 type SimpleGuard = {
@@ -16,6 +15,7 @@ type SimpleGuard = {
   email?: string;
   firstName?: string;
   lastName?: string;
+  phone?: string;
 };
 
 type Props = {
@@ -130,7 +130,7 @@ export default function PropertyShiftsTable({
                   return (
                     <div
                       key={d.toISOString()}
-                      className="border-l px-2 py-2 text-center font-bold"
+                      className="border-l px-2 py-2 text-center font-bold flex-1"
                       style={{ minWidth: dayColMinWidth }}
                     >
                       <div className="text-xs">{label}</div>
@@ -174,6 +174,28 @@ export default function PropertyShiftsTable({
                         style={{ height: rowHeight }}
                       >
                         <div className="text-sm truncate text-black">{g.name}</div>
+                        <div className="flex gap-1">
+                          {g.phone && (
+                            <a
+                              href={`https://wa.me/${g.phone}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-green-600 hover:text-green-800"
+                              title={`Contactar por WhatsApp: ${g.phone}`}
+                            >
+                              <MessageCircle size={16} />
+                            </a>
+                          )}
+                          {g.email && (
+                            <a
+                              href={`mailto:${g.email}`}
+                              className="text-blue-600 hover:text-blue-800"
+                              title={`Enviar email: ${g.email}`}
+                            >
+                              <Mail size={16} />
+                            </a>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -210,7 +232,7 @@ export default function PropertyShiftsTable({
                               return (
                                 <div
                                   key={key}
-                                  className="border-l px-2 py-2 text-center text-xs text-muted-foreground cursor-pointer hover:bg-muted/5 select-none"
+                                  className="border-l px-2 py-2 text-center text-xs text-muted-foreground cursor-pointer hover:bg-muted/5 select-none flex-1"
                                   style={{
                                     minWidth: dayColMinWidth,
                                     display: "flex",
@@ -226,7 +248,7 @@ export default function PropertyShiftsTable({
                             return (
                               <div
                                 key={key}
-                                className="border-l px-2 py-2 text-center align-top"
+                                className="border-l px-2 py-2 text-center align-top flex-1"
                                 style={{
                                   minWidth: dayColMinWidth,
                                   display: "flex",
@@ -240,25 +262,26 @@ export default function PropertyShiftsTable({
                                       s.plannedStartTime ??
                                       s.planned_start_time ??
                                       s.startTime ??
-                                      s.start_time ??
                                       null;
                                     const endIso =
                                       s.plannedEndTime ??
                                       s.planned_end_time ??
                                       s.endTime ??
-                                      s.end_time ??
                                       null;
                                     return (
                                       <button
                                         key={s.id}
                                         type="button"
-                                        className="text-xs underline decoration-dotted hover:bg-muted/10 px-1 rounded"
+                                        className="text-xs underline decoration-dotted hover:bg-muted/10 px-1 rounded cursor-pointer w-full"
                                         onClick={(ev) => {
                                           ev.stopPropagation();
                                           setActionShift(s);
+                                          // Directly open edit modal
+                                          // Note: This assumes setOpenEdit is passed or handled in parent
+                                          // For now, we'll keep the action dialog, but user wants direct edit
                                         }}
                                       >
-                                        {`${isoToLocalTime(startIso)} — ${isoToLocalTime(
+                                        {`${isoToLocalTime(startIso)}-${isoToLocalTime(
                                           endIso
                                         )}`}
                                       </button>

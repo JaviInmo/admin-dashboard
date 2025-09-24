@@ -2,6 +2,13 @@
 
 import { Search, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 type Props = {
   TEXT?: UiTextFragment;
@@ -95,35 +102,16 @@ export default function PropertyShiftsHeader({
           />
         </div>
 
-        <div className="flex border rounded overflow-hidden">
-          <Button
-            type="button"
-            onClick={() => setViewMode("week")}
-            className={`px-3 py-1 text-sm transition-colors ${
-              viewMode === "week" ? "bg-black text-white" : "bg-white text-black hover:bg-gray-100"
-            }`}
-          >
-            Semana
-          </Button>
-          <Button
-            type="button"
-            onClick={() => setViewMode("month")}
-            className={`px-3 py-1 text-sm transition-colors ${
-              viewMode === "month" ? "bg-black text-white" : "bg-white text-black hover:bg-gray-100"
-            }`}
-          >
-            Mes
-          </Button>
-          <Button
-            type="button"
-            onClick={() => setViewMode("year")}
-            className={`px-3 py-1 text-sm transition-colors ${
-              viewMode === "year" ? "bg-black text-white" : "bg-white text-black hover:bg-gray-100"
-            }`}
-          >
-            Año
-          </Button>
-        </div>
+        <Select value={viewMode} onValueChange={(value) => setViewMode(value as "week" | "month" | "year")}>
+          <SelectTrigger className="w-32">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="week">Semana</SelectItem>
+            <SelectItem value="month">Mes</SelectItem>
+            <SelectItem value="year">Año</SelectItem>
+          </SelectContent>
+        </Select>
 
         <div className="flex items-center gap-1">
           <Button variant="outline" size="sm" onClick={moveBack} title="Anterior">

@@ -111,6 +111,12 @@ export default function PropertyShiftsModal({ propertyId, propertyName, open, on
   const outerWrapperRef = React.useRef<HTMLDivElement | null>(null);
 
   React.useEffect(() => {
+    if (actionShift && !openEdit && !openDelete) {
+      setOpenEdit(true);
+    }
+  }, [actionShift, openEdit, openDelete]);
+
+  React.useEffect(() => {
     if (!open) return;
     let mounted = true;
     (async () => {
@@ -201,6 +207,12 @@ export default function PropertyShiftsModal({ propertyId, propertyName, open, on
     await fetchShifts();
   }
 
+  React.useEffect(() => {
+    if (actionShift && !openEdit && !openDelete) {
+      setOpenEdit(true);
+    }
+  }, [actionShift, openEdit, openDelete]);
+
   // keep signatures but mark parameters as used so eslint doesn't complain
   function handleEditDone(_: Shift) {
     void _; // mark as used
@@ -212,7 +224,7 @@ export default function PropertyShiftsModal({ propertyId, propertyName, open, on
   }
 
   // table layout config
-  const dayColMinWidth = viewMode === "week" ? 110 : 80;
+  const dayColMinWidth = 100;
   const maxVisibleGuards = 8;
   const rowHeight = 44;
   const bodyMaxHeight = maxVisibleGuards * rowHeight + 2;
@@ -271,7 +283,7 @@ export default function PropertyShiftsModal({ propertyId, propertyName, open, on
   return (
     <>
       <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-        <DialogContent size="xl">
+        <DialogContent size="xl" className="sm:max-w-[81.6rem]">
           <DialogHeader>
             <PropertyShiftsHeader
              
@@ -292,7 +304,7 @@ export default function PropertyShiftsModal({ propertyId, propertyName, open, on
             />
           </DialogHeader>
 
-          <div className="max-w-7xl overflow-x-hidden">
+          <div className="overflow-x-hidden">
             <PropertyShiftsTable
               days={days}
               guardsFiltered={guardsFiltered}
@@ -362,10 +374,11 @@ export default function PropertyShiftsModal({ propertyId, propertyName, open, on
       {actionShift && (
         <EditShift
           open={openEdit}
-          onClose={() => setOpenEdit(false)}
+          onClose={() => { setOpenEdit(false); setActionShift(null); }}
           shiftId={actionShift.id}
           initialShift={actionShift}
           onUpdated={(s) => handleEditDone(s)}
+          onDeleted={(id) => handleDeleteDone(id)}
         />
       )}
 

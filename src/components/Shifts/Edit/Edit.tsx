@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { getShift, updateShift } from "@/lib/services/shifts";
+import { getShift, updateShift, deleteShift } from "@/lib/services/shifts";
 // import { listShiftsByGuard } from "@/lib/services/shifts"; // COMENTADO - para solapamientos
 import { listGuards, getGuard } from "@/lib/services/guard";
 import { listProperties, getProperty } from "@/lib/services/properties";
@@ -32,6 +32,7 @@ type EditShiftProps = {
   shiftId?: number;
   initialShift?: Shift;
   onUpdated?: (shift: Shift) => void;
+  onDeleted?: (shiftId: number) => void;
 };
 
 function toIsoFromDatetimeLocal(value: string) {
@@ -63,6 +64,7 @@ export default function EditShift({
   shiftId,
   initialShift,
   onUpdated,
+  onDeleted,
 }: EditShiftProps) {
   const { TEXT } = useI18n();
 
@@ -1248,13 +1250,36 @@ export default function EditShift({
           )}
 
           <DialogFooter className="pt-2">
-            <div className="flex justify-end gap-2 w-full">
-              <Button variant="ghost" onClick={onClose} type="button" size="sm">
-                {(TEXT as any)?.actions?.close ?? "Close"}
-              </Button>
-              <Button type="submit" disabled={loading} size="sm">
-                {loading ? (TEXT as any)?.actions?.saving ?? "Saving..." : (TEXT as any)?.actions?.save ?? "Save"}
-              </Button>
+            <div className="flex justify-between items-center w-full">
+              {onDeleted && shift && (
+                <Button
+                  variant="destructive"
+                  onClick={async () => {
+                    if (confirm("¿Estás seguro de que quieres eliminar este turno?")) {
+                      try {
+                        await deleteShift(shift.id);
+                        toast.success("Turno eliminado");
+                        onDeleted(shift.id);
+                        onClose();
+                      } catch (err) {
+                        toast.error("Error al eliminar el turno");
+                      }
+                    }
+                  }}
+                  type="button"
+                  size="sm"
+                >
+                  Eliminar
+                </Button>
+              )}
+              <div className="flex gap-2">
+                <Button variant="ghost" onClick={onClose} type="button" size="sm">
+                  {(TEXT as any)?.actions?.close ?? "Close"}
+                </Button>
+                <Button type="submit" disabled={loading} size="sm">
+                  {loading ? (TEXT as any)?.actions?.saving ?? "Saving..." : (TEXT as any)?.actions?.save ?? "Save"}
+                </Button>
+              </div>
             </div>
           </DialogFooter>
         </form>
