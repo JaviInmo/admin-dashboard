@@ -11,6 +11,7 @@ import {
   UserRoundCheck,
   Home,
   CalendarClock,
+  StickyNote,
 } from "lucide-react";
 import { useState, useEffect, type CSSProperties } from "react";
 import { logout as authLogout } from "@/lib/services/auth";
@@ -194,8 +195,8 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
     },
     {
       key: "Notes",
-      label: TEXT.menu?.services ?? "Notes",
-      icon: Package2,
+      label: TEXT.menu?.notes ?? "Notes",
+      icon: StickyNote,
       path: "/notes",
     },
   ];

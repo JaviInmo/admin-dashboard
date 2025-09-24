@@ -310,13 +310,6 @@ export default function PropertyServiceEdit({
     });
   };
 
-  // Función para obtener horas de una fecha específica
-  const getDateTimes = (date: string) => {
-    return (
-      dateTimeMap[date] || { start: calendarStartTime, end: calendarEndTime }
-    );
-  };
-
   // Función para actualizar horas de una fecha específica
   // NOTA: Comentada porque ahora las horas se muestran como texto de solo lectura
   // const updateDateTime = (date: string, field: 'start' | 'end', value: string) => {
@@ -608,6 +601,17 @@ export default function PropertyServiceEdit({
     }
 
     return dates;
+  };
+
+  // Función para convertir hora de 24h a 12h
+  const formatTime12Hour = (time24: string): string => {
+    if (!time24 || time24 === "--:--") return "--:--";
+    
+    const [hours, minutes] = time24.split(':').map(Number);
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const hours12 = hours % 12 || 12; // Convertir 0 a 12 para medianoche
+    
+    return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
   };
 
   // Función para calcular horas totales de trabajo
@@ -1970,7 +1974,6 @@ export default function PropertyServiceEdit({
                                         );
                                         const dateOutOfRange =
                                           isDateOutOfRange(d);
-                                        const dateTimes = getDateTimes(d);
 
                                         return (
                                           <tr
@@ -1999,12 +2002,12 @@ export default function PropertyServiceEdit({
                                             </td>
                                             <td className="p-2">
                                               <span className="text-xs text-muted-foreground">
-                                                {dateTimes.start || "--:--"}
+                                                {formatTime12Hour(start_time || "--:--")}
                                               </span>
                                             </td>
                                             <td className="p-2">
                                               <span className="text-xs text-muted-foreground">
-                                                {dateTimes.end || "--:--"}
+                                                {formatTime12Hour(end_time || "--:--")}
                                               </span>
                                             </td>
                                             <td className="p-2 text-center">

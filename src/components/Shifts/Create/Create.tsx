@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { createShift, listShiftsByGuard } from "@/lib/services/shifts";
+import type { CreateShiftPayload } from "@/lib/services/shifts";
 import { listGuards, getGuard } from "@/lib/services/guard";
 import { listProperties } from "@/lib/services/properties";
 import { listServicesByProperty } from "@/lib/services/services";
@@ -737,7 +738,7 @@ export default function CreateShift({
 
     setLoading(true);
     try {
-      const payload: Record<string, unknown> = {
+      const payload: CreateShiftPayload = {
         guard: selectedGuard.id,
         property: Number(selectedProperty.id),
         planned_start_time: plannedStartIso,
@@ -750,7 +751,7 @@ export default function CreateShift({
       if (isArmed) {
         if (selectedWeaponId) payload.weapon = selectedWeaponId;
         const serialToSend = selectedWeaponSerial ?? (manualSerial.trim() !== "" ? manualSerial.trim() : null);
-        if (serialToSend) payload.weapon_serial_number = serialToSend;
+        if (serialToSend) payload.weaponSerialNumber = serialToSend;
       }
 
       const created = await createShift(payload);

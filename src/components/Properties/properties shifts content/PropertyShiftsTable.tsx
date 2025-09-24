@@ -3,6 +3,7 @@
 import * as React from "react";
 import { MessageCircle, Mail } from "lucide-react";
 import type { Shift } from "@/components/Shifts/types";
+import { getDayCoverageInfo } from "./coverageGaps";
 
 type ShiftApi = Shift & {
   planned_start_time?: string | null;
@@ -32,6 +33,21 @@ type Props = {
   bodyMaxHeight?: string | number | undefined;
   rowHeight: number;
   outerWrapperRef: React.RefObject<HTMLDivElement | null>;
+  selectedService?: {
+    id: number;
+    name: string;
+    startTime: string | null;
+    endTime: string | null;
+    schedule: string[] | null;
+  } | null;
+  services: Array<{
+    id: number;
+    name: string;
+    startTime: string | null;
+    endTime: string | null;
+    schedule: string[] | null;
+  }>;
+  onDayHover?: (day: Date | null) => void;
 };
 
 function pad(n: number) {
@@ -61,6 +77,9 @@ export default function PropertyShiftsTable({
   bodyMaxHeight,
   rowHeight,
   outerWrapperRef,
+  selectedService,
+  services,
+  onDayHover,
 }: Props) {
   const FIRST_COL_WIDTH = 200;
   const rightMinWidth = Math.max(0, tableMinWidth - FIRST_COL_WIDTH);
@@ -91,6 +110,11 @@ export default function PropertyShiftsTable({
     if (headerRightRef.current) headerRightRef.current.scrollLeft = 0;
     if (horizontalScrollbarRef.current) horizontalScrollbarRef.current.scrollLeft = 0;
   }, [days.length, tableMinWidth]);
+
+  // Función para determinar si un día debe estar marcado en amarillo y obtener las brechas
+  const getDayCoverageInfoCallback = React.useCallback((day: Date) => {
+    return getDayCoverageInfo(day, selectedService || null, services, shiftsByGuardAndDate);
+  }, [selectedService, services, shiftsByGuardAndDate]);
 
   return (
     <div className="mt-4">
@@ -128,12 +152,18 @@ export default function PropertyShiftsTable({
                     day: "numeric",
                   });
                   const dateKey = d.toISOString().split('T')[0]; // YYYY-MM-DD
+                  const coverageInfo = getDayCoverageInfoCallback(d);
+                  const shouldHighlight = coverageInfo.shouldHighlight;
                   return (
                     <div
                       key={d.toISOString()}
                       data-date={dateKey}
-                      className="border-l px-2 py-2 text-center font-bold flex-1"
+                      className={`border-l px-2 py-2 text-center font-bold flex-1 ${
+                        shouldHighlight ? 'bg-yellow-100' : ''
+                      }`}
                       style={{ minWidth: dayColMinWidth }}
+                      onMouseEnter={() => onDayHover?.(d)}
+                      onMouseLeave={() => onDayHover?.(null)}
                     >
                       <div className="text-xs">{label}</div>
                     </div>
@@ -238,11 +268,15 @@ export default function PropertyShiftsTable({
                             )}-${pad(d.getDate())}`;
                             const rec =
                               shiftsByGuardAndDate.get(g.id)?.[key] ?? [];
+                            const coverageInfo = getDayCoverageInfoCallback(d);
+                            const shouldHighlight = coverageInfo.shouldHighlight;
                             if (!rec || rec.length === 0) {
                               return (
                                 <div
                                   key={key}
-                                  className="border-l px-2 py-2 text-center text-xs text-muted-foreground cursor-pointer hover:bg-muted/5 select-none flex-1"
+                                  className={`border-l px-2 py-2 text-center text-xs text-muted-foreground cursor-pointer hover:bg-muted/5 select-none flex-1 ${
+                                    shouldHighlight ? 'bg-yellow-50' : ''
+                                  }`}
                                   style={{
                                     minWidth: dayColMinWidth,
                                     display: "flex",
@@ -250,6 +284,8 @@ export default function PropertyShiftsTable({
                                     justifyContent: "center",
                                   }}
                                   onClick={() => openCreateForDate(d, g)}
+                                  onMouseEnter={() => onDayHover?.(d)}
+                                  onMouseLeave={() => onDayHover?.(null)}
                                 >
                                   +
                                 </div>
@@ -258,13 +294,17 @@ export default function PropertyShiftsTable({
                             return (
                               <div
                                 key={key}
-                                className="border-l px-2 py-2 text-center align-top flex-1"
+                                className={`border-l px-2 py-2 text-center align-top flex-1 ${
+                                  shouldHighlight ? 'bg-yellow-50' : ''
+                                }`}
                                 style={{
                                   minWidth: dayColMinWidth,
                                   display: "flex",
                                   alignItems: "center",
                                   justifyContent: "center",
                                 }}
+                                onMouseEnter={() => onDayHover?.(d)}
+                                onMouseLeave={() => onDayHover?.(null)}
                               >
                                 <div className="flex flex-col items-center gap-1">
                                   {rec.map((s: ShiftApi) => {

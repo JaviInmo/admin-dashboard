@@ -11,4 +11,7 @@ no implementes cosas sin consultar antes si quiero que se implementen.
 
 ante cualquier ambigüedad o duda, pregunta primero
 
-NO AGREGEUS LOGS DE DEBUG
+Despeus de una nueva indicacion, confirma la idea que se esta pidiendo segun tu perspectiva y siempre pregunta si es correcto antes de proceder
+
+no ofrescas hacer commits, solo cuando el ususario te lo pida
+

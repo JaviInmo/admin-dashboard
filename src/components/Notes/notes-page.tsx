@@ -2,7 +2,7 @@
 "use client";
 
 import * as React from "react";
-import { MessageSquare } from "lucide-react";
+import { StickyNote } from "lucide-react";
 import { NotesContainer } from "./NoteContainer";
 
 export default function NotesPage(): React.JSX.Element {
@@ -10,7 +10,7 @@ export default function NotesPage(): React.JSX.Element {
     <div className="flex flex-1 flex-col gap-6 p-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <MessageSquare className="h-8 w-8 text-primary" />
+          <StickyNote className="h-8 w-8 text-primary" />
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Notas</h1>
             

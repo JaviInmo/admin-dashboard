@@ -10,9 +10,11 @@ import CreateShift from "@/components/Shifts/Create/Create";
 import EditShift from "@/components/Shifts/Edit/Edit";
 import DeleteShift from "@/components/Shifts/Delete/Delete";
 
-import PropertyShiftsTable from "@/components/Properties/properties shifts content/PropertyShiftsTable";
-import PropertyShiftsHeader from "@/components/Properties/properties shifts content/PropertyShiftsHeader";
-import ShiftActionsDialog from "@/components/Properties/properties shifts content/ShiftActionsDialog";
+import { getCombinedFooterGaps } from "./coverageGaps";
+
+import PropertyShiftsTable from "./PropertyShiftsTable";
+import PropertyShiftsHeader from "./PropertyShiftsHeader";
+import ShiftActionsDialog from "./ShiftActionsDialog";
 
 import { useShifts } from "@/components/Properties/properties shifts content/hooks/useShifts";
 import { useShiftsDerived } from "@/components/Properties/properties shifts content/hooks/useShiftsDerived";
@@ -91,13 +93,19 @@ export default function PropertyShiftsModal({ propertyId, propertyName, property
   const [viewMode, setViewMode] = React.useState<"week" | "month" | "year">("week");
   const [guardSearch, setGuardSearch] = React.useState<string>("");
   const [selectedServiceId, setSelectedServiceId] = React.useState<number | null>(null);
-  const [services, setServices] = React.useState<Array<{id: number, name: string, startTime: string | null, endTime: string | null}>>([]);
+  const [services, setServices] = React.useState<Array<{id: number, name: string, startTime: string | null, endTime: string | null, schedule: string[] | null}>>([]);
   const [selectedMonth, setSelectedMonth] = React.useState<Date>(() => {
     const d = new Date();
     d.setDate(1); // Primer día del mes actual
     d.setHours(0, 0, 0, 0);
     return d;
   });
+
+  // Encontrar el servicio seleccionado
+  const selectedService = React.useMemo(() => {
+    if (!selectedServiceId || !services.length) return null;
+    return services.find(service => service.id === selectedServiceId) || null;
+  }, [selectedServiceId, services]);
 
   // Forzamos el tipo del retorno para que guardsAll / guardsFiltered no sean any
   const {
@@ -113,6 +121,8 @@ export default function PropertyShiftsModal({ propertyId, propertyName, property
 
   // aquí guardamos ya el tipo que CreateShift espera (Guard | null).
   const [createPreloadedGuard, setCreatePreloadedGuard] = React.useState<Guard | null>(null);
+
+  const [hoveredDay, setHoveredDay] = React.useState<Date | null>(null);
 
   const [actionShift, setActionShift] = React.useState<Shift | null>(null);
   const [openEdit, setOpenEdit] = React.useState(false);
@@ -184,13 +194,14 @@ export default function PropertyShiftsModal({ propertyId, propertyName, property
         if (!mounted) return;
         
         // Extract services array from different response formats
-        let servicesList: Array<{id: number, name: string, startTime: string | null, endTime: string | null}> = [];
+        let servicesList: Array<{id: number, name: string, startTime: string | null, endTime: string | null, schedule: string[] | null}> = [];
         if (Array.isArray(response)) {
           servicesList = response.map((service: any) => ({
             id: service.id,
             name: service.name,
             startTime: service.startTime || service.start_time || null,
             endTime: service.endTime || service.end_time || null,
+            schedule: service.schedule || null,
           }));
         } else if (response?.items) {
           servicesList = response.items.map((service: any) => ({
@@ -198,6 +209,7 @@ export default function PropertyShiftsModal({ propertyId, propertyName, property
             name: service.name,
             startTime: service.startTime || service.start_time || null,
             endTime: service.endTime || service.end_time || null,
+            schedule: service.schedule || null,
           }));
         } else if ((response as any)?.results) {
           servicesList = (response as any).results.map((service: any) => ({
@@ -205,6 +217,7 @@ export default function PropertyShiftsModal({ propertyId, propertyName, property
             name: service.name,
             startTime: service.startTime || service.start_time || null,
             endTime: service.endTime || service.end_time || null,
+            schedule: service.schedule || null,
           }));
         }
         
@@ -383,6 +396,11 @@ export default function PropertyShiftsModal({ propertyId, propertyName, property
     } as unknown as Guard;
   }, [createPreloadedGuard]);
 
+  // Función para calcular las brechas de cobertura para mostrar en el footer
+  const getFooterCoverageGaps = React.useMemo(() => {
+    return getCombinedFooterGaps(hoveredDay, selectedService, services, shiftsByGuardAndDate);
+  }, [hoveredDay, selectedService, services, shiftsByGuardAndDate]);
+
   return (
     <>
       <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
@@ -427,13 +445,28 @@ export default function PropertyShiftsModal({ propertyId, propertyName, property
               bodyMaxHeight={guardsFiltered.length > 8 ? `${bodyMaxHeight}px` : undefined}
               rowHeight={rowHeight}
               outerWrapperRef={outerWrapperRef}
+              selectedService={selectedService}
+              services={services}
+              onDayHover={setHoveredDay}
             />
           </div>
 
           <DialogFooter>
             <div className="flex justify-between items-center w-full">
-              <div className="text-xs text-muted-foreground pt-3">
-                {TEXT?.properties?.shiftsFooter ?? "Usa los controles para navegar semanas/meses/años. Haz click en + para crear un turno o en un turno existente para ver acciones."}
+              <div className="text-sm text-muted-foreground pt-3">
+                {hoveredDay && getFooterCoverageGaps ? (
+                  getFooterCoverageGaps.length > 0 ? (
+                    <div>
+                      {getFooterCoverageGaps.map((gap, index) => (
+                        <div key={index}>{gap}</div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-green-600 font-medium">Todo cubierto</div>
+                  )
+                ) : (
+                  <div className="font-medium">Pasa el mouse sobre un día para ver su estado de cobertura</div>
+                )}
               </div>
               <div className="flex gap-2">
                 <Button onClick={() => {

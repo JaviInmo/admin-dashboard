@@ -14,7 +14,8 @@ export const EN_TEXT = {
     users: "Users",
     properties: "Properties",
     shifts: "Shifts",
-    services: "Services", // <-- ADDED
+    services: "Services",
+    notes: "Notes",
   },
 
   pagination: {
