@@ -25,6 +25,7 @@ import type { Guard } from "@/components/Guards/types";
 type Props = {
   propertyId: number;
   propertyName?: string;
+  propertyAlias?: string;
   open: boolean;
   onClose: () => void;
 };
@@ -75,7 +76,7 @@ type SimpleGuard = {
   email?: string;
 };
 
-export default function PropertyShiftsModal({ propertyId, propertyName, open, onClose }: Props) {
+export default function PropertyShiftsModal({ propertyId, propertyName, propertyAlias, open, onClose }: Props) {
   // Tipamos TEXT con el fragmento reducido para evitar 'any'
   const { TEXT } = useI18n() as { TEXT?: UiTextFragment };
 
@@ -90,7 +91,13 @@ export default function PropertyShiftsModal({ propertyId, propertyName, open, on
   const [viewMode, setViewMode] = React.useState<"week" | "month" | "year">("week");
   const [guardSearch, setGuardSearch] = React.useState<string>("");
   const [selectedServiceId, setSelectedServiceId] = React.useState<number | null>(null);
-  const [services, setServices] = React.useState<Array<{id: number, name: string}>>([]);
+  const [services, setServices] = React.useState<Array<{id: number, name: string, startTime: string | null, endTime: string | null}>>([]);
+  const [selectedMonth, setSelectedMonth] = React.useState<Date>(() => {
+    const d = new Date();
+    d.setDate(1); // Primer día del mes actual
+    d.setHours(0, 0, 0, 0);
+    return d;
+  });
 
   // Forzamos el tipo del retorno para que guardsAll / guardsFiltered no sean any
   const {
@@ -113,6 +120,51 @@ export default function PropertyShiftsModal({ propertyId, propertyName, open, on
 
   const outerWrapperRef = React.useRef<HTMLDivElement | null>(null);
 
+  // Función para hacer scroll hasta el día de hoy
+  const scrollToToday = React.useCallback(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Encontrar el índice del día de hoy en el array days
+    const todayIndex = days.findIndex(day => 
+      day.getFullYear() === today.getFullYear() &&
+      day.getMonth() === today.getMonth() &&
+      day.getDate() === today.getDate()
+    );
+    
+    if (todayIndex !== -1 && outerWrapperRef.current) {
+      // Calcular la posición horizontal: índice * ancho mínimo de columna
+      const dayColWidth = 100; // dayColMinWidth
+      const scrollLeft = todayIndex * dayColWidth;
+      
+      // Buscar el elemento scrollable (bodyRightRef en PropertyShiftsTable)
+      const scrollableElement = outerWrapperRef.current.querySelector('.hide-horizontal-scrollbar') as HTMLElement;
+      if (scrollableElement) {
+        scrollableElement.scrollTo({ left: scrollLeft, behavior: 'smooth' });
+      }
+    }
+  }, [days]);
+
+  // useEffect para hacer scroll cuando se cambia a la fecha de hoy
+  React.useEffect(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Si startDate es hoy, hacer scroll después de un delay
+    if (startDate.getTime() === today.getTime()) {
+      const timer = setTimeout(() => scrollToToday(), 300);
+      return () => clearTimeout(timer);
+    }
+  }, [startDate, scrollToToday]);
+
+  // useEffect para actualizar selectedMonth cuando cambia startDate
+  React.useEffect(() => {
+    const monthStart = new Date(startDate);
+    monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
+    setSelectedMonth(monthStart);
+  }, [startDate]);
+
   React.useEffect(() => {
     if (actionShift && !openEdit && !openDelete) {
       setOpenEdit(true);
@@ -132,13 +184,28 @@ export default function PropertyShiftsModal({ propertyId, propertyName, open, on
         if (!mounted) return;
         
         // Extract services array from different response formats
-        let servicesList: Array<{id: number, name: string}> = [];
+        let servicesList: Array<{id: number, name: string, startTime: string | null, endTime: string | null}> = [];
         if (Array.isArray(response)) {
-          servicesList = response;
+          servicesList = response.map((service: any) => ({
+            id: service.id,
+            name: service.name,
+            startTime: service.startTime || service.start_time || null,
+            endTime: service.endTime || service.end_time || null,
+          }));
         } else if (response?.items) {
-          servicesList = response.items;
+          servicesList = response.items.map((service: any) => ({
+            id: service.id,
+            name: service.name,
+            startTime: service.startTime || service.start_time || null,
+            endTime: service.endTime || service.end_time || null,
+          }));
         } else if ((response as any)?.results) {
-          servicesList = (response as any).results;
+          servicesList = (response as any).results.map((service: any) => ({
+            id: service.id,
+            name: service.name,
+            startTime: service.startTime || service.start_time || null,
+            endTime: service.endTime || service.end_time || null,
+          }));
         }
         
         setServices(servicesList);
@@ -173,6 +240,18 @@ export default function PropertyShiftsModal({ propertyId, propertyName, open, on
   }
   function goToday() {
     const nd = new Date(); nd.setHours(0, 0, 0, 0); setStartDate(nd);
+    // El scroll se hará automáticamente con el useEffect
+  }
+
+  // Función para manejar el cambio de mes seleccionado
+  function handleMonthChange(month: Date) {
+    setSelectedMonth(month);
+    // Cambiar automáticamente a vista de mes y navegar al mes seleccionado
+    setViewMode("month");
+    const newStartDate = new Date(month);
+    newStartDate.setDate(1); // Primer día del mes
+    newStartDate.setHours(0, 0, 0, 0);
+    setStartDate(newStartDate);
   }
 
   // create handlers
@@ -312,6 +391,7 @@ export default function PropertyShiftsModal({ propertyId, propertyName, open, on
             <PropertyShiftsHeader
              
               propertyName={propertyName}
+              propertyAlias={propertyAlias}
               propertyId={propertyId}
               viewMode={viewMode}
               setViewMode={setViewMode}
@@ -328,6 +408,8 @@ export default function PropertyShiftsModal({ propertyId, propertyName, open, on
               services={services}
               selectedServiceId={selectedServiceId}
               onServiceChange={setSelectedServiceId}
+              selectedMonth={selectedMonth}
+              onMonthChange={handleMonthChange}
             />
           </DialogHeader>
 

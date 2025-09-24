@@ -127,9 +127,11 @@ export default function PropertyShiftsTable({
                     month: "numeric",
                     day: "numeric",
                   });
+                  const dateKey = d.toISOString().split('T')[0]; // YYYY-MM-DD
                   return (
                     <div
                       key={d.toISOString()}
+                      data-date={dateKey}
                       className="border-l px-2 py-2 text-center font-bold flex-1"
                       style={{ minWidth: dayColMinWidth }}
                     >

@@ -495,7 +495,8 @@ export default function PropertiesTable({
       {shiftProperty && (
         <PropertyShiftsModal
           propertyId={shiftProperty.id}
-          propertyName={shiftProperty.name || shiftProperty.alias || `Propiedad ${shiftProperty.id}`}
+          propertyName={shiftProperty.name}
+          propertyAlias={shiftProperty.alias}
           open={!!shiftProperty}
           onClose={() => setShiftProperty(null)}
         />

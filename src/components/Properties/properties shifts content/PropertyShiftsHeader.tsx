@@ -1,5 +1,6 @@
 // src/components/Properties/properties shifts content/PropertyShiftsHeader.tsx
 
+import * as React from "react";
 import { Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,11 +14,14 @@ import {
 type Service = {
   id: number;
   name: string;
+  startTime: string | null;
+  endTime: string | null;
 };
 
 type Props = {
   TEXT?: UiTextFragment;
   propertyName?: string;
+  propertyAlias?: string;
   propertyId: number;
   viewMode: "week" | "month" | "year";
   setViewMode: (m: "week" | "month" | "year") => void;
@@ -31,6 +35,8 @@ type Props = {
   services: Service[];
   selectedServiceId: number | null;
   onServiceChange: (serviceId: number | null) => void;
+  selectedMonth?: Date;
+  onMonthChange?: (month: Date) => void;
 };
 
 /**
@@ -47,17 +53,32 @@ type UiTextFragment = {
 };
 
 /**
- * Pequeña util para interpolar {propertyName} y {propertyId} si vienen en el texto.
+ * Pequeña util para interpolar {propertyName}, {propertyAlias} y {propertyId} si vienen en el texto.
  */
-function interpolate(text: string, vars: { propertyName?: string; propertyId?: number }) {
+function interpolate(text: string, vars: { propertyName?: string; propertyAlias?: string; propertyId?: number }) {
   return text
     .replace(/\{propertyName\}/g, vars.propertyName ?? "")
+    .replace(/\{propertyAlias\}/g, vars.propertyAlias ?? "")
     .replace(/\{propertyId\}/g, String(vars.propertyId ?? ""));
+}
+
+/**
+ * Formatea una hora en formato 12 horas (AM/PM)
+ */
+function formatTime12Hour(timeString: string | null): string {
+  if (!timeString) return "";
+  
+  const [hours, minutes] = timeString.split(':').map(Number);
+  const period = hours >= 12 ? 'PM' : 'AM';
+  const displayHours = hours % 12 || 12; // Convertir 0 a 12 para medianoche
+  
+  return `${displayHours}:${minutes.toString().padStart(2, '0')}${period}`;
 }
 
 export default function PropertyShiftsHeader({
   TEXT,
   propertyName,
+  propertyAlias,
   propertyId,
   viewMode,
   setViewMode,
@@ -71,16 +92,35 @@ export default function PropertyShiftsHeader({
   services,
   selectedServiceId,
   onServiceChange,
+  selectedMonth,
+  onMonthChange,
 }: Props) {
   // título: preferimos TEXT.properties.shiftsTitle si existe (puede incluir placeholders),
-  // si no, fallback a `Turnos — ${propertyName ?? `#${propertyId}`}`
+  // si no, fallback a `${propertyAlias ?? 'Alias'} - ${propertyName ?? `#${propertyId}`}`
   const rawTitle = TEXT?.properties?.shiftsTitle;
   const title =
     typeof rawTitle === "string"
-      ? interpolate(rawTitle, { propertyName, propertyId })
-      : `Turnos — ${propertyName ?? `#${propertyId}`}`;
+      ? interpolate(rawTitle, { propertyName, propertyAlias, propertyId })
+      : `${propertyAlias ?? 'Alias'} - ${propertyName ?? `#${propertyId}`}`;
 
   const searchPlaceholder = TEXT?.shifts?.searchPlaceholder ?? "Buscar guardias...";
+
+  // Generar opciones de meses (solo del año actual)
+  const monthOptions = React.useMemo(() => {
+    const options = [];
+    const currentYear = new Date().getFullYear();
+    
+    // Solo meses del año actual
+    for (let month = 0; month < 12; month++) {
+      const date = new Date(currentYear, month, 1);
+      options.push({
+        value: date.toISOString(),
+        label: date.toLocaleDateString('es-ES', { month: 'long' })
+      });
+    }
+    
+    return options;
+  }, []);
 
   return (
     <div className="flex items-start justify-between gap-3 w-full pt-4">
@@ -99,7 +139,7 @@ export default function PropertyShiftsHeader({
                 <SelectItem value="all">Todos</SelectItem>
                 {services.map((service) => (
                   <SelectItem key={service.id} value={service.id.toString()}>
-                    {service.name}
+                    {service.name} {service.startTime && service.endTime ? `(${formatTime12Hour(service.startTime)}-${formatTime12Hour(service.endTime)})` : ''}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -129,6 +169,28 @@ export default function PropertyShiftsHeader({
             className="text-sm outline-none w-48 "
           />
         </div>
+
+        {onMonthChange && (
+          <Select 
+            value={selectedMonth?.toISOString() ?? ""} 
+            onValueChange={(value) => {
+              if (value) {
+                onMonthChange(new Date(value));
+              }
+            }}
+          >
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="Seleccionar mes" />
+            </SelectTrigger>
+            <SelectContent>
+              {monthOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
 
         <Select value={viewMode} onValueChange={(value) => setViewMode(value as "week" | "month" | "year")}>
           <SelectTrigger className="w-32">
