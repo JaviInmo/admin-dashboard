@@ -1,127 +1,163 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../ui/card';
-import { Button } from '../../ui/button';
-import { Input } from '../../ui/input';
-import { Textarea } from '../../ui/textarea';
-import { Label } from '../../ui/label';
-import { Edit2, Save, X } from 'lucide-react';
+"use client";
 
-interface EditNoteProps {
-  noteId: string;
-  initialTitle: string;
-  initialDescription: string;
-  initialContent: string;
-  onSaveNote?: (noteId: string, title: string, description: string, content: string) => void;
-  onCancel?: () => void;
+import React from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../ui/dialog";
+import { Button } from "../../ui/button";
+import { Input } from "../../ui/input";
+import { Label } from "../../ui/label";
+import { toast } from "sonner";
+import type { Note, UpdateNotePayload } from "../type";
+import { updateNote } from "../../../lib/services/notes";
+import { useI18n } from "../../../i18n";
+
+interface Props {
+  note: Note;
+  open: boolean;
+  onClose: () => void;
+  onUpdated?: () => void | Promise<void>;
 }
 
-export const EditNote: React.FC<EditNoteProps> = ({
-  noteId,
-  initialTitle,
-  initialDescription,
-  initialContent,
-  onSaveNote,
-  onCancel
-}) => {
-  const [title, setTitle] = useState(initialTitle);
-  const [description, setDescription] = useState(initialDescription);
-  const [content, setContent] = useState(initialContent);
+function getTextFromObject(obj: unknown, path: string, fallback = ""): string {
+  const parts = path.split(".");
+  let cur: unknown = obj;
+  for (const p of parts) {
+    if (typeof cur === "object" && cur !== null && p in (cur as Record<string, unknown>)) {
+      cur = (cur as Record<string, unknown>)[p];
+    } else {
+      return fallback;
+    }
+  }
+  return typeof cur === "string" ? cur : fallback;
+}
 
-  useEffect(() => {
-    setTitle(initialTitle);
-    setDescription(initialDescription);
-    setContent(initialContent);
-  }, [initialTitle, initialDescription, initialContent]);
+export default function EditNoteDialog({ note, open, onClose, onUpdated }: Props) {
+  const { TEXT } = useI18n();
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (title.trim() && content.trim()) {
-      onSaveNote?.(noteId, title.trim(), description.trim(), content.trim());
+  const [name, setName] = React.useState<string>(note?.name ?? "");
+  const [description, setDescription] = React.useState<string | null>(note?.description ?? null);
+  const [amount, setAmount] = React.useState<string>(note?.amount !== null && note?.amount !== undefined ? String(note.amount) : note?.amount_raw ?? "");
+  const [client, setClient] = React.useState<string | "">(
+    note?.client !== null && note?.client !== undefined ? String(note.client) : ""
+  );
+  const [propertyObj, setPropertyObj] = React.useState<string | "">(
+    note?.property_obj !== null && note?.property_obj !== undefined ? String(note.property_obj) : ""
+  );
+
+  const [loading, setLoading] = React.useState<boolean>(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    setName(note?.name ?? "");
+    setDescription(note?.description ?? null);
+    setAmount(note?.amount !== null && note?.amount !== undefined ? String(note.amount) : note?.amount_raw ?? "");
+    setClient(note?.client !== null && note?.client !== undefined ? String(note.client) : "");
+    setPropertyObj(note?.property_obj !== null && note?.property_obj !== undefined ? String(note.property_obj) : "");
+    setError(null);
+  }, [note]);
+
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setError(null);
+
+    if (!name.trim()) {
+      setError(getTextFromObject(TEXT, "clients.form.validation.firstNameRequired", "Name is required"));
+      return;
+    }
+    if (amount && amount.trim() !== "") {
+      const normalized = amount.replace(",", ".");
+      if (Number.isNaN(Number(normalized))) {
+        setError(getTextFromObject(TEXT, "services.errors.rateInvalid", "Amount must be a number"));
+        return;
+      }
+    }
+
+    setLoading(true);
+    try {
+      const payload: UpdateNotePayload = {};
+      payload.name = name.trim();
+      payload.description = description === "" ? null : description ?? null;
+      if (amount !== "" && amount !== null) {
+        payload.amount = amount;
+      }
+      payload.client = client === "" ? undefined : Number(client);
+      payload.property_obj = propertyObj === "" ? undefined : Number(propertyObj);
+
+      await updateNote(note.id, payload);
+
+      toast.success(getTextFromObject(TEXT, "actions.save", "Note updated"));
+
+      if (onUpdated) await onUpdated();
+
+      onClose();
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("Error updating note:", err);
+      const message = typeof err === "object" ? JSON.stringify(err) : String(err);
+      setError(message);
+      toast.error(message);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleCancel = () => {
-    setTitle(initialTitle);
-    setDescription(initialDescription);
-    setContent(initialContent);
-    onCancel?.();
-  };
+  const isMissingNote = !note || Object.keys(note).length === 0;
 
-  const hasChanges = 
-    title !== initialTitle || 
-    description !== initialDescription || 
-    content !== initialContent;
+  const saveText = getTextFromObject(TEXT, "actions.save", "Save");
+  const savingText = getTextFromObject(TEXT, "actions.saving", "Saving...");
+  const cancelText = getTextFromObject(TEXT, "actions.cancel", "Cancel");
 
   return (
-    <Card className="w-full max-w-2xl mx-auto">
-      <CardHeader>
-        <div className="flex items-center space-x-2">
-          <Edit2 className="h-5 w-5 text-primary" />
-          <CardTitle>Editar Nota</CardTitle>
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="w-full max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="pl-4">{getTextFromObject(TEXT, "actions.edit", "Edit")} — #{note?.id}</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-3 p-4">
+          {isMissingNote ? (
+            <p>{getTextFromObject(TEXT, "table.noData", "Note data unavailable")}</p>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-3">
+              <div>
+                <Label className="pb-2" >{getTextFromObject(TEXT, "services.fields.name", "Name")} *</Label>
+                <Input value={name} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)} required />
+              </div>
+
+              <div>
+                <Label className="pb-2" >{getTextFromObject(TEXT, "services.fields.description", "Description")}</Label>
+                <Input value={description ?? ""} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDescription(e.target.value)} />
+              </div>
+
+              <div>
+                <Label className="pb-2" >{getTextFromObject(TEXT, "services.fields.rate", "Amount")}</Label>
+                <Input value={amount ?? ""} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAmount(e.target.value)} inputMode="decimal" />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="pb-2">Client (id)</Label>
+                  <Input value={client} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setClient(e.target.value)} type="number" />
+                </div>
+                <div>
+                  <Label className="pb-2">Property (id)</Label>
+                  <Input value={propertyObj} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPropertyObj(e.target.value)} type="number" />
+                </div>
+              </div>
+
+              {error && <p className="text-sm text-red-600">{error}</p>}
+
+              <div className="flex justify-end gap-2 mt-3">
+                <Button variant="ghost" onClick={onClose} disabled={loading}>
+                  {cancelText}
+                </Button>
+                <Button type="submit" disabled={loading}>
+                  {loading ? savingText : saveText}
+                </Button>
+              </div>
+            </form>
+          )}
         </div>
-        <CardDescription>
-          Modifica el contenido de tu nota o conversación
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="edit-title">Título *</Label>
-            <Input
-              id="edit-title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Título de la nota"
-              required
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="edit-description">Descripción</Label>
-            <Input
-              id="edit-description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Descripción de la nota (opcional)"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="edit-content">Contenido *</Label>
-            <Textarea
-              id="edit-content"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="Contenido de la nota..."
-              className="min-h-[120px]"
-              required
-            />
-          </div>
-
-          <div className="flex justify-between items-center pt-4">
-            <div className="text-sm text-muted-foreground">
-              {hasChanges ? 'Hay cambios sin guardar' : 'Sin cambios'}
-            </div>
-            <div className="flex space-x-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleCancel}
-              >
-                <X className="h-4 w-4 mr-2" />
-                Cancelar
-              </Button>
-              <Button
-                type="submit"
-                disabled={!title.trim() || !content.trim() || !hasChanges}
-              >
-                <Save className="h-4 w-4 mr-2" />
-                Guardar Cambios
-              </Button>
-            </div>
-          </div>
-        </form>
-      </CardContent>
-    </Card>
+      </DialogContent>
+    </Dialog>
   );
-};
+}

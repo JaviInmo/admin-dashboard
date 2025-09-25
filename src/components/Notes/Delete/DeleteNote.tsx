@@ -1,72 +1,108 @@
-import React from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../ui/card';
-import { Button } from '../../ui/button';
-import { AlertTriangle, Trash2, X } from 'lucide-react';
+"use client";
 
-interface DeleteNoteProps {
-  noteId: string;
-  noteTitle: string;
-  noteDescription?: string;
-  onConfirmDelete?: (noteId: string) => void;
-  onCancel?: () => void;
+import React from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../ui/dialog";
+import { Button } from "../../ui/button";
+import type { Note } from "../type";
+import { deleteNote } from "../../../lib/services/notes";
+import { showErrorToast, showCreatedToast } from "../../../lib/toast-helpers";
+import { useI18n } from "../../../i18n";
+
+interface Props {
+  note: Note | null;
+  open: boolean;
+  onClose: () => void;
+  onDeleted?: () => void | Promise<void>;
 }
 
-export const DeleteNote: React.FC<DeleteNoteProps> = ({
-  noteId,
-  noteTitle,
-  noteDescription,
-  onConfirmDelete,
-  onCancel
-}) => {
-  const handleConfirmDelete = () => {
-    onConfirmDelete?.(noteId);
+function getTextFromObject(obj: unknown, path: string, fallback = ""): string {
+  const parts = path.split(".");
+  let cur: unknown = obj;
+  for (const p of parts) {
+    if (typeof cur === "object" && cur !== null && p in (cur as Record<string, unknown>)) {
+      cur = (cur as Record<string, unknown>)[p];
+    } else {
+      return fallback;
+    }
+  }
+  return typeof cur === "string" ? cur : fallback;
+}
+
+export default function DeleteNoteDialog({ note, open, onClose, onDeleted }: Props) {
+  const { TEXT } = useI18n();
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!open) {
+      setLoading(false);
+      setError(null);
+    }
+  }, [open]);
+
+  const handleDelete = async () => {
+    if (!note) return;
+    setLoading(true);
+    setError(null);
+    try {
+      await deleteNote(note.id);
+      showCreatedToast(getTextFromObject(TEXT, "actions.delete", "Note deleted"));
+      if (onDeleted) await onDeleted();
+      onClose();
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("Error deleting note:", err);
+      setError(getTextFromObject(TEXT, "actions.delete", "Failed to delete note"));
+      showErrorToast(getTextFromObject(TEXT, "actions.delete", "Failed to delete note"));
+    } finally {
+      setLoading(false);
+    }
   };
 
+  const cancelText = getTextFromObject(TEXT, "actions.cancel", "Cancel");
+  const deletingText = getTextFromObject(TEXT, "actions.deleting", "Deleting...");
+  const deleteText = getTextFromObject(TEXT, "actions.delete", "Delete");
+
   return (
-    <Card className="w-full max-w-md mx-auto border-destructive/20">
-      <CardHeader>
-        <div className="flex items-center space-x-2">
-          <AlertTriangle className="h-5 w-5 text-destructive" />
-          <CardTitle className="text-destructive">Eliminar Nota</CardTitle>
-        </div>
-        <CardDescription>
-          Esta acción no se puede deshacer
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="p-4 bg-muted rounded-lg">
-          <h4 className="font-medium text-sm mb-1">{noteTitle}</h4>
-          {noteDescription && (
-            <p className="text-xs text-muted-foreground">{noteDescription}</p>
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[520px]">
+        <DialogHeader>
+          <DialogTitle>{getTextFromObject(TEXT, "actions.delete", "Delete")}</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {!note ? (
+            <p>{getTextFromObject(TEXT, "table.noData", "No note selected")}</p>
+          ) : (
+            <>
+              <div>
+                <p className="font-medium">{getTextFromObject(TEXT, "actions.delete", "Are you sure you want to delete this note?")}</p>
+              </div>
+
+              <div className="p-3 rounded border bg-muted/20">
+                <p className="font-semibold">{note.name}</p>
+                {note.description && <p className="text-sm text-slate-600">{note.description}</p>}
+                <div className="text-sm text-slate-700 mt-2">
+                  <p>Amount: {note.amount !== null ? String(note.amount) : note.amount_raw ?? "-"}</p>
+                  <p>Client: {note.client ?? "-"}</p>
+                  <p>Property: {note.property_obj ?? "-"}</p>
+                </div>
+              </div>
+
+              {error && <p className="text-sm text-red-600">{error}</p>}
+
+              <div className="flex justify-end gap-2">
+                <Button variant="ghost" onClick={onClose} disabled={loading}>
+                  {cancelText}
+                </Button>
+                <Button onClick={handleDelete} disabled={loading} variant="destructive">
+                  {loading ? deletingText : deleteText}
+                </Button>
+              </div>
+            </>
           )}
         </div>
-
-        <div className="text-sm text-muted-foreground">
-          <p>¿Estás seguro de que quieres eliminar esta nota?</p>
-          <p className="mt-1 font-medium">
-            Se eliminarán todos los mensajes y contenido asociado.
-          </p>
-        </div>
-
-        <div className="flex justify-end space-x-2 pt-4">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onCancel}
-          >
-            <X className="h-4 w-4 mr-2" />
-            Cancelar
-          </Button>
-          <Button
-            type="button"
-            variant="destructive"
-            onClick={handleConfirmDelete}
-          >
-            <Trash2 className="h-4 w-4 mr-2" />
-            Eliminar Nota
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+      </DialogContent>
+    </Dialog>
   );
-};
+}

@@ -23,6 +23,9 @@ export const endpoints = {
   common: {
     generalSettings: 'api/common/general-settings/',
   },
+    // Notes
+     notes: 'api/notes/',
+
 
   // weapons 
   weapons: 'api/weapons/',
