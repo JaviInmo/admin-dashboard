@@ -1,3 +1,4 @@
+// src/components/Notes/Create/CreateNote.tsx
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -8,18 +9,25 @@ import { Label } from "../../ui/label";
 import { useI18n } from "../../../i18n";
 import { createNote } from "../../../lib/services/notes";
 import { showCreatedToast, showErrorToast } from "../../../lib/toast-helpers";
+
+import GuardSelect from "../Selects/GuardSelect";
+import PropertySelect from "../Selects/PropertySelect";
+import ServiceSelect from "../Selects/ServiceSelect";
+import ShiftSelect from "../Selects/ShiftSelect";
+import WeaponSelect from "../Selects/WeaponSelect";
+import PropertyTypeSelect from "../Selects/PropertyTypeSelect";
+import UserSelect from "../Selects/UserSelect";
+
 import type { CreateNotePayload } from "../type";
+import type { Guard } from "@/components/Guards/types";
+import type { AppProperty } from "@/lib/services/properties";
+import type { Service } from "@/components/Services/types";
+import type { Shift } from "@/components/Shifts/types";
+import type { Weapon } from "@/components/Weapons/types";
+import type { AppPropertyType } from "@/lib/services/properties";
+import type { AppUser } from "@/lib/services/users";
 
-interface Props {
-  open: boolean;
-  onClose: () => void;
-  onCreated?: () => void | Promise<void>;
-}
-
-/**
- * Seguridad al leer textos: TEXT puede tener cualquier forma.
- * getText navega de forma segura y devuelve fallback si no existe.
- */
+/* helper getTextFromObject */
 function getTextFromObject(obj: unknown, path: string, fallback = ""): string {
   const parts = path.split(".");
   let cur: unknown = obj;
@@ -31,6 +39,12 @@ function getTextFromObject(obj: unknown, path: string, fallback = ""): string {
     }
   }
   return typeof cur === "string" ? cur : fallback;
+}
+
+interface Props {
+  open: boolean;
+  onClose: () => void;
+  onCreated?: () => void | Promise<void>;
 }
 
 export default function CreateNote({ open, onClose, onCreated }: Props) {
@@ -46,7 +60,21 @@ export default function CreateNote({ open, onClose, onCreated }: Props) {
     amount: "",
     client: null,
     property_obj: null,
-  });
+    guard: undefined,
+    service: undefined,
+    shift: undefined,
+    weapon: undefined,
+    property_type_of_service: undefined,
+  } as unknown as CreateNotePayload);
+
+  // selected objects para mostrar en UI
+  const [selectedUser, setSelectedUser] = useState<AppUser | null>(null);
+  const [selectedGuard, setSelectedGuard] = useState<Guard | null>(null);
+  const [selectedProperty, setSelectedProperty] = useState<AppProperty | null>(null);
+  const [selectedService, setSelectedService] = useState<Service | null>(null);
+  const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
+  const [selectedWeapon, setSelectedWeapon] = useState<Weapon | null>(null);
+  const [selectedPropertyType, setSelectedPropertyType] = useState<AppPropertyType | null>(null);
 
   useEffect(() => {
     if (!open) resetForm();
@@ -60,7 +88,21 @@ export default function CreateNote({ open, onClose, onCreated }: Props) {
       amount: "",
       client: null,
       property_obj: null,
-    });
+      guard: undefined,
+      service: undefined,
+      shift: undefined,
+      weapon: undefined,
+      property_type_of_service: undefined,
+    } as unknown as CreateNotePayload);
+
+    setSelectedUser(null);
+    setSelectedGuard(null);
+    setSelectedProperty(null);
+    setSelectedService(null);
+    setSelectedShift(null);
+    setSelectedWeapon(null);
+    setSelectedPropertyType(null);
+
     setErrors({});
     setGeneralError(null);
     setLoading(false);
@@ -86,8 +128,8 @@ export default function CreateNote({ open, onClose, onCreated }: Props) {
     return true;
   };
 
-  const handleChange = (field: keyof CreateNotePayload, value: string | number | null) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
+  const handleChange = (field: keyof CreateNotePayload, value: string | number | null | undefined) => {
+    setForm((prev: any) => ({ ...prev, [field]: value }));
     if (errors[field as string]) {
       setErrors((prev) => {
         const copy = { ...prev };
@@ -102,17 +144,28 @@ export default function CreateNote({ open, onClose, onCreated }: Props) {
     if (!validate()) return;
     setLoading(true);
     try {
-      const payload: CreateNotePayload = {
-        ...form,
-        amount:
-          form.amount === null || form.amount === undefined || form.amount === ""
-            ? undefined
-            : typeof form.amount === "number"
-            ? String(form.amount)
-            : String(form.amount),
+      const payload: any = {
+        name: form.name,
       };
 
-      await createNote(payload);
+      if (form.description !== undefined && form.description !== null && form.description !== "") {
+        payload.description = form.description;
+      }
+
+      if (form.amount !== undefined && form.amount !== null && form.amount !== "") {
+        payload.amount = typeof form.amount === "number" ? String(form.amount) : form.amount;
+      }
+
+      // enviar solo ids (u omitidos)
+      if (form.client !== undefined) payload.client = form.client;
+      if (form.property_obj !== undefined) payload.property_obj = form.property_obj;
+      if (form.guard !== undefined) payload.guard = form.guard;
+      if (form.service !== undefined) payload.service = form.service;
+      if (form.shift !== undefined) payload.shift = form.shift;
+      if (form.weapon !== undefined) payload.weapon = form.weapon;
+      if (form.property_type_of_service !== undefined) payload.property_type_of_service = form.property_type_of_service;
+
+      await createNote(payload as CreateNotePayload);
       showCreatedToast(getTextFromObject(TEXT, "actions.create", "Note created"));
 
       if (onCreated) {
@@ -122,7 +175,6 @@ export default function CreateNote({ open, onClose, onCreated }: Props) {
       resetForm();
       onClose();
     } catch (err) {
-      // err puede ser cualquier cosa; registramos y mostramos mensaje amigable
       // eslint-disable-next-line no-console
       console.error("Error creating note:", err);
       showErrorToast(getTextFromObject(TEXT, "actions.create", "Failed to create note"));
@@ -138,18 +190,20 @@ export default function CreateNote({ open, onClose, onCreated }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[520px]">
-        <DialogHeader className="">
-          <DialogTitle >{createText}</DialogTitle>
+      <DialogContent className="sm:max-w-[720px]">
+        <DialogHeader>
+          <DialogTitle>{createText}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 ">
+        <div className="space-y-4">
           <div>
-            <Label className="pb-2" htmlFor="note_name">{getTextFromObject(TEXT, "services.fields.name", "Name")} *</Label>
+            <Label className="pb-2" htmlFor="note_name">
+              {getTextFromObject(TEXT, "services.fields.name", "Name")} *
+            </Label>
             <Input
               id="note_name"
               value={form.name}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleChange("name", e.target.value)}
+              onChange={(e) => handleChange("name", e.target.value)}
               placeholder={getTextFromObject(TEXT, "services.placeholders.name", "Note name")}
               className={errors.name ? "border-red-500" : ""}
             />
@@ -157,21 +211,25 @@ export default function CreateNote({ open, onClose, onCreated }: Props) {
           </div>
 
           <div>
-            <Label className="pb-2" htmlFor="note_description">{getTextFromObject(TEXT, "services.fields.description", "Description")}</Label>
+            <Label className="pb-2" htmlFor="note_description">
+              {getTextFromObject(TEXT, "services.fields.description", "Description")}
+            </Label>
             <Input
               id="note_description"
               value={form.description ?? ""}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleChange("description", e.target.value)}
+              onChange={(e) => handleChange("description", e.target.value)}
               placeholder={getTextFromObject(TEXT, "services.placeholders.description", "Description (optional)")}
             />
           </div>
 
           <div>
-            <Label className="pb-2" htmlFor="note_amount">{getTextFromObject(TEXT, "services.fields.rate", "Amount")}</Label>
+            <Label className="pb-2" htmlFor="note_amount">
+              {getTextFromObject(TEXT, "services.fields.rate", "Amount")}
+            </Label>
             <Input
               id="note_amount"
               value={form.amount ?? ""}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleChange("amount", e.target.value)}
+              onChange={(e) => handleChange("amount", e.target.value)}
               placeholder="e.g. 100.50"
               inputMode="decimal"
               className={errors.amount ? "border-red-500" : ""}
@@ -179,35 +237,112 @@ export default function CreateNote({ open, onClose, onCreated }: Props) {
             {errors.amount && <p className="text-sm text-red-600 mt-1">{errors.amount}</p>}
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
+          {/* Grid of selects (frontend shows objects; form keeps ids) */}
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label className="pb-2" htmlFor="note_client">Client (id)</Label>
-              <Input
-                id="note_client"
-                value={form.client ?? ""}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                  const v = e.target.value;
-                  handleChange("client", v === "" ? null : Number(v));
+              <Label className="pb-2">User</Label>
+              <UserSelect
+                id="note_user"
+                value={selectedUser}
+                onChange={(u) => {
+                  setSelectedUser(u);
+                  handleChange("client" as keyof CreateNotePayload, u ? Number(u.id) : null);
                 }}
-                placeholder="Client id (optional)"
-                type="number"
+                placeholder="Buscar usuario..."
               />
             </div>
 
             <div>
-              <Label className="pb-2" htmlFor="note_property">Property (id)</Label>
-              <Input
-                id="note_property"
-                value={form.property_obj ?? ""}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                  const v = e.target.value;
-                  handleChange("property_obj", v === "" ? null : Number(v));
+              <Label className="pb-2">Guard</Label>
+              <GuardSelect
+                id="note_guard"
+                value={selectedGuard}
+                onChange={(g) => {
+                  setSelectedGuard(g);
+                  handleChange("guard" as keyof CreateNotePayload, g ? Number(g.id) : null);
                 }}
-                placeholder="Property id (optional)"
-                type="number"
+                placeholder="Buscar guard..."
+              />
+            </div>
+
+            <div>
+              <Label className="pb-2">Property</Label>
+              <PropertySelect
+                id="note_property_select"
+                value={selectedProperty}
+                onChange={(p) => {
+                  setSelectedProperty(p);
+                  handleChange("property_obj" as keyof CreateNotePayload, p ? Number(p.id) : null);
+                }}
+                placeholder="Buscar propiedad..."
+              />
+            </div>
+
+            <div>
+              <Label className="pb-2">Service</Label>
+              <ServiceSelect
+                id="note_service"
+                value={selectedService}
+                onChange={(s) => {
+                  setSelectedService(s);
+                  handleChange("service" as keyof CreateNotePayload, s ? Number(s.id) : null);
+                }}
+                placeholder="Buscar servicio..."
+              />
+            </div>
+
+            <div>
+              <Label className="pb-2">Shift</Label>
+              <ShiftSelect
+                id="note_shift"
+                value={selectedShift}
+                onChange={(s) => {
+                  setSelectedShift(s);
+                  handleChange("shift" as keyof CreateNotePayload, s ? Number(s.id) : null);
+                }}
+                placeholder="Buscar shift..."
+              />
+            </div>
+
+            <div>
+              <Label className="pb-2">Weapon</Label>
+              <WeaponSelect
+                id="note_weapon"
+                value={selectedWeapon}
+                onChange={(w) => {
+                  setSelectedWeapon(w);
+                  handleChange("weapon" as keyof CreateNotePayload, w ? Number(w.id) : null);
+                }}
+                placeholder="Buscar arma..."
+              />
+            </div>
+
+            <div>
+              <Label className="pb-2">Property Type of Service</Label>
+              <PropertyTypeSelect
+                id="note_property_type"
+                value={selectedPropertyType}
+                onChange={(t) => {
+                  setSelectedPropertyType(t);
+                  handleChange("property_type_of_service" as keyof CreateNotePayload, t ? Number(t.id) : null);
+                }}
+                placeholder="Buscar tipo de servicio..."
               />
             </div>
           </div>
+
+          {/* Hidden inputs (no mostrar ids en UI) */}
+          <input type="hidden" name="client" value={String(form.client ?? "")} />
+          <input type="hidden" name="property_obj" value={String(form.property_obj ?? "")} />
+          <input type="hidden" name="guard" value={String((form as any).guard ?? "")} />
+          <input type="hidden" name="service" value={String((form as any).service ?? "")} />
+          <input type="hidden" name="shift" value={String((form as any).shift ?? "")} />
+          <input type="hidden" name="weapon" value={String((form as any).weapon ?? "")} />
+          <input
+            type="hidden"
+            name="property_type_of_service"
+            value={String((form as any).property_type_of_service ?? "")}
+          />
 
           {generalError && (
             <div className="bg-red-50 border border-red-200 rounded-md p-3">
