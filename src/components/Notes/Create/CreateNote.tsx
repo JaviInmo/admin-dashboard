@@ -41,6 +41,16 @@ function getTextFromObject(obj: unknown, path: string, fallback = ""): string {
   return typeof cur === "string" ? cur : fallback;
 }
 
+type FieldType =
+  | "amount"
+  | "client"
+  | "guard"
+  | "property"
+  | "service"
+  | "shift"
+  | "weapon"
+  | "property_type";
+
 interface Props {
   open: boolean;
   onClose: () => void;
@@ -54,27 +64,32 @@ export default function CreateNote({ open, onClose, onCreated }: Props) {
   const [generalError, setGeneralError] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const [form, setForm] = useState<CreateNotePayload>({
+  // form payload (ids arrays & amounts array)
+  const [form, setForm] = useState<CreateNotePayload & { amounts?: (string | number | null)[] }>({
     name: "",
     description: "",
-    amount: "",
-    client: null,
-    property_obj: null,
-    guard: undefined,
-    service: undefined,
-    shift: undefined,
-    weapon: undefined,
-    property_type_of_service: undefined,
-  } as unknown as CreateNotePayload);
+    amount: "", // legacy
+    clients: [],
+    properties: [],
+    guards: [],
+    services: [],
+    shifts: [],
+    weapons: [],
+    type_of_services: [],
+    amounts: [],
+  } as any);
 
-  // selected objects para mostrar en UI
-  const [selectedUser, setSelectedUser] = useState<AppUser | null>(null);
-  const [selectedGuard, setSelectedGuard] = useState<Guard | null>(null);
-  const [selectedProperty, setSelectedProperty] = useState<AppProperty | null>(null);
-  const [selectedService, setSelectedService] = useState<Service | null>(null);
-  const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
-  const [selectedWeapon, setSelectedWeapon] = useState<Weapon | null>(null);
-  const [selectedPropertyType, setSelectedPropertyType] = useState<AppPropertyType | null>(null);
+  // selected objects for UI (store the full object or null)
+  const [selectedUsers, setSelectedUsers] = useState<(AppUser | null)[]>([]);
+  const [selectedGuards, setSelectedGuards] = useState<(Guard | null)[]>([]);
+  const [selectedProperties, setSelectedProperties] = useState<(AppProperty | null)[]>([]);
+  const [selectedServices, setSelectedServices] = useState<(Service | null)[]>([]);
+  const [selectedShifts, setSelectedShifts] = useState<(Shift | null)[]>([]);
+  const [selectedWeapons, setSelectedWeapons] = useState<(Weapon | null)[]>([]);
+  const [selectedPropertyTypes, setSelectedPropertyTypes] = useState<(AppPropertyType | null)[]>([]);
+
+  // central chooser for adding new field
+  const [fieldToAdd, setFieldToAdd] = useState<FieldType | "">("");
 
   useEffect(() => {
     if (!open) resetForm();
@@ -86,26 +101,28 @@ export default function CreateNote({ open, onClose, onCreated }: Props) {
       name: "",
       description: "",
       amount: "",
-      client: null,
-      property_obj: null,
-      guard: undefined,
-      service: undefined,
-      shift: undefined,
-      weapon: undefined,
-      property_type_of_service: undefined,
-    } as unknown as CreateNotePayload);
+      clients: [],
+      properties: [],
+      guards: [],
+      services: [],
+      shifts: [],
+      weapons: [],
+      type_of_services: [],
+      amounts: [],
+    } as any);
 
-    setSelectedUser(null);
-    setSelectedGuard(null);
-    setSelectedProperty(null);
-    setSelectedService(null);
-    setSelectedShift(null);
-    setSelectedWeapon(null);
-    setSelectedPropertyType(null);
+    setSelectedUsers([]);
+    setSelectedGuards([]);
+    setSelectedProperties([]);
+    setSelectedServices([]);
+    setSelectedShifts([]);
+    setSelectedWeapons([]);
+    setSelectedPropertyTypes([]);
 
     setErrors({});
     setGeneralError(null);
     setLoading(false);
+    setFieldToAdd("");
   };
 
   const validate = (): boolean => {
@@ -113,10 +130,20 @@ export default function CreateNote({ open, onClose, onCreated }: Props) {
     if (!form.name || !String(form.name).trim()) {
       newErrors.name = getTextFromObject(TEXT, "services.errors.nameRequired", "Name is required");
     }
-    if (form.amount && String(form.amount).trim() !== "") {
-      const normalized = String(form.amount).replace(",", ".");
-      if (Number.isNaN(Number(normalized))) {
-        newErrors.amount = getTextFromObject(TEXT, "services.errors.rateInvalid", "Amount must be a number");
+    // validate amounts entries
+    if (Array.isArray(form.amounts)) {
+      for (let i = 0; i < form.amounts.length; i++) {
+        const a = form.amounts[i];
+        if (a !== null && a !== undefined && String(a).trim() !== "") {
+          const normalized = String(a).replace(",", ".");
+          if (Number.isNaN(Number(normalized))) {
+            newErrors[`amounts.${i}`] = getTextFromObject(
+              TEXT,
+              "notes.create.validation.amountInvalid",
+              "Amount must be a valid number",
+            );
+          }
+        }
       }
     }
     setErrors(newErrors);
@@ -128,16 +155,98 @@ export default function CreateNote({ open, onClose, onCreated }: Props) {
     return true;
   };
 
-  const handleChange = (field: keyof CreateNotePayload, value: string | number | null | undefined) => {
-    setForm((prev: any) => ({ ...prev, [field]: value }));
-    if (errors[field as string]) {
-      setErrors((prev) => {
-        const copy = { ...prev };
-        delete copy[field as string];
-        return copy;
-      });
+  // generic helpers to update arrays in form and selected arrays
+  const pushTo = (key: keyof CreateNotePayload | "amounts", value: any) => {
+    setForm((prev: any) => {
+      const copy = { ...(prev || {}) };
+      copy[key] = Array.isArray(copy[key]) ? [...copy[key], value] : [value];
+      return copy;
+    });
+  };
+  const removeAt = (key: keyof CreateNotePayload | "amounts", idx: number) => {
+    setForm((prev: any) => {
+      const copy = { ...(prev || {}) };
+      copy[key] = Array.isArray(copy[key]) ? [...copy[key]] : [];
+      copy[key].splice(idx, 1);
+      return copy;
+    });
+  };
+  const setAt = (key: keyof CreateNotePayload | "amounts", idx: number, value: any) => {
+    setForm((prev: any) => {
+      const copy = { ...(prev || {}) };
+      copy[key] = Array.isArray(copy[key]) ? [...copy[key]] : [];
+      copy[key][idx] = value;
+      return copy;
+    });
+  };
+
+  // helpers to update selected object arrays in UI
+  const pushSelected = (setter: React.Dispatch<React.SetStateAction<any[]>>, value: any) => {
+    setter((prev) => [...prev, value]);
+  };
+  const removeSelectedAt = (setter: React.Dispatch<React.SetStateAction<any[]>>, idx: number) => {
+    setter((prev) => {
+      const copy = [...prev];
+      copy.splice(idx, 1);
+      return copy;
+    });
+  };
+  const setSelectedAt = (setter: React.Dispatch<React.SetStateAction<any[]>>, idx: number, value: any) => {
+    setter((prev) => {
+      const copy = [...prev];
+      copy[idx] = value;
+      return copy;
+    });
+  };
+
+  // add a field from central chooser
+  const handleAddField = (type: FieldType) => {
+    switch (type) {
+      case "amount":
+        pushTo("amounts", "");
+        break;
+      case "client":
+        pushSelected(setSelectedUsers, null);
+        pushTo("clients", null);
+        break;
+      case "guard":
+        pushSelected(setSelectedGuards, null);
+        pushTo("guards", null);
+        break;
+      case "property":
+        pushSelected(setSelectedProperties, null);
+        pushTo("properties", null);
+        break;
+      case "service":
+        pushSelected(setSelectedServices, null);
+        pushTo("services", null);
+        break;
+      case "shift":
+        pushSelected(setSelectedShifts, null);
+        pushTo("shifts", null);
+        break;
+      case "weapon":
+        pushSelected(setSelectedWeapons, null);
+        pushTo("weapons", null);
+        break;
+      case "property_type":
+        pushSelected(setSelectedPropertyTypes, null);
+        pushTo("type_of_services", null);
+        break;
+      default:
+        break;
     }
-    if (generalError) setGeneralError(null);
+    setFieldToAdd(""); // reset chooser
+  };
+
+  // compute total of amounts (numbers). non-numeric entries treated as 0.
+  const computeAmountsTotal = (): number => {
+    const arr = Array.isArray(form.amounts) ? form.amounts : [];
+    return arr.reduce((acc, v) => {
+      const s = v === null || v === undefined ? "" : String(v).trim().replace(",", ".");
+      const n = Number(s);
+      return acc + (Number.isFinite(n) ? n : 0);
+    }, 0);
   };
 
   const handleSubmit = async () => {
@@ -152,21 +261,44 @@ export default function CreateNote({ open, onClose, onCreated }: Props) {
         payload.description = form.description;
       }
 
-      if (form.amount !== undefined && form.amount !== null && form.amount !== "") {
+      // amounts: compute total and send as 'amount'
+      if (Array.isArray(form.amounts) && form.amounts.length > 0) {
+        const total = computeAmountsTotal();
+        // if total is an integer, keep as number; otherwise keep decimals
+        payload.amount = total;
+      } else if (form.amount !== undefined && form.amount !== null && form.amount !== "") {
+        // legacy single amount still supported
         payload.amount = typeof form.amount === "number" ? String(form.amount) : form.amount;
       }
 
-      // enviar solo ids (u omitidos)
-      if (form.client !== undefined) payload.client = form.client;
-      if (form.property_obj !== undefined) payload.property_obj = form.property_obj;
-      if (form.guard !== undefined) payload.guard = form.guard;
-      if (form.service !== undefined) payload.service = form.service;
-      if (form.shift !== undefined) payload.shift = form.shift;
-      if (form.weapon !== undefined) payload.weapon = form.weapon;
-      if (form.property_type_of_service !== undefined) payload.property_type_of_service = form.property_type_of_service;
+      // add arrays (send only non-empty arrays)
+      if (Array.isArray(form.clients) && form.clients.filter((x) => x != null).length > 0) {
+        // ensure numbers
+        payload.clients = form.clients.map((x: any) => (x == null ? null : Number(x))).filter((x: any) => x != null);
+      }
+      if (Array.isArray(form.properties) && form.properties.filter((x) => x != null).length > 0) {
+        payload.properties = form.properties.map((x: any) => (x == null ? null : Number(x))).filter((x: any) => x != null);
+      }
+      if (Array.isArray(form.guards) && form.guards.filter((x) => x != null).length > 0) {
+        payload.guards = form.guards.map((x: any) => (x == null ? null : Number(x))).filter((x: any) => x != null);
+      }
+      if (Array.isArray(form.services) && form.services.filter((x) => x != null).length > 0) {
+        payload.services = form.services.map((x: any) => (x == null ? null : Number(x))).filter((x: any) => x != null);
+      }
+      if (Array.isArray(form.shifts) && form.shifts.filter((x) => x != null).length > 0) {
+        payload.shifts = form.shifts.map((x: any) => (x == null ? null : Number(x))).filter((x: any) => x != null);
+      }
+      if (Array.isArray(form.weapons) && form.weapons.filter((x) => x != null).length > 0) {
+        payload.weapons = form.weapons.map((x: any) => (x == null ? null : Number(x))).filter((x: any) => x != null);
+      }
+      if (Array.isArray(form.type_of_services) && form.type_of_services.filter((x) => x != null).length > 0) {
+        payload.type_of_services = form.type_of_services
+          .map((x: any) => (x == null ? null : Number(x)))
+          .filter((x: any) => x != null);
+      }
 
       await createNote(payload as CreateNotePayload);
-      showCreatedToast(getTextFromObject(TEXT, "actions.create", "Note created"));
+      showCreatedToast(getTextFromObject(TEXT, "notes.create.messages.created", "Note created"));
 
       if (onCreated) {
         await onCreated();
@@ -190,159 +322,437 @@ export default function CreateNote({ open, onClose, onCreated }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[720px]">
+      <DialogContent className="sm:max-w-[820px]">
         <DialogHeader>
-          <DialogTitle>{createText}</DialogTitle>
+          <DialogTitle>{getTextFromObject(TEXT, "notes.create.title", "Create Note")}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* NAME */}
           <div>
             <Label className="pb-2" htmlFor="note_name">
-              {getTextFromObject(TEXT, "services.fields.name", "Name")} *
+              {getTextFromObject(TEXT, "notes.create.fields.name", "Name")} *
             </Label>
             <Input
               id="note_name"
               value={form.name}
-              onChange={(e) => handleChange("name", e.target.value)}
+              onChange={(e) => setForm((p: any) => ({ ...p, name: e.target.value }))}
               placeholder={getTextFromObject(TEXT, "services.placeholders.name", "Note name")}
               className={errors.name ? "border-red-500" : ""}
             />
             {errors.name && <p className="text-sm text-red-600 mt-1">{errors.name}</p>}
           </div>
 
+          {/* DESCRIPTION */}
           <div>
             <Label className="pb-2" htmlFor="note_description">
-              {getTextFromObject(TEXT, "services.fields.description", "Description")}
+              {getTextFromObject(TEXT, "notes.create.fields.description", "Description")}
             </Label>
             <Input
               id="note_description"
               value={form.description ?? ""}
-              onChange={(e) => handleChange("description", e.target.value)}
+              onChange={(e) => setForm((p: any) => ({ ...p, description: e.target.value }))}
               placeholder={getTextFromObject(TEXT, "services.placeholders.description", "Description (optional)")}
             />
           </div>
 
-          <div>
-            <Label className="pb-2" htmlFor="note_amount">
-              {getTextFromObject(TEXT, "services.fields.rate", "Amount")}
-            </Label>
-            <Input
-              id="note_amount"
-              value={form.amount ?? ""}
-              onChange={(e) => handleChange("amount", e.target.value)}
-              placeholder="e.g. 100.50"
-              inputMode="decimal"
-              className={errors.amount ? "border-red-500" : ""}
-            />
-            {errors.amount && <p className="text-sm text-red-600 mt-1">{errors.amount}</p>}
+          {/* Central add-field selector */}
+          <div className="flex items-center gap-2">
+            <Label className="pr-2">+</Label>
+            <select
+              aria-label="Add field"
+              className="border rounded px-2 py-1"
+              value={fieldToAdd}
+              onChange={(e) => setFieldToAdd(e.target.value as FieldType | "")}
+            >
+              <option value="">— Add field —</option>
+              <option value="amount">Amount</option>
+              <option value="client">User / Client</option>
+              <option value="guard">Guard</option>
+              <option value="property">Property</option>
+              <option value="service">Service</option>
+              <option value="shift">Shift</option>
+              <option value="weapon">Weapon</option>
+              <option value="property_type">Property Type of Service</option>
+            </select>
+            <Button
+              onClick={() => {
+                if (fieldToAdd) handleAddField(fieldToAdd as FieldType);
+              }}
+              disabled={!fieldToAdd}
+            >
+              Add
+            </Button>
+           
           </div>
 
-          {/* Grid of selects (frontend shows objects; form keeps ids) */}
-          <div className="grid grid-cols-2 gap-4">
+          {/* AMOUNTS (if any) */}
+          {Array.isArray(form.amounts) && form.amounts.length > 0 && (
             <div>
-              <Label className="pb-2">User</Label>
-              <UserSelect
-                id="note_user"
-                value={selectedUser}
-                onChange={(u) => {
-                  setSelectedUser(u);
-                  handleChange("client" as keyof CreateNotePayload, u ? Number(u.id) : null);
-                }}
-                placeholder="Buscar usuario..."
-              />
+              <Label className="pb-2">{getTextFromObject(TEXT, "notes.create.fields.amounts", "Amounts")}</Label>
+              <div className="space-y-2">
+                {form.amounts.map((val: any, idx: number) => (
+                  <div key={`amt-${idx}`} className="flex items-center gap-2">
+                    <Input
+                      value={val ?? ""}
+                      onChange={(e) => setAt("amounts", idx, e.target.value)}
+                      placeholder={getTextFromObject(TEXT, "notes.create.amountPlaceholder", "e.g. 100.50 or -15")}
+                      inputMode="decimal"
+                      className={errors[`amounts.${idx}`] ? "border-red-500" : ""}
+                    />
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        className="px-2 py-1 border rounded"
+                        onClick={() => removeAt("amounts", idx)}
+                      >
+                        −
+                      </button>
+                      <button
+                        type="button"
+                        className="px-2 py-1 border rounded"
+                        onClick={() => pushTo("amounts", "")}
+                      >
+                        +
+                      </button>
+                    </div>
+                    {errors[`amounts.${idx}`] && (
+                      <p className="text-sm text-red-600 mt-1">{errors[`amounts.${idx}`]}</p>
+                    )}
+                  </div>
+                ))}
+                <div className="pt-1">
+                  <div className="text-sm">
+                    <strong>{getTextFromObject(TEXT, "notes.create.totalLabel", "Total")}: </strong>
+                    <span>{computeAmountsTotal()}</span>
+                  </div>
+                 
+                </div>
+              </div>
             </div>
+          )}
 
+          {/* CLIENTS / USERS (if any) */}
+          {selectedUsers.length > 0 && (
             <div>
-              <Label className="pb-2">Guard</Label>
-              <GuardSelect
-                id="note_guard"
-                value={selectedGuard}
-                onChange={(g) => {
-                  setSelectedGuard(g);
-                  handleChange("guard" as keyof CreateNotePayload, g ? Number(g.id) : null);
-                }}
-                placeholder="Buscar guard..."
-              />
+              <Label className="pb-2">{getTextFromObject(TEXT, "notes.create.fields.clients", "Clients")}</Label>
+              <div className="space-y-2">
+                {selectedUsers.map((sel, idx) => (
+                  <div key={`client-${idx}`} className="flex items-center gap-2">
+                    <div className="flex-1">
+                      <UserSelect
+                        id={`note_user_${idx}`}
+                        value={sel ?? null}
+                        onChange={(u) => {
+                          setSelectedAt(setSelectedUsers, idx, u);
+                          setAt("clients", idx, u ? Number((u as any).id) : null);
+                        }}
+                        placeholder="Buscar usuario..."
+                      />
+                    </div>
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        className="px-2 py-1 border rounded"
+                        onClick={() => {
+                          removeSelectedAt(setSelectedUsers, idx);
+                          removeAt("clients", idx);
+                        }}
+                      >
+                        −
+                      </button>
+                      <button
+                        type="button"
+                        className="px-2 py-1 border rounded"
+                        onClick={() => {
+                          pushSelected(setSelectedUsers, null);
+                          pushTo("clients", null);
+                        }}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
+          )}
 
+          {/* GUARDS (if any) */}
+          {selectedGuards.length > 0 && (
             <div>
-              <Label className="pb-2">Property</Label>
-              <PropertySelect
-                id="note_property_select"
-                value={selectedProperty}
-                onChange={(p) => {
-                  setSelectedProperty(p);
-                  handleChange("property_obj" as keyof CreateNotePayload, p ? Number(p.id) : null);
-                }}
-                placeholder="Buscar propiedad..."
-              />
+              <Label className="pb-2">{getTextFromObject(TEXT, "notes.create.fields.guards", "Guards")}</Label>
+              <div className="space-y-2">
+                {selectedGuards.map((sel, idx) => (
+                  <div key={`guard-${idx}`} className="flex items-center gap-2">
+                    <div className="flex-1">
+                      <GuardSelect
+                        id={`note_guard_${idx}`}
+                        value={sel ?? null}
+                        onChange={(g) => {
+                          setSelectedAt(setSelectedGuards, idx, g);
+                          setAt("guards", idx, g ? Number((g as any).id) : null);
+                        }}
+                        placeholder="Buscar guard..."
+                      />
+                    </div>
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        className="px-2 py-1 border rounded"
+                        onClick={() => {
+                          removeSelectedAt(setSelectedGuards, idx);
+                          removeAt("guards", idx);
+                        }}
+                      >
+                        −
+                      </button>
+                      <button
+                        type="button"
+                        className="px-2 py-1 border rounded"
+                        onClick={() => {
+                          pushSelected(setSelectedGuards, null);
+                          pushTo("guards", null);
+                        }}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
+          )}
 
+          {/* PROPERTIES (if any) */}
+          {selectedProperties.length > 0 && (
             <div>
-              <Label className="pb-2">Service</Label>
-              <ServiceSelect
-                id="note_service"
-                value={selectedService}
-                onChange={(s) => {
-                  setSelectedService(s);
-                  handleChange("service" as keyof CreateNotePayload, s ? Number(s.id) : null);
-                }}
-                placeholder="Buscar servicio..."
-              />
+              <Label className="pb-2">{getTextFromObject(TEXT, "notes.create.fields.properties", "Properties")}</Label>
+              <div className="space-y-2">
+                {selectedProperties.map((sel, idx) => (
+                  <div key={`prop-${idx}`} className="flex items-center gap-2">
+                    <div className="flex-1">
+                      <PropertySelect
+                        id={`note_property_${idx}`}
+                        value={sel ?? null}
+                        onChange={(p) => {
+                          setSelectedAt(setSelectedProperties, idx, p);
+                          setAt("properties", idx, p ? Number((p as any).id) : null);
+                        }}
+                        placeholder="Buscar propiedad..."
+                      />
+                    </div>
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        className="px-2 py-1 border rounded"
+                        onClick={() => {
+                          removeSelectedAt(setSelectedProperties, idx);
+                          removeAt("properties", idx);
+                        }}
+                      >
+                        −
+                      </button>
+                      <button
+                        type="button"
+                        className="px-2 py-1 border rounded"
+                        onClick={() => {
+                          pushSelected(setSelectedProperties, null);
+                          pushTo("properties", null);
+                        }}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
+          )}
 
+          {/* SERVICES (if any) */}
+          {selectedServices.length > 0 && (
             <div>
-              <Label className="pb-2">Shift</Label>
-              <ShiftSelect
-                id="note_shift"
-                value={selectedShift}
-                onChange={(s) => {
-                  setSelectedShift(s);
-                  handleChange("shift" as keyof CreateNotePayload, s ? Number(s.id) : null);
-                }}
-                placeholder="Buscar shift..."
-              />
+              <Label className="pb-2">{getTextFromObject(TEXT, "notes.create.fields.services", "Services")}</Label>
+              <div className="space-y-2">
+                {selectedServices.map((sel, idx) => (
+                  <div key={`service-${idx}`} className="flex items-center gap-2">
+                    <div className="flex-1">
+                      <ServiceSelect
+                        id={`note_service_${idx}`}
+                        value={sel ?? null}
+                        onChange={(s) => {
+                          setSelectedAt(setSelectedServices, idx, s);
+                          setAt("services", idx, s ? Number((s as any).id) : null);
+                        }}
+                        placeholder="Buscar servicio..."
+                      />
+                    </div>
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        className="px-2 py-1 border rounded"
+                        onClick={() => {
+                          removeSelectedAt(setSelectedServices, idx);
+                          removeAt("services", idx);
+                        }}
+                      >
+                        −
+                      </button>
+                      <button
+                        type="button"
+                        className="px-2 py-1 border rounded"
+                        onClick={() => {
+                          pushSelected(setSelectedServices, null);
+                          pushTo("services", null);
+                        }}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
+          )}
 
+          {/* SHIFTS (if any) */}
+          {selectedShifts.length > 0 && (
             <div>
-              <Label className="pb-2">Weapon</Label>
-              <WeaponSelect
-                id="note_weapon"
-                value={selectedWeapon}
-                onChange={(w) => {
-                  setSelectedWeapon(w);
-                  handleChange("weapon" as keyof CreateNotePayload, w ? Number(w.id) : null);
-                }}
-                placeholder="Buscar arma..."
-              />
+              <Label className="pb-2">{getTextFromObject(TEXT, "notes.create.fields.shifts", "Shifts")}</Label>
+              <div className="space-y-2">
+                {selectedShifts.map((sel, idx) => (
+                  <div key={`shift-${idx}`} className="flex items-center gap-2">
+                    <div className="flex-1">
+                      <ShiftSelect
+                        id={`note_shift_${idx}`}
+                        value={sel ?? null}
+                        onChange={(s) => {
+                          setSelectedAt(setSelectedShifts, idx, s);
+                          setAt("shifts", idx, s ? Number((s as any).id) : null);
+                        }}
+                        placeholder="Buscar shift..."
+                      />
+                    </div>
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        className="px-2 py-1 border rounded"
+                        onClick={() => {
+                          removeSelectedAt(setSelectedShifts, idx);
+                          removeAt("shifts", idx);
+                        }}
+                      >
+                        −
+                      </button>
+                      <button
+                        type="button"
+                        className="px-2 py-1 border rounded"
+                        onClick={() => {
+                          pushSelected(setSelectedShifts, null);
+                          pushTo("shifts", null);
+                        }}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
+          )}
 
+          {/* WEAPONS (if any) */}
+          {selectedWeapons.length > 0 && (
             <div>
-              <Label className="pb-2">Property Type of Service</Label>
-              <PropertyTypeSelect
-                id="note_property_type"
-                value={selectedPropertyType}
-                onChange={(t) => {
-                  setSelectedPropertyType(t);
-                  handleChange("property_type_of_service" as keyof CreateNotePayload, t ? Number(t.id) : null);
-                }}
-                placeholder="Buscar tipo de servicio..."
-              />
+              <Label className="pb-2">{getTextFromObject(TEXT, "notes.create.fields.weapons", "Weapons")}</Label>
+              <div className="space-y-2">
+                {selectedWeapons.map((sel, idx) => (
+                  <div key={`weapon-${idx}`} className="flex items-center gap-2">
+                    <div className="flex-1">
+                      <WeaponSelect
+                        id={`note_weapon_${idx}`}
+                        value={sel ?? null}
+                        onChange={(w) => {
+                          setSelectedAt(setSelectedWeapons, idx, w);
+                          setAt("weapons", idx, w ? Number((w as any).id) : null);
+                        }}
+                        placeholder="Buscar arma..."
+                      />
+                    </div>
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        className="px-2 py-1 border rounded"
+                        onClick={() => {
+                          removeSelectedAt(setSelectedWeapons, idx);
+                          removeAt("weapons", idx);
+                        }}
+                      >
+                        −
+                      </button>
+                      <button
+                        type="button"
+                        className="px-2 py-1 border rounded"
+                        onClick={() => {
+                          pushSelected(setSelectedWeapons, null);
+                          pushTo("weapons", null);
+                        }}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* Hidden inputs (no mostrar ids en UI) */}
-          <input type="hidden" name="client" value={String(form.client ?? "")} />
-          <input type="hidden" name="property_obj" value={String(form.property_obj ?? "")} />
-          <input type="hidden" name="guard" value={String((form as any).guard ?? "")} />
-          <input type="hidden" name="service" value={String((form as any).service ?? "")} />
-          <input type="hidden" name="shift" value={String((form as any).shift ?? "")} />
-          <input type="hidden" name="weapon" value={String((form as any).weapon ?? "")} />
-          <input
-            type="hidden"
-            name="property_type_of_service"
-            value={String((form as any).property_type_of_service ?? "")}
-          />
+          {/* PROPERTY TYPE OF SERVICE (if any) */}
+          {selectedPropertyTypes.length > 0 && (
+            <div>
+              <Label className="pb-2">{getTextFromObject(TEXT, "notes.create.fields.type_of_services", "Type of Service")}</Label>
+              <div className="space-y-2">
+                {selectedPropertyTypes.map((sel, idx) => (
+                  <div key={`ptype-${idx}`} className="flex items-center gap-2">
+                    <div className="flex-1">
+                      <PropertyTypeSelect
+                        id={`note_property_type_${idx}`}
+                        value={sel ?? null}
+                        onChange={(t) => {
+                          setSelectedAt(setSelectedPropertyTypes, idx, t);
+                          setAt("type_of_services", idx, t ? Number((t as any).id) : null);
+                        }}
+                        placeholder="Buscar tipo de servicio..."
+                      />
+                    </div>
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        className="px-2 py-1 border rounded"
+                        onClick={() => {
+                          removeSelectedAt(setSelectedPropertyTypes, idx);
+                          removeAt("type_of_services", idx);
+                        }}
+                      >
+                        −
+                      </button>
+                      <button
+                        type="button"
+                        className="px-2 py-1 border rounded"
+                        onClick={() => {
+                          pushSelected(setSelectedPropertyTypes, null);
+                          pushTo("type_of_services", null);
+                        }}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {generalError && (
             <div className="bg-red-50 border border-red-200 rounded-md p-3">

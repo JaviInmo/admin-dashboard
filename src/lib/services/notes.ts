@@ -11,35 +11,68 @@ import type {
 
 /**
  * Server shape — reflejar campos que devuelve el backend (DRF)
+ * Aceptamos arrays o también formas legacy (número/objeto) por compatibilidad.
  */
+type MaybeId = number | { id: number } | null;
+type MaybeIdOrArray = MaybeId | MaybeId[];
+
 type ServerNote = {
   id: number;
   name: string;
   description?: string | null;
   amount?: string | null; // DRF devuelve string (ej: "100.50")
-  client?: number | { id: number } | null;
-  property_obj?: number | { id: number } | null;
+
+  // ahora vienen arrays en el backend (ej: clients: [1], properties: [1], guards: [], services: [], ...)
+  clients?: number[] | { id: number }[] | null;
+  properties?: number[] | { id: number }[] | null;
+  guards?: number[] | { id: number }[] | null;
+  services?: number[] | { id: number }[] | null;
+  shifts?: number[] | { id: number }[] | null;
+  weapons?: number[] | { id: number }[] | null;
+  type_of_services?: number[] | { id: number }[] | null;
+  viewed_by_ids?: number[] | null;
+
+  // legacy single-field names (por si el backend a veces devuelve así)
+  client?: MaybeIdOrArray;
+  property_obj?: MaybeIdOrArray;
+
   created_at?: string | null;
   updated_at?: string | null;
 };
 
-function mapServerNote(n: ServerNote): Note {
-  // resolver client/property que pueden venir como id (number) o como objeto { id: number }
-  let clientId: number | null = null;
-  if (typeof n.client === "number") {
-    clientId = n.client;
-  } else if (typeof n.client === "object" && n.client !== null && "id" in n.client) {
-    const maybeId = (n.client as { id: unknown }).id;
-    if (typeof maybeId === "number") clientId = maybeId;
+function extractIds(value: unknown): number[] {
+  if (value === null || value === undefined) return [];
+  if (Array.isArray(value)) {
+    return value
+      .map((v) => {
+        if (typeof v === "number") return v;
+        if (typeof v === "object" && v !== null && "id" in v) {
+          const maybe = (v as { id: unknown }).id;
+          return typeof maybe === "number" ? maybe : null;
+        }
+        return null;
+      })
+      .filter((x): x is number => typeof x === "number");
   }
+  // single value
+  if (typeof value === "number") return [value];
+  if (typeof value === "object" && value !== null && "id" in value) {
+    const maybe = (value as { id: unknown }).id;
+    return typeof maybe === "number" ? [maybe] : [];
+  }
+  return [];
+}
 
-  let propertyId: number | null = null;
-  if (typeof n.property_obj === "number") {
-    propertyId = n.property_obj;
-  } else if (typeof n.property_obj === "object" && n.property_obj !== null && "id" in n.property_obj) {
-    const maybeId = (n.property_obj as { id: unknown }).id;
-    if (typeof maybeId === "number") propertyId = maybeId;
-  }
+function mapServerNote(n: ServerNote): Note {
+  // parse arrays (o single values) a arrays de ids
+  const clients = extractIds((n as any).clients ?? n.client);
+  const properties = extractIds((n as any).properties ?? n.property_obj);
+  const guards = extractIds(n.guards);
+  const services = extractIds(n.services);
+  const shifts = extractIds(n.shifts);
+  const weapons = extractIds(n.weapons);
+  const type_of_services = extractIds(n.type_of_services);
+  const viewed_by_ids = extractIds(n.viewed_by_ids);
 
   // parsear amount a number (o null si no se puede)
   const amountRaw = n.amount ?? null;
@@ -49,14 +82,26 @@ function mapServerNote(n: ServerNote): Note {
       : null;
   const amount = Number.isFinite(amountParsed) ? amountParsed : null;
 
+  // también rellenar campos legacy (por compatibilidad)
+  const client = clients.length > 0 ? clients[0] : null;
+  const property_obj = properties.length > 0 ? properties[0] : null;
+
   return {
     id: n.id,
     name: n.name,
     description: n.description ?? null,
     amount,
     amount_raw: amountRaw,
-    client: clientId,
-    property_obj: propertyId,
+    clients,
+    properties,
+    guards,
+    services,
+    shifts,
+    weapons,
+    type_of_services,
+    viewed_by_ids,
+    client,
+    property_obj,
     created_at: n.created_at ?? null,
     updated_at: n.updated_at ?? null,
   };
@@ -101,12 +146,35 @@ export async function createNote(payload: CreateNotePayload): Promise<Note> {
   if (payload.amount !== undefined && payload.amount !== null && payload.amount !== "") {
     body.amount = typeof payload.amount === "number" ? String(payload.amount) : payload.amount;
   }
-  if (payload.client !== undefined) {
-    body.client = payload.client;
+
+  // enviar arrays si hay contenido (nuevos campos: clients, properties, guards, services, shifts, weapons, type_of_services)
+  if (payload.clients !== undefined && payload.clients !== null) {
+    body.clients = Array.isArray(payload.clients) ? payload.clients.filter((x) => x != null) : [];
   }
-  if (payload.property_obj !== undefined) {
-    body.property_obj = payload.property_obj;
+  if (payload.properties !== undefined && payload.properties !== null) {
+    body.properties = Array.isArray(payload.properties) ? payload.properties.filter((x) => x != null) : [];
   }
+  if (payload.guards !== undefined && payload.guards !== null) {
+    body.guards = Array.isArray(payload.guards) ? payload.guards.filter((x) => x != null) : [];
+  }
+  if (payload.services !== undefined && payload.services !== null) {
+    body.services = Array.isArray(payload.services) ? payload.services.filter((x) => x != null) : [];
+  }
+  if (payload.shifts !== undefined && payload.shifts !== null) {
+    body.shifts = Array.isArray(payload.shifts) ? payload.shifts.filter((x) => x != null) : [];
+  }
+  if (payload.weapons !== undefined && payload.weapons !== null) {
+    body.weapons = Array.isArray(payload.weapons) ? payload.weapons.filter((x) => x != null) : [];
+  }
+  if (payload.type_of_services !== undefined && payload.type_of_services !== null) {
+    body.type_of_services = Array.isArray(payload.type_of_services)
+      ? payload.type_of_services.filter((x) => x != null)
+      : [];
+  }
+
+  // legacy single ids (if se proveen)
+  if (payload.client !== undefined) body.client = payload.client;
+  if (payload.property_obj !== undefined) body.property_obj = payload.property_obj;
 
   const { data } = await api.post<ServerNote>(endpoints.notes, body);
   return mapServerNote(data);
@@ -134,12 +202,35 @@ export async function updateNote(id: number, payload: UpdateNotePayload): Promis
       body.amount = typeof payload.amount === "number" ? String(payload.amount) : payload.amount;
     }
   }
-  if (payload.client !== undefined) {
-    body.client = payload.client;
+
+  // arrays (reemplazar con los nuevos arrays si fueron provistos)
+  if (payload.clients !== undefined) {
+    body.clients = Array.isArray(payload.clients) ? payload.clients.filter((x) => x != null) : [];
   }
-  if (payload.property_obj !== undefined) {
-    body.property_obj = payload.property_obj;
+  if (payload.properties !== undefined) {
+    body.properties = Array.isArray(payload.properties) ? payload.properties.filter((x) => x != null) : [];
   }
+  if (payload.guards !== undefined) {
+    body.guards = Array.isArray(payload.guards) ? payload.guards.filter((x) => x != null) : [];
+  }
+  if (payload.services !== undefined) {
+    body.services = Array.isArray(payload.services) ? payload.services.filter((x) => x != null) : [];
+  }
+  if (payload.shifts !== undefined) {
+    body.shifts = Array.isArray(payload.shifts) ? payload.shifts.filter((x) => x != null) : [];
+  }
+  if (payload.weapons !== undefined) {
+    body.weapons = Array.isArray(payload.weapons) ? payload.weapons.filter((x) => x != null) : [];
+  }
+  if (payload.type_of_services !== undefined) {
+    body.type_of_services = Array.isArray(payload.type_of_services)
+      ? payload.type_of_services.filter((x) => x != null)
+      : [];
+  }
+
+  // legacy single ids (si vienen)
+  if (payload.client !== undefined) body.client = payload.client;
+  if (payload.property_obj !== undefined) body.property_obj = payload.property_obj;
 
   const { data } = await api.patch<ServerNote>(`${endpoints.notes}${id}/`, body);
   return mapServerNote(data);

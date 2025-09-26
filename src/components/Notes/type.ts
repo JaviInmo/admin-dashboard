@@ -7,17 +7,19 @@ export type Note = {
   amount: number | null;
   amount_raw?: string | null;
 
-  client?: number | null; // id del cliente
-  property_obj?: number | null; // id de la propiedad relacionada
+  // ahora relaciones como arrays de ids
+  clients?: number[]; // ids de clientes
+  properties?: number[]; // ids de propiedades
+  guards?: number[];
+  services?: number[];
+  shifts?: number[];
+  weapons?: number[];
+  type_of_services?: number[]; // property_type_of_service renamed semánticamente
+  viewed_by_ids?: number[];
 
-  // Relaciones adicionales (solo ids)
-  guard?: number | null;
-  service?: number | null;
-  shift?: number | null;
-  expense?: number | null;
-  weapon?: number | null;
-  guard_property_tariff?: number | null;
-  property_type_of_service?: number | null;
+  // kept some older single fields as optional for compatibilidad si hace falta
+  client?: number | null;
+  property_obj?: number | null;
 
   created_at?: string | null;
   updated_at?: string | null;
@@ -29,16 +31,18 @@ export type CreateNotePayload = {
 
   amount?: string | number | null;
 
-  // ids (opcional)
+  // ahora arrays de ids (opcional)
+  clients?: number[] | null;
+  properties?: number[] | null;
+  guards?: number[] | null;
+  services?: number[] | null;
+  shifts?: number[] | null;
+  weapons?: number[] | null;
+  type_of_services?: number[] | null;
+
+  // campos legacy (opcional)
   client?: number | null;
   property_obj?: number | null;
-  guard?: number | null;
-  service?: number | null;
-  shift?: number | null;
-  expense?: number | null;
-  weapon?: number | null;
-  guard_property_tariff?: number | null;
-  property_type_of_service?: number | null;
 };
 
 export type UpdateNotePayload = Partial<CreateNotePayload>;

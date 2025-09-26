@@ -677,7 +677,7 @@ export const EN_TEXT = {
         guard: "Guard",
         property: "Property",
         totalHours: "Total Hrs",
-        rate: "Rate/hr",
+        rate: "Amount",       // changed label text to "Amount"
         monthlyBudget: "Monthly",
         recurrent: "Recurrent",
         isActive: "Active",
@@ -716,7 +716,7 @@ export const EN_TEXT = {
       description: "Description",
       guard: "Guard",
       assignedProperty: "Property",
-      rate: "Rate per hour",
+      rate: "Amount",       // changed
       recurrent: "Recurrent",
       monthlyBudget: "Monthly Budget",
       schedule: "Schedule",
@@ -738,6 +738,90 @@ export const EN_TEXT = {
       created: "Service created",
       updated: "Service updated",
       deleted: "Service deleted",
+    },
+  },
+
+  /* --- NOTES (NEW) --- */
+  notes: {
+    title: "Notes Management",
+    list: {
+      title: "Notes",
+      add: "Add Note",
+      searchPlaceholder: "Search notes...",
+      headers: {
+        name: "Name",
+        description: "Description",
+        amount: "Amount",
+        totalAmount: "Total Amount",
+        clients: "Clients",
+        properties: "Properties",
+        guards: "Guards",
+        services: "Services",
+        shifts: "Shifts",
+        weapons: "Weapons",
+        typeOfServices: "Type(s) of Service",
+        viewedBy: "Viewed by",
+        actions: "Actions",
+      },
+      actionEdit: "Edit {name}",
+      actionDelete: "Delete {name}",
+    },
+    create: {
+      title: "Create Note",
+      addAmount: "Add amount",
+      addAmountAria: "Add new amount entry",
+      removeAmountAria: "Remove amount entry",
+      amountPlaceholder: "e.g. 100.50 or -15",
+      amountsHelp: "You can add multiple amounts (positive or negative). They will be summed and the final total sent to the backend.",
+      totalLabel: "Total",
+      fields: {
+        name: "Name",
+        description: "Description",
+        amounts: "Amounts",
+        clients: "Clients",
+        properties: "Properties",
+        guards: "Guards",
+        services: "Services",
+        shifts: "Shifts",
+        weapons: "Weapons",
+        type_of_services: "Type of Service",
+      },
+      buttons: {
+        add: "Add",
+        create: "Create",
+        creating: "Creating...",
+        addAmount: "+ Add amount",
+        removeAmount: "− Remove",
+      },
+      validation: {
+        nameRequired: "Name is required",
+        amountInvalid: "Amount must be a valid number",
+      },
+      messages: {
+        created: "Note created",
+      },
+      help: {
+        amountsSummary: "Example: adding 15, -15, 25 results in total 25 (that is what will be sent to the backend).",
+      },
+    },
+    edit: {
+      title: "Edit Note",
+      save: "Save",
+      saving: "Saving...",
+    },
+    delete: {
+      title: "Delete Note",
+      confirm: "Are you sure you want to delete note \"{name}\"?",
+    },
+    errors: {
+      loadFailed: "Could not load notes",
+      createFailed: "Could not create note",
+      updateFailed: "Could not update note",
+      deleteFailed: "Could not delete note",
+    },
+    messages: {
+      updated: "Note updated",
+      deleted: "Note deleted",
     },
   },
 
