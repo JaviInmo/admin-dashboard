@@ -19,6 +19,18 @@ import WeaponSelect from "../Selects/WeaponSelect";
 import PropertyTypeSelect from "../Selects/PropertyTypeSelect";
 import UserSelect from "../Selects/UserSelect";
 
+/**
+ * Getters: usa los que tienes en tus servicios.
+ * Asegúrate de que estos módulos existan; si alguno no existe en tu repo,
+ * sustituye por el equivalente (por ejemplo listX o create getX).
+ */
+import { getGuard } from "@/lib/services/guard";
+import { getService } from "@/lib/services/services";
+import { getUser } from "@/lib/services/users";
+import { getProperty, getPropertyTypeOfService } from "@/lib/services/properties";
+import { getShift } from "@/lib/services/shifts";
+import { getWeapon } from "@/lib/services/weapons";
+
 type FieldType =
   | "amount"
   | "client"
@@ -56,7 +68,7 @@ export default function EditNoteDialog({ note, open, onClose, onUpdated }: Props
   const [name, setName] = React.useState<string>(note?.name ?? "");
   const [description, setDescription] = React.useState<string | null>(note?.description ?? null);
 
-  // Form internal structure: arrays for relations and amounts array for editable amounts
+  // Form internal structure
   const [form, setForm] = React.useState<{
     amounts: (string | number | null)[];
     clients: (number | null)[];
@@ -77,7 +89,7 @@ export default function EditNoteDialog({ note, open, onClose, onUpdated }: Props
     type_of_services: [],
   });
 
-  // Selected object arrays for UI selects (store full object if chosen, otherwise null)
+  // Selected object arrays for selects (full objects)
   const [selectedUsers, setSelectedUsers] = React.useState<(any | null)[]>([]);
   const [selectedGuards, setSelectedGuards] = React.useState<(any | null)[]>([]);
   const [selectedProperties, setSelectedProperties] = React.useState<(any | null)[]>([]);
@@ -93,38 +105,23 @@ export default function EditNoteDialog({ note, open, onClose, onUpdated }: Props
   const [error, setError] = React.useState<string | null>(null);
   const [errorsMap, setErrorsMap] = React.useState<Record<string, string>>({});
 
-  // initialize state from note
+  // Init state from note (ids arrays)
   React.useEffect(() => {
     setName(note?.name ?? "");
     setDescription(note?.description ?? null);
 
-    // amounts: if backend only has amount (total), initialize with one entry with that value
     const initialAmounts: (string | number | null)[] =
       note && (note.amount !== null && note.amount !== undefined)
         ? [String(note.amount)]
         : [];
 
-    // relations: prefer arrays, fallback to single legacy fields
-    const clientsArr: (number | null)[] =
-      note && Array.isArray((note as any).clients) && (note as any).clients.length > 0
-        ? [...(note as any).clients]
-        : note && typeof note.client === "number"
-        ? [note.client]
-        : [];
-
-    const propertiesArr: (number | null)[] =
-      note && Array.isArray((note as any).properties) && (note as any).properties.length > 0
-        ? [...(note as any).properties]
-        : note && typeof note.property_obj === "number"
-        ? [note.property_obj]
-        : [];
-
+    const clientsArr: (number | null)[] = note && Array.isArray((note as any).clients) ? [...(note as any).clients] : [];
+    const propertiesArr: (number | null)[] = note && Array.isArray((note as any).properties) ? [...(note as any).properties] : [];
     const guardsArr: (number | null)[] = note && Array.isArray((note as any).guards) ? [...(note as any).guards] : [];
     const servicesArr: (number | null)[] = note && Array.isArray((note as any).services) ? [...(note as any).services] : [];
     const shiftsArr: (number | null)[] = note && Array.isArray((note as any).shifts) ? [...(note as any).shifts] : [];
     const weaponsArr: (number | null)[] = note && Array.isArray((note as any).weapons) ? [...(note as any).weapons] : [];
-    const typesArr: (number | null)[] =
-      note && Array.isArray((note as any).type_of_services) ? [...(note as any).type_of_services] : [];
+    const typesArr: (number | null)[] = note && Array.isArray((note as any).type_of_services) ? [...(note as any).type_of_services] : [];
 
     setForm({
       amounts: initialAmounts,
@@ -137,7 +134,7 @@ export default function EditNoteDialog({ note, open, onClose, onUpdated }: Props
       type_of_services: typesArr,
     });
 
-    // selected arrays init as null placeholders (we don't have full objects, only ids)
+    // placeholders; luego hacemos fetch de los objetos
     setSelectedUsers(clientsArr.map(() => null));
     setSelectedProperties(propertiesArr.map(() => null));
     setSelectedGuards(guardsArr.map(() => null));
@@ -149,6 +146,146 @@ export default function EditNoteDialog({ note, open, onClose, onUpdated }: Props
     setError(null);
     setErrorsMap({});
     setFieldToAdd("");
+  }, [note, open]);
+
+  // Fetch full objects (so selects show labels) when modal opens
+  React.useEffect(() => {
+    let mounted = true;
+    async function loadRelatedObjects() {
+      if (!note) return;
+      setLoading(true);
+      try {
+        // GUARDS
+        if (Array.isArray(note.guards) && note.guards.length > 0) {
+          const guardPromises = note.guards.map(async (id: number) => {
+            try {
+              return await getGuard(Number(id));
+            } catch (e) {
+              console.warn("getGuard failed for id", id, e);
+              return null;
+            }
+          });
+          const guards = await Promise.all(guardPromises);
+          if (!mounted) return;
+          setSelectedGuards(guards.map((x) => x ?? null));
+        } else {
+          setSelectedGuards([]);
+        }
+
+        // USERS / CLIENTS
+        if (Array.isArray(note.clients) && note.clients.length > 0) {
+          const userPromises = note.clients.map(async (id: number) => {
+            try {
+              return await getUser(Number(id));
+            } catch (e) {
+              console.warn("getUser failed for id", id, e);
+              return null;
+            }
+          });
+          const users = await Promise.all(userPromises);
+          if (!mounted) return;
+          setSelectedUsers(users.map((x) => x ?? null));
+        } else {
+          setSelectedUsers([]);
+        }
+
+        // PROPERTIES
+        if (Array.isArray(note.properties) && note.properties.length > 0) {
+          const propPromises = note.properties.map(async (id: number) => {
+            try {
+              return await getProperty(Number(id));
+            } catch (e) {
+              console.warn("getProperty failed for id", id, e);
+              return null;
+            }
+          });
+          const props = await Promise.all(propPromises);
+          if (!mounted) return;
+          setSelectedProperties(props.map((x) => x ?? null));
+        } else {
+          setSelectedProperties([]);
+        }
+
+        // SERVICES
+        if (Array.isArray(note.services) && note.services.length > 0) {
+          const svcPromises = note.services.map(async (id: number) => {
+            try {
+              return await getService(Number(id));
+            } catch (e) {
+              console.warn("getService failed for id", id, e);
+              return null;
+            }
+          });
+          const svcs = await Promise.all(svcPromises);
+          if (!mounted) return;
+          setSelectedServices(svcs.map((x) => x ?? null));
+        } else {
+          setSelectedServices([]);
+        }
+
+        // SHIFTS
+        if (Array.isArray(note.shifts) && note.shifts.length > 0) {
+          const shiftPromises = note.shifts.map(async (id: number) => {
+            try {
+              return await getShift(Number(id));
+            } catch (e) {
+              console.warn("getShift failed for id", id, e);
+              return null;
+            }
+          });
+          const sh = await Promise.all(shiftPromises);
+          if (!mounted) return;
+          setSelectedShifts(sh.map((x) => x ?? null));
+        } else {
+          setSelectedShifts([]);
+        }
+
+        // WEAPONS
+        if (Array.isArray(note.weapons) && note.weapons.length > 0) {
+          const weaponPromises = note.weapons.map(async (id: number) => {
+            try {
+              return await getWeapon(Number(id));
+            } catch (e) {
+              console.warn("getWeapon failed for id", id, e);
+              return null;
+            }
+          });
+          const ws = await Promise.all(weaponPromises);
+          if (!mounted) return;
+          setSelectedWeapons(ws.map((x) => x ?? null));
+        } else {
+          setSelectedWeapons([]);
+        }
+
+        // TYPE OF SERVICES (PROPERTY TYPES)
+        if (Array.isArray(note.type_of_services) && note.type_of_services.length > 0) {
+          const typePromises = note.type_of_services.map(async (id: number) => {
+            try {
+              return await getPropertyTypeOfService(Number(id));
+            } catch (e) {
+              console.warn("getPropertyTypeOfService failed for id", id, e);
+              return null;
+            }
+          });
+          const types = await Promise.all(typePromises);
+          if (!mounted) return;
+          setSelectedPropertyTypes(types.map((x) => x ?? null));
+        } else {
+          setSelectedPropertyTypes([]);
+        }
+      } catch (err) {
+        console.error("loadRelatedObjects error:", err);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+
+    if (open && note) loadRelatedObjects();
+
+    return () => {
+      mounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [note, open]);
 
   // helpers to mutate arrays in form
@@ -244,7 +381,6 @@ export default function EditNoteDialog({ note, open, onClose, onUpdated }: Props
     if (!name || !name.trim()) {
       newErrors.name = getTextFromObject(TEXT, "notes.create.validation.nameRequired", "Name is required");
     }
-    // amounts validation
     (form.amounts || []).forEach((a, idx) => {
       if (a !== null && a !== undefined && String(a).trim() !== "") {
         const normalized = String(a).replace(",", ".");
@@ -273,12 +409,10 @@ export default function EditNoteDialog({ note, open, onClose, onUpdated }: Props
       payload.name = name.trim();
       payload.description = description === "" ? null : description ?? null;
 
-      // amounts => compute total and send as payload.amount
       if (Array.isArray(form.amounts) && form.amounts.length > 0) {
         payload.amount = computeAmountsTotal();
       }
 
-      // send arrays only if non-empty (and cast to numbers)
       const pushIfAny = (key: keyof typeof form, outKey?: string) => {
         const arr = Array.isArray(form[key]) ? (form[key] as any[]).filter((x) => x != null) : [];
         if (arr.length > 0) {
@@ -319,17 +453,17 @@ export default function EditNoteDialog({ note, open, onClose, onUpdated }: Props
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="w-full max-w-2xl">
+      <DialogContent className="w-full max-w-2xl  ">
         <DialogHeader>
-          <DialogTitle className="pl-4">{getTextFromObject(TEXT, "actions.edit", "Edit")} — #{note?.id}</DialogTitle>
+          <DialogTitle className="">{getTextFromObject(TEXT, "actions.edit", "Edit")} — #{note?.id}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-3 p-4">
+        <div className="space-y-3  ">
           {isMissingNote ? (
             <p>{getTextFromObject(TEXT, "table.noData", "Note data unavailable")}</p>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-3">
-              {/* Name & Description always visible */}
+              {/* Name & Description */}
               <div>
                 <Label className="pb-2">{getTextFromObject(TEXT, "notes.create.fields.name", "Name")} *</Label>
                 <Input value={name} onChange={(e) => setName(e.target.value)} required />
@@ -342,7 +476,7 @@ export default function EditNoteDialog({ note, open, onClose, onUpdated }: Props
               </div>
 
               {/* central add-field chooser */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 ">
                 <Label className="pr-2">+</Label>
                 <select
                   aria-label="Add field"
@@ -368,11 +502,8 @@ export default function EditNoteDialog({ note, open, onClose, onUpdated }: Props
                 >
                   Add
                 </Button>
-                <div className="text-sm text-muted-foreground ml-4">
-                  {getTextFromObject(TEXT, "notes.create.help.amountsSummary", "You can add amounts, clients and other relations.")}
-                </div>
               </div>
-
+<div className="max-h-72 overflow-auto ">
               {/* AMOUNTS */}
               {Array.isArray(form.amounts) && form.amounts.length > 0 && (
                 <div>
@@ -402,9 +533,6 @@ export default function EditNoteDialog({ note, open, onClose, onUpdated }: Props
                       <div className="text-sm">
                         <strong>{getTextFromObject(TEXT, "notes.create.totalLabel", "Total")}: </strong>
                         <span>{computeAmountsTotal()}</span>
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        {getTextFromObject(TEXT, "notes.create.amountsHelp", "You can add multiple amounts (positive or negative). They will be summed and the final total sent to the backend.")}
                       </div>
                     </div>
                   </div>
@@ -734,9 +862,10 @@ export default function EditNoteDialog({ note, open, onClose, onUpdated }: Props
               )}
 
               {error && <p className="text-sm text-red-600">{error}</p>}
+              </div>
 
-              <div className="flex justify-end gap-2 mt-3">
-                <Button variant="ghost" onClick={onClose} disabled={loading}>
+              <div className="flex justify-end gap-2 mt-6">
+                <Button variant="outline" onClick={onClose} disabled={loading}>
                   {cancelText}
                 </Button>
                 <Button type="submit" disabled={loading}>

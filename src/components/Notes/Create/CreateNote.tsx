@@ -322,12 +322,12 @@ export default function CreateNote({ open, onClose, onCreated }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[820px]">
+      <DialogContent className="w-full max-w-2xl ">
         <DialogHeader>
           <DialogTitle>{getTextFromObject(TEXT, "notes.create.title", "Create Note")}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-3">
           {/* NAME */}
           <div>
             <Label className="pb-2" htmlFor="note_name">
@@ -385,6 +385,7 @@ export default function CreateNote({ open, onClose, onCreated }: Props) {
             </Button>
            
           </div>
+          <div className="max-h-72 overflow-auto ">
 
           {/* AMOUNTS (if any) */}
           {Array.isArray(form.amounts) && form.amounts.length > 0 && (
@@ -759,8 +760,9 @@ export default function CreateNote({ open, onClose, onCreated }: Props) {
               <p className="text-sm text-red-800">{generalError}</p>
             </div>
           )}
+          </div>
 
-          <div className="flex justify-end items-center gap-2 pt-2">
+          <div className="flex justify-end gap-2 mt-6">
             <Button
               variant="secondary"
               onClick={() => {
