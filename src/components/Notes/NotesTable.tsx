@@ -1,8 +1,8 @@
-// src/components/Notes/NotesTable.tsx
+// src\components\Notes\NotesTable.tsx
 "use client";
 
 import * as React from "react";
-import { Pencil, Trash, Eye, MoreHorizontal, Plus } from "lucide-react";
+import { Pencil, Trash, Eye, MoreHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -257,18 +257,6 @@ export default function NotesTable({
     </div>
   );
 
-  const addButton = (
-    <Button
-      variant="default"
-      size="sm"
-      onClick={() => setCreateOpen(true)}
-      className="flex items-center gap-2"
-    >
-      <Plus className="h-4 w-4" />
-      {getText("actions.add", "Add")}
-    </Button>
-  );
-
   return (
     <>
       <ReusableTable<Note>
@@ -301,7 +289,6 @@ export default function NotesTable({
         isPageLoading={isPageLoading}
         rightControls={
           <div className="flex items-center gap-2">
-            {addButton}
             <Button
               variant="outline"
               size="sm"

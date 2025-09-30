@@ -90,7 +90,14 @@ interface Props {
   initialUserId?: number | null;
 }
 
-export default function CreateNote({ open, onClose, onCreated, initialGuardId, initialPropertyId, initialUserId }: Props) {
+export default function CreateNote({
+  open,
+  onClose,
+  onCreated,
+  initialGuardId,
+  initialPropertyId,
+  initialUserId,
+}: Props) {
   const { TEXT } = useI18n();
 
   const [loading, setLoading] = useState<boolean>(false);
@@ -122,43 +129,60 @@ export default function CreateNote({ open, onClose, onCreated, initialGuardId, i
 
   const [fieldToAdd, setFieldToAdd] = useState<FieldType | "">("");
 
-  // If an initial id is passed, when the modal opens we fetch and prefill
+  // Prefill when initial ids are provided and modal opens
   useEffect(() => {
     let mounted = true;
     async function prefill() {
       if (!open) return;
-      try {
-        // Priority: initialPropertyId -> initialGuardId -> initialUserId
-        if (initialPropertyId != null) {
-          const p = await getProperty(Number(initialPropertyId));
-          if (!mounted) return;
-          setSelectedProperties([p ?? null]);
-          setForm((prev) => ({ ...prev, properties: [p?.id ?? null] }));
-          return;
-        }
-        if (initialGuardId != null) {
+
+      // guard
+      if (initialGuardId != null) {
+        try {
           const g = await getGuard(Number(initialGuardId));
           if (!mounted) return;
           setSelectedGuards([g ?? null]);
           setForm((prev) => ({ ...prev, guards: [g?.id ?? null] }));
-          return;
+        } catch (err) {
+          console.warn("Failed to prefill guard in CreateNote:", err);
+          // fallback: set ids array without fetching object
+          setSelectedGuards([null]);
+          setForm((prev) => ({ ...prev, guards: [initialGuardId] }));
         }
-        if (initialUserId != null) {
+      }
+
+      // property
+      if (initialPropertyId != null) {
+        try {
+          const p = await getProperty(Number(initialPropertyId));
+          if (!mounted) return;
+          setSelectedProperties([p ?? null]);
+          setForm((prev) => ({ ...prev, properties: [p?.id ?? null] }));
+        } catch (err) {
+          console.warn("Failed to prefill property in CreateNote:", err);
+          setSelectedProperties([null]);
+          setForm((prev) => ({ ...prev, properties: [initialPropertyId] }));
+        }
+      }
+
+      // user/client
+      if (initialUserId != null) {
+        try {
           const u = await getUser(Number(initialUserId));
           if (!mounted) return;
           setSelectedUsers([u ?? null]);
           setForm((prev) => ({ ...prev, clients: [u?.id ?? null] }));
-          return;
+        } catch (err) {
+          console.warn("Failed to prefill user in CreateNote:", err);
+          setSelectedUsers([null]);
+          setForm((prev) => ({ ...prev, clients: [initialUserId] }));
         }
-      } catch (err) {
-        // eslint-disable-next-line no-console
-        console.warn("Failed to prefill CreateNote:", err);
       }
     }
     prefill();
     return () => {
       mounted = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initialGuardId, initialPropertyId, initialUserId]);
 
   useEffect(() => {

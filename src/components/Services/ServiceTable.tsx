@@ -1,7 +1,7 @@
 // src/components/Services/ServiceTable.tsx
 "use client";
 
-import { Pencil, Trash, Eye } from "lucide-react";
+import { Pencil, Trash, Eye, FileText, Plus } from "lucide-react";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { ReusableTable, type Column } from "@/components/ui/reusable-table";
@@ -14,6 +14,10 @@ import PropertyServiceEdit from "../Properties/PropertyServiceEdit";
 import GuardServiceEdit from "../Guards/GuardServiceEdit";
 import ShowServiceDialog from "./Show/Show";
 // Removed CreateServiceDialog - now using PropertyServiceEdit for both create and edit
+
+/* Notas modal y create */
+import ServicesNotesModal from "./ServicesNotesModal";
+import CreateNote from "@/components/Notes/Create/CreateNote";
 
 export interface ServicesTableProps {
   services: Service[];
@@ -87,49 +91,32 @@ export default function ServicesTable({
 }: ServicesTableProps) {
   const { TEXT } = useI18n();
 
- /*  function getText(
-    path: string,
-    fallback?: string,
-    vars?: Record<string, string>
-  ) {
-    const parts = path.split(".");
-    let val: any = TEXT;
-    for (const p of parts) {
-      val = val?.[p];
-      if (val == null) break;
-    }
-    let str = typeof val === "string" ? val : fallback ?? path;
-    if (vars && typeof str === "string") {
-      for (const k of Object.keys(vars)) {
-        str = str.replace(new RegExp(`\\{${k}\\}`, "g"), vars[k]);
-      }
-    }
-    return String(str);
-  } */
-
   const [editService, setEditService] = React.useState<Service | null>(null);
   const [deleteServiceState, setDeleteServiceState] =
     React.useState<Service | null>(null);
   const [showService, setShowService] = React.useState<Service | null>(null);
 
-  // Nuevo estado para abrir el modal de creación
+  // Nuevo estado para abrir el modal de creación (servicios)
   const [createOpen, setCreateOpen] = React.useState(false);
 
-  // Estado para prefijar guard cuando abrimos CreateServiceDialog desde un guard
+  // Estado para prefijar guard/property cuando abrimos CreateServiceDialog desde otra parte
   const [createInitialGuard, setCreateInitialGuard] = React.useState<{
     id?: number | null;
     label?: string | null;
   } | null>(null);
 
-  // Estado para prefijar property cuando abrimos desde una propiedad
   const [createInitialProperty, setCreateInitialProperty] = React.useState<{
     id?: number | null;
     label?: string | null;
   } | null>(null);
 
+  // States for Notes modal / create note quick dialog
+  const [notesService, setNotesService] = React.useState<Service | null>(null);
+  const [createNoteService, setCreateNoteService] = React.useState<Service | null>(null);
+
   // Servicio vacío para modo creación
   const createEmptyService = React.useMemo((): Service => ({
-    id: 0, // ID temporal para modo creación
+    id: 0,
     name: "",
     description: "",
     guard: createInitialGuard?.id || createInitialGuardId || null,
@@ -347,6 +334,34 @@ export default function ServicesTable({
           <Eye className={iconSizeClass} />
         </Button>
 
+        {/* Ver notas */}
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={(e) => {
+            e.stopPropagation();
+            setNotesService(s);
+          }}
+          title={TEXT?.services?.table?.notesButton ?? "Notas"}
+          aria-label={TEXT?.services?.table?.notesAria ?? "Ver notas del servicio"}
+        >
+          <FileText className={iconSizeClass} />
+        </Button>
+
+        {/* Crear nota (autoprefill guard+property si existen) */}
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={(e) => {
+            e.stopPropagation();
+            setCreateNoteService(s);
+          }}
+          title={TEXT?.services?.table?.addNoteButton ?? "Agregar nota"}
+          aria-label={TEXT?.services?.table?.addNoteAria ?? "Agregar nota para el servicio"}
+        >
+          <Plus className={iconSizeClass} />
+        </Button>
+
         <Button
           size="icon"
           variant="ghost"
@@ -506,6 +521,35 @@ export default function ServicesTable({
           open={!!showService}
           onClose={() => setShowService(null)}
           compact={compact}
+        />
+      )}
+
+      {/* Services Notes modal (ver / listar / crear desde ahí) */}
+      {notesService && (
+        <ServicesNotesModal
+          service={notesService}
+          open={!!notesService}
+          onClose={() => setNotesService(null)}
+          onUpdated={onRefresh}
+        />
+      )}
+
+      {/* Create Note quick dialog (abre con guard/property preseleccionados si existen) */}
+      {createNoteService && (
+        <CreateNote
+          open={!!createNoteService}
+          onClose={() => setCreateNoteService(null)}
+          onCreated={async () => {
+            if (onRefresh) {
+              const maybe = onRefresh();
+              if (maybe && typeof (maybe as unknown as Promise<unknown>)?.then === "function") {
+                await maybe;
+              }
+            }
+            setCreateNoteService(null);
+          }}
+          initialGuardId={createNoteService.guard ?? null}
+          initialPropertyId={createNoteService.assignedProperty ?? null}
         />
       )}
     </>

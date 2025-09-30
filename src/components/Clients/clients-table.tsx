@@ -1,6 +1,7 @@
+// src/components/Clients/clients-table.tsx
 "use client";
 
-import { Pencil, Trash, Check, X } from "lucide-react";
+import { Pencil, Trash, Check, X, FileText, Plus } from "lucide-react";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { ReusableTable, type Column } from "@/components/ui/reusable-table";
@@ -12,6 +13,10 @@ import EditClientDialog from "./Edit/Edit";
 import ClientDetailsModal from "./ClientDetailsModal";
 import type { Client as AppClient, Client } from "./types";
 import { ClickableEmail } from "../ui/clickable-email";
+
+/* Notas: modal y create */
+import ClientsNotesModal from "./ClientsNotesModal";
+import CreateNote from "@/components/Notes/Create/CreateNote";
 
 export interface ClientsTableProps {
   clients: AppClient[];
@@ -78,6 +83,10 @@ export default function ClientsTable({
 
   // Estado para el modal de detalles del cliente
   const [detailsClient, setDetailsClient] = React.useState<(AppClient & { clientName: string }) | null>(null);
+
+  // Notes: estado para ver y crear notas relacionadas al cliente
+  const [notesClient, setNotesClient] = React.useState<AppClient | null>(null);
+  const [createNoteClient, setCreateNoteClient] = React.useState<AppClient | null>(null);
 
   // Normalizar datos del cliente
   const normalizedClients = clients.map((c) => {
@@ -249,7 +258,35 @@ export default function ClientsTable({
 
   // Acciones de fila (ahora con aria-labels / títulos i18n) — envuelto para centrar y gap como en UsersTable
   const renderActions = (client: AppClient & { clientName: string }) => (
-    <>
+    <div className="flex items-center gap-1">
+      {/* Ver notas */}
+      <Button
+        size="icon"
+        variant="ghost"
+        onClick={(e) => {
+          e.stopPropagation();
+          setNotesClient(client);
+        }}
+        title={getText("clients.table.notesButton", "Notas")}
+        aria-label={getText("clients.table.notesAria", "Ver notas del cliente")}
+      >
+        <FileText className="h-4 w-4" />
+      </Button>
+
+      {/* Crear nota (rápido) */}
+      <Button
+        size="icon"
+        variant="ghost"
+        onClick={(e) => {
+          e.stopPropagation();
+          setCreateNoteClient(client);
+        }}
+        title={getText("clients.table.addNoteButton", "Agregar nota")}
+        aria-label={getText("clients.table.addNoteAria", "Agregar nota para el cliente")}
+      >
+        <Plus className="h-4 w-4" />
+      </Button>
+
       <Button
         size="icon"
         variant="ghost"
@@ -274,7 +311,7 @@ export default function ClientsTable({
       >
         <Trash className="h-4 w-4 text-red-500" />
       </Button>
-    </>
+    </div>
   );
 
   return (
@@ -332,6 +369,35 @@ export default function ClientsTable({
           client={detailsClient}
           open={!!detailsClient}
           onClose={() => setDetailsClient(null)}
+        />
+      )}
+
+      {/* Clients Notes modal (ver / listar / crear desde ahí) */}
+      {notesClient && (
+        <ClientsNotesModal
+          client={notesClient}
+          open={!!notesClient}
+          onClose={() => setNotesClient(null)}
+          onUpdated={onRefresh}
+        />
+      )}
+
+      {/* CreateNote quick dialog (abre el formulario de crear nota con initialUserId basado en el client) */}
+      {createNoteClient && (
+        <CreateNote
+          open={!!createNoteClient}
+          onClose={() => setCreateNoteClient(null)}
+          onCreated={async () => {
+            if (onRefresh) {
+              const maybe = onRefresh();
+              if (maybe && typeof (maybe as unknown as Promise<unknown>)?.then === "function") {
+                await maybe;
+              }
+            }
+            setCreateNoteClient(null);
+          }}
+          // Si el client tiene campo `user` lo usamos (referencia al user), si no usamos client.id
+          initialUserId={(createNoteClient.user ?? createNoteClient.id) as number}
         />
       )}
     </>
