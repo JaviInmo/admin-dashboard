@@ -1,3 +1,4 @@
+// src/components/Notes/NotesTable.tsx
 "use client";
 
 import * as React from "react";
@@ -53,6 +54,10 @@ export interface NotesTableProps {
   sortOrder: SortOrder;
 
   isPageLoading?: boolean;
+
+  // Support prefill when opening CreateNote from Guards or Properties
+  initialGuardId?: number | null;
+  initialPropertyId?: number | null;
 }
 
 export default function NotesTable({
@@ -69,6 +74,8 @@ export default function NotesTable({
   sortField,
   sortOrder,
   isPageLoading = false,
+  initialGuardId = undefined,
+  initialPropertyId = undefined,
 }: NotesTableProps) {
   const { TEXT } = useI18n();
 
@@ -306,7 +313,15 @@ export default function NotesTable({
       />
 
       {/* Dialogs */}
-      <CreateNoteDialog open={createOpen} onClose={() => setCreateOpen(false)} onCreated={onRefresh} />
+      <CreateNoteDialog
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={onRefresh}
+        // pasamos ambas opciones de inicialización; CreateNoteDialog/CreateNote
+        // deberá aceptar initialGuardId y/o initialPropertyId según tu implementación.
+        initialGuardId={initialGuardId ?? undefined}
+        initialPropertyId={initialPropertyId ?? undefined}
+      />
 
       {editNote && (
         <EditNoteDialog

@@ -1,6 +1,6 @@
 "use client";
 
-import { Pencil, Trash, Tag, Calendar, MoreHorizontal } from "lucide-react";
+import { Pencil, Trash, Tag, Calendar, MoreHorizontal, FileText, Plus } from "lucide-react";
 import { List } from "lucide-react";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,10 @@ import GuardWeaponsModal from "./GuardWeaponsModal";
 
 // Import modal de servicios del guardia
 import GuardServicesModal from "./asdGuardServicesModal";
+
+/* Notas: modal y create note */
+import GuardNotesModal from "./GuardNotesModal";
+import CreateNote from "@/components/Notes/Create/CreateNote";
 
 export interface GuardsTableProps {
   guards: Guard[];
@@ -100,6 +104,12 @@ export default function GuardsTable({
 
   // Nuevo estado: guard para abrir modal de Services del guardia
   const [servicesGuard, setServicesGuard] = React.useState<Guard | null>(null);
+
+  // Nuevo estado: guard para abrir modal de Notes del guardia (ver)
+  const [notesGuard, setNotesGuard] = React.useState<Guard | null>(null);
+
+  // Nuevo estado: guard para abrir CreateNote directamente (crear)
+  const [createNoteGuard, setCreateNoteGuard] = React.useState<Guard | null>(null);
 
   // Estado para controlar si las acciones están agrupadas - guardado en localStorage
   const [isActionsGrouped, setIsActionsGrouped] = React.useState(() => {
@@ -241,6 +251,7 @@ export default function GuardsTable({
           <List className="h-4 w-4 mr-2" />
           {getText("guards.table.serviceButton", "Servicios")}
         </DropdownMenuItem>
+
         <DropdownMenuItem onClick={(e) => {
           e.stopPropagation();
           setShiftGuard(guard);
@@ -248,6 +259,7 @@ export default function GuardsTable({
           <Calendar className="h-4 w-4 mr-2" />
           {getText("guards.table.shiftsButton", "Turnos")}
         </DropdownMenuItem>
+
         <DropdownMenuItem onClick={(e) => {
           e.stopPropagation();
           setTariffGuard(guard);
@@ -255,6 +267,7 @@ export default function GuardsTable({
           <Tag className="h-4 w-4 mr-2" />
           {getText("guards.table.tariffsButton", "Tarifas")}
         </DropdownMenuItem>
+
         <DropdownMenuItem onClick={(e) => {
           e.stopPropagation();
           setWeaponsGuard(guard);
@@ -262,7 +275,28 @@ export default function GuardsTable({
           <GiPistolGun className="h-4 w-4 mr-2" />
           {getText("guards.table.weaponsButton", "Armas")}
         </DropdownMenuItem>
+
         <DropdownMenuSeparator />
+
+        {/* Notas: ver y crear */}
+        <DropdownMenuItem onClick={(e) => {
+          e.stopPropagation();
+          setNotesGuard(guard);
+        }}>
+          <FileText className="h-4 w-4 mr-2" />
+          {getText("guards.table.notesButton", "Notas")}
+        </DropdownMenuItem>
+
+        <DropdownMenuItem onClick={(e) => {
+          e.stopPropagation();
+          setCreateNoteGuard(guard);
+        }}>
+          <Plus className="h-4 w-4 mr-2" />
+          {getText("guards.table.addNoteButton", "Agregar nota")}
+        </DropdownMenuItem>
+
+        <DropdownMenuSeparator />
+
         <DropdownMenuItem onClick={(e) => {
           e.stopPropagation();
           setEditGuard(guard);
@@ -285,89 +319,116 @@ export default function GuardsTable({
     isActionsGrouped ? renderGroupedActions(guard) : (
       <div className="flex items-center gap-1"> {/* gap reducido */}
         {/* Servicios del guard */}
-       <Button
-  size="icon"
-  variant="ghost"
-  onClick={(e) => {
-    e.stopPropagation();
-    setServicesGuard(guard);
-  }}
-  title={getText("guards.table.serviceButton", "Servicios")}
-  aria-label={getText("guards.table.serviceAria", "Gestionar servicios de {name}", { name: `${guard.firstName ?? ""}` })}
->
-  <List className="h-4 w-4" />
-</Button>
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={(e) => {
+            e.stopPropagation();
+            setServicesGuard(guard);
+          }}
+          title={getText("guards.table.serviceButton", "Servicios")}
+          aria-label={getText("guards.table.serviceAria", "Gestionar servicios de {name}", { name: `${guard.firstName ?? ""}` })}
+        >
+          <List className="h-4 w-4" />
+        </Button>
 
-      {/* Turnos */}
-      <Button
-        size="icon"
-        variant="ghost"
-        onClick={(e) => {
-          e.stopPropagation();
-          setShiftGuard(guard);
-        }}
-        title={getText("guards.table.shiftsButton", "Turnos")}
-        aria-label={getText("guards.table.shiftsAria", "Gestionar turnos de {name}", { name: `${guard.firstName ?? ""}` })}
-      >
-        <Calendar className="h-4 w-4" />
-      </Button>
+        {/* Turnos */}
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={(e) => {
+            e.stopPropagation();
+            setShiftGuard(guard);
+          }}
+          title={getText("guards.table.shiftsButton", "Turnos")}
+          aria-label={getText("guards.table.shiftsAria", "Gestionar turnos de {name}", { name: `${guard.firstName ?? ""}` })}
+        >
+          <Calendar className="h-4 w-4" />
+        </Button>
 
-      {/* Tarifas */}
-      <Button
-        size="icon"
-        variant="ghost"
-        onClick={(e) => {
-          e.stopPropagation();
-          setTariffGuard(guard);
-        }}
-        title={getText("guards.table.tariffsButton", "Tarifas")}
-        aria-label={getText("guards.table.tariffsAria", "Tarifas de {name}", { name: `${guard.firstName ?? ""}` })}
-      >
-        <Tag className="h-4 w-4" />
-      </Button>
+        {/* Tarifas */}
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={(e) => {
+            e.stopPropagation();
+            setTariffGuard(guard);
+          }}
+          title={getText("guards.table.tariffsButton", "Tarifas")}
+          aria-label={getText("guards.table.tariffsAria", "Tarifas de {name}", { name: `${guard.firstName ?? ""}` })}
+        >
+          <Tag className="h-4 w-4" />
+        </Button>
 
-      {/* Weapons: abrir panel de armas de este guard */}
-      <Button
-        size="icon"
-        variant="ghost"
-        onClick={(e) => {
-          e.stopPropagation();
-          console.debug("[GuardsTable] weapons button clicked for guard id=", guard.id);
-          setWeaponsGuard(guard);
-        }}
-        title={getText("guards.table.weaponsButton", "Armas")}
-        aria-label={getText("guards.table.weaponsAria", "Gestionar armas de {name}", { name: `${guard.firstName ?? ""}` })}
-      >
-        <GiPistolGun className="h-4 w-4" />
-      </Button>
+        {/* Weapons: abrir panel de armas de este guard */}
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={(e) => {
+            e.stopPropagation();
+            setWeaponsGuard(guard);
+          }}
+          title={getText("guards.table.weaponsButton", "Armas")}
+          aria-label={getText("guards.table.weaponsAria", "Gestionar armas de {name}", { name: `${guard.firstName ?? ""}` })}
+        >
+          <GiPistolGun className="h-4 w-4" />
+        </Button>
 
-      {/* Edit */}
-      <Button
-        size="icon"
-        variant="ghost"
-        onClick={(e) => {
-          e.stopPropagation();
-          setEditGuard(guard);
-        }}
-        title={getText("actions.edit", "Editar")}
-        aria-label={getText("actions.edit", "Editar")}
-      >
-        <Pencil className="h-4 w-4" />
-      </Button>
+        {/* Notas: ver (FileText) */}
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={(e) => {
+            e.stopPropagation();
+            setNotesGuard(guard);
+          }}
+          title={getText("guards.table.notesButton", "Notas")}
+          aria-label={getText("guards.table.notesAria", "Ver notas de {name}", { name: `${guard.firstName ?? ""}` })}
+        >
+          <FileText className="h-4 w-4" />
+        </Button>
 
-      {/* Delete */}
-      <Button
-        size="icon"
-        variant="ghost"
-        onClick={(e) => {
-          e.stopPropagation();
-          setDeleteGuard(guard);
-        }}
-        title={getText("actions.delete", "Eliminar")}
-        aria-label={getText("actions.delete", "Eliminar")}
-      >
-        <Trash className="h-4 w-4 text-red-500" />
-      </Button>
+        {/* Crear nota rápido (Plus) */}
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={(e) => {
+            e.stopPropagation();
+            setCreateNoteGuard(guard);
+          }}
+          title={getText("guards.table.addNoteButton", "Agregar nota")}
+          aria-label={getText("guards.table.addNoteAria", "Agregar nota para {name}", { name: `${guard.firstName ?? ""}` })}
+        >
+          <Plus className="h-4 w-4" />
+        </Button>
+
+        {/* Edit */}
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={(e) => {
+            e.stopPropagation();
+            setEditGuard(guard);
+          }}
+          title={getText("actions.edit", "Editar")}
+          aria-label={getText("actions.edit", "Editar")}
+        >
+          <Pencil className="h-4 w-4" />
+        </Button>
+
+        {/* Delete */}
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={(e) => {
+            e.stopPropagation();
+            setDeleteGuard(guard);
+          }}
+          title={getText("actions.delete", "Eliminar")}
+          aria-label={getText("actions.delete", "Eliminar")}
+        >
+          <Trash className="h-4 w-4 text-red-500" />
+        </Button>
       </div>
     )
   );
@@ -500,6 +561,43 @@ export default function GuardsTable({
           guardName={`${servicesGuard.firstName ?? ""} ${servicesGuard.lastName ?? ""}`.trim()}
           onClose={() => setServicesGuard(null)}
           onUpdated={onRefresh}
+        />
+      )}
+
+      {/* Guard Notes modal (ver / listar / crear desde ahí) */}
+      {notesGuard && (
+        <GuardNotesModal
+          guard={notesGuard}
+          open={!!notesGuard}
+          onClose={() => setNotesGuard(null)}
+          onUpdated={async () => {
+            if (onRefresh) {
+              const maybe = onRefresh();
+              if (maybe && typeof (maybe as any).then === "function") {
+                await maybe;
+              }
+            }
+            setNotesGuard(null);
+          }}
+        />
+      )}
+
+      {/* Create Note quick dialog (abre el formulario de crear nota con initialGuardId) */}
+      {createNoteGuard && (
+        <CreateNote
+          open={!!createNoteGuard}
+          onClose={() => setCreateNoteGuard(null)}
+          onCreated={async () => {
+            // después de crear la nota cerramos dialog y opcionalmente refrescamos la tabla si hace falta
+            if (onRefresh) {
+              const maybe = onRefresh();
+              if (maybe && typeof (maybe as any).then === "function") {
+                await maybe;
+              }
+            }
+            setCreateNoteGuard(null);
+          }}
+          initialGuardId={createNoteGuard.id}
         />
       )}
     </>

@@ -26,6 +26,9 @@ import type { Shift } from "@/components/Shifts/types";
 import type { Weapon } from "@/components/Weapons/types";
 import type { AppUser } from "@/lib/services/users";
 
+import { getGuard } from "@/lib/services/guard";
+import { getProperty } from "@/lib/services/properties"; // si no existe en tu proyecto, quita esta línea y el bloque que hace fetch; el fallback funcionará igual
+
 /* helper getTextFromObject */
 function getTextFromObject(obj: unknown, path: string, fallback = ""): string {
   const parts = path.split(".");
@@ -40,11 +43,10 @@ function getTextFromObject(obj: unknown, path: string, fallback = ""): string {
   return typeof cur === "string" ? cur : fallback;
 }
 
-/** Estado del formulario (tipado explícito) */
 type FormState = {
   name: string;
   description?: string;
-  amount?: string | number | null; // legacy single amount
+  amount?: string | number | null;
   clients: Array<number | null>;
   properties: Array<number | null>;
   guards: Array<number | null>;
@@ -55,7 +57,6 @@ type FormState = {
   amounts: Array<string | number | null>;
 };
 
-/** Keys que referencian arrays dentro del formulario (usadas por utilidades) */
 type ArrayKeys =
   | "clients"
   | "properties"
@@ -80,16 +81,19 @@ interface Props {
   open: boolean;
   onClose: () => void;
   onCreated?: () => void | Promise<void>;
+  /** Si se pasa, la nota nueva se inicializa con este guardia preseleccionado */
+  initialGuardId?: number | null;
+  /** Si se pasa, la nota nueva se inicializa con esta propiedad preseleccionada */
+  initialPropertyId?: number | null;
 }
 
-export default function CreateNote({ open, onClose, onCreated }: Props) {
+export default function CreateNote({ open, onClose, onCreated, initialGuardId = null, initialPropertyId = null }: Props) {
   const { TEXT } = useI18n();
 
   const [loading, setLoading] = useState<boolean>(false);
   const [generalError, setGeneralError] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // form payload (ids arrays & amounts array)
   const [form, setForm] = useState<FormState>({
     name: "",
     description: "",
@@ -104,7 +108,7 @@ export default function CreateNote({ open, onClose, onCreated }: Props) {
     amounts: [],
   });
 
-  // selected objects for UI (store the full object or null)
+  // selected objects for UI (store full objects for selects)
   const [selectedUsers, setSelectedUsers] = useState<Array<AppUser | null>>([]);
   const [selectedGuards, setSelectedGuards] = useState<Array<Guard | null>>([]);
   const [selectedProperties, setSelectedProperties] = useState<Array<AppProperty | null>>([]);
@@ -113,12 +117,72 @@ export default function CreateNote({ open, onClose, onCreated }: Props) {
   const [selectedWeapons, setSelectedWeapons] = useState<Array<Weapon | null>>([]);
   const [selectedPropertyTypes, setSelectedPropertyTypes] = useState<Array<AppPropertyType | null>>([]);
 
-  // central chooser for adding new field
   const [fieldToAdd, setFieldToAdd] = useState<FieldType | "">("");
 
+  // Prefill guard if initialGuardId is provided (fetch the guard to show in select)
+  useEffect(() => {
+    let mounted = true;
+    async function prefillGuard() {
+      if (!open) return;
+      if (initialGuardId == null) return;
+      try {
+        const g = await getGuard(Number(initialGuardId));
+        if (!mounted) return;
+        if (g) {
+          setSelectedGuards([g]);
+          setForm((prev) => ({ ...prev, guards: [g.id ?? Number(initialGuardId)] }));
+        } else {
+          // fallback: set id only so payload contains the guard id
+          setSelectedGuards([null]);
+          setForm((prev) => ({ ...prev, guards: [Number(initialGuardId)] }));
+        }
+      } catch (err) {
+        console.warn("Failed to prefill guard in CreateNote:", err);
+        // fallback: set id only
+        setSelectedGuards([null]);
+        setForm((prev) => ({ ...prev, guards: [Number(initialGuardId)] }));
+      }
+    }
+    prefillGuard();
+    return () => {
+      mounted = false;
+    };
+  }, [open, initialGuardId]);
+
+  // Prefill property if initialPropertyId is provided (fetch the property to show in select)
+  useEffect(() => {
+    let mounted = true;
+    async function prefillProperty() {
+      if (!open) return;
+      if (initialPropertyId == null) return;
+      try {
+        // try to fetch full property object to display in select
+        const p = await (typeof getProperty === "function" ? getProperty(Number(initialPropertyId)) : Promise.resolve(null));
+        if (!mounted) return;
+        if (p) {
+          setSelectedProperties([p]);
+          setForm((prev) => ({ ...prev, properties: [p.id ?? Number(initialPropertyId)] }));
+        } else {
+          // fallback: only set id so it will be included in payload
+          setSelectedProperties([null]);
+          setForm((prev) => ({ ...prev, properties: [Number(initialPropertyId)] }));
+        }
+      } catch (err) {
+        console.warn("Failed to prefill property in CreateNote:", err);
+        setSelectedProperties([null]);
+        setForm((prev) => ({ ...prev, properties: [Number(initialPropertyId)] }));
+      }
+    }
+    prefillProperty();
+    return () => {
+      mounted = false;
+    };
+  }, [open, initialPropertyId]);
+
+  // Reset form when modal closes (we keep initial* prefill on next open via useEffect above)
   useEffect(() => {
     if (!open) resetForm();
-     
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const resetForm = () => {
@@ -127,8 +191,8 @@ export default function CreateNote({ open, onClose, onCreated }: Props) {
       description: "",
       amount: "",
       clients: [],
-      properties: [],
-      guards: [],
+      properties: initialPropertyId ? [initialPropertyId] : [],
+      guards: initialGuardId ? [initialGuardId] : [],
       services: [],
       shifts: [],
       weapons: [],
@@ -137,8 +201,8 @@ export default function CreateNote({ open, onClose, onCreated }: Props) {
     });
 
     setSelectedUsers([]);
-    setSelectedGuards([]);
-    setSelectedProperties([]);
+    setSelectedGuards(initialGuardId ? [null] : []);
+    setSelectedProperties(initialPropertyId ? [null] : []);
     setSelectedServices([]);
     setSelectedShifts([]);
     setSelectedWeapons([]);
@@ -155,7 +219,6 @@ export default function CreateNote({ open, onClose, onCreated }: Props) {
     if (!form.name || !String(form.name).trim()) {
       newErrors.name = getTextFromObject(TEXT, "services.errors.nameRequired", "Name is required");
     }
-    // validate amounts entries
     if (Array.isArray(form.amounts)) {
       for (let i = 0; i < form.amounts.length; i++) {
         const a = form.amounts[i];
@@ -180,14 +243,13 @@ export default function CreateNote({ open, onClose, onCreated }: Props) {
     return true;
   };
 
-  // generic helpers to update arrays in form and selected arrays
+  // typed helpers
   const pushTo = <K extends ArrayKeys>(key: K, value: FormState[K] extends Array<infer U> ? U : never) => {
     setForm((prev) => {
       const current = (prev[key] ?? []) as unknown as Array<unknown>;
       return { ...(prev as object) as FormState, [key]: [...current, value] } as FormState;
     });
   };
-
   const removeAt = (key: ArrayKeys, idx: number) => {
     setForm((prev) => {
       const current = (prev[key] ?? []) as unknown as Array<unknown>;
@@ -196,7 +258,6 @@ export default function CreateNote({ open, onClose, onCreated }: Props) {
       return { ...(prev as object) as FormState, [key]: next } as FormState;
     });
   };
-
   const setAt = <K extends ArrayKeys>(key: K, idx: number, value: FormState[K] extends Array<infer U> ? U : never) => {
     setForm((prev) => {
       const current = (prev[key] ?? []) as unknown as Array<unknown>;
@@ -206,7 +267,6 @@ export default function CreateNote({ open, onClose, onCreated }: Props) {
     });
   };
 
-  // helpers to update selected object arrays in UI
   const pushSelected = <T,>(setter: React.Dispatch<React.SetStateAction<Array<T | null>>>, value: T | null) => {
     setter((prev) => [...prev, value]);
   };
@@ -225,7 +285,6 @@ export default function CreateNote({ open, onClose, onCreated }: Props) {
     });
   };
 
-  // add a field from central chooser
   const handleAddField = (type: FieldType) => {
     switch (type) {
       case "amount":
@@ -262,12 +321,10 @@ export default function CreateNote({ open, onClose, onCreated }: Props) {
       default:
         break;
     }
-    setFieldToAdd(""); // reset chooser
+    setFieldToAdd("");
   };
 
-  // compute total of amounts (numbers). non-numeric entries treated as 0.
   const computeAmountsTotal = (): number => {
-    // explícitamente tipamos el array y lo normalizamos a números primero
     const arr: Array<string | number | null> = Array.isArray(form.amounts) ? form.amounts : [];
     const nums: number[] = arr.map((v) => {
       const s = v === null || v === undefined ? "" : String(v).trim().replace(",", ".");
@@ -289,15 +346,13 @@ export default function CreateNote({ open, onClose, onCreated }: Props) {
         payload.description = form.description;
       }
 
-      // amounts: compute total and send as 'amount'
       if (Array.isArray(form.amounts) && form.amounts.length > 0) {
         const total = computeAmountsTotal();
         payload.amount = total;
       } else if (form.amount !== undefined && form.amount !== null && form.amount !== "") {
-        payload.amount = typeof form.amount === "number" ? form.amount : form.amount;
+        payload.amount = form.amount;
       }
 
-      // add arrays (send only non-empty arrays)
       if (Array.isArray(form.clients) && form.clients.filter((x) => x != null).length > 0) {
         payload.clients = form.clients.map((x) => (x == null ? null : Number(x))).filter((x) => x != null) as number[];
       }
@@ -330,7 +385,7 @@ export default function CreateNote({ open, onClose, onCreated }: Props) {
       resetForm();
       onClose();
     } catch (err) {
-       
+      // eslint-disable-next-line no-console
       console.error("Error creating note:", err);
       showErrorToast(getTextFromObject(TEXT, "actions.create", "Failed to create note"));
       setGeneralError(getTextFromObject(TEXT, "actions.create", "Failed to create note. Please try again."));
@@ -359,7 +414,7 @@ export default function CreateNote({ open, onClose, onCreated }: Props) {
             <Input
               id="note_name"
               value={form.name}
-              onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
+              onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
               placeholder={getTextFromObject(TEXT, "services.placeholders.name", "Note name")}
               className={errors.name ? "border-red-500" : ""}
             />
@@ -374,7 +429,7 @@ export default function CreateNote({ open, onClose, onCreated }: Props) {
             <Input
               id="note_description"
               value={form.description ?? ""}
-              onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
+              onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
               placeholder={getTextFromObject(TEXT, "services.placeholders.description", "Description (optional)")}
             />
           </div>
@@ -409,7 +464,7 @@ export default function CreateNote({ open, onClose, onCreated }: Props) {
           </div>
 
           <div className="max-h-72 overflow-auto ">
-            {/* AMOUNTS (if any) */}
+            {/* AMOUNTS */}
             {Array.isArray(form.amounts) && form.amounts.length > 0 && (
               <div>
                 <Label className="pb-2">{getTextFromObject(TEXT, "notes.create.fields.amounts", "Amounts")}</Label>
@@ -454,7 +509,7 @@ export default function CreateNote({ open, onClose, onCreated }: Props) {
               </div>
             )}
 
-            {/* CLIENTS / USERS (if any) */}
+            {/* CLIENTS / USERS */}
             {selectedUsers.length > 0 && (
               <div>
                 <Label className="pb-2">{getTextFromObject(TEXT, "notes.create.fields.clients", "Clients")}</Label>
@@ -500,7 +555,7 @@ export default function CreateNote({ open, onClose, onCreated }: Props) {
               </div>
             )}
 
-            {/* GUARDS (if any) */}
+            {/* GUARDS */}
             {selectedGuards.length > 0 && (
               <div>
                 <Label className="pb-2">{getTextFromObject(TEXT, "notes.create.fields.guards", "Guards")}</Label>
@@ -546,7 +601,7 @@ export default function CreateNote({ open, onClose, onCreated }: Props) {
               </div>
             )}
 
-            {/* PROPERTIES (if any) */}
+            {/* PROPERTIES */}
             {selectedProperties.length > 0 && (
               <div>
                 <Label className="pb-2">{getTextFromObject(TEXT, "notes.create.fields.properties", "Properties")}</Label>
@@ -592,7 +647,7 @@ export default function CreateNote({ open, onClose, onCreated }: Props) {
               </div>
             )}
 
-            {/* SERVICES (if any) */}
+            {/* SERVICES */}
             {selectedServices.length > 0 && (
               <div>
                 <Label className="pb-2">{getTextFromObject(TEXT, "notes.create.fields.services", "Services")}</Label>
@@ -638,7 +693,7 @@ export default function CreateNote({ open, onClose, onCreated }: Props) {
               </div>
             )}
 
-            {/* SHIFTS (if any) */}
+            {/* SHIFTS */}
             {selectedShifts.length > 0 && (
               <div>
                 <Label className="pb-2">{getTextFromObject(TEXT, "notes.create.fields.shifts", "Shifts")}</Label>
@@ -684,7 +739,7 @@ export default function CreateNote({ open, onClose, onCreated }: Props) {
               </div>
             )}
 
-            {/* WEAPONS (if any) */}
+            {/* WEAPONS */}
             {selectedWeapons.length > 0 && (
               <div>
                 <Label className="pb-2">{getTextFromObject(TEXT, "notes.create.fields.weapons", "Weapons")}</Label>
@@ -730,7 +785,7 @@ export default function CreateNote({ open, onClose, onCreated }: Props) {
               </div>
             )}
 
-            {/* PROPERTY TYPE OF SERVICE (if any) */}
+            {/* PROPERTY TYPE OF SERVICE */}
             {selectedPropertyTypes.length > 0 && (
               <div>
                 <Label className="pb-2">{getTextFromObject(TEXT, "notes.create.fields.type_of_services", "Type of Service")}</Label>
