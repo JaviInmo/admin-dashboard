@@ -1,6 +1,7 @@
+// src/components/Users/UsersTable.tsx
 "use client";
 
-import { Pencil, Trash, Eye, Check, X } from "lucide-react";
+import { Pencil, Trash, Eye, Check, X, FileText, Plus } from "lucide-react";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { ReusableTable, type Column } from "@/components/ui/reusable-table";
@@ -11,6 +12,10 @@ import DeleteUserDialog from "./Delete/Delete";
 import ShowUserDialog from "./Show/Show";
 import { useI18n } from "@/i18n";
 import type { SortOrder } from "@/lib/sort";
+
+/* Notas: modal y create */
+import UsersNotesModal from "./UsersNotesModal";
+import CreateNote from "@/components/Notes/Create/CreateNote";
 
 export interface UsersTableProps {
   users: (User & { permissions?: Permissions })[];
@@ -67,6 +72,10 @@ export default function UsersTable({
   const [editUser, setEditUser] = React.useState<(User & { permissions?: Permissions }) | null>(null);
   const [deleteUser, setDeleteUser] = React.useState<User | null>(null);
   const [showUser, setShowUser] = React.useState<(User & { permissions?: Permissions }) | null>(null);
+
+  // Notes: state para ver y crear nota desde user
+  const [notesUser, setNotesUser] = React.useState<User | null>(null);
+  const [createNoteUser, setCreateNoteUser] = React.useState<User | null>(null);
 
   // Normalizar datos de usuarios
   const normalizedUsers = users.map((u) => ({
@@ -157,13 +166,13 @@ export default function UsersTable({
   // Campos de búsqueda
   const searchFields: (keyof (User & { permissions?: Permissions }))[] = [
     "username",
-    "firstName", 
+    "firstName",
     "lastName",
     "email",
     "name" as keyof (User & { permissions?: Permissions }),
   ];
 
-  // Acciones de fila
+  // Acciones de fila (ahora con botones para Notas: ver y crear)
   const renderActions = (user: User & { permissions?: Permissions }) => (
     <>
       <Button
@@ -178,6 +187,35 @@ export default function UsersTable({
       >
         <Eye className="h-4 w-4 text-blue-500" />
       </Button>
+
+      {/* Ver notas */}
+      <Button
+        size="icon"
+        variant="ghost"
+        onClick={(e) => {
+          e.stopPropagation();
+          setNotesUser(user);
+        }}
+        title="Notas"
+        aria-label="Notas"
+      >
+        <FileText className="h-4 w-4" />
+      </Button>
+
+      {/* Crear nota (rápido) */}
+      <Button
+        size="icon"
+        variant="ghost"
+        onClick={(e) => {
+          e.stopPropagation();
+          setCreateNoteUser(user);
+        }}
+        title="Agregar nota"
+        aria-label="Agregar nota"
+      >
+        <Plus className="h-4 w-4" />
+      </Button>
+
       <Button
         size="icon"
         variant="ghost"
@@ -236,6 +274,34 @@ export default function UsersTable({
       {editUser && <EditUserDialog user={editUser} open={!!editUser} onClose={() => setEditUser(null)} onUpdated={onRefresh} />}
       {deleteUser && <DeleteUserDialog user={deleteUser} onClose={() => setDeleteUser(null)} onDeleted={onRefresh} />}
       {showUser && <ShowUserDialog user={showUser} open={!!showUser} onClose={() => setShowUser(null)} />}
+
+      {/* Users Notes modal (ver / listar / crear desde ahí) */}
+      {notesUser && (
+        <UsersNotesModal
+          user={notesUser}
+          open={!!notesUser}
+          onClose={() => setNotesUser(null)}
+          onUpdated={onRefresh}
+        />
+      )}
+
+      {/* Create Note quick dialog (abre el formulario de crear nota con initialUserId) */}
+      {createNoteUser && (
+        <CreateNote
+          open={!!createNoteUser}
+          onClose={() => setCreateNoteUser(null)}
+          onCreated={async () => {
+            if (onRefresh) {
+              const maybe = onRefresh();
+              if (maybe && typeof (maybe as unknown as Promise<unknown>)?.then === "function") {
+                await maybe;
+              }
+            }
+            setCreateNoteUser(null);
+          }}
+          initialUserId={createNoteUser.id}
+        />
+      )}
     </>
   );
 }

@@ -55,9 +55,10 @@ export interface NotesTableProps {
 
   isPageLoading?: boolean;
 
-  // Support prefill when opening CreateNote from Guards or Properties
+  // Support prefill when opening CreateNote from Guards/Properties/Users
   initialGuardId?: number | null;
   initialPropertyId?: number | null;
+  initialUserId?: number | null;
 }
 
 export default function NotesTable({
@@ -76,6 +77,7 @@ export default function NotesTable({
   isPageLoading = false,
   initialGuardId = undefined,
   initialPropertyId = undefined,
+  initialUserId = undefined,
 }: NotesTableProps) {
   const { TEXT } = useI18n();
 
@@ -317,10 +319,10 @@ export default function NotesTable({
         open={createOpen}
         onClose={() => setCreateOpen(false)}
         onCreated={onRefresh}
-        // pasamos ambas opciones de inicialización; CreateNoteDialog/CreateNote
-        // deberá aceptar initialGuardId y/o initialPropertyId según tu implementación.
+        // pasamos las 3 opciones posibles (si vienen, CreateNote se encargará de usar la que tenga prioridad)
         initialGuardId={initialGuardId ?? undefined}
         initialPropertyId={initialPropertyId ?? undefined}
+        initialUserId={initialUserId ?? undefined}
       />
 
       {editNote && (

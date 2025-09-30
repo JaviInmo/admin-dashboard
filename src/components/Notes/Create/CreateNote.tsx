@@ -27,7 +27,8 @@ import type { Weapon } from "@/components/Weapons/types";
 import type { AppUser } from "@/lib/services/users";
 
 import { getGuard } from "@/lib/services/guard";
-import { getProperty } from "@/lib/services/properties"; // si no existe en tu proyecto, quita esta línea y el bloque que hace fetch; el fallback funcionará igual
+import { getProperty } from "@/lib/services/properties";
+import { getUser } from "@/lib/services/users";
 
 /* helper getTextFromObject */
 function getTextFromObject(obj: unknown, path: string, fallback = ""): string {
@@ -85,9 +86,11 @@ interface Props {
   initialGuardId?: number | null;
   /** Si se pasa, la nota nueva se inicializa con esta propiedad preseleccionada */
   initialPropertyId?: number | null;
+  /** Si se pasa, la nota nueva se inicializa con este usuario/cliente preseleccionado */
+  initialUserId?: number | null;
 }
 
-export default function CreateNote({ open, onClose, onCreated, initialGuardId = null, initialPropertyId = null }: Props) {
+export default function CreateNote({ open, onClose, onCreated, initialGuardId, initialPropertyId, initialUserId }: Props) {
   const { TEXT } = useI18n();
 
   const [loading, setLoading] = useState<boolean>(false);
@@ -119,67 +122,45 @@ export default function CreateNote({ open, onClose, onCreated, initialGuardId = 
 
   const [fieldToAdd, setFieldToAdd] = useState<FieldType | "">("");
 
-  // Prefill guard if initialGuardId is provided (fetch the guard to show in select)
+  // If an initial id is passed, when the modal opens we fetch and prefill
   useEffect(() => {
     let mounted = true;
-    async function prefillGuard() {
+    async function prefill() {
       if (!open) return;
-      if (initialGuardId == null) return;
       try {
-        const g = await getGuard(Number(initialGuardId));
-        if (!mounted) return;
-        if (g) {
-          setSelectedGuards([g]);
-          setForm((prev) => ({ ...prev, guards: [g.id ?? Number(initialGuardId)] }));
-        } else {
-          // fallback: set id only so payload contains the guard id
-          setSelectedGuards([null]);
-          setForm((prev) => ({ ...prev, guards: [Number(initialGuardId)] }));
+        // Priority: initialPropertyId -> initialGuardId -> initialUserId
+        if (initialPropertyId != null) {
+          const p = await getProperty(Number(initialPropertyId));
+          if (!mounted) return;
+          setSelectedProperties([p ?? null]);
+          setForm((prev) => ({ ...prev, properties: [p?.id ?? null] }));
+          return;
+        }
+        if (initialGuardId != null) {
+          const g = await getGuard(Number(initialGuardId));
+          if (!mounted) return;
+          setSelectedGuards([g ?? null]);
+          setForm((prev) => ({ ...prev, guards: [g?.id ?? null] }));
+          return;
+        }
+        if (initialUserId != null) {
+          const u = await getUser(Number(initialUserId));
+          if (!mounted) return;
+          setSelectedUsers([u ?? null]);
+          setForm((prev) => ({ ...prev, clients: [u?.id ?? null] }));
+          return;
         }
       } catch (err) {
-        console.warn("Failed to prefill guard in CreateNote:", err);
-        // fallback: set id only
-        setSelectedGuards([null]);
-        setForm((prev) => ({ ...prev, guards: [Number(initialGuardId)] }));
+        // eslint-disable-next-line no-console
+        console.warn("Failed to prefill CreateNote:", err);
       }
     }
-    prefillGuard();
+    prefill();
     return () => {
       mounted = false;
     };
-  }, [open, initialGuardId]);
+  }, [open, initialGuardId, initialPropertyId, initialUserId]);
 
-  // Prefill property if initialPropertyId is provided (fetch the property to show in select)
-  useEffect(() => {
-    let mounted = true;
-    async function prefillProperty() {
-      if (!open) return;
-      if (initialPropertyId == null) return;
-      try {
-        // try to fetch full property object to display in select
-        const p = await (typeof getProperty === "function" ? getProperty(Number(initialPropertyId)) : Promise.resolve(null));
-        if (!mounted) return;
-        if (p) {
-          setSelectedProperties([p]);
-          setForm((prev) => ({ ...prev, properties: [p.id ?? Number(initialPropertyId)] }));
-        } else {
-          // fallback: only set id so it will be included in payload
-          setSelectedProperties([null]);
-          setForm((prev) => ({ ...prev, properties: [Number(initialPropertyId)] }));
-        }
-      } catch (err) {
-        console.warn("Failed to prefill property in CreateNote:", err);
-        setSelectedProperties([null]);
-        setForm((prev) => ({ ...prev, properties: [Number(initialPropertyId)] }));
-      }
-    }
-    prefillProperty();
-    return () => {
-      mounted = false;
-    };
-  }, [open, initialPropertyId]);
-
-  // Reset form when modal closes (we keep initial* prefill on next open via useEffect above)
   useEffect(() => {
     if (!open) resetForm();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -190,7 +171,7 @@ export default function CreateNote({ open, onClose, onCreated, initialGuardId = 
       name: "",
       description: "",
       amount: "",
-      clients: [],
+      clients: initialUserId ? [initialUserId] : [],
       properties: initialPropertyId ? [initialPropertyId] : [],
       guards: initialGuardId ? [initialGuardId] : [],
       services: [],
@@ -200,7 +181,7 @@ export default function CreateNote({ open, onClose, onCreated, initialGuardId = 
       amounts: [],
     });
 
-    setSelectedUsers([]);
+    setSelectedUsers(initialUserId ? [null] : []);
     setSelectedGuards(initialGuardId ? [null] : []);
     setSelectedProperties(initialPropertyId ? [null] : []);
     setSelectedServices([]);
