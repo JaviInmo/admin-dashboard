@@ -20,11 +20,10 @@ import UserSelect from "../Selects/UserSelect";
 
 import type { CreateNotePayload } from "../type";
 import type { Guard } from "@/components/Guards/types";
-import type { AppProperty } from "@/lib/services/properties";
+import type { AppProperty, AppPropertyType } from "@/lib/services/properties";
 import type { Service } from "@/components/Services/types";
 import type { Shift } from "@/components/Shifts/types";
 import type { Weapon } from "@/components/Weapons/types";
-import type { AppPropertyType } from "@/lib/services/properties";
 import type { AppUser } from "@/lib/services/users";
 
 /* helper getTextFromObject */
@@ -40,6 +39,32 @@ function getTextFromObject(obj: unknown, path: string, fallback = ""): string {
   }
   return typeof cur === "string" ? cur : fallback;
 }
+
+/** Estado del formulario (tipado explícito) */
+type FormState = {
+  name: string;
+  description?: string;
+  amount?: string | number | null; // legacy single amount
+  clients: Array<number | null>;
+  properties: Array<number | null>;
+  guards: Array<number | null>;
+  services: Array<number | null>;
+  shifts: Array<number | null>;
+  weapons: Array<number | null>;
+  type_of_services: Array<number | null>;
+  amounts: Array<string | number | null>;
+};
+
+/** Keys que referencian arrays dentro del formulario (usadas por utilidades) */
+type ArrayKeys =
+  | "clients"
+  | "properties"
+  | "guards"
+  | "services"
+  | "shifts"
+  | "weapons"
+  | "type_of_services"
+  | "amounts";
 
 type FieldType =
   | "amount"
@@ -60,15 +85,15 @@ interface Props {
 export default function CreateNote({ open, onClose, onCreated }: Props) {
   const { TEXT } = useI18n();
 
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState<boolean>(false);
   const [generalError, setGeneralError] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // form payload (ids arrays & amounts array)
-  const [form, setForm] = useState<CreateNotePayload & { amounts?: (string | number | null)[] }>({
+  const [form, setForm] = useState<FormState>({
     name: "",
     description: "",
-    amount: "", // legacy
+    amount: "",
     clients: [],
     properties: [],
     guards: [],
@@ -77,23 +102,23 @@ export default function CreateNote({ open, onClose, onCreated }: Props) {
     weapons: [],
     type_of_services: [],
     amounts: [],
-  } as any);
+  });
 
   // selected objects for UI (store the full object or null)
-  const [selectedUsers, setSelectedUsers] = useState<(AppUser | null)[]>([]);
-  const [selectedGuards, setSelectedGuards] = useState<(Guard | null)[]>([]);
-  const [selectedProperties, setSelectedProperties] = useState<(AppProperty | null)[]>([]);
-  const [selectedServices, setSelectedServices] = useState<(Service | null)[]>([]);
-  const [selectedShifts, setSelectedShifts] = useState<(Shift | null)[]>([]);
-  const [selectedWeapons, setSelectedWeapons] = useState<(Weapon | null)[]>([]);
-  const [selectedPropertyTypes, setSelectedPropertyTypes] = useState<(AppPropertyType | null)[]>([]);
+  const [selectedUsers, setSelectedUsers] = useState<Array<AppUser | null>>([]);
+  const [selectedGuards, setSelectedGuards] = useState<Array<Guard | null>>([]);
+  const [selectedProperties, setSelectedProperties] = useState<Array<AppProperty | null>>([]);
+  const [selectedServices, setSelectedServices] = useState<Array<Service | null>>([]);
+  const [selectedShifts, setSelectedShifts] = useState<Array<Shift | null>>([]);
+  const [selectedWeapons, setSelectedWeapons] = useState<Array<Weapon | null>>([]);
+  const [selectedPropertyTypes, setSelectedPropertyTypes] = useState<Array<AppPropertyType | null>>([]);
 
   // central chooser for adding new field
   const [fieldToAdd, setFieldToAdd] = useState<FieldType | "">("");
 
   useEffect(() => {
     if (!open) resetForm();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [open]);
 
   const resetForm = () => {
@@ -109,7 +134,7 @@ export default function CreateNote({ open, onClose, onCreated }: Props) {
       weapons: [],
       type_of_services: [],
       amounts: [],
-    } as any);
+    });
 
     setSelectedUsers([]);
     setSelectedGuards([]);
@@ -156,44 +181,45 @@ export default function CreateNote({ open, onClose, onCreated }: Props) {
   };
 
   // generic helpers to update arrays in form and selected arrays
-  const pushTo = (key: keyof CreateNotePayload | "amounts", value: any) => {
-    setForm((prev: any) => {
-      const copy = { ...(prev || {}) };
-      copy[key] = Array.isArray(copy[key]) ? [...copy[key], value] : [value];
-      return copy;
+  const pushTo = <K extends ArrayKeys>(key: K, value: FormState[K] extends Array<infer U> ? U : never) => {
+    setForm((prev) => {
+      const current = (prev[key] ?? []) as unknown as Array<unknown>;
+      return { ...(prev as object) as FormState, [key]: [...current, value] } as FormState;
     });
   };
-  const removeAt = (key: keyof CreateNotePayload | "amounts", idx: number) => {
-    setForm((prev: any) => {
-      const copy = { ...(prev || {}) };
-      copy[key] = Array.isArray(copy[key]) ? [...copy[key]] : [];
-      copy[key].splice(idx, 1);
-      return copy;
+
+  const removeAt = (key: ArrayKeys, idx: number) => {
+    setForm((prev) => {
+      const current = (prev[key] ?? []) as unknown as Array<unknown>;
+      const next = current.slice();
+      next.splice(idx, 1);
+      return { ...(prev as object) as FormState, [key]: next } as FormState;
     });
   };
-  const setAt = (key: keyof CreateNotePayload | "amounts", idx: number, value: any) => {
-    setForm((prev: any) => {
-      const copy = { ...(prev || {}) };
-      copy[key] = Array.isArray(copy[key]) ? [...copy[key]] : [];
-      copy[key][idx] = value;
-      return copy;
+
+  const setAt = <K extends ArrayKeys>(key: K, idx: number, value: FormState[K] extends Array<infer U> ? U : never) => {
+    setForm((prev) => {
+      const current = (prev[key] ?? []) as unknown as Array<unknown>;
+      const next = current.slice();
+      next[idx] = value;
+      return { ...(prev as object) as FormState, [key]: next } as FormState;
     });
   };
 
   // helpers to update selected object arrays in UI
-  const pushSelected = (setter: React.Dispatch<React.SetStateAction<any[]>>, value: any) => {
+  const pushSelected = <T,>(setter: React.Dispatch<React.SetStateAction<Array<T | null>>>, value: T | null) => {
     setter((prev) => [...prev, value]);
   };
-  const removeSelectedAt = (setter: React.Dispatch<React.SetStateAction<any[]>>, idx: number) => {
+  const removeSelectedAt = <T,>(setter: React.Dispatch<React.SetStateAction<Array<T | null>>>, idx: number) => {
     setter((prev) => {
-      const copy = [...prev];
+      const copy = prev.slice();
       copy.splice(idx, 1);
       return copy;
     });
   };
-  const setSelectedAt = (setter: React.Dispatch<React.SetStateAction<any[]>>, idx: number, value: any) => {
+  const setSelectedAt = <T,>(setter: React.Dispatch<React.SetStateAction<Array<T | null>>>, idx: number, value: T | null) => {
     setter((prev) => {
-      const copy = [...prev];
+      const copy = prev.slice();
       copy[idx] = value;
       return copy;
     });
@@ -241,19 +267,21 @@ export default function CreateNote({ open, onClose, onCreated }: Props) {
 
   // compute total of amounts (numbers). non-numeric entries treated as 0.
   const computeAmountsTotal = (): number => {
-    const arr = Array.isArray(form.amounts) ? form.amounts : [];
-    return arr.reduce((acc, v) => {
+    // explícitamente tipamos el array y lo normalizamos a números primero
+    const arr: Array<string | number | null> = Array.isArray(form.amounts) ? form.amounts : [];
+    const nums: number[] = arr.map((v) => {
       const s = v === null || v === undefined ? "" : String(v).trim().replace(",", ".");
       const n = Number(s);
-      return acc + (Number.isFinite(n) ? n : 0);
-    }, 0);
+      return Number.isFinite(n) ? n : 0;
+    });
+    return nums.reduce((a, b) => a + b, 0);
   };
 
   const handleSubmit = async () => {
     if (!validate()) return;
     setLoading(true);
     try {
-      const payload: any = {
+      const payload: Partial<CreateNotePayload> = {
         name: form.name,
       };
 
@@ -264,37 +292,32 @@ export default function CreateNote({ open, onClose, onCreated }: Props) {
       // amounts: compute total and send as 'amount'
       if (Array.isArray(form.amounts) && form.amounts.length > 0) {
         const total = computeAmountsTotal();
-        // if total is an integer, keep as number; otherwise keep decimals
         payload.amount = total;
       } else if (form.amount !== undefined && form.amount !== null && form.amount !== "") {
-        // legacy single amount still supported
-        payload.amount = typeof form.amount === "number" ? String(form.amount) : form.amount;
+        payload.amount = typeof form.amount === "number" ? form.amount : form.amount;
       }
 
       // add arrays (send only non-empty arrays)
       if (Array.isArray(form.clients) && form.clients.filter((x) => x != null).length > 0) {
-        // ensure numbers
-        payload.clients = form.clients.map((x: any) => (x == null ? null : Number(x))).filter((x: any) => x != null);
+        payload.clients = form.clients.map((x) => (x == null ? null : Number(x))).filter((x) => x != null) as number[];
       }
       if (Array.isArray(form.properties) && form.properties.filter((x) => x != null).length > 0) {
-        payload.properties = form.properties.map((x: any) => (x == null ? null : Number(x))).filter((x: any) => x != null);
+        payload.properties = form.properties.map((x) => (x == null ? null : Number(x))).filter((x) => x != null) as number[];
       }
       if (Array.isArray(form.guards) && form.guards.filter((x) => x != null).length > 0) {
-        payload.guards = form.guards.map((x: any) => (x == null ? null : Number(x))).filter((x: any) => x != null);
+        payload.guards = form.guards.map((x) => (x == null ? null : Number(x))).filter((x) => x != null) as number[];
       }
       if (Array.isArray(form.services) && form.services.filter((x) => x != null).length > 0) {
-        payload.services = form.services.map((x: any) => (x == null ? null : Number(x))).filter((x: any) => x != null);
+        payload.services = form.services.map((x) => (x == null ? null : Number(x))).filter((x) => x != null) as number[];
       }
       if (Array.isArray(form.shifts) && form.shifts.filter((x) => x != null).length > 0) {
-        payload.shifts = form.shifts.map((x: any) => (x == null ? null : Number(x))).filter((x: any) => x != null);
+        payload.shifts = form.shifts.map((x) => (x == null ? null : Number(x))).filter((x) => x != null) as number[];
       }
       if (Array.isArray(form.weapons) && form.weapons.filter((x) => x != null).length > 0) {
-        payload.weapons = form.weapons.map((x: any) => (x == null ? null : Number(x))).filter((x: any) => x != null);
+        payload.weapons = form.weapons.map((x) => (x == null ? null : Number(x))).filter((x) => x != null) as number[];
       }
       if (Array.isArray(form.type_of_services) && form.type_of_services.filter((x) => x != null).length > 0) {
-        payload.type_of_services = form.type_of_services
-          .map((x: any) => (x == null ? null : Number(x)))
-          .filter((x: any) => x != null);
+        payload.type_of_services = form.type_of_services.map((x) => (x == null ? null : Number(x))).filter((x) => x != null) as number[];
       }
 
       await createNote(payload as CreateNotePayload);
@@ -307,7 +330,7 @@ export default function CreateNote({ open, onClose, onCreated }: Props) {
       resetForm();
       onClose();
     } catch (err) {
-      // eslint-disable-next-line no-console
+       
       console.error("Error creating note:", err);
       showErrorToast(getTextFromObject(TEXT, "actions.create", "Failed to create note"));
       setGeneralError(getTextFromObject(TEXT, "actions.create", "Failed to create note. Please try again."));
@@ -336,7 +359,7 @@ export default function CreateNote({ open, onClose, onCreated }: Props) {
             <Input
               id="note_name"
               value={form.name}
-              onChange={(e) => setForm((p: any) => ({ ...p, name: e.target.value }))}
+              onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
               placeholder={getTextFromObject(TEXT, "services.placeholders.name", "Note name")}
               className={errors.name ? "border-red-500" : ""}
             />
@@ -351,7 +374,7 @@ export default function CreateNote({ open, onClose, onCreated }: Props) {
             <Input
               id="note_description"
               value={form.description ?? ""}
-              onChange={(e) => setForm((p: any) => ({ ...p, description: e.target.value }))}
+              onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
               placeholder={getTextFromObject(TEXT, "services.placeholders.description", "Description (optional)")}
             />
           </div>
@@ -383,383 +406,381 @@ export default function CreateNote({ open, onClose, onCreated }: Props) {
             >
               Add
             </Button>
-           
           </div>
-          <div className="max-h-72 overflow-auto ">
 
-          {/* AMOUNTS (if any) */}
-          {Array.isArray(form.amounts) && form.amounts.length > 0 && (
-            <div>
-              <Label className="pb-2">{getTextFromObject(TEXT, "notes.create.fields.amounts", "Amounts")}</Label>
-              <div className="space-y-2">
-                {form.amounts.map((val: any, idx: number) => (
-                  <div key={`amt-${idx}`} className="flex items-center gap-2">
-                    <Input
-                      value={val ?? ""}
-                      onChange={(e) => setAt("amounts", idx, e.target.value)}
-                      placeholder={getTextFromObject(TEXT, "notes.create.amountPlaceholder", "e.g. 100.50 or -15")}
-                      inputMode="decimal"
-                      className={errors[`amounts.${idx}`] ? "border-red-500" : ""}
-                    />
-                    <div className="flex gap-1">
-                      <button
-                        type="button"
-                        className="px-2 py-1 border rounded"
-                        onClick={() => removeAt("amounts", idx)}
-                      >
-                        −
-                      </button>
-                      <button
-                        type="button"
-                        className="px-2 py-1 border rounded"
-                        onClick={() => pushTo("amounts", "")}
-                      >
-                        +
-                      </button>
+          <div className="max-h-72 overflow-auto ">
+            {/* AMOUNTS (if any) */}
+            {Array.isArray(form.amounts) && form.amounts.length > 0 && (
+              <div>
+                <Label className="pb-2">{getTextFromObject(TEXT, "notes.create.fields.amounts", "Amounts")}</Label>
+                <div className="space-y-2">
+                  {form.amounts.map((val, idx) => (
+                    <div key={`amt-${idx}`} className="flex items-center gap-2">
+                      <Input
+                        value={val ?? ""}
+                        onChange={(e) => setAt("amounts", idx, e.target.value)}
+                        placeholder={getTextFromObject(TEXT, "notes.create.amountPlaceholder", "e.g. 100.50 or -15")}
+                        inputMode="decimal"
+                        className={errors[`amounts.${idx}`] ? "border-red-500" : ""}
+                      />
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          className="px-2 py-1 border rounded"
+                          onClick={() => removeAt("amounts", idx)}
+                        >
+                          −
+                        </button>
+                        <button
+                          type="button"
+                          className="px-2 py-1 border rounded"
+                          onClick={() => pushTo("amounts", "")}
+                        >
+                          +
+                        </button>
+                      </div>
+                      {errors[`amounts.${idx}`] && (
+                        <p className="text-sm text-red-600 mt-1">{errors[`amounts.${idx}`]}</p>
+                      )}
                     </div>
-                    {errors[`amounts.${idx}`] && (
-                      <p className="text-sm text-red-600 mt-1">{errors[`amounts.${idx}`]}</p>
-                    )}
+                  ))}
+                  <div className="pt-1">
+                    <div className="text-sm">
+                      <strong>{getTextFromObject(TEXT, "notes.create.totalLabel", "Total")}: </strong>
+                      <span>{computeAmountsTotal()}</span>
+                    </div>
                   </div>
-                ))}
-                <div className="pt-1">
-                  <div className="text-sm">
-                    <strong>{getTextFromObject(TEXT, "notes.create.totalLabel", "Total")}: </strong>
-                    <span>{computeAmountsTotal()}</span>
-                  </div>
-                 
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* CLIENTS / USERS (if any) */}
-          {selectedUsers.length > 0 && (
-            <div>
-              <Label className="pb-2">{getTextFromObject(TEXT, "notes.create.fields.clients", "Clients")}</Label>
-              <div className="space-y-2">
-                {selectedUsers.map((sel, idx) => (
-                  <div key={`client-${idx}`} className="flex items-center gap-2">
-                    <div className="flex-1">
-                      <UserSelect
-                        id={`note_user_${idx}`}
-                        value={sel ?? null}
-                        onChange={(u) => {
-                          setSelectedAt(setSelectedUsers, idx, u);
-                          setAt("clients", idx, u ? Number((u as any).id) : null);
-                        }}
-                        placeholder="Buscar usuario..."
-                      />
+            {/* CLIENTS / USERS (if any) */}
+            {selectedUsers.length > 0 && (
+              <div>
+                <Label className="pb-2">{getTextFromObject(TEXT, "notes.create.fields.clients", "Clients")}</Label>
+                <div className="space-y-2">
+                  {selectedUsers.map((sel, idx) => (
+                    <div key={`client-${idx}`} className="flex items-center gap-2">
+                      <div className="flex-1">
+                        <UserSelect
+                          id={`note_user_${idx}`}
+                          value={sel}
+                          onChange={(u) => {
+                            setSelectedAt(setSelectedUsers, idx, u ?? null);
+                            setAt("clients", idx, u?.id ?? null);
+                          }}
+                          placeholder="Buscar usuario..."
+                        />
+                      </div>
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          className="px-2 py-1 border rounded"
+                          onClick={() => {
+                            removeSelectedAt(setSelectedUsers, idx);
+                            removeAt("clients", idx);
+                          }}
+                        >
+                          −
+                        </button>
+                        <button
+                          type="button"
+                          className="px-2 py-1 border rounded"
+                          onClick={() => {
+                            pushSelected(setSelectedUsers, null);
+                            pushTo("clients", null);
+                          }}
+                        >
+                          +
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex gap-1">
-                      <button
-                        type="button"
-                        className="px-2 py-1 border rounded"
-                        onClick={() => {
-                          removeSelectedAt(setSelectedUsers, idx);
-                          removeAt("clients", idx);
-                        }}
-                      >
-                        −
-                      </button>
-                      <button
-                        type="button"
-                        className="px-2 py-1 border rounded"
-                        onClick={() => {
-                          pushSelected(setSelectedUsers, null);
-                          pushTo("clients", null);
-                        }}
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* GUARDS (if any) */}
-          {selectedGuards.length > 0 && (
-            <div>
-              <Label className="pb-2">{getTextFromObject(TEXT, "notes.create.fields.guards", "Guards")}</Label>
-              <div className="space-y-2">
-                {selectedGuards.map((sel, idx) => (
-                  <div key={`guard-${idx}`} className="flex items-center gap-2">
-                    <div className="flex-1">
-                      <GuardSelect
-                        id={`note_guard_${idx}`}
-                        value={sel ?? null}
-                        onChange={(g) => {
-                          setSelectedAt(setSelectedGuards, idx, g);
-                          setAt("guards", idx, g ? Number((g as any).id) : null);
-                        }}
-                        placeholder="Buscar guard..."
-                      />
+            {/* GUARDS (if any) */}
+            {selectedGuards.length > 0 && (
+              <div>
+                <Label className="pb-2">{getTextFromObject(TEXT, "notes.create.fields.guards", "Guards")}</Label>
+                <div className="space-y-2">
+                  {selectedGuards.map((sel, idx) => (
+                    <div key={`guard-${idx}`} className="flex items-center gap-2">
+                      <div className="flex-1">
+                        <GuardSelect
+                          id={`note_guard_${idx}`}
+                          value={sel}
+                          onChange={(g) => {
+                            setSelectedAt(setSelectedGuards, idx, g ?? null);
+                            setAt("guards", idx, g?.id ?? null);
+                          }}
+                          placeholder="Buscar guard..."
+                        />
+                      </div>
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          className="px-2 py-1 border rounded"
+                          onClick={() => {
+                            removeSelectedAt(setSelectedGuards, idx);
+                            removeAt("guards", idx);
+                          }}
+                        >
+                          −
+                        </button>
+                        <button
+                          type="button"
+                          className="px-2 py-1 border rounded"
+                          onClick={() => {
+                            pushSelected(setSelectedGuards, null);
+                            pushTo("guards", null);
+                          }}
+                        >
+                          +
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex gap-1">
-                      <button
-                        type="button"
-                        className="px-2 py-1 border rounded"
-                        onClick={() => {
-                          removeSelectedAt(setSelectedGuards, idx);
-                          removeAt("guards", idx);
-                        }}
-                      >
-                        −
-                      </button>
-                      <button
-                        type="button"
-                        className="px-2 py-1 border rounded"
-                        onClick={() => {
-                          pushSelected(setSelectedGuards, null);
-                          pushTo("guards", null);
-                        }}
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* PROPERTIES (if any) */}
-          {selectedProperties.length > 0 && (
-            <div>
-              <Label className="pb-2">{getTextFromObject(TEXT, "notes.create.fields.properties", "Properties")}</Label>
-              <div className="space-y-2">
-                {selectedProperties.map((sel, idx) => (
-                  <div key={`prop-${idx}`} className="flex items-center gap-2">
-                    <div className="flex-1">
-                      <PropertySelect
-                        id={`note_property_${idx}`}
-                        value={sel ?? null}
-                        onChange={(p) => {
-                          setSelectedAt(setSelectedProperties, idx, p);
-                          setAt("properties", idx, p ? Number((p as any).id) : null);
-                        }}
-                        placeholder="Buscar propiedad..."
-                      />
+            {/* PROPERTIES (if any) */}
+            {selectedProperties.length > 0 && (
+              <div>
+                <Label className="pb-2">{getTextFromObject(TEXT, "notes.create.fields.properties", "Properties")}</Label>
+                <div className="space-y-2">
+                  {selectedProperties.map((sel, idx) => (
+                    <div key={`prop-${idx}`} className="flex items-center gap-2">
+                      <div className="flex-1">
+                        <PropertySelect
+                          id={`note_property_${idx}`}
+                          value={sel}
+                          onChange={(p) => {
+                            setSelectedAt(setSelectedProperties, idx, p ?? null);
+                            setAt("properties", idx, p?.id ?? null);
+                          }}
+                          placeholder="Buscar propiedad..."
+                        />
+                      </div>
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          className="px-2 py-1 border rounded"
+                          onClick={() => {
+                            removeSelectedAt(setSelectedProperties, idx);
+                            removeAt("properties", idx);
+                          }}
+                        >
+                          −
+                        </button>
+                        <button
+                          type="button"
+                          className="px-2 py-1 border rounded"
+                          onClick={() => {
+                            pushSelected(setSelectedProperties, null);
+                            pushTo("properties", null);
+                          }}
+                        >
+                          +
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex gap-1">
-                      <button
-                        type="button"
-                        className="px-2 py-1 border rounded"
-                        onClick={() => {
-                          removeSelectedAt(setSelectedProperties, idx);
-                          removeAt("properties", idx);
-                        }}
-                      >
-                        −
-                      </button>
-                      <button
-                        type="button"
-                        className="px-2 py-1 border rounded"
-                        onClick={() => {
-                          pushSelected(setSelectedProperties, null);
-                          pushTo("properties", null);
-                        }}
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* SERVICES (if any) */}
-          {selectedServices.length > 0 && (
-            <div>
-              <Label className="pb-2">{getTextFromObject(TEXT, "notes.create.fields.services", "Services")}</Label>
-              <div className="space-y-2">
-                {selectedServices.map((sel, idx) => (
-                  <div key={`service-${idx}`} className="flex items-center gap-2">
-                    <div className="flex-1">
-                      <ServiceSelect
-                        id={`note_service_${idx}`}
-                        value={sel ?? null}
-                        onChange={(s) => {
-                          setSelectedAt(setSelectedServices, idx, s);
-                          setAt("services", idx, s ? Number((s as any).id) : null);
-                        }}
-                        placeholder="Buscar servicio..."
-                      />
+            {/* SERVICES (if any) */}
+            {selectedServices.length > 0 && (
+              <div>
+                <Label className="pb-2">{getTextFromObject(TEXT, "notes.create.fields.services", "Services")}</Label>
+                <div className="space-y-2">
+                  {selectedServices.map((sel, idx) => (
+                    <div key={`service-${idx}`} className="flex items-center gap-2">
+                      <div className="flex-1">
+                        <ServiceSelect
+                          id={`note_service_${idx}`}
+                          value={sel}
+                          onChange={(s) => {
+                            setSelectedAt(setSelectedServices, idx, s ?? null);
+                            setAt("services", idx, s?.id ?? null);
+                          }}
+                          placeholder="Buscar servicio..."
+                        />
+                      </div>
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          className="px-2 py-1 border rounded"
+                          onClick={() => {
+                            removeSelectedAt(setSelectedServices, idx);
+                            removeAt("services", idx);
+                          }}
+                        >
+                          −
+                        </button>
+                        <button
+                          type="button"
+                          className="px-2 py-1 border rounded"
+                          onClick={() => {
+                            pushSelected(setSelectedServices, null);
+                            pushTo("services", null);
+                          }}
+                        >
+                          +
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex gap-1">
-                      <button
-                        type="button"
-                        className="px-2 py-1 border rounded"
-                        onClick={() => {
-                          removeSelectedAt(setSelectedServices, idx);
-                          removeAt("services", idx);
-                        }}
-                      >
-                        −
-                      </button>
-                      <button
-                        type="button"
-                        className="px-2 py-1 border rounded"
-                        onClick={() => {
-                          pushSelected(setSelectedServices, null);
-                          pushTo("services", null);
-                        }}
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* SHIFTS (if any) */}
-          {selectedShifts.length > 0 && (
-            <div>
-              <Label className="pb-2">{getTextFromObject(TEXT, "notes.create.fields.shifts", "Shifts")}</Label>
-              <div className="space-y-2">
-                {selectedShifts.map((sel, idx) => (
-                  <div key={`shift-${idx}`} className="flex items-center gap-2">
-                    <div className="flex-1">
-                      <ShiftSelect
-                        id={`note_shift_${idx}`}
-                        value={sel ?? null}
-                        onChange={(s) => {
-                          setSelectedAt(setSelectedShifts, idx, s);
-                          setAt("shifts", idx, s ? Number((s as any).id) : null);
-                        }}
-                        placeholder="Buscar shift..."
-                      />
+            {/* SHIFTS (if any) */}
+            {selectedShifts.length > 0 && (
+              <div>
+                <Label className="pb-2">{getTextFromObject(TEXT, "notes.create.fields.shifts", "Shifts")}</Label>
+                <div className="space-y-2">
+                  {selectedShifts.map((sel, idx) => (
+                    <div key={`shift-${idx}`} className="flex items-center gap-2">
+                      <div className="flex-1">
+                        <ShiftSelect
+                          id={`note_shift_${idx}`}
+                          value={sel}
+                          onChange={(s) => {
+                            setSelectedAt(setSelectedShifts, idx, s ?? null);
+                            setAt("shifts", idx, s?.id ?? null);
+                          }}
+                          placeholder="Buscar shift..."
+                        />
+                      </div>
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          className="px-2 py-1 border rounded"
+                          onClick={() => {
+                            removeSelectedAt(setSelectedShifts, idx);
+                            removeAt("shifts", idx);
+                          }}
+                        >
+                          −
+                        </button>
+                        <button
+                          type="button"
+                          className="px-2 py-1 border rounded"
+                          onClick={() => {
+                            pushSelected(setSelectedShifts, null);
+                            pushTo("shifts", null);
+                          }}
+                        >
+                          +
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex gap-1">
-                      <button
-                        type="button"
-                        className="px-2 py-1 border rounded"
-                        onClick={() => {
-                          removeSelectedAt(setSelectedShifts, idx);
-                          removeAt("shifts", idx);
-                        }}
-                      >
-                        −
-                      </button>
-                      <button
-                        type="button"
-                        className="px-2 py-1 border rounded"
-                        onClick={() => {
-                          pushSelected(setSelectedShifts, null);
-                          pushTo("shifts", null);
-                        }}
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* WEAPONS (if any) */}
-          {selectedWeapons.length > 0 && (
-            <div>
-              <Label className="pb-2">{getTextFromObject(TEXT, "notes.create.fields.weapons", "Weapons")}</Label>
-              <div className="space-y-2">
-                {selectedWeapons.map((sel, idx) => (
-                  <div key={`weapon-${idx}`} className="flex items-center gap-2">
-                    <div className="flex-1">
-                      <WeaponSelect
-                        id={`note_weapon_${idx}`}
-                        value={sel ?? null}
-                        onChange={(w) => {
-                          setSelectedAt(setSelectedWeapons, idx, w);
-                          setAt("weapons", idx, w ? Number((w as any).id) : null);
-                        }}
-                        placeholder="Buscar arma..."
-                      />
+            {/* WEAPONS (if any) */}
+            {selectedWeapons.length > 0 && (
+              <div>
+                <Label className="pb-2">{getTextFromObject(TEXT, "notes.create.fields.weapons", "Weapons")}</Label>
+                <div className="space-y-2">
+                  {selectedWeapons.map((sel, idx) => (
+                    <div key={`weapon-${idx}`} className="flex items-center gap-2">
+                      <div className="flex-1">
+                        <WeaponSelect
+                          id={`note_weapon_${idx}`}
+                          value={sel}
+                          onChange={(w) => {
+                            setSelectedAt(setSelectedWeapons, idx, w ?? null);
+                            setAt("weapons", idx, w?.id ?? null);
+                          }}
+                          placeholder="Buscar arma..."
+                        />
+                      </div>
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          className="px-2 py-1 border rounded"
+                          onClick={() => {
+                            removeSelectedAt(setSelectedWeapons, idx);
+                            removeAt("weapons", idx);
+                          }}
+                        >
+                          −
+                        </button>
+                        <button
+                          type="button"
+                          className="px-2 py-1 border rounded"
+                          onClick={() => {
+                            pushSelected(setSelectedWeapons, null);
+                            pushTo("weapons", null);
+                          }}
+                        >
+                          +
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex gap-1">
-                      <button
-                        type="button"
-                        className="px-2 py-1 border rounded"
-                        onClick={() => {
-                          removeSelectedAt(setSelectedWeapons, idx);
-                          removeAt("weapons", idx);
-                        }}
-                      >
-                        −
-                      </button>
-                      <button
-                        type="button"
-                        className="px-2 py-1 border rounded"
-                        onClick={() => {
-                          pushSelected(setSelectedWeapons, null);
-                          pushTo("weapons", null);
-                        }}
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* PROPERTY TYPE OF SERVICE (if any) */}
-          {selectedPropertyTypes.length > 0 && (
-            <div>
-              <Label className="pb-2">{getTextFromObject(TEXT, "notes.create.fields.type_of_services", "Type of Service")}</Label>
-              <div className="space-y-2">
-                {selectedPropertyTypes.map((sel, idx) => (
-                  <div key={`ptype-${idx}`} className="flex items-center gap-2">
-                    <div className="flex-1">
-                      <PropertyTypeSelect
-                        id={`note_property_type_${idx}`}
-                        value={sel ?? null}
-                        onChange={(t) => {
-                          setSelectedAt(setSelectedPropertyTypes, idx, t);
-                          setAt("type_of_services", idx, t ? Number((t as any).id) : null);
-                        }}
-                        placeholder="Buscar tipo de servicio..."
-                      />
+            {/* PROPERTY TYPE OF SERVICE (if any) */}
+            {selectedPropertyTypes.length > 0 && (
+              <div>
+                <Label className="pb-2">{getTextFromObject(TEXT, "notes.create.fields.type_of_services", "Type of Service")}</Label>
+                <div className="space-y-2">
+                  {selectedPropertyTypes.map((sel, idx) => (
+                    <div key={`ptype-${idx}`} className="flex items-center gap-2">
+                      <div className="flex-1">
+                        <PropertyTypeSelect
+                          id={`note_property_type_${idx}`}
+                          value={sel}
+                          onChange={(t) => {
+                            setSelectedAt(setSelectedPropertyTypes, idx, t ?? null);
+                            setAt("type_of_services", idx, t?.id ?? null);
+                          }}
+                          placeholder="Buscar tipo de servicio..."
+                        />
+                      </div>
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          className="px-2 py-1 border rounded"
+                          onClick={() => {
+                            removeSelectedAt(setSelectedPropertyTypes, idx);
+                            removeAt("type_of_services", idx);
+                          }}
+                        >
+                          −
+                        </button>
+                        <button
+                          type="button"
+                          className="px-2 py-1 border rounded"
+                          onClick={() => {
+                            pushSelected(setSelectedPropertyTypes, null);
+                            pushTo("type_of_services", null);
+                          }}
+                        >
+                          +
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex gap-1">
-                      <button
-                        type="button"
-                        className="px-2 py-1 border rounded"
-                        onClick={() => {
-                          removeSelectedAt(setSelectedPropertyTypes, idx);
-                          removeAt("type_of_services", idx);
-                        }}
-                      >
-                        −
-                      </button>
-                      <button
-                        type="button"
-                        className="px-2 py-1 border rounded"
-                        onClick={() => {
-                          pushSelected(setSelectedPropertyTypes, null);
-                          pushTo("type_of_services", null);
-                        }}
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {generalError && (
-            <div className="bg-red-50 border border-red-200 rounded-md p-3">
-              <p className="text-sm text-red-800">{generalError}</p>
-            </div>
-          )}
+            {generalError && (
+              <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                <p className="text-sm text-red-800">{generalError}</p>
+              </div>
+            )}
           </div>
 
           <div className="flex justify-end gap-2 mt-6">

@@ -50,7 +50,7 @@ export default function DeleteNoteDialog({ note, open, onClose, onDeleted }: Pro
       if (onDeleted) await onDeleted();
       onClose();
     } catch (err) {
-      // eslint-disable-next-line no-console
+       
       console.error("Error deleting note:", err);
       setError(getTextFromObject(TEXT, "actions.delete", "Failed to delete note"));
       showErrorToast(getTextFromObject(TEXT, "actions.delete", "Failed to delete note"));

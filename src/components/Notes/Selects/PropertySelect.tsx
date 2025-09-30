@@ -50,7 +50,7 @@ function useDebouncedValue<T>(value: T, delay = 300) {
   return v;
 }
 const propertyLabel = (p?: AppProperty | null) =>
-  p ? `${p.alias ?? p.name ?? p.address ?? `#${(p as any).id ?? "?"}`}` : "";
+  p ? `${p.alias ?? p.name ?? p.address ?? (typeof p === "object" && "id" in p ? `#${(p as AppProperty).id ?? "?"}` : "?")}` : "";
 
 export default function PropertySelect({
   value,

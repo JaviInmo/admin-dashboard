@@ -7,7 +7,7 @@ import { Button } from "../../ui/button";
 import type { Note } from "../type";
 import { useI18n } from "../../../i18n";
 
-/* getters: asegúrate que existen en tu proyecto */
+/* getters */
 import { getGuard } from "@/lib/services/guard";
 import { getService } from "@/lib/services/services";
 import { getUser } from "@/lib/services/users";
@@ -15,12 +15,41 @@ import { getProperty, getPropertyTypeOfService } from "@/lib/services/properties
 import { getShift } from "@/lib/services/shifts";
 import { getWeapon } from "@/lib/services/weapons";
 
+/* tipos */
+import type { Guard } from "../../Guards/types";
+import type { Client } from "../../Clients/types";
+import type { Service } from "../../Services/types";
+import type { ServiceDetails } from "../../Shifts/types"; // fix según tu comentario
+import type { Shift } from "../../Shifts/types";
+import type { Weapon } from "../../Weapons/types";
+import type { User } from "../../Users/types";
+import type { AppProperty } from "../../../lib/services/properties"; // fix según tu comentario
+
+// Si no tienes un tipo exportado para "property type of service", lo definimos mínimo aquí:
+interface PropertyType {
+  id?: number;
+  name?: string | null;
+}
+
+/**
+ * Nota: tu type Note original no incluía algunos campos que el componente maneja
+ * (p.ej. `amounts`, `guard` single, `is_active`). Para evitar "Property does not exist"
+ * definimos una extensión local que añade esos campos opcionales.
+ */
+type NoteWithExtras = Note & {
+  guard?: number | null;
+  amounts?: Array<number | string> | null;
+  is_active?: boolean | null;
+  // legacy single fields ya están parcialmente en Note (client, property_obj)
+};
+
 interface Props {
-  note: Note | null;
+  note: NoteWithExtras | null;
   open: boolean;
   onClose: () => void;
 }
 
+/* helpers de texto */
 function getTextFromObject(obj: unknown, path: string, fallback = ""): string {
   const parts = path.split(".");
   let cur: unknown = obj;
@@ -34,32 +63,69 @@ function getTextFromObject(obj: unknown, path: string, fallback = ""): string {
   return typeof cur === "string" ? cur : fallback;
 }
 
-const guardLabel = (g?: any | null) =>
+/* Labels tipados y sin any */
+const guardLabel = (g?: Guard | null): string =>
   g ? `${(g.firstName ?? "").trim()} ${(g.lastName ?? "").trim()}`.trim() || g.email || `#${g.id}` : "";
 
-const userLabel = (u?: any | null) => (u ? `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim() || u.email || `#${u.id}` : "");
+const userLabel = (u?: User | Client | null): string => {
+  if (!u) return "";
+  const firstLast = `${(u.firstName ?? "").trim()} ${(u.lastName ?? "").trim()}`.trim();
+  if (firstLast) return firstLast;
+  if ("username" in u && typeof u.username === "string" && u.username.trim()) return u.username;
+  if ("email" in u && typeof u.email === "string" && u.email.trim()) return u.email;
+  const id = (u as { id?: number }).id;
+  return id !== undefined ? `#${id}` : "";
+};
 
-const propertyLabel = (p?: any | null) => (p ? p.name ?? p.alias ?? `#${p.id}` : "");
-const serviceLabel = (s?: any | null) => (s ? s.name ?? `#${s.id}` : "");
-const shiftLabel = (s?: any | null) => (s ? s.name ?? s.start_date ?? `#${s.id}` : "");
-const weaponLabel = (w?: any | null) => (w ? w.name ?? `#${w.id}` : "");
-const ptypeLabel = (t?: any | null) => (t ? t.name ?? `#${t.id}` : "");
+const propertyLabel = (p?: AppProperty | { id?: number; name?: string; alias?: string } | null): string => {
+  if (!p) return "";
+  if ("name" in p && typeof p.name === "string" && p.name.trim()) return p.name;
+  if ("alias" in p && typeof p.alias === "string" && p.alias.trim()) return p.alias;
+  const id = (p as { id?: number }).id;
+  return id !== undefined ? `#${id}` : "";
+};
 
-// utilidades
-const isPresent = (v: any) => v !== null && v !== undefined && !(typeof v === "string" && v.trim() === "");
-const arrayHasPresent = (arr?: any[]) => Array.isArray(arr) && arr.filter((x) => x != null && !(typeof x === "string" && String(x).trim() === "")).length > 0;
+const serviceLabel = (s?: Service | ServiceDetails | null): string => {
+  if (!s) return "";
+  if ("name" in s && typeof s.name === "string" && s.name.trim()) return s.name;
+  const id = (s as { id?: number }).id;
+  return id !== undefined ? `#${id}` : "";
+};
+
+const shiftLabel = (s?: Shift | null): string => {
+  if (!s) return "";
+  // Shift no tiene `name` según tus tipos; preferimos campos existentes
+  if (s.propertyName && typeof s.propertyName === "string" && s.propertyName.trim()) return s.propertyName;
+  if (s.guardName && typeof s.guardName === "string" && s.guardName.trim()) return s.guardName;
+  if (s.plannedStartTime && typeof s.plannedStartTime === "string" && s.plannedStartTime.trim()) return s.plannedStartTime;
+  return s.id !== undefined ? `#${s.id}` : "";
+};
+
+const weaponLabel = (w?: Weapon | null): string => {
+  if (!w) return "";
+  if (w.model && w.model.trim()) return w.model;
+  if (w.serialNumber && w.serialNumber.trim()) return w.serialNumber;
+  return w.id !== undefined ? `#${w.id}` : "";
+};
+
+const ptypeLabel = (t?: PropertyType | null): string => (t ? t.name ?? `#${t.id ?? ""}` : "");
+
+/* utilidades */
+const isPresent = (v: unknown) => v !== null && v !== undefined && !(typeof v === "string" && v.trim() === "");
+const arrayHasPresent = (arr?: Array<unknown>) =>
+  Array.isArray(arr) && arr.filter((x) => x != null && !(typeof x === "string" && String(x).trim() === "")).length > 0;
 
 export default function ShowNoteDialog({ note, open, onClose }: Props) {
   const { TEXT } = useI18n();
 
   // loaded related full objects (for display)
-  const [guards, setGuards] = React.useState<(any | null)[]>([]);
-  const [users, setUsers] = React.useState<(any | null)[]>([]);
-  const [properties, setProperties] = React.useState<(any | null)[]>([]);
-  const [services, setServices] = React.useState<(any | null)[]>([]);
-  const [shifts, setShifts] = React.useState<(any | null)[]>([]);
-  const [weapons, setWeapons] = React.useState<(any | null)[]>([]);
-  const [propertyTypes, setPropertyTypes] = React.useState<(any | null)[]>([]);
+  const [guards, setGuards] = React.useState<Array<Guard | null>>([]);
+  const [users, setUsers] = React.useState<Array<User | Client | null>>([]);
+  const [properties, setProperties] = React.useState<Array<AppProperty | null>>([]);
+  const [services, setServices] = React.useState<Array<Service | ServiceDetails | null>>([]);
+  const [shifts, setShifts] = React.useState<Array<Shift | null>>([]);
+  const [weapons, setWeapons] = React.useState<Array<Weapon | null>>([]);
+  const [propertyTypes, setPropertyTypes] = React.useState<Array<PropertyType | null>>([]);
   const [loadingRelated, setLoadingRelated] = React.useState(false);
 
   // When dialog opens, fetch related objects (if any)
@@ -70,7 +136,7 @@ export default function ShowNoteDialog({ note, open, onClose }: Props) {
       setLoadingRelated(true);
       try {
         // helpers to map ids -> objects (return null on failure)
-        const fetchAll = async (ids?: number[] | null, getter?: (id: number) => Promise<any>) => {
+        const fetchAll = async <T,>(ids?: number[] | null, getter?: (id: number) => Promise<T>): Promise<Array<T | null>> => {
           if (!Array.isArray(ids) || ids.length === 0) return [];
           const promises = ids.map(async (id) => {
             try {
@@ -83,29 +149,20 @@ export default function ShowNoteDialog({ note, open, onClose }: Props) {
           return Promise.all(promises);
         };
 
-        const noteGuards =
-          Array.isArray((note as any).guards) && (note as any).guards.length > 0
-            ? (note as any).guards
-            : note && (note as any).guard
-            ? [(note as any).guard]
-            : [];
-        const noteUsers =
-          Array.isArray((note as any).clients) && (note as any).clients.length > 0
-            ? (note as any).clients
-            : note && (note as any).client
-            ? [(note as any).client]
-            : [];
-        const noteProperties =
-          Array.isArray((note as any).properties) && (note as any).properties.length > 0
-            ? (note as any).properties
-            : note && (note as any).property_obj
-            ? [(note as any).property_obj]
-            : [];
-        const noteServices = Array.isArray((note as any).services) && (note as any).services.length > 0 ? (note as any).services : [];
-        const noteShifts = Array.isArray((note as any).shifts) && (note as any).shifts.length > 0 ? (note as any).shifts : [];
-        const noteWeapons = Array.isArray((note as any).weapons) && (note as any).weapons.length > 0 ? (note as any).weapons : [];
-        const noteTypes =
-          Array.isArray((note as any).type_of_services) && (note as any).type_of_services.length > 0 ? (note as any).type_of_services : [];
+        // canonicalize arrays: si hay array lo usamos, si hay campo legacy single lo convertimos a array, si no => []
+        const noteGuards: number[] =
+          Array.isArray(note?.guards) && note.guards.length > 0 ? (note.guards as number[]) : note?.guard ? [note.guard as number] : [];
+
+        const noteUsers: number[] =
+          Array.isArray(note?.clients) && note.clients.length > 0 ? (note.clients as number[]) : note?.client ? [note.client as number] : [];
+
+        const noteProperties: number[] =
+          Array.isArray(note?.properties) && note.properties.length > 0 ? (note.properties as number[]) : note?.property_obj ? [note.property_obj as number] : [];
+
+        const noteServices: number[] = Array.isArray(note?.services) && note.services.length > 0 ? (note.services as number[]) : [];
+        const noteShifts: number[] = Array.isArray(note?.shifts) && note.shifts.length > 0 ? (note.shifts as number[]) : [];
+        const noteWeapons: number[] = Array.isArray(note?.weapons) && note.weapons.length > 0 ? (note.weapons as number[]) : [];
+        const noteTypes: number[] = Array.isArray(note?.type_of_services) && note.type_of_services.length > 0 ? (note.type_of_services as number[]) : [];
 
         const [
           guardsLoaded,
@@ -116,13 +173,13 @@ export default function ShowNoteDialog({ note, open, onClose }: Props) {
           weaponsLoaded,
           typesLoaded,
         ] = await Promise.all([
-          fetchAll(noteGuards, getGuard),
-          fetchAll(noteUsers, getUser),
-          fetchAll(noteProperties, getProperty),
-          fetchAll(noteServices, getService),
-          fetchAll(noteShifts, getShift),
-          fetchAll(noteWeapons, getWeapon),
-          fetchAll(noteTypes, getPropertyTypeOfService),
+          fetchAll<Guard>(noteGuards, getGuard),
+          fetchAll<User | Client>(noteUsers, getUser),
+          fetchAll<AppProperty>(noteProperties, getProperty),
+          fetchAll<Service | ServiceDetails>(noteServices, getService),
+          fetchAll<Shift>(noteShifts, getShift),
+          fetchAll<Weapon>(noteWeapons, getWeapon),
+          fetchAll<PropertyType>(noteTypes, getPropertyTypeOfService),
         ]);
 
         if (!mounted) return;
@@ -147,10 +204,10 @@ export default function ShowNoteDialog({ note, open, onClose }: Props) {
   }, [note, open]);
 
   // helper to render list of labels for an array of objects (or ids fallback)
-  const renderList = (objs: (any | null)[] | undefined, fallbackIds?: any[] | undefined, renderFn?: (x: any) => string) => {
+  const renderList = <T,>(objs?: Array<T | null>, fallbackIds?: number[] | undefined, renderFn?: (x: T) => string) => {
     if (loadingRelated) return <p className="text-sm text-muted-foreground">Loading…</p>;
 
-    const nonNullObjs = Array.isArray(objs) ? objs.filter((o) => o != null) : [];
+    const nonNullObjs = Array.isArray(objs) ? (objs.filter((o) => o != null) as T[]) : [];
 
     if (nonNullObjs.length > 0) {
       return (
@@ -184,10 +241,12 @@ export default function ShowNoteDialog({ note, open, onClose }: Props) {
   };
 
   // amounts: try amounts array, then note.amount, then amount_raw
-  const amountsArray = Array.isArray((note as any)?.amounts) && (note as any).amounts.length > 0 ? (note as any).amounts : [];
-  const amountTotal =
+  const amountsArray: Array<number | string> =
+    Array.isArray(note?.amounts) && (note?.amounts ?? []).length > 0 ? (note!.amounts as Array<number | string>) : [];
+
+  const amountTotal: number | undefined =
     amountsArray.length > 0
-      ? amountsArray.reduce((acc: number, v: any) => {
+      ? amountsArray.reduce((acc: number, v: number | string) => {
           const s = v == null ? "" : String(v).trim().replace(",", ".");
           const n = Number(s);
           return acc + (Number.isFinite(n) ? n : 0);
@@ -197,19 +256,19 @@ export default function ShowNoteDialog({ note, open, onClose }: Props) {
       : undefined;
 
   // Decide which overall blocks to show
-  const showAmountBlock = amountsArray.length > 0 || isPresent((note as any)?.amount) || isPresent((note as any)?.amount_raw);
-  const showClientsBlock = arrayHasPresent(users) || arrayHasPresent((note as any)?.clients) || isPresent((note as any)?.client);
-  const showGuardsBlock = arrayHasPresent(guards) || arrayHasPresent((note as any)?.guards) || isPresent((note as any)?.guard);
-  const showPropertiesBlock = arrayHasPresent(properties) || arrayHasPresent((note as any)?.properties) || isPresent((note as any)?.property_obj);
-  const showServicesBlock = arrayHasPresent(services) || arrayHasPresent((note as any)?.services);
-  const showShiftsBlock = arrayHasPresent(shifts) || arrayHasPresent((note as any)?.shifts);
-  const showWeaponsBlock = arrayHasPresent(weapons) || arrayHasPresent((note as any)?.weapons);
-  const showTypesBlock = arrayHasPresent(propertyTypes) || arrayHasPresent((note as any)?.type_of_services);
-  const showViewedBy = arrayHasPresent((note as any)?.viewed_by_ids);
+  const showAmountBlock = amountsArray.length > 0 || isPresent(note?.amount) || isPresent((note as NoteWithExtras)?.amount_raw);
+  const showClientsBlock = arrayHasPresent(users) || arrayHasPresent(note?.clients) || isPresent(note?.client);
+  const showGuardsBlock = arrayHasPresent(guards) || arrayHasPresent(note?.guards) || isPresent(note?.guard);
+  const showPropertiesBlock = arrayHasPresent(properties) || arrayHasPresent(note?.properties) || isPresent(note?.property_obj);
+  const showServicesBlock = arrayHasPresent(services) || arrayHasPresent(note?.services);
+  const showShiftsBlock = arrayHasPresent(shifts) || arrayHasPresent(note?.shifts);
+  const showWeaponsBlock = arrayHasPresent(weapons) || arrayHasPresent(note?.weapons);
+  const showTypesBlock = arrayHasPresent(propertyTypes) || arrayHasPresent(note?.type_of_services);
+  const showViewedBy = arrayHasPresent(note?.viewed_by_ids);
 
-  const showMetaCreated = isPresent((note as any)?.created_at);
-  const showMetaUpdated = isPresent((note as any)?.updated_at);
-  const showMetaActive = (note as any)?.is_active !== undefined && (note as any)?.is_active !== null;
+  const showMetaCreated = isPresent(note?.created_at);
+  const showMetaUpdated = isPresent(note?.updated_at);
+  const showMetaActive = (note as NoteWithExtras)?.is_active !== undefined && (note as NoteWithExtras)?.is_active !== null;
 
   if (!note) {
     return (
@@ -238,9 +297,7 @@ export default function ShowNoteDialog({ note, open, onClose }: Props) {
         <div className="flex max-h-[80vh] flex-col">
           <div className="px-4 pt-4">
             <DialogHeader>
-              <DialogTitle className="pl-0">
-                {getTextFromObject(TEXT, "menu.notes", "Note")}
-              </DialogTitle>
+              <DialogTitle className="pl-0">{getTextFromObject(TEXT, "menu.notes", "Note")}</DialogTitle>
             </DialogHeader>
           </div>
 
@@ -271,23 +328,23 @@ export default function ShowNoteDialog({ note, open, onClose }: Props) {
                 {amountsArray.length > 0 ? (
                   <>
                     <ul className="list-disc list-inside">
-                      {amountsArray.map((a: any, i: number) =>
+                      {amountsArray.map((a: number | string, i: number) =>
                         isPresent(a) ? (
                           <li key={i} className="text-sm">
-                            {a}
+                            {String(a)}
                           </li>
                         ) : null
                       )}
                     </ul>
                     <div className="text-sm mt-1">
                       <strong>Total: </strong>
-                      {Number.isFinite(amountTotal as number) ? String(amountTotal) : "-"}
+                      {typeof amountTotal === "number" && Number.isFinite(amountTotal) ? String(amountTotal) : "-"}
                     </div>
                   </>
-                ) : isPresent((note as any).amount) ? (
-                  <p className="text-sm">{String((note as any).amount)}</p>
-                ) : isPresent((note as any).amount_raw) ? (
-                  <p className="text-sm">{String((note as any).amount_raw)}</p>
+                ) : isPresent(note.amount) ? (
+                  <p className="text-sm">{String(note.amount)}</p>
+                ) : isPresent((note as NoteWithExtras).amount_raw) ? (
+                  <p className="text-sm">{String((note as NoteWithExtras).amount_raw)}</p>
                 ) : null}
               </div>
             )}
@@ -296,7 +353,11 @@ export default function ShowNoteDialog({ note, open, onClose }: Props) {
             {showClientsBlock && (
               <div className="mb-4">
                 <p className="text-sm">{getTextFromObject(TEXT, "notes.create.fields.clients", "Clients")}</p>
-                {renderList(users, Array.isArray((note as any)?.clients) ? (note as any).clients : isPresent((note as any)?.client) ? [(note as any).client] : [], userLabel)}
+                {renderList<User | Client>(
+                  users,
+                  Array.isArray(note.clients) ? note.clients : isPresent(note.client) ? [note.client as number] : [],
+                  (u) => userLabel(u)
+                )}
               </div>
             )}
 
@@ -304,7 +365,11 @@ export default function ShowNoteDialog({ note, open, onClose }: Props) {
             {showGuardsBlock && (
               <div className="mb-4">
                 <p className="text-sm">{getTextFromObject(TEXT, "notes.create.fields.guards", "Guards")}</p>
-                {renderList(guards, Array.isArray((note as any)?.guards) ? (note as any).guards : isPresent((note as any)?.guard) ? [(note as any).guard] : [], guardLabel)}
+                {renderList<Guard>(
+                  guards,
+                  Array.isArray(note.guards) ? note.guards : isPresent(note.guard) ? [note.guard as number] : [],
+                  (g) => guardLabel(g)
+                )}
               </div>
             )}
 
@@ -312,7 +377,11 @@ export default function ShowNoteDialog({ note, open, onClose }: Props) {
             {showPropertiesBlock && (
               <div className="mb-4">
                 <p className="text-sm">{getTextFromObject(TEXT, "notes.create.fields.properties", "Properties")}</p>
-                {renderList(properties, Array.isArray((note as any)?.properties) ? (note as any).properties : isPresent((note as any)?.property_obj) ? [(note as any).property_obj] : [], propertyLabel)}
+                {renderList<AppProperty>(
+                  properties,
+                  Array.isArray(note.properties) ? note.properties : isPresent(note.property_obj) ? [note.property_obj as number] : [],
+                  (p) => propertyLabel(p)
+                )}
               </div>
             )}
 
@@ -320,7 +389,7 @@ export default function ShowNoteDialog({ note, open, onClose }: Props) {
             {showServicesBlock && (
               <div className="mb-4">
                 <p className="text-sm">{getTextFromObject(TEXT, "notes.create.fields.services", "Services")}</p>
-                {renderList(services, Array.isArray((note as any)?.services) ? (note as any).services : [], serviceLabel)}
+                {renderList<Service | ServiceDetails>(services, Array.isArray(note.services) ? note.services : [], (s) => serviceLabel(s))}
               </div>
             )}
 
@@ -328,7 +397,7 @@ export default function ShowNoteDialog({ note, open, onClose }: Props) {
             {showShiftsBlock && (
               <div className="mb-4">
                 <p className="text-sm">{getTextFromObject(TEXT, "notes.create.fields.shifts", "Shifts")}</p>
-                {renderList(shifts, Array.isArray((note as any)?.shifts) ? (note as any).shifts : [], shiftLabel)}
+                {renderList<Shift>(shifts, Array.isArray(note.shifts) ? note.shifts : [], (s) => shiftLabel(s))}
               </div>
             )}
 
@@ -336,7 +405,7 @@ export default function ShowNoteDialog({ note, open, onClose }: Props) {
             {showWeaponsBlock && (
               <div className="mb-4">
                 <p className="text-sm">{getTextFromObject(TEXT, "notes.create.fields.weapons", "Weapons")}</p>
-                {renderList(weapons, Array.isArray((note as any)?.weapons) ? (note as any).weapons : [], weaponLabel)}
+                {renderList<Weapon>(weapons, Array.isArray(note.weapons) ? note.weapons : [], (w) => weaponLabel(w))}
               </div>
             )}
 
@@ -344,7 +413,7 @@ export default function ShowNoteDialog({ note, open, onClose }: Props) {
             {showTypesBlock && (
               <div className="mb-4">
                 <p className="text-sm">{getTextFromObject(TEXT, "notes.create.fields.type_of_services", "Type of Service")}</p>
-                {renderList(propertyTypes, Array.isArray((note as any)?.type_of_services) ? (note as any).type_of_services : [], ptypeLabel)}
+                {renderList<PropertyType>(propertyTypes, Array.isArray(note.type_of_services) ? note.type_of_services : [], (t) => ptypeLabel(t))}
               </div>
             )}
 
@@ -353,13 +422,13 @@ export default function ShowNoteDialog({ note, open, onClose }: Props) {
               <div className="mb-4">
                 <p className="text-sm">{getTextFromObject(TEXT, "notes.fields.viewed_by", "Viewed by")}</p>
                 <ul className="space-y-1">
-                  {(note as any).viewed_by_ids
-                    .filter((id: any) => id != null && String(id).trim() !== "")
-                    .map((id: any, i: number) => (
+                  {note.viewed_by_ids
+                    ?.filter((id: number) => id != null && String(id).trim() !== "")
+                    .map((id: number, i: number) => (
                       <li key={i} className="text-sm">
                         #{id}
                       </li>
-                    ))}
+                    )) ?? null}
                 </ul>
               </div>
             )}
@@ -382,7 +451,7 @@ export default function ShowNoteDialog({ note, open, onClose }: Props) {
                 {showMetaActive && (
                   <div>
                     <p className="text-xs text-muted-foreground">Active</p>
-                    <p>{(note as any).is_active ? "Yes" : "No"}</p>
+                    <p>{(note as NoteWithExtras).is_active ? "Yes" : "No"}</p>
                   </div>
                 )}
               </div>

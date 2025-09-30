@@ -1,7 +1,7 @@
 // src/components/Notes/Selects/GuardSelect.tsx
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import  { useEffect, useRef, useState } from "react";
 import { listGuards } from "@/lib/services/guard";
 import type { Guard } from "@/components/Guards/types";
 

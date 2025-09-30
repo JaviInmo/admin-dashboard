@@ -1,3 +1,4 @@
+// src/components/Notes/notes-page.tsx
 "use client";
 
 import * as React from "react";
@@ -55,7 +56,11 @@ export default function NotesPage() {
     return generateSort(mapped, sortOrder); // string | undefined
   }, [sortField, sortOrder]);
 
-  const queryKey = [NOTES_KEY, search, page, pageSize, apiOrdering];
+  // MEMOIZE queryKey to avoid changing identity on every render (fixes react-hooks/exhaustive-deps)
+  const queryKey = React.useMemo(
+    () => [NOTES_KEY, search, page, pageSize, apiOrdering] as const,
+    [search, page, pageSize, apiOrdering],
+  );
 
   const { data = INITIAL_NOTES_DATA, isFetching, error } =
     useQuery<PaginatedResult<Note>, unknown, PaginatedResult<Note>>({
@@ -135,7 +140,7 @@ export default function NotesPage() {
           : "Error loading notes";
       toast.error(errMsg);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [error]);
 
   return (
