@@ -1,9 +1,16 @@
 // src/components/Users/UsersTable.tsx
 "use client";
 
-import { Pencil, Trash, Eye, Check, X, FileText, Plus } from "lucide-react";
+import { Pencil, Trash, Eye, Check, X, FileText, Plus, MoreHorizontal } from "lucide-react";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ReusableTable, type Column } from "@/components/ui/reusable-table";
 import type { User, Permissions } from "./types";
 import CreateUserDialog from "./Create/Create";
@@ -76,6 +83,25 @@ export default function UsersTable({
   // Notes: state para ver y crear nota desde user
   const [notesUser, setNotesUser] = React.useState<User | null>(null);
   const [createNoteUser, setCreateNoteUser] = React.useState<User | null>(null);
+
+  // Estado para controlar si las acciones están agrupadas - guardado en localStorage
+  const [isActionsGrouped, setIsActionsGrouped] = React.useState(() => {
+    try {
+      const saved = localStorage.getItem('users-table-actions-grouped');
+      return saved ? JSON.parse(saved) : true; // Por defecto compacto (true)
+    } catch {
+      return true; // Por defecto compacto
+    }
+  });
+
+  // Efecto para guardar en localStorage cuando cambie el estado
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('users-table-actions-grouped', JSON.stringify(isActionsGrouped));
+    } catch (error) {
+      console.warn('No se pudo guardar la configuración en localStorage:', error);
+    }
+  }, [isActionsGrouped]);
 
   // Normalizar datos de usuarios
   const normalizedUsers = users.map((u) => ({
@@ -172,75 +198,130 @@ export default function UsersTable({
     "name" as keyof (User & { permissions?: Permissions }),
   ];
 
-  // Acciones de fila (ahora con botones para Notas: ver y crear)
-  const renderActions = (user: User & { permissions?: Permissions }) => (
-    <>
-      <Button
-        size="icon"
-        variant="ghost"
-        onClick={(e) => {
+  // Acciones agrupadas (modo compacto - dropdown)
+  const renderGroupedActions = (user: User & { permissions?: Permissions }) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="sm">
+          <MoreHorizontal className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent>
+        <DropdownMenuItem onClick={(e) => {
           e.stopPropagation();
           setShowUser(user);
-        }}
-        title={getText("actions.view", "Ver")}
-        aria-label={getText("actions.view", "Ver")}
-      >
-        <Eye className="h-4 w-4 text-blue-500" />
-      </Button>
+        }}>
+          <Eye className="h-4 w-4 mr-2" />
+          {getText("actions.view", "Ver")}
+        </DropdownMenuItem>
 
-      {/* Ver notas */}
-      <Button
-        size="icon"
-        variant="ghost"
-        onClick={(e) => {
+        <DropdownMenuItem onClick={(e) => {
           e.stopPropagation();
           setNotesUser(user);
-        }}
-        title="Notas"
-        aria-label="Notas"
-      >
-        <FileText className="h-4 w-4" />
-      </Button>
+        }}>
+          <FileText className="h-4 w-4 mr-2" />
+          Notas
+        </DropdownMenuItem>
 
-      {/* Crear nota (rápido) */}
-      <Button
-        size="icon"
-        variant="ghost"
-        onClick={(e) => {
+        <DropdownMenuItem onClick={(e) => {
           e.stopPropagation();
           setCreateNoteUser(user);
-        }}
-        title="Agregar nota"
-        aria-label="Agregar nota"
-      >
-        <Plus className="h-4 w-4" />
-      </Button>
+        }}>
+          <Plus className="h-4 w-4 mr-2" />
+          Agregar nota
+        </DropdownMenuItem>
 
-      <Button
-        size="icon"
-        variant="ghost"
-        onClick={(e) => {
+        <DropdownMenuSeparator />
+
+        <DropdownMenuItem onClick={(e) => {
           e.stopPropagation();
           setEditUser(user);
-        }}
-        title={getText("actions.edit", "Editar")}
-        aria-label={getText("actions.edit", "Editar")}
-      >
-        <Pencil className="h-4 w-4" />
-      </Button>
-      <Button
-        size="icon"
-        variant="ghost"
-        onClick={(e) => {
+        }}>
+          <Pencil className="h-4 w-4 mr-2" />
+          {getText("actions.edit", "Editar")}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={(e) => {
           e.stopPropagation();
           setDeleteUser(user);
-        }}
-        title={getText("actions.delete", "Eliminar")}
-        aria-label={getText("actions.delete", "Eliminar")}
-      >
-        <Trash className="h-4 w-4 text-red-500" />
-      </Button>
-    </>
+        }}>
+          <Trash className="h-4 w-4 mr-2" />
+          {getText("actions.delete", "Eliminar")}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
+  // Acciones de fila (ahora con botones para Notas: ver y crear)
+  const renderActions = (user: User & { permissions?: Permissions }) => (
+    isActionsGrouped ? renderGroupedActions(user) : (
+      <>
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowUser(user);
+          }}
+          title={getText("actions.view", "Ver")}
+          aria-label={getText("actions.view", "Ver")}
+        >
+          <Eye className="h-4 w-4 text-blue-500" />
+        </Button>
+
+        {/* Ver notas */}
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={(e) => {
+            e.stopPropagation();
+            setNotesUser(user);
+          }}
+          title="Notas"
+          aria-label="Notas"
+        >
+          <FileText className="h-4 w-4" />
+        </Button>
+
+        {/* Crear nota (rápido) */}
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={(e) => {
+            e.stopPropagation();
+            setCreateNoteUser(user);
+          }}
+          title="Agregar nota"
+          aria-label="Agregar nota"
+        >
+          <Plus className="h-4 w-4" />
+        </Button>
+
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={(e) => {
+            e.stopPropagation();
+            setEditUser(user);
+          }}
+          title={getText("actions.edit", "Editar")}
+          aria-label={getText("actions.edit", "Editar")}
+        >
+          <Pencil className="h-4 w-4" />
+        </Button>
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={(e) => {
+            e.stopPropagation();
+            setDeleteUser(user);
+          }}
+          title={getText("actions.delete", "Eliminar")}
+          aria-label={getText("actions.delete", "Eliminar")}
+        >
+          <Trash className="h-4 w-4 text-red-500" />
+        </Button>
+      </>
+    )
   );
 
   return (
@@ -268,6 +349,16 @@ export default function UsersTable({
         actions={renderActions}
         actionsHeader={TEXT.users?.table?.headers?.actions ?? getText("users.table.headers.actions", lang === "es" ? "Acciones" : "Actions")}
         isPageLoading={isPageLoading}
+        rightControls={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsActionsGrouped(!isActionsGrouped)}
+            className="text-xs"
+          >
+            {isActionsGrouped ? "Compacto" : "Desplegado"}
+          </Button>
+        }
       />
 
       <CreateUserDialog open={createOpen} onClose={() => setCreateOpen(false)} onCreated={onRefresh} />

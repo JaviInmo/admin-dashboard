@@ -1,9 +1,16 @@
 // src/components/Clients/clients-table.tsx
 "use client";
 
-import { Pencil, Trash, Check, X, FileText, Plus } from "lucide-react";
+import { Pencil, Trash, Check, X, FileText, Plus, MoreHorizontal } from "lucide-react";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ReusableTable, type Column } from "@/components/ui/reusable-table";
 import { useI18n } from "@/i18n";
 import type { SortOrder } from "@/lib/sort";
@@ -87,6 +94,25 @@ export default function ClientsTable({
   // Notes: estado para ver y crear notas relacionadas al cliente
   const [notesClient, setNotesClient] = React.useState<AppClient | null>(null);
   const [createNoteClient, setCreateNoteClient] = React.useState<AppClient | null>(null);
+
+  // Estado para controlar si las acciones están agrupadas - guardado en localStorage
+  const [isActionsGrouped, setIsActionsGrouped] = React.useState(() => {
+    try {
+      const saved = localStorage.getItem('clients-table-actions-grouped');
+      return saved ? JSON.parse(saved) : true; // Por defecto compacto (true)
+    } catch {
+      return true; // Por defecto compacto
+    }
+  });
+
+  // Efecto para guardar en localStorage cuando cambie el estado
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('clients-table-actions-grouped', JSON.stringify(isActionsGrouped));
+    } catch (error) {
+      console.warn('No se pudo guardar la configuración en localStorage:', error);
+    }
+  }, [isActionsGrouped]);
 
   // Normalizar datos del cliente
   const normalizedClients = clients.map((c) => {
@@ -256,62 +282,109 @@ export default function ClientsTable({
     "phone",
   ];
 
-  // Acciones de fila (ahora con aria-labels / títulos i18n) — envuelto para centrar y gap como en UsersTable
-  const renderActions = (client: AppClient & { clientName: string }) => (
-    <div className="flex items-center gap-1">
-      {/* Ver notas */}
-      <Button
-        size="icon"
-        variant="ghost"
-        onClick={(e) => {
+  // Acciones agrupadas (modo compacto - dropdown)
+  const renderGroupedActions = (client: AppClient & { clientName: string }) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="sm">
+          <MoreHorizontal className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent>
+        <DropdownMenuItem onClick={(e) => {
           e.stopPropagation();
           setNotesClient(client);
-        }}
-        title={getText("clients.table.notesButton", "Notas")}
-        aria-label={getText("clients.table.notesAria", "Ver notas del cliente")}
-      >
-        <FileText className="h-4 w-4" />
-      </Button>
+        }}>
+          <FileText className="h-4 w-4 mr-2" />
+          {getText("clients.table.notesButton", "Notas")}
+        </DropdownMenuItem>
 
-      {/* Crear nota (rápido) */}
-      <Button
-        size="icon"
-        variant="ghost"
-        onClick={(e) => {
+        <DropdownMenuItem onClick={(e) => {
           e.stopPropagation();
           setCreateNoteClient(client);
-        }}
-        title={getText("clients.table.addNoteButton", "Agregar nota")}
-        aria-label={getText("clients.table.addNoteAria", "Agregar nota para el cliente")}
-      >
-        <Plus className="h-4 w-4" />
-      </Button>
+        }}>
+          <Plus className="h-4 w-4 mr-2" />
+          {getText("clients.table.addNoteButton", "Agregar nota")}
+        </DropdownMenuItem>
 
-      <Button
-        size="icon"
-        variant="ghost"
-        onClick={(e) => {
+        <DropdownMenuSeparator />
+
+        <DropdownMenuItem onClick={(e) => {
           e.stopPropagation();
           setEditClient(client);
-        }}
-        aria-label={formatTemplate(TEXT.clients.table.actionEdit, client)}
-        title={formatTemplate(TEXT.clients.table.actionEdit, client)}
-      >
-        <Pencil className="h-4 w-4" />
-      </Button>
-      <Button
-        size="icon"
-        variant="ghost"
-        onClick={(e) => {
+        }}>
+          <Pencil className="h-4 w-4 mr-2" />
+          {getText("actions.edit", "Editar")}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={(e) => {
           e.stopPropagation();
           setDeleteClient(client);
-        }}
-        aria-label={formatTemplate(TEXT.clients.table.actionDelete, client)}
-        title={formatTemplate(TEXT.clients.table.actionDelete, client)}
-      >
-        <Trash className="h-4 w-4 text-red-500" />
-      </Button>
-    </div>
+        }}>
+          <Trash className="h-4 w-4 mr-2" />
+          {getText("actions.delete", "Eliminar")}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
+  // Acciones de fila (ahora con aria-labels / títulos i18n) — envuelto para centrar y gap como en UsersTable
+  const renderActions = (client: AppClient & { clientName: string }) => (
+    isActionsGrouped ? renderGroupedActions(client) : (
+      <div className="flex items-center gap-1">
+        {/* Ver notas */}
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={(e) => {
+            e.stopPropagation();
+            setNotesClient(client);
+          }}
+          title={getText("clients.table.notesButton", "Notas")}
+          aria-label={getText("clients.table.notesAria", "Ver notas del cliente")}
+        >
+          <FileText className="h-4 w-4" />
+        </Button>
+
+        {/* Crear nota (rápido) */}
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={(e) => {
+            e.stopPropagation();
+            setCreateNoteClient(client);
+          }}
+          title={getText("clients.table.addNoteButton", "Agregar nota")}
+          aria-label={getText("clients.table.addNoteAria", "Agregar nota para el cliente")}
+        >
+          <Plus className="h-4 w-4" />
+        </Button>
+
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={(e) => {
+            e.stopPropagation();
+            setEditClient(client);
+          }}
+          aria-label={formatTemplate(TEXT.clients.table.actionEdit, client)}
+          title={formatTemplate(TEXT.clients.table.actionEdit, client)}
+        >
+          <Pencil className="h-4 w-4" />
+        </Button>
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={(e) => {
+            e.stopPropagation();
+            setDeleteClient(client);
+          }}
+          aria-label={formatTemplate(TEXT.clients.table.actionDelete, client)}
+          title={formatTemplate(TEXT.clients.table.actionDelete, client)}
+        >
+          <Trash className="h-4 w-4 text-red-500" />
+        </Button>
+      </div>
+    )
   );
 
   return (
@@ -343,6 +416,16 @@ export default function ClientsTable({
         )}
         actionsHeader={TEXT.clients.list.headers.actions ?? "Acciones"}
         isPageLoading={isPageLoading}
+        rightControls={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsActionsGrouped(!isActionsGrouped)}
+            className="text-xs"
+          >
+            {isActionsGrouped ? "Compacto" : "Desplegado"}
+          </Button>
+        }
       />
 
       <CreateClientDialog open={createOpen} onClose={() => setCreateOpen(false)} onCreated={onRefresh} />

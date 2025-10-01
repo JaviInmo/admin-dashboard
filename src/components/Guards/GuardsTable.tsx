@@ -55,6 +55,12 @@ export interface GuardsTableProps {
   sortField: keyof Guard;
   sortOrder: SortOrder;
   toggleSort: (key: keyof Guard) => void;
+
+  // Nueva prop para abrir automáticamente el modal de shifts
+  initialShiftGuard?: Guard | null;
+  
+  // Nueva prop para notificar cuando se cierra el modal inicial
+  onInitialShiftModalClose?: () => void;
 }
 
 export default function GuardsTable({
@@ -71,6 +77,8 @@ export default function GuardsTable({
   sortField,
   sortOrder,
   toggleSort,
+  initialShiftGuard,
+  onInitialShiftModalClose,
 }: GuardsTableProps) {
   const { TEXT } = useI18n();
 
@@ -110,6 +118,13 @@ export default function GuardsTable({
 
   // Nuevo estado: guard para abrir CreateNote directamente (crear)
   const [createNoteGuard, setCreateNoteGuard] = React.useState<Guard | null>(null);
+
+  // Efecto para abrir automáticamente el modal de shifts si viene initialShiftGuard
+  React.useEffect(() => {
+    if (initialShiftGuard && !shiftGuard) {
+      setShiftGuard(initialShiftGuard);
+    }
+  }, [initialShiftGuard, shiftGuard]);
 
   // Estado para controlar si las acciones están agrupadas - guardado en localStorage
   const [isActionsGrouped, setIsActionsGrouped] = React.useState(() => {
@@ -539,7 +554,13 @@ export default function GuardsTable({
           guardId={shiftGuard.id}
           guardName={`${shiftGuard.firstName ?? ""} ${shiftGuard.lastName ?? ""}`.trim()}
           open={!!shiftGuard}
-          onClose={() => setShiftGuard(null)}
+          onClose={() => {
+            setShiftGuard(null);
+            // Si este era el modal inicial, notificar para limpiar el estado
+            if (shiftGuard === initialShiftGuard && onInitialShiftModalClose) {
+              onInitialShiftModalClose();
+            }
+          }}
         />
       )}
 

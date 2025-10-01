@@ -2,6 +2,7 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as React from "react";
+import { useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import type { PaginatedResult } from "@/lib/pagination";
 import { GUARDS_KEY, listGuards } from "@/lib/services/guard";
@@ -45,6 +46,9 @@ export default function GuardsPage() {
   
   // Hook para cachear páginas visitadas
   const visitedCache = useVisitedPagesCache<PaginatedResult<Guard>>();
+
+  const location = useLocation();
+  const [initialShiftGuard, setInitialShiftGuard] = React.useState<Guard | null>(null);
 
   const [page, setPage] = React.useState<number>(1);
   const [search, setSearch] = React.useState<string>("");
@@ -96,6 +100,19 @@ export default function GuardsPage() {
       return true; // Refetch si no hay datos cached
     },
   });
+
+  // Efecto para manejar navegación con state (abrir modal de shifts automáticamente)
+  React.useEffect(() => {
+    const state = location.state as { openGuardShifts?: number; guardName?: string } | null;
+    if (state?.openGuardShifts && data && data.items && data.items.length > 0) {
+      const guard = data.items.find((g: Guard) => g.id === state.openGuardShifts);
+      if (guard) {
+        setInitialShiftGuard(guard);
+        // Limpiar el state para evitar reabrir el modal en futuras navegaciones
+        window.history.replaceState(null, '', location.pathname);
+      }
+    }
+  }, [location.state, data]);
 
   // Guardar datos cuando se cargan exitosamente
   React.useEffect(() => {
@@ -184,6 +201,8 @@ export default function GuardsPage() {
         sortField={sortField}
         sortOrder={sortOrder}
         isPageLoading={shouldShowLoading}
+        initialShiftGuard={initialShiftGuard}
+        onInitialShiftModalClose={() => setInitialShiftGuard(null)}
       />
     </div>
   );

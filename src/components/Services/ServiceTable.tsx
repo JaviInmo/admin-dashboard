@@ -1,9 +1,15 @@
 // src/components/Services/ServiceTable.tsx
 "use client";
 
-import { Pencil, Trash, Eye, FileText, Plus } from "lucide-react";
+import { Pencil, Trash, Eye, FileText, Plus, MoreHorizontal } from "lucide-react";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ReusableTable, type Column } from "@/components/ui/reusable-table";
 import { useI18n } from "@/i18n";
 import type { SortOrder } from "@/lib/sort";
@@ -113,6 +119,17 @@ export default function ServicesTable({
   // States for Notes modal / create note quick dialog
   const [notesService, setNotesService] = React.useState<Service | null>(null);
   const [createNoteService, setCreateNoteService] = React.useState<Service | null>(null);
+
+  // Estado para agrupar acciones (compacto/desplegado)
+  const [isActionsGrouped, setIsActionsGrouped] = React.useState(() => {
+    const saved = localStorage.getItem("services-table-actions-grouped");
+    return saved ? JSON.parse(saved) : false;
+  });
+
+  // Guardar preferencia en localStorage
+  React.useEffect(() => {
+    localStorage.setItem("services-table-actions-grouped", JSON.stringify(isActionsGrouped));
+  }, [isActionsGrouped]);
 
   // Servicio vacío para modo creación
   const createEmptyService = React.useMemo((): Service => ({
@@ -391,6 +408,72 @@ export default function ServicesTable({
     );
   };
 
+  const renderGroupedActions = (s: Service) => {
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={(e) => e.stopPropagation()}
+            title="Más"
+            aria-label="Más"
+          >
+            <MoreHorizontal className={iconSizeClass} />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowService(s);
+            }}
+          >
+            <Eye className="mr-2 h-4 w-4" />
+            {TEXT?.actions?.view ?? "View"}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.stopPropagation();
+              setNotesService(s);
+            }}
+          >
+            <FileText className="mr-2 h-4 w-4" />
+            {TEXT?.services?.table?.notesButton ?? "Notas"}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.stopPropagation();
+              setCreateNoteService(s);
+            }}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            {TEXT?.services?.table?.addNoteButton ?? "Agregar nota"}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.stopPropagation();
+              setEditService(s);
+            }}
+          >
+            <Pencil className="mr-2 h-4 w-4" />
+            {TEXT?.actions?.edit ?? "Edit"}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.stopPropagation();
+              setDeleteServiceState(s);
+            }}
+            className="text-red-600"
+          >
+            <Trash className="mr-2 h-4 w-4" />
+            {TEXT?.actions?.delete ?? "Delete"}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  };
+
   return (
     <>
       <div className="w-full overflow-auto">
@@ -446,8 +529,18 @@ export default function ServicesTable({
             sortField={sortField}
             sortOrder={sortOrder}
             toggleSort={toggleSort}
-            actions={renderActions}
+            actions={isActionsGrouped ? renderGroupedActions : renderActions}
             isPageLoading={isPageLoading}
+            rightControls={
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsActionsGrouped(!isActionsGrouped)}
+                className="text-xs"
+              >
+                {isActionsGrouped ? "Compacto" : "Desplegado"}
+              </Button>
+            }
           />
         </div>
       </div>

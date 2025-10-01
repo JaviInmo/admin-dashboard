@@ -4,8 +4,10 @@ import * as React from "react";
 import { MessageCircle, Mail } from "lucide-react";
 import { GiPistolGun } from "react-icons/gi";
 import type { Shift } from "@/components/Shifts/types";
+import GuardShiftsModal from "@/components/Guards/guard shifts content/GuardShiftsModal";
 import { getDayCoverageInfo } from "./coverageGaps";
 import { useI18n } from "@/i18n";
+import { useNavigate } from "react-router-dom";
 
 type ShiftApi = Shift & {
   planned_start_time?: string | null;
@@ -84,6 +86,7 @@ export default function PropertyShiftsTable({
   onDayHover,
 }: Props) {
   const { TEXT } = useI18n();
+  const navigate = useNavigate();
   const FIRST_COL_WIDTH = 200;
   const rightMinWidth = Math.max(0, tableMinWidth - FIRST_COL_WIDTH);
 
@@ -118,6 +121,8 @@ export default function PropertyShiftsTable({
   const getDayCoverageInfoCallback = React.useCallback((day: Date) => {
     return getDayCoverageInfo(day, selectedService || null, services, shiftsByGuardAndDate);
   }, [selectedService, services, shiftsByGuardAndDate]);
+
+  const [guardShiftsModal, setGuardShiftsModal] = React.useState<{ guardId: number; guardName: string } | null>(null);
 
   return (
     <div className="mt-4">
@@ -208,7 +213,7 @@ export default function PropertyShiftsTable({
                         className="border-b px-2 py-2 flex items-center justify-between gap-2"
                         style={{ height: rowHeight }}
                       >
-                        <div className="text-sm truncate text-black">{g.name}</div>
+                        <div className="text-sm truncate text-black cursor-pointer hover:text-blue-600 hover:underline" onClick={() => navigate('/guards', { state: { openGuardShifts: g.id, guardName: g.name } })}>{g.name}</div>
                         <div className="flex gap-1">
                           {g.phone && (
                             <a
@@ -385,6 +390,16 @@ export default function PropertyShiftsTable({
             <div style={{ minWidth: rightMinWidth, height: 1 }} />
           </div>
         </div>
+      )}
+
+      {/* Modal de turnos del guardia */}
+      {guardShiftsModal && (
+        <GuardShiftsModal
+          guardId={guardShiftsModal.guardId}
+          guardName={guardShiftsModal.guardName}
+          open={!!guardShiftsModal}
+          onClose={() => setGuardShiftsModal(null)}
+        />
       )}
     </div>
   );
