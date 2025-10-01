@@ -129,11 +129,11 @@ export default function PropertiesPage() {
     }
   }, [page, totalPages, isFetching]);
 
-  const toggleSort = (field: keyof AppProperty) => {
+  const toggleSort = (field: keyof AppProperty | "ownerName") => {
     if (sortField === field) {
       setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
     } else {
-      setSortField(field);
+      setSortField(field as keyof AppProperty);
       setSortOrder("asc");
     }
     setPage(1); // reset page al cambiar orden

@@ -129,6 +129,7 @@ export const ES_TEXT = {
       },
       actionEdit: "Editar {name}",
       actionDelete: "Eliminar {name}",
+      notesTitle: "Notas para cliente",
     },
     list: {
       title: "Lista de Clientes",
@@ -244,6 +245,7 @@ export const ES_TEXT = {
       pageSizeLabel: "Filas por página",
       actionEdit: "Editar {name}",
       actionDelete: "Eliminar {name}",
+      notesTitle: "Notas para propiedad",
     },
     form: {
       editTitle: "Editar Propiedad",
@@ -375,6 +377,7 @@ export const ES_TEXT = {
       actionDelete: "Eliminar guardia {name}",
       confirmLabel: "Confirmar",
       deleteSuccess: "Guardia {name} eliminado",
+      notesTitle: "Notas para guardia",
     },
     errorLoading: "Error al cargar guardias",
     form: {
@@ -488,6 +491,7 @@ export const ES_TEXT = {
         permissions: "Estado",
         actions: "Acciones",
       },
+      notesTitle: "Notas para usuario",
     },
     form: {
       createTitle: "Crear Usuario",
@@ -693,6 +697,11 @@ export const ES_TEXT = {
       recurrentNo: "No",
       activeLabel: "Sí",
       inactiveLabel: "No",
+      notesTitle: "Notas para servicio",
+      notesButton: "Notas",
+      notesAria: "Ver notas del servicio",
+      addNoteButton: "Agregar nota",
+      addNoteAria: "Agregar nota para el servicio",
     },
     create: {
       title: "Crear Servicio",

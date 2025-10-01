@@ -123,6 +123,7 @@ export const EN_TEXT = {
       },
       actionEdit: "Edit {name}",
       actionDelete: "Delete {name}",
+      notesTitle: "Notes for client",
     },
     list: {
       title: "Clients List",
@@ -238,6 +239,7 @@ export const EN_TEXT = {
       pageSizeLabel: "Rows per page",
       actionEdit: "Edit {name}",
       actionDelete: "Delete {name}",
+      notesTitle: "Notes for property",
     },
     form: {
       editTitle: "Edit Property",
@@ -369,6 +371,7 @@ export const EN_TEXT = {
       actionDelete: "Delete guard {name}",
       confirmLabel: "Confirm",
       deleteSuccess: "Guard {name} deleted",
+      notesTitle: "Notes for guard",
     },
     errorLoading: "Error loading guards",
     form: {
@@ -482,6 +485,7 @@ export const EN_TEXT = {
         permissions: "Status",
         actions: "Actions",
       },
+      notesTitle: "Notes for user",
     },
     form: {
       createTitle: "Create User",
@@ -689,6 +693,11 @@ export const EN_TEXT = {
     recurrentNo: "No",
       activeLabel: "Yes",
       inactiveLabel: "No",
+      notesTitle: "Notes for service",
+      notesButton: "Notes",
+      notesAria: "View service notes",
+      addNoteButton: "Add note",
+      addNoteAria: "Add note for service",
     },
     create: {
       title: "Create Service",

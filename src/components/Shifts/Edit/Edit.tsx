@@ -1058,80 +1058,179 @@ export default function EditShift({
 
             {isArmed && (
               <div className="space-y-2">
-                {weapons.length === 1 ? (
-                  // Single weapon: show model and serial fields (read-only)
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="text-sm block mb-1">{(TEXT as any)?.shifts?.create?.weaponModel ?? "Modelo"}</label>
-                      <input
-                        type="text"
-                        className={`${inputClass} bg-gray-50`}
-                        value={weapons[0]?.model ?? ""}
-                        disabled
-                        readOnly
-                      />
-                    </div>
-                    <div>
-                      <label className="text-sm block mb-1">{(TEXT as any)?.shifts?.create?.weaponSerial ?? "Serie"}</label>
-                      <input
-                        type="text"
-                        className={`${inputClass} bg-gray-50`}
-                        value={weapons[0]?.serialNumber ?? ""}
-                        disabled
-                        readOnly
-                      />
-                    </div>
-                  </div>
-                ) : weapons.length > 1 ? (
-                  // Multiple weapons: show dropdown with "model - serial"
-                  <div>
-                    <label className="text-sm block mb-1">{(TEXT as any)?.shifts?.create?.selectWeapon ?? "Seleccionar arma"}</label>
-                    <select
-                      value={selectedWeaponId ?? ""}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        if (!val) {
-                          setSelectedWeaponId(null);
-                          setSelectedWeaponSerial(null);
-                          return;
+                {/* Si estamos editando un turno existente, mostrar información del arma asignada */}
+                {shift ? (
+                  <div className="bg-gray-50 p-3 rounded-md border">
+                    <div className="text-sm font-medium text-gray-700 mb-2">Arma asignada al turno:</div>
+                    {(() => {
+                      // Si tenemos el ID del arma asignada, buscarla en la lista de armas cargadas
+                      if (shift.weapon && weapons.length > 0) {
+                        const assignedWeapon = weapons.find(w => w.id === shift.weapon);
+                        if (assignedWeapon) {
+                          return (
+                            <div className="text-sm">
+                              <div><strong>Modelo:</strong> {assignedWeapon.model || '-'}</div>
+                              <div><strong>Serie:</strong> {assignedWeapon.serialNumber || '-'}</div>
+                            </div>
+                          );
                         }
-                        const id = Number(val);
-                        setSelectedWeaponId(id);
-                        const w = weapons.find((x) => Number(x.id) === id);
-                        setSelectedWeaponSerial(w?.serialNumber ?? null);
-                        setManualSerial("");
-                      }}
-                      className={inputClass}
-                    >
-                      <option value="">{(TEXT as any)?.shifts?.create?.selectWeapon ?? "-- Seleccionar arma --"}</option>
-                      {weapons.map((w) => (
-                        <option key={w.id} value={w.id}>
-                          {w.model ?? "Sin modelo"} - {w.serialNumber ?? "Sin serie"}
-                        </option>
-                      ))}
-                    </select>
+                      }
+
+                      // Intentar mostrar información del arma desde weaponDetails (fallback)
+                      let weaponInfo = null;
+                      if (typeof shift.weaponDetails === 'string') {
+                        try {
+                          const parsed = JSON.parse(shift.weaponDetails);
+                          if (Array.isArray(parsed)) {
+                            weaponInfo = parsed;
+                          } else if (parsed.results && Array.isArray(parsed.results)) {
+                            weaponInfo = parsed.results;
+                          } else if (typeof parsed === 'object' && parsed !== null) {
+                            // Si es un objeto individual, convertirlo a array
+                            weaponInfo = [parsed];
+                          }
+                        } catch (e) {
+                          // Si no se puede parsear, mostrar como texto
+                          return (
+                            <div className="text-sm text-gray-600">
+                              <strong>Detalles:</strong> {shift.weaponDetails}
+                            </div>
+                          );
+                        }
+                      } else if (Array.isArray(shift.weaponDetails)) {
+                        weaponInfo = shift.weaponDetails;
+                      } else if (typeof shift.weaponDetails === 'object' && shift.weaponDetails !== null) {
+                        // Si weaponDetails es un objeto individual
+                        weaponInfo = [shift.weaponDetails];
+                      }
+
+                      if (weaponInfo && weaponInfo.length > 0) {
+                        return (
+                          <div className="space-y-2">
+                            {weaponInfo.map((weapon: any, index: number) => {
+                              // Extraer información del arma de manera robusta
+                              let model = '-';
+                              let serial = '-';
+
+                              if (typeof weapon === 'object' && weapon !== null) {
+                                // Intentar diferentes campos posibles para model y serial
+                                model = weapon.model || weapon.weapon_model || weapon.modelo || '-';
+                                serial = weapon.serial_number || weapon.serialNumber || weapon.serial || weapon.serie || '-';
+
+                                // Si serial es un objeto, intentar extraer información de él
+                                if (typeof serial === 'object' && serial !== null) {
+                                  const serialObj = serial as any;
+                                  serial = serialObj.serial_number || serialObj.serialNumber || serialObj.serial || JSON.stringify(serial);
+                                }
+                              }
+
+                              return (
+                                <div key={weapon.id || index} className="text-sm">
+                                  <div><strong>Modelo:</strong> {model}</div>
+                                  <div><strong>Serie:</strong> {serial}</div>
+                                  {index < weaponInfo.length - 1 && <hr className="my-2 border-gray-300" />}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      }
+
+                      // Fallback: mostrar serial individual si existe
+                      const serial = (shift as any).weaponSerialNumber ?? null;
+                      if (serial && typeof serial === 'string') {
+                        return (
+                          <div className="text-sm text-gray-600">
+                            <strong>Serie:</strong> {serial}
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="text-sm text-gray-500 italic">
+                          Información del arma no disponible
+                        </div>
+                      );
+                    })()}
                   </div>
                 ) : (
-                  // No weapons: show manual serial input
-                  <div>
-                    <label className="text-sm block mb-1">{(TEXT as any)?.shifts?.create?.weaponSerial ?? "Serie del arma"}</label>
-                    <input
-                      type="text"
-                      placeholder={(TEXT as any)?.shifts?.create?.weaponSerialPlaceholder ?? "Número de serie"}
-                      className={inputClass}
-                      value={manualSerial}
-                      onChange={(e) => {
-                        setManualSerial(e.target.value);
-                        setSelectedWeaponSerial(null);
-                        setSelectedWeaponId(null);
-                      }}
-                    />
-                    <div className="text-[11px] text-muted-foreground mt-1">
-                      {(TEXT as any)?.shifts?.create?.manualSerialHelp ?? "Ingresa el número de serie manualmente"}
-                    </div>
-                  </div>
+                  /* Si estamos creando un turno nuevo, mostrar el selector de armas */
+                  <>
+                    {weapons.length === 1 ? (
+                      // Single weapon: show model and serial fields (read-only)
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-sm block mb-1">{(TEXT as any)?.shifts?.create?.weaponModel ?? "Modelo"}</label>
+                          <input
+                            type="text"
+                            className={`${inputClass} bg-gray-50`}
+                            value={weapons[0]?.model ?? ""}
+                            disabled
+                            readOnly
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm block mb-1">{(TEXT as any)?.shifts?.create?.weaponSerial ?? "Serie"}</label>
+                          <input
+                            type="text"
+                            className={`${inputClass} bg-gray-50`}
+                            value={weapons[0]?.serialNumber ?? ""}
+                            disabled
+                            readOnly
+                          />
+                        </div>
+                      </div>
+                    ) : weapons.length > 1 ? (
+                      // Multiple weapons: show dropdown with "model - serial"
+                      <div>
+                        <label className="text-sm block mb-1">{(TEXT as any)?.shifts?.create?.selectWeapon ?? "Seleccionar arma"}</label>
+                        <select
+                          value={selectedWeaponId ?? ""}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (!val) {
+                              setSelectedWeaponId(null);
+                              setSelectedWeaponSerial(null);
+                              return;
+                            }
+                            const id = Number(val);
+                            setSelectedWeaponId(id);
+                            const w = weapons.find((x) => Number(x.id) === id);
+                            setSelectedWeaponSerial(w?.serialNumber ?? null);
+                            setManualSerial("");
+                          }}
+                          className={inputClass}
+                        >
+                          <option value="">{(TEXT as any)?.shifts?.create?.selectWeapon ?? "-- Seleccionar arma --"}</option>
+                          {weapons.map((w) => (
+                            <option key={w.id} value={w.id}>
+                              {w.model ?? "Sin modelo"} - {w.serialNumber ?? "Sin serie"}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : (
+                      // No weapons: show manual serial input
+                      <div>
+                        <label className="text-sm block mb-1">{(TEXT as any)?.shifts?.create?.weaponSerial ?? "Serie del arma"}</label>
+                        <input
+                          type="text"
+                          placeholder={(TEXT as any)?.shifts?.create?.weaponSerialPlaceholder ?? "Número de serie"}
+                          className={inputClass}
+                          value={manualSerial}
+                          onChange={(e) => {
+                            setManualSerial(e.target.value);
+                            setSelectedWeaponSerial(null);
+                            setSelectedWeaponId(null);
+                          }}
+                        />
+                        <div className="text-[11px] text-muted-foreground mt-1">
+                          {(TEXT as any)?.shifts?.create?.manualSerialHelp ?? "Ingresa el número de serie manualmente"}
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
-
               </div>
             )}
           </div>

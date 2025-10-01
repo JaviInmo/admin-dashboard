@@ -212,11 +212,81 @@ export default function ShowShift({ open, onClose, shiftId, onUpdated, onDeleted
     return "-";
   };
 
-  const renderWeaponSerial = () => {
-    if (!shift) return "-";
-    // prefer explicit serial we mapped (weaponSerialNumber), then weaponDetails as fallback
+  const renderWeaponInfo = () => {
+    if (!shift || !shift.isArmed) return null;
+
+    // Intentar parsear weaponDetails como JSON si es un string
+    let weapons: any[] = [];
+    if (typeof shift.weaponDetails === 'string') {
+      try {
+        const parsed = JSON.parse(shift.weaponDetails);
+        if (Array.isArray(parsed)) {
+          weapons = parsed;
+        } else if (parsed.results && Array.isArray(parsed.results)) {
+          weapons = parsed.results;
+        }
+      } catch (e) {
+        // Si no se puede parsear, mostrar como texto plano
+        return (
+          <div>
+            <strong>Weapon details:</strong> {shift.weaponDetails}
+          </div>
+        );
+      }
+    } else if (Array.isArray(shift.weaponDetails)) {
+      weapons = shift.weaponDetails;
+    }
+
+    if (weapons.length > 0) {
+      return (
+        <div>
+          <strong>Weapons:</strong>
+          <div className="ml-4 mt-1 space-y-1">
+            {weapons.map((weapon, index) => {
+              // Extraer información del arma de manera robusta
+              let model = '-';
+              let serial = '-';
+
+              if (typeof weapon === 'object' && weapon !== null) {
+                // Intentar diferentes campos posibles para model y serial
+                model = weapon.model || weapon.weapon_model || weapon.modelo || '-';
+                serial = weapon.serial_number || weapon.serialNumber || weapon.serial || weapon.serie || '-';
+
+                // Si serial es un objeto, intentar extraer información de él
+                if (typeof serial === 'object' && serial !== null) {
+                  const serialObj = serial as any;
+                  serial = serialObj.serial_number || serialObj.serialNumber || serialObj.serial || JSON.stringify(serial);
+                }
+              }
+
+              return (
+                <div key={weapon.id || index} className="text-sm">
+                  <div><strong>Model:</strong> {model}</div>
+                  <div><strong>Serial:</strong> {serial}</div>
+                  {index < weapons.length - 1 && <hr className="my-2 border-gray-200" />}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    // Fallback: mostrar serial individual si existe
     const serial = (shift as any).weaponSerialNumber ?? shift.weaponDetails ?? null;
-    return serial ? String(serial) : "-";
+    if (serial) {
+      return (
+        <div>
+          <strong>Weapon serial:</strong> {String(serial)}
+        </div>
+      );
+    }
+
+    return (
+      <div>
+        <strong>Weapon:</strong> Armed but no weapon details available
+      </div>
+    );
   };
 
   return (
@@ -254,8 +324,7 @@ export default function ShowShift({ open, onClose, shiftId, onUpdated, onDeleted
                 <div><strong>Hours worked:</strong> {shift.hoursWorked ?? "-"}</div>
 
                 <div><strong>Is armed:</strong> {shift.isArmed ? "Yes" : "No"}</div>
-                <div><strong>Weapon serial:</strong> {renderWeaponSerial()}</div>
-                {shift.weaponDetails && <div><strong>Weapon details:</strong> {String(shift.weaponDetails)}</div>}
+                {renderWeaponInfo()}
 
                 <div><strong>Active:</strong> {shift.isActive ? "Yes" : "No"}</div>
 

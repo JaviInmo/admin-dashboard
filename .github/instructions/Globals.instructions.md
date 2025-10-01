@@ -15,3 +15,4 @@ Despeus de una nueva indicacion, confirma la idea que se esta pidiendo segun tu 
 
 no ofrescas hacer commits, solo cuando el ususario te lo pida
 
+en lugar de && usa ;; para comandos en consola

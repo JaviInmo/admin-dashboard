@@ -339,7 +339,7 @@ export default function PropertyShiftsTable({
                                             endIso
                                           )}`}
                                         </span>
-                                        {(s.isArmed || s.weapon) && (
+                                        {(s.isArmed === true) && (
                                           <GiPistolGun className="h-3 w-3 text-red-600 flex-shrink-0" />
                                         )}
                                       </button>
