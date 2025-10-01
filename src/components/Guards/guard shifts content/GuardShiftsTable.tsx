@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+import { useNavigate } from "react-router-dom";
+import { useI18n } from "@/i18n";
 import type { Shift } from "@/components/Shifts/types";
 
 type ShiftApi = Shift & {
@@ -31,6 +33,7 @@ type Props = {
   bodyMaxHeight?: string | number | undefined;
   rowHeight: number;
   outerWrapperRef: React.RefObject<HTMLDivElement | null>;
+  onDayHover?: (day: Date | null) => void;
 };
 
 function pad(n: number) {
@@ -60,7 +63,10 @@ export default function GuardShiftsTable({
   bodyMaxHeight,
   rowHeight,
   outerWrapperRef,
+  onDayHover,
 }: Props) {
+  const { TEXT } = useI18n();
+  const navigate = useNavigate();
   const FIRST_COL_WIDTH = 200;
   const rightMinWidth = Math.max(0, tableMinWidth - FIRST_COL_WIDTH);
 
@@ -94,13 +100,13 @@ export default function GuardShiftsTable({
   return (
     <div className="mt-4">
       {loading ? (
-        <div className="p-4">Cargando...</div>
+        <div className="p-4">{TEXT?.common?.loading ?? "Loading..."}</div>
       ) : error ? (
         <div className="p-4 text-sm text-red-600">{error}</div>
       ) : (
-        <div className="rounded-lg border bg-white" ref={outerWrapperRef}>
+        <div className="rounded-lg border bg-card" ref={outerWrapperRef}>
           {/* HEADER (fuera del scroll vertical) */}
-          <div className="flex items-stretch border-b bg-gray-50">
+          <div className="flex items-stretch border-b bg-muted/50">
             {/* Cabecera izquierda */}
             <div
               style={{
@@ -131,6 +137,8 @@ export default function GuardShiftsTable({
                       key={d.toISOString()}
                       className="border-l px-2 py-2 text-center font-bold"
                       style={{ minWidth: dayColMinWidth }}
+                      onMouseEnter={() => onDayHover?.(d)}
+                      onMouseLeave={() => onDayHover?.(null)}
                     >
                       <div className="text-xs">{label}</div>
                     </div>
@@ -172,7 +180,7 @@ export default function GuardShiftsTable({
                         className="border-b px-2 py-2 flex items-center justify-between gap-2"
                         style={{ height: rowHeight }}
                       >
-                        <div className="text-sm truncate text-black">{p.name ?? p.alias ?? `#${p.id}`}</div>
+                        <div className="text-sm truncate text-black cursor-pointer hover:text-blue-600 hover:underline" onClick={() => navigate('/properties', { state: { openPropertyShifts: p.id, propertyName: p.name } })}>{p.name ?? p.alias ?? `#${p.id}`}</div>
                       </div>
                     ))}
                   </div>
@@ -217,6 +225,8 @@ export default function GuardShiftsTable({
                                     justifyContent: "center",
                                   }}
                                   onClick={() => openCreateForDate(d, p)}
+                                  onMouseEnter={() => onDayHover?.(d)}
+                                  onMouseLeave={() => onDayHover?.(null)}
                                 >
                                   +
                                 </div>
@@ -232,6 +242,8 @@ export default function GuardShiftsTable({
                                   alignItems: "center",
                                   justifyContent: "center",
                                 }}
+                                onMouseEnter={() => onDayHover?.(d)}
+                                onMouseLeave={() => onDayHover?.(null)}
                               >
                                 <div className="flex flex-col items-center gap-1">
                                   {rec.map((s: ShiftApi) => {

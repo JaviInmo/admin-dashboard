@@ -1,7 +1,15 @@
 "use client";
 
+import * as React from "react";
 import { Search, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 type UiTextFragment = {
   guards?: {
@@ -20,6 +28,8 @@ type Props = {
   setViewMode: (m: "week" | "month" | "year") => void;
   propertySearch: string;
   setPropertySearch: (s: string) => void;
+  selectedMonth?: Date;
+  onMonthChange?: (month: Date) => void;
   days: Date[];
   moveBack: () => void;
   moveNext: () => void;
@@ -44,6 +54,8 @@ export default function GuardShiftsHeader({
   setViewMode,
   propertySearch,
   setPropertySearch,
+  selectedMonth,
+  onMonthChange,
   days,
   moveBack,
   moveNext,
@@ -59,6 +71,23 @@ export default function GuardShiftsHeader({
       : `Turnos — ${guardName ?? `#${guardId}`}`;
 
   const searchPlaceholder = TEXT?.shifts?.searchPlaceholder ?? "Buscar propiedades...";
+
+  // Generar opciones de meses (solo del año actual)
+  const monthOptions = React.useMemo(() => {
+    const options = [];
+    const currentYear = new Date().getFullYear();
+    
+    // Solo meses del año actual
+    for (let month = 0; month < 12; month++) {
+      const date = new Date(currentYear, month, 1);
+      options.push({
+        value: date.toISOString(),
+        label: date.toLocaleDateString('es-ES', { month: 'long' })
+      });
+    }
+    
+    return options;
+  }, []);
 
   return (
     <div className="flex items-start justify-between gap-3 w-full pt-4">
@@ -90,6 +119,28 @@ export default function GuardShiftsHeader({
             className="text-sm outline-none w-48 "
           />
         </div>
+
+        {onMonthChange && (
+          <Select 
+            value={selectedMonth?.toISOString() ?? ""} 
+            onValueChange={(value) => {
+              if (value) {
+                onMonthChange(new Date(value));
+              }
+            }}
+          >
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="Seleccionar mes" />
+            </SelectTrigger>
+            <SelectContent>
+              {monthOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
 
         <div className="flex border rounded overflow-hidden">
           <Button

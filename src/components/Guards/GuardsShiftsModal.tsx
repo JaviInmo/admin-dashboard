@@ -12,6 +12,13 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   CalendarIcon,
   Loader2,
   Plus,
@@ -19,6 +26,9 @@ import {
   Eye,
   Pencil,
   Trash,
+  ChevronLeft,
+  ChevronRight,
+  Calendar as CalendarIcon2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useI18n } from "@/i18n";
@@ -111,6 +121,109 @@ export default function GuardsShiftsModal({
   );
   const [daysWithShifts, setDaysWithShifts] = React.useState<Date[]>([]);
 
+  // Estados para filtros avanzados
+  const [startDate, setStartDate] = React.useState<Date>(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  });
+  const [viewMode, setViewMode] = React.useState<"week" | "month" | "year">("week");
+  const [selectedMonth, setSelectedMonth] = React.useState<Date>(() => {
+    const d = new Date();
+    d.setDate(1);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  });
+
+  // Función para calcular días según viewMode
+  const getDaysForViewMode = React.useMemo(() => {
+    if (viewMode === "week") {
+      // Find the Monday of the week containing startDate
+      const d = new Date(startDate);
+      const dayOfWeek = d.getDay();
+      const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      d.setDate(d.getDate() - daysToSubtract);
+      d.setHours(0, 0, 0, 0);
+      return Array.from({ length: 7 }).map((_, i) => {
+        const day = new Date(d);
+        day.setDate(d.getDate() + i);
+        return day;
+      });
+    }
+    if (viewMode === "month") {
+      const y = startDate.getFullYear();
+      const m = startDate.getMonth();
+      const daysInMonth = new Date(y, m + 1, 0).getDate();
+      return Array.from({ length: daysInMonth }).map((_, i) => {
+        const d = new Date(y, m, i + 1);
+        d.setHours(0, 0, 0, 0);
+        return d;
+      });
+    }
+    // year
+    const y = startDate.getFullYear();
+    const start = new Date(y, 0, 1);
+    const end = new Date(y, 11, 31);
+    const arr: Date[] = [];
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      arr.push(new Date(d));
+    }
+    return arr;
+  }, [startDate, viewMode]);
+
+  // Funciones de navegación
+  function moveBack() {
+    if (viewMode === "week") {
+      const nd = new Date(startDate);
+      nd.setDate(startDate.getDate() - 7);
+      setStartDate(nd);
+    } else if (viewMode === "month") {
+      const nd = new Date(startDate);
+      nd.setMonth(startDate.getMonth() - 1, 1);
+      nd.setHours(0, 0, 0, 0);
+      setStartDate(nd);
+    } else {
+      const nd = new Date(startDate);
+      nd.setFullYear(startDate.getFullYear() - 1, 0, 1);
+      nd.setHours(0, 0, 0, 0);
+      setStartDate(nd);
+    }
+  }
+
+  function moveNext() {
+    if (viewMode === "week") {
+      const nd = new Date(startDate);
+      nd.setDate(startDate.getDate() + 7);
+      setStartDate(nd);
+    } else if (viewMode === "month") {
+      const nd = new Date(startDate);
+      nd.setMonth(startDate.getMonth() + 1, 1);
+      nd.setHours(0, 0, 0, 0);
+      setStartDate(nd);
+    } else {
+      const nd = new Date(startDate);
+      nd.setFullYear(startDate.getFullYear() + 1, 0, 1);
+      nd.setHours(0, 0, 0, 0);
+      setStartDate(nd);
+    }
+  }
+
+  function goToday() {
+    const nd = new Date();
+    nd.setHours(0, 0, 0, 0);
+    setStartDate(nd);
+  }
+
+  // Función para manejar el cambio de mes seleccionado
+  function handleMonthChange(month: Date) {
+    setSelectedMonth(month);
+    setViewMode("month");
+    const newStartDate = new Date(month);
+    newStartDate.setDate(1);
+    newStartDate.setHours(0, 0, 0, 0);
+    setStartDate(newStartDate);
+  }
+
   // Cache de propiedades { [id]: AppProperty | null }
   const [propertyMap, setPropertyMap] = React.useState<
     Record<number, AppProperty | null>
@@ -129,6 +242,22 @@ export default function GuardsShiftsModal({
       return isSameDay(shiftDate, selectedDate);
     });
   }, [shifts, selectedDate]);
+
+  // Calcular días con turnos basado en el viewMode actual
+  const daysWithShiftsFiltered = React.useMemo(() => {
+    const daysSet = new Set<string>();
+    shifts.forEach((shift) => {
+      if (shift.startTime) {
+        const date = new Date(shift.startTime);
+        date.setHours(0, 0, 0, 0);
+        // Solo incluir días que estén en el rango del viewMode actual
+        if (getDaysForViewMode.some(viewDay => isSameDay(viewDay, date))) {
+          daysSet.add(date.toDateString());
+        }
+      }
+    });
+    return Array.from(daysSet).map((dateStr) => new Date(dateStr));
+  }, [shifts, getDaysForViewMode]);
 
   // getProperty label: devuelve string | null (null = no hay nombre aún)
   function getPropertyLabelForShift(s: Shift): string | null {
@@ -245,6 +374,11 @@ export default function GuardsShiftsModal({
       mounted = false;
     };
   }, [open, guardsCacheLoaded]);
+
+  // Limpiar selectedDate cuando cambia viewMode
+  React.useEffect(() => {
+    setSelectedDate(undefined);
+  }, [viewMode]);
 
   async function loadMore() {
     const nextPage = page + 1;
@@ -405,30 +539,94 @@ export default function GuardsShiftsModal({
       {/* Hacemos el DialogContent un flex column para que el footer quede fuera del área scrolleable */}
       <DialogContent size="xl" className="max-h-[90vh] flex flex-col">
         <DialogHeader>
-          <div className="flex items-center justify-between w-full pt-4">
-            <div>
-              <DialogTitle className="text-lg px-2">
-                {guardName
-                  ? `${TEXT?.shifts?.show?.title ?? "Turnos"} | ${guardName}`
-                  : TEXT?.shifts?.show?.title ?? "Turnos"}
-              </DialogTitle>
-              <div className="text-xs text-muted-foreground px-2">
-                {selectedDate
-                  ? `Turnos para ${selectedDate.toLocaleDateString()}`
-                  : "Todos los turnos del guardia"}
+          <div className="space-y-4">
+            {/* Título */}
+            <div className="flex items-center justify-between w-full">
+              <div>
+                <DialogTitle className="text-lg">
+                  {guardName
+                    ? `${TEXT?.shifts?.show?.title ?? "Turnos"} | ${guardName}`
+                    : TEXT?.shifts?.show?.title ?? "Turnos"}
+                </DialogTitle>
+                <div className="text-xs text-muted-foreground">
+                  {selectedDate
+                    ? `Turnos para ${selectedDate.toLocaleDateString()}`
+                    : viewMode === "week"
+                    ? `Semana del ${getDaysForViewMode[0]?.toLocaleDateString()} al ${getDaysForViewMode[6]?.toLocaleDateString()}`
+                    : viewMode === "month"
+                    ? `${startDate.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}`
+                    : `Año ${startDate.getFullYear()}`}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => setOpenCreate(true)}
+                  disabled={!selectedDate}
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  {TEXT?.shifts?.create?.title ?? TEXT?.actions?.create ?? "Crear"}
+                </Button>
               </div>
             </div>
-            <div className="flex items-center gap-2 pr-1">
-              <Button
-                size="sm"
-                onClick={() => setOpenCreate(true)}
-                disabled={!selectedDate}
-              >
-                <Plus className="h-4 w-4 mr-1" />
-                {TEXT?.shifts?.create?.title ??
-                  TEXT?.actions?.create ??
-                  "Crear"}
-              </Button>
+
+            {/* Controles de filtros avanzados */}
+            <div className="flex items-center justify-between gap-4 p-4 bg-muted/30 rounded-lg">
+              {/* Navegación temporal */}
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={moveBack}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+
+                <Button variant="outline" size="sm" onClick={goToday}>
+                  <CalendarIcon2 className="h-4 w-4 mr-1" />
+                  Hoy
+                </Button>
+
+                <Button variant="outline" size="sm" onClick={moveNext}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {/* Selector de vista */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">Vista:</span>
+                <Select value={viewMode} onValueChange={(value: "week" | "month" | "year") => setViewMode(value)}>
+                  <SelectTrigger className="w-24">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="week">Semana</SelectItem>
+                    <SelectItem value="month">Mes</SelectItem>
+                    <SelectItem value="year">Año</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Selector de mes (solo visible en vista mes) */}
+              {viewMode === "month" && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">Mes:</span>
+                  <Select
+                    value={selectedMonth.toISOString()}
+                    onValueChange={(value) => handleMonthChange(new Date(value))}
+                  >
+                    <SelectTrigger className="w-40">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 12 }, (_, i) => {
+                        const date = new Date(startDate.getFullYear(), i, 1);
+                        return (
+                          <SelectItem key={i} value={date.toISOString()}>
+                            {date.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
           </div>
         </DialogHeader>
@@ -447,7 +645,7 @@ export default function GuardsShiftsModal({
                 selected={selectedDate}
                 onSelect={setSelectedDate}
                 modifiers={{
-                  hasShifts: daysWithShifts,
+                  hasShifts: daysWithShiftsFiltered,
                 }}
                 modifiersStyles={{
                   hasShifts: {
@@ -457,6 +655,8 @@ export default function GuardsShiftsModal({
                   },
                 }}
                 className="rounded-md border-0"
+                month={viewMode === "month" ? startDate : undefined}
+                defaultMonth={viewMode === "month" ? startDate : undefined}
               />
               <div className="mt-3 text-xs text-muted-foreground">
                 <div className="flex items-center gap-2">

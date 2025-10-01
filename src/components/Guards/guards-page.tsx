@@ -104,7 +104,7 @@ export default function GuardsPage() {
   // Efecto para manejar navegación con state (abrir modal de shifts automáticamente)
   React.useEffect(() => {
     const state = location.state as { openGuardShifts?: number; guardName?: string } | null;
-    if (state?.openGuardShifts && data && data.items && data.items.length > 0) {
+    if (state?.openGuardShifts && data && data.items && data.items.length > 0 && !isFetching) {
       const guard = data.items.find((g: Guard) => g.id === state.openGuardShifts);
       if (guard) {
         setInitialShiftGuard(guard);
@@ -112,7 +112,7 @@ export default function GuardsPage() {
         window.history.replaceState(null, '', location.pathname);
       }
     }
-  }, [location.state, data]);
+  }, [location.state, data, isFetching]);
 
   // Guardar datos cuando se cargan exitosamente
   React.useEffect(() => {

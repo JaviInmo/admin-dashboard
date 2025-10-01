@@ -79,6 +79,19 @@ export default function GuardShiftsModal({ guardId, guardName, open, onClose }: 
   });
   const [viewMode, setViewMode] = React.useState<"week" | "month" | "year">("week");
   const [propertySearch, setPropertySearch] = React.useState<string>("");
+  const [selectedMonth, setSelectedMonth] = React.useState<Date>(() => {
+    const d = new Date();
+    d.setDate(1); // primer día del mes actual
+    return d;
+  });
+
+  // useEffect para actualizar selectedMonth cuando cambia startDate
+  React.useEffect(() => {
+    const monthStart = new Date(startDate);
+    monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
+    setSelectedMonth(monthStart);
+  }, [startDate]);
 
   const {
     propertiesAll,
@@ -146,6 +159,17 @@ export default function GuardShiftsModal({ guardId, guardName, open, onClose }: 
   }
   function goToday() {
     const nd = new Date(); nd.setHours(0, 0, 0, 0); setStartDate(nd);
+  }
+
+  // Función para manejar el cambio de mes seleccionado
+  function handleMonthChange(month: Date) {
+    setSelectedMonth(month);
+    // Cambiar automáticamente a vista de mes y navegar al mes seleccionado
+    setViewMode("month");
+    const newStartDate = new Date(month);
+    newStartDate.setDate(1); // Primer día del mes
+    newStartDate.setHours(0, 0, 0, 0);
+    setStartDate(newStartDate);
   }
 
   // openCreateForDateLocal: recibe la propiedad (SimpleProperty) y la mapea a AppProperty mínimo
@@ -270,6 +294,8 @@ export default function GuardShiftsModal({ guardId, guardName, open, onClose }: 
               setViewMode={setViewMode}
               propertySearch={propertySearch}
               setPropertySearch={setPropertySearch}
+              selectedMonth={selectedMonth}
+              onMonthChange={handleMonthChange}
               days={days}
               moveBack={moveBack}
               moveNext={moveNext}
