@@ -165,6 +165,8 @@ export default function ServicesPage() {
         sortField={sortField}
         sortOrder={sortOrder}
         isPageLoading={shouldShowLoading}
+        // <-- aquí estamos ocultando la columna "Active"
+        columnsConfig={{ showActive: false }}
       />
     </div>
   );

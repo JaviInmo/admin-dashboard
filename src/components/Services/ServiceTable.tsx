@@ -19,9 +19,6 @@ import EditServiceDialog from "./Edit/Edit";
 import PropertyServiceEdit from "../Properties/PropertyServiceEdit";
 import GuardServiceEdit from "../Guards/GuardServiceEdit";
 import ShowServiceDialog from "./Show/Show";
-// Removed CreateServiceDialog - now using PropertyServiceEdit for both create and edit
-
-/* Notas modal y create */
 import ServicesNotesModal from "./ServicesNotesModal";
 import CreateNote from "@/components/Notes/Create/CreateNote";
 
@@ -43,31 +40,24 @@ export interface ServicesTableProps {
   sortOrder?: SortOrder;
   toggleSort?: (key: keyof Service) => void;
 
-  // Nuevos props: si se pasan, cuando se abra el Create dialog, se prellenará el guard o la property.
   createInitialGuardId?: number | null;
   createInitialGuardLabel?: string | null;
 
   createInitialPropertyId?: number | null;
   createInitialPropertyLabel?: string | null;
 
-  // compact mode (cuando se renderiza dentro del modal de guardias pequeño)
   compact?: boolean;
-
-  // largeMode -> cuando queremos que el table sea más grande (textos, paddings y anchos).
   largeMode?: boolean;
-
-  // shrinkToFit -> fuerza la tabla a "encoger" (table-fixed, truncate, anchos reducidos)
-  // útil para que quepa en dialogos más estrechos sin overflow X.
   shrinkToFit?: boolean;
 
-  // context -> para determinar qué modal de edición usar
   context?: "property" | "guard" | "default";
 
-  // columnsConfig -> para controlar qué columnas mostrar según el contexto
+  // columnsConfig puede venir parcial (p.e. { showActive: false })
   columnsConfig?: {
     showName?: boolean;
     showGuard?: boolean;
     showProperty?: boolean;
+    showActive?: boolean;
   };
 }
 
@@ -93,19 +83,28 @@ export default function ServicesTable({
   largeMode = false,
   shrinkToFit = false,
   context = "default",
-  columnsConfig = { showName: true, showGuard: true, showProperty: true },
+  columnsConfig,
 }: ServicesTableProps) {
   const { TEXT } = useI18n();
+
+  // Merge incoming columnsConfig with defaults so partial objects don't hide other flags
+  const mergedColumnsConfig = React.useMemo(() => {
+    return {
+      showName: true,
+      showGuard: true,
+      showProperty: true,
+      showActive: true,
+      ...(columnsConfig || {}),
+    };
+  }, [columnsConfig]);
 
   const [editService, setEditService] = React.useState<Service | null>(null);
   const [deleteServiceState, setDeleteServiceState] =
     React.useState<Service | null>(null);
   const [showService, setShowService] = React.useState<Service | null>(null);
 
-  // Nuevo estado para abrir el modal de creación (servicios)
   const [createOpen, setCreateOpen] = React.useState(false);
 
-  // Estado para prefijar guard/property cuando abrimos CreateServiceDialog desde otra parte
   const [createInitialGuard, setCreateInitialGuard] = React.useState<{
     id?: number | null;
     label?: string | null;
@@ -116,22 +115,20 @@ export default function ServicesTable({
     label?: string | null;
   } | null>(null);
 
-  // States for Notes modal / create note quick dialog
   const [notesService, setNotesService] = React.useState<Service | null>(null);
   const [createNoteService, setCreateNoteService] = React.useState<Service | null>(null);
 
-  // Estado para agrupar acciones (compacto/desplegado)
   const [isActionsGrouped, setIsActionsGrouped] = React.useState(() => {
-    const saved = localStorage.getItem("services-table-actions-grouped");
+    const saved = typeof window !== "undefined" ? localStorage.getItem("services-table-actions-grouped") : null;
     return saved ? JSON.parse(saved) : false;
   });
 
-  // Guardar preferencia en localStorage
   React.useEffect(() => {
-    localStorage.setItem("services-table-actions-grouped", JSON.stringify(isActionsGrouped));
+    if (typeof window !== "undefined") {
+      localStorage.setItem("services-table-actions-grouped", JSON.stringify(isActionsGrouped));
+    }
   }, [isActionsGrouped]);
 
-  // Servicio vacío para modo creación
   const createEmptyService = React.useMemo((): Service => ({
     id: 0,
     name: "",
@@ -158,7 +155,6 @@ export default function ServicesTable({
 
   const tableText = TEXT?.services?.table ?? {};
 
-  // Visual adjustments:
   const sizeHeaderCell = compact
     ? "px-2 py-1 text-xs"
     : shrinkToFit
@@ -203,8 +199,7 @@ export default function ServicesTable({
   );
 
   const columns: Column<Service>[] = [
-    // Columna Name - se muestra según configuración
-    ...(columnsConfig.showName ? [{
+    ...(mergedColumnsConfig.showName ? [{
       key: "name" as keyof Service,
       label: tableText.headers?.name ?? "Name",
       sortable: true,
@@ -217,9 +212,8 @@ export default function ServicesTable({
       cellClassName: `${sizeHeaderCell} max-w-[220px]`,
       autoSize: true,
     }] : []),
-    
-    // Columna Guard - se muestra según configuración
-    ...(columnsConfig.showGuard ? [{
+
+    ...(mergedColumnsConfig.showGuard ? [{
       key: "guardName" as keyof Service,
       label: tableText.headers?.guard ?? "Guard",
       sortable: true,
@@ -227,9 +221,8 @@ export default function ServicesTable({
       headerClassName: sizeHeaderCell,
       cellClassName: sizeHeaderCell,
     }] : []),
-    
-    // Columna Property - se muestra según configuración
-    ...(columnsConfig.showProperty ? [{
+
+    ...(mergedColumnsConfig.showProperty ? [{
       key: "propertyName" as keyof Service,
       label: tableText.headers?.property ?? "Property",
       sortable: true,
@@ -239,11 +232,12 @@ export default function ServicesTable({
       headerClassName: sizeHeaderCell,
       cellClassName: sizeHeaderCell,
     }] : []),
+
     {
-      key: "totalHours",
+      key: "totalHours" as keyof Service,
       label: tableText.headers?.totalHours ?? "Cant. Hrs",
       sortable: false,
-      render: (s) => (
+      render: (s: Service) => (
         <Trunc title={String(s.totalHours ?? null)}>{s.totalHours ?? "-"}</Trunc>
       ),
       headerClassName: sizeHeaderCell,
@@ -252,10 +246,10 @@ export default function ServicesTable({
       cellStyle: headerCellSmallStyle,
     },
     {
-      key: "rate",
+      key: "rate" as keyof Service,
       label: tableText.headers?.rate ?? "Rate/hr",
       sortable: false,
-      render: (s) => (
+      render: (s: Service) => (
         <Trunc title={String(s.rate ?? null)}>{s.rate ?? "-"}</Trunc>
       ),
       headerClassName: sizeHeaderCell,
@@ -264,10 +258,10 @@ export default function ServicesTable({
       cellStyle: headerCellSmallStyle,
     },
     {
-      key: "monthlyBudget",
+      key: "monthlyBudget" as keyof Service,
       label: tableText.headers?.monthlyBudget ?? "Monthly",
       sortable: false,
-      render: (s) => (
+      render: (s: Service) => (
         <Trunc title={String(s.monthlyBudget ?? null)}>
           {s.monthlyBudget ?? "-"}
         </Trunc>
@@ -278,10 +272,10 @@ export default function ServicesTable({
       cellStyle: headerCellSmallStyle,
     },
     {
-      key: "recurrent",
+      key: "recurrent" as keyof Service,
       label: tableText.headers?.recurrent ?? "Recurrent",
       sortable: true,
-      render: (s) => {
+      render: (s: Service) => {
         if (s.recurrent === null || s.recurrent === undefined) return "-";
         const yes = tableText.recurrentYes ?? TEXT?.common?.yes ?? "Yes";
         const no = tableText.recurrentNo ?? TEXT?.common?.no ?? "No";
@@ -302,11 +296,12 @@ export default function ServicesTable({
         ? { width: "140px", minWidth: "120px" }
         : { width: "100px", minWidth: "80px" },
     },
-    {
-      key: "isActive",
+
+    ...(mergedColumnsConfig.showActive ? [{
+      key: "isActive" as keyof Service,
       label: tableText.headers?.isActive ?? "Active",
       sortable: true,
-      render: (s) => {
+      render: (s: Service) => {
         if (s.isActive === null || s.isActive === undefined) return "-";
         const yes = tableText.activeLabel ?? TEXT?.common?.yes ?? "Yes";
         const no = tableText.inactiveLabel ?? TEXT?.common?.no ?? "No";
@@ -326,153 +321,147 @@ export default function ServicesTable({
         : largeMode
         ? { width: "140px", minWidth: "120px" }
         : { width: "90px", minWidth: "70px" },
-    },
+    }] : []),
   ];
 
   const searchFields: (keyof Service)[] = [
-    ...(columnsConfig.showName ? ["name" as keyof Service] : []),
-    ...(columnsConfig.showGuard ? ["guardName" as keyof Service] : []),
-    ...(columnsConfig.showProperty ? ["propertyName" as keyof Service] : []),
+    ...(mergedColumnsConfig.showName ? ["name" as keyof Service] : []),
+    ...(mergedColumnsConfig.showGuard ? ["guardName" as keyof Service] : []),
+    ...(mergedColumnsConfig.showProperty ? ["propertyName" as keyof Service] : []),
   ];
 
-  const renderActions = (s: Service) => {
-    return (
-      <div className="flex items-center gap-1">
+  const renderActions = (s: Service) => (
+    <div className="flex items-center gap-1">
+      <Button
+        size="icon"
+        variant="ghost"
+        onClick={(e) => {
+          e.stopPropagation();
+          setShowService(s);
+        }}
+        title={TEXT?.actions?.view ?? "View"}
+        aria-label={TEXT?.actions?.view ?? "View"}
+      >
+        <Eye className={iconSizeClass} />
+      </Button>
+
+      <Button
+        size="icon"
+        variant="ghost"
+        onClick={(e) => {
+          e.stopPropagation();
+          setNotesService(s);
+        }}
+        title={TEXT?.services?.table?.notesButton ?? "Notas"}
+        aria-label={TEXT?.services?.table?.notesAria ?? "Ver notas del servicio"}
+      >
+        <FileText className={iconSizeClass} />
+      </Button>
+
+      <Button
+        size="icon"
+        variant="ghost"
+        onClick={(e) => {
+          e.stopPropagation();
+          setCreateNoteService(s);
+        }}
+        title={TEXT?.services?.table?.addNoteButton ?? "Agregar nota"}
+        aria-label={TEXT?.services?.table?.addNoteAria ?? "Agregar nota para el servicio"}
+      >
+        <Plus className={iconSizeClass} />
+      </Button>
+
+      <Button
+        size="icon"
+        variant="ghost"
+        onClick={(e) => {
+          e.stopPropagation();
+          setEditService(s);
+        }}
+        title={TEXT?.actions?.edit ?? "Edit"}
+        aria-label={TEXT?.actions?.edit ?? "Edit"}
+      >
+        <Pencil className={iconSizeClass} />
+      </Button>
+
+      <Button
+        size="icon"
+        variant="ghost"
+        onClick={(e) => {
+          e.stopPropagation();
+          setDeleteServiceState(s);
+        }}
+        title={TEXT?.actions?.delete ?? "Delete"}
+        aria-label={TEXT?.actions?.delete ?? "Delete"}
+      >
+        <Trash className={`${iconSizeClass} text-red-500`} />
+      </Button>
+    </div>
+  );
+
+  const renderGroupedActions = (s: Service) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
         <Button
           size="icon"
           variant="ghost"
+          onClick={(e) => e.stopPropagation()}
+          title="Más"
+          aria-label="Más"
+        >
+          <MoreHorizontal className={iconSizeClass} />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem
           onClick={(e) => {
             e.stopPropagation();
             setShowService(s);
           }}
-          title={TEXT?.actions?.view ?? "View"}
-          aria-label={TEXT?.actions?.view ?? "View"}
         >
-          <Eye className={iconSizeClass} />
-        </Button>
-
-        {/* Ver notas */}
-        <Button
-          size="icon"
-          variant="ghost"
+          <Eye className="mr-2 h-4 w-4" />
+          {TEXT?.actions?.view ?? "View"}
+        </DropdownMenuItem>
+        <DropdownMenuItem
           onClick={(e) => {
             e.stopPropagation();
             setNotesService(s);
           }}
-          title={TEXT?.services?.table?.notesButton ?? "Notas"}
-          aria-label={TEXT?.services?.table?.notesAria ?? "Ver notas del servicio"}
         >
-          <FileText className={iconSizeClass} />
-        </Button>
-
-        {/* Crear nota (autoprefill guard+property si existen) */}
-        <Button
-          size="icon"
-          variant="ghost"
+          <FileText className="mr-2 h-4 w-4" />
+          {TEXT?.services?.table?.notesButton ?? "Notas"}
+        </DropdownMenuItem>
+        <DropdownMenuItem
           onClick={(e) => {
             e.stopPropagation();
             setCreateNoteService(s);
           }}
-          title={TEXT?.services?.table?.addNoteButton ?? "Agregar nota"}
-          aria-label={TEXT?.services?.table?.addNoteAria ?? "Agregar nota para el servicio"}
         >
-          <Plus className={iconSizeClass} />
-        </Button>
-
-        <Button
-          size="icon"
-          variant="ghost"
+          <Plus className="mr-2 h-4 w-4" />
+          {TEXT?.services?.table?.addNoteButton ?? "Agregar nota"}
+        </DropdownMenuItem>
+        <DropdownMenuItem
           onClick={(e) => {
             e.stopPropagation();
             setEditService(s);
           }}
-          title={TEXT?.actions?.edit ?? "Edit"}
-          aria-label={TEXT?.actions?.edit ?? "Edit"}
         >
-          <Pencil className={iconSizeClass} />
-        </Button>
-
-        <Button
-          size="icon"
-          variant="ghost"
+          <Pencil className="mr-2 h-4 w-4" />
+          {TEXT?.actions?.edit ?? "Edit"}
+        </DropdownMenuItem>
+        <DropdownMenuItem
           onClick={(e) => {
             e.stopPropagation();
             setDeleteServiceState(s);
           }}
-          title={TEXT?.actions?.delete ?? "Delete"}
-          aria-label={TEXT?.actions?.delete ?? "Delete"}
+          className="text-red-600"
         >
-          <Trash className={`${iconSizeClass} text-red-500`} />
-        </Button>
-      </div>
-    );
-  };
-
-  const renderGroupedActions = (s: Service) => {
-    return (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={(e) => e.stopPropagation()}
-            title="Más"
-            aria-label="Más"
-          >
-            <MoreHorizontal className={iconSizeClass} />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowService(s);
-            }}
-          >
-            <Eye className="mr-2 h-4 w-4" />
-            {TEXT?.actions?.view ?? "View"}
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onClick={(e) => {
-              e.stopPropagation();
-              setNotesService(s);
-            }}
-          >
-            <FileText className="mr-2 h-4 w-4" />
-            {TEXT?.services?.table?.notesButton ?? "Notas"}
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onClick={(e) => {
-              e.stopPropagation();
-              setCreateNoteService(s);
-            }}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            {TEXT?.services?.table?.addNoteButton ?? "Agregar nota"}
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onClick={(e) => {
-              e.stopPropagation();
-              setEditService(s);
-            }}
-          >
-            <Pencil className="mr-2 h-4 w-4" />
-            {TEXT?.actions?.edit ?? "Edit"}
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onClick={(e) => {
-              e.stopPropagation();
-              setDeleteServiceState(s);
-            }}
-            className="text-red-600"
-          >
-            <Trash className="mr-2 h-4 w-4" />
-            {TEXT?.actions?.delete ?? "Delete"}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    );
-  };
+          <Trash className="mr-2 h-4 w-4" />
+          {TEXT?.actions?.delete ?? "Delete"}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 
   return (
     <>
@@ -497,7 +486,6 @@ export default function ServicesTable({
             }
             addButtonText={tableText.add ?? TEXT?.services?.add ?? "Add"}
             onAddClick={() => {
-              // Prioritize any explicit createInitialX set in component state
               if (createInitialGuard) {
                 setCreateOpen(true);
               } else if (createInitialProperty) {
@@ -557,7 +545,7 @@ export default function ServicesTable({
           onUpdated={async () => {
             if (onRefresh) {
               const maybe = onRefresh();
-              if (maybe && typeof (maybe as any).then === "function") {
+              if (maybe instanceof Promise) {
                 await maybe;
               }
             }
@@ -617,7 +605,6 @@ export default function ServicesTable({
         />
       )}
 
-      {/* Services Notes modal (ver / listar / crear desde ahí) */}
       {notesService && (
         <ServicesNotesModal
           service={notesService}
@@ -627,7 +614,6 @@ export default function ServicesTable({
         />
       )}
 
-      {/* Create Note quick dialog (abre con guard/property preseleccionados si existen) */}
       {createNoteService && (
         <CreateNote
           open={!!createNoteService}
@@ -635,7 +621,7 @@ export default function ServicesTable({
           onCreated={async () => {
             if (onRefresh) {
               const maybe = onRefresh();
-              if (maybe && typeof (maybe as unknown as Promise<unknown>)?.then === "function") {
+              if (maybe instanceof Promise) {
                 await maybe;
               }
             }
