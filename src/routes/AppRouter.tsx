@@ -11,6 +11,7 @@ import ClientDetailPage from "../pages/ClientDetailPage";
 import ShiftsPage from "../pages/ShiftsPage";
 import ServicesPage from "../pages/ServicesPage";
 import NotesPage from "../pages/NotesPage";
+import MapPage from "../pages/MapPage";
 import { getAccessToken } from "@/lib/auth-storage";
 
 // Función helper para verificar si el usuario está autenticado
@@ -96,6 +97,10 @@ export const router = createBrowserRouter([
       {
         path: "notes",
         element: <NotesPage />,
+      },
+      {
+        path: "map",
+        element: <MapPage />,
       },
     ],
   },

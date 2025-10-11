@@ -12,6 +12,7 @@ import {
   Home,
   CalendarClock,
   StickyNote,
+  MapPin,
 } from "lucide-react";
 import { useState, useEffect, type CSSProperties } from "react";
 import { logout as authLogout } from "@/lib/services/auth";
@@ -72,6 +73,9 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
     if (pathname.startsWith('/properties')) return 'Properties';
     if (pathname.startsWith('/shifts')) return 'Shifts';
     if (pathname.startsWith('/services')) return 'Services';
+    if (pathname.startsWith('/notes')) return 'Notes';
+    if (pathname.startsWith('/dashboard')) return 'Dashboard';
+    if (pathname.startsWith('/map')) return 'Map';
     return 'Dashboard';
   };
 
@@ -170,6 +174,12 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
       path: "/guards",
     },
     {
+      key: "Map",
+      label: TEXT.menu?.map ?? "Map",
+      icon: MapPin,
+      path: "/map",
+    },
+    {
       key: "Users",
       label: TEXT.menu?.users ?? "Users",
       icon: UserRoundCheck,
@@ -202,7 +212,6 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
   ];
 
   const renderMainContent = () => {
-    // Use React Router's Outlet to render the current route content
     return <Outlet />;
   };
 
@@ -257,7 +266,7 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
               <span className="sr-only">{TEXT.header?.notificationsAria}</span>
             </Button>
 
-            {/* Language segmented toggle: | EN* | ES | */}
+            {/* Language segmented toggle */}
             <div className="mx-2">
               <div
                 role="group"
@@ -291,7 +300,6 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
               </div>
             </div>
 
-            {/* Theme Toggle */}
             <ThemeToggle />
 
             <DropdownMenu>
@@ -306,7 +314,6 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                {/* Language options moved to header segmented toggle */}
                 <DropdownMenuItem>{TEXT.accountMenu?.settings}</DropdownMenuItem>
                 <DropdownMenuItem>{TEXT.accountMenu?.support}</DropdownMenuItem>
                 <DropdownMenuSeparator />
@@ -344,7 +351,6 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
                     setConfirmOpen(false);
                     try {
                       await authLogout();
-                      // Toast notification
                       toast.success(TEXT.logoutDialog?.successToast);
                     } finally {
                       onLogout();
