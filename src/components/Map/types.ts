@@ -11,4 +11,5 @@ export type GuardLocation = {
 	propertyId?: number | null;
 	propertyName?: string | null;
 	name?: string | null;
+	phone?: string | null;
 };

@@ -1,6 +1,7 @@
 /* src/lib/services/guard.ts
    Servicio de guards — ahora con tipos estrictos para cached-locations y update-location.
-   Además: si cached-locations no incluye nombre, intenta completar llamando a getGuard(id).
+   Behavior change: para cada guard encontrado en cached-locations se llama a getGuard(id)
+   para pedir su teléfono (y nombre si hace falta) y así mostrar siempre el número real.
 */
 
 import type { Guard } from "@/components/Guards/types";
@@ -197,6 +198,7 @@ export type GuardLocation = {
 	propertyId?: number | null;
 	propertyName?: string | null;
 	name?: string | null;
+	phone?: string | null;
 };
 
 /**
@@ -345,8 +347,9 @@ function extractName(raw: unknown): string | null {
 /**
  * getCachedGuardLocations
  *
- * Nota: si la respuesta cached-locations no incluye nombre para un guard,
- * este método tratará de completar el nombre llamando a getGuard(id).
+ * Nota: ahora, una vez parseadas las localizaciones disponibles, se hace una llamada
+ * a getGuard(id) para cada guardId presente y se usa el phone que retorne el endpoint
+ * (además del nombre si está disponible).
  */
 export async function getCachedGuardLocations(opts?: {
 	page?: number;
@@ -401,6 +404,7 @@ export async function getCachedGuardLocations(opts?: {
 					toNumber(entry.property_id ?? entry.property ?? null) ?? null,
 				propertyName: toStringSafe(entry.property_name ?? entry.property ?? null) || null,
 				name,
+				phone: null, // lo rellenaremos solicitando getGuard más abajo
 			});
 		}
 	} else if (isObject(raw)) {
@@ -416,6 +420,7 @@ export async function getCachedGuardLocations(opts?: {
 					if (lat === undefined || lon === undefined) continue;
 					const guardId = Number(key) || Number(firstOf(v.guard_id ?? v.id ?? key));
 					const name = extractName(v) ?? extractName(v.guard) ?? extractName(key) ?? null;
+
 					locations.push({
 						guardId: Number.isFinite(guardId) ? guardId : -1,
 						lat,
@@ -426,6 +431,7 @@ export async function getCachedGuardLocations(opts?: {
 						propertyName:
 							toStringSafe(v.property_name ?? v.property ?? null) || null,
 						name,
+						phone: null,
 					});
 				}
 			} else if (isObject(value)) {
@@ -445,6 +451,7 @@ export async function getCachedGuardLocations(opts?: {
 					propertyId: toNumber(value.property_id ?? value.property ?? null) ?? null,
 					propertyName: toStringSafe(value.property_name ?? value.property ?? null) || null,
 					name,
+					phone: null,
 				});
 			} else {
 				// si value no es objeto, intentamos parsear campos simples si existen (no muy común)
@@ -453,44 +460,43 @@ export async function getCachedGuardLocations(opts?: {
 		}
 	}
 
-	// Si hay localizaciones sin nombre, intentar completar pidiendo getGuard(id)
+	// Ahora — para cada guard que aparece en las localizaciones (=> "guardias disponibles")
+	// solicitamos getGuard(id) para obtener su teléfono (y nombre si hace falta).
 	try {
-		const idsToFetch = Array.from(
-			new Set(
-				locations
-					.filter((l) => !l.name || String(l.name).trim() === "")
-					.map((l) => l.guardId)
-					.filter((id) => Number.isFinite(id) && id > 0),
-			),
-		);
+		const ids = Array.from(new Set(locations.map((l) => l.guardId).filter((id) => Number.isFinite(id) && id > 0)));
 
-		if (idsToFetch.length > 0) {
-			// parallel requests but no failing the whole flow
-			const promises = idsToFetch.map((id) =>
+		if (ids.length > 0) {
+			// Hacemos las peticiones en paralelo. Si alguna falla, no fallamos todo el flujo.
+			const promises = ids.map((id) =>
 				getGuard(id).then(
-					(g) => ({ id, name: `${g.firstName ?? ""} ${g.lastName ?? ""}`.trim() || null }),
+					(g) => ({ id, name: `${g.firstName ?? ""} ${g.lastName ?? ""}`.trim() || null, phone: g.phone ?? null }),
 					(err) => {
-						// no hacer throw, solo retornamos null
 						console.warn(`getGuard(${id}) failed:`, err);
-						return { id, name: null };
+						return { id, name: null, phone: null };
 					},
 				),
 			);
 
 			const results = await Promise.all(promises);
-			for (const r of results) {
-				if (r && r.name) {
-					for (const loc of locations) {
-						if (loc.guardId === r.id && (!loc.name || String(loc.name).trim() === "")) {
-							loc.name = r.name;
+
+			for (const res of results) {
+				if (!res) continue;
+				for (const loc of locations) {
+					if (loc.guardId === res.id) {
+						// usamos el phone retornado por getGuard (si existe)
+						if (res.phone) {
+							loc.phone = res.phone;
+						}
+						// rellenamos nombre si no teníamos
+						if ((!loc.name || String(loc.name).trim() === "") && res.name) {
+							loc.name = res.name;
 						}
 					}
 				}
 			}
 		}
 	} catch (err) {
-		// no bloquear si algo falla aquí
-		console.warn("Error fetching guard names for cached locations:", err);
+		console.warn("Error fetching guard details for available guards:", err);
 	}
 
 	return {

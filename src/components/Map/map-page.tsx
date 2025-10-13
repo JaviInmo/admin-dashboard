@@ -1,7 +1,6 @@
 /* src/components/Map/map-page.tsx
    Mapa imperativo con Leaflet (sin react-leaflet).
-   Correciones de tipado / ESLint: off -> off('click') seguro, @ts-expect-error,
-   uso de errores en catch para evitar no-unused-vars, sin any.
+   Muestra también el número de teléfono de los guardias disponibles (obtenido desde getGuard).
 */
 
 import React, { useEffect, useRef, useState } from "react";
@@ -37,7 +36,6 @@ type IconDefaultWithProto = {
 
 function ensureIconFix() {
   try {
-    
     delete (L.Icon.Default as IconDefaultWithProto).prototype._getIconUrl;
     L.Icon.Default.mergeOptions({
       iconRetinaUrl:
@@ -100,6 +98,7 @@ export default function GuardsMap({
       propertyId: loc.propertyId ?? null,
       propertyName: loc.propertyName ?? null,
       name: loc.name ?? null,
+      phone: loc.phone ?? null,
     };
   }
 
@@ -131,12 +130,16 @@ export default function GuardsMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // run once
 
-  // Utilities for marker popup (now with dot + bold name)
+  // Utilities for marker popup (dot + bold name + phone)
   function markerPopupHtml(loc: GuardLocationType) {
     const last = loc.lastUpdated ? new Date(loc.lastUpdated).toLocaleString() : "—";
     const dot = dotHtml(loc.isOnShift);
     const boldName = boldNameHtml(loc.name, loc.guardId);
     const property = escapeHtml(loc.propertyName ?? "Sin propiedad");
+    const phoneHtml =
+      loc.phone && String(loc.phone).trim() !== ""
+        ? `<div style="font-size:12px;margin-top:4px;"><a href="tel:${escapeHtml(loc.phone)}">${escapeHtml(loc.phone)}</a></div>`
+        : "";
 
     return `
       <div style="font-size:13px;">
@@ -144,6 +147,7 @@ export default function GuardsMap({
           ${dot}${boldName}
         </div>
         <div style="font-size:12px;color:#555;margin-bottom:4px;">${property}</div>
+        ${phoneHtml}
         <div style="font-size:12px;color:#777;margin-top:4px;">Última: ${escapeHtml(last)}</div>
         <div style="margin-top:6px;"><a target="_blank" rel="noopener noreferrer" href="https://www.google.com/maps/search/?api=1&query=${loc.lat},${loc.lon}">Abrir en Maps</a></div>
       </div>
@@ -194,10 +198,8 @@ export default function GuardsMap({
         const m = existing.get(id);
         if (m) {
           try {
-            // L.Marker extiende Evented y tiene `off`. Hacemos una comprobación de tipo en runtime.
             const offFn = (m as unknown as L.Evented).off;
             if (typeof offFn === "function") {
-              // llamar off('click') explícitamente para eliminar el listener creado arriba
               (offFn as (...args: unknown[]) => unknown).call(m, "click");
             }
             m.remove();
@@ -267,9 +269,16 @@ export default function GuardsMap({
     const dotClass = loc.isOnShift ? "bg-green-500" : "bg-red-500";
     const label = loc.name && String(loc.name).trim() !== "" ? loc.name : `ID #${loc.guardId}`;
     return (
-      <div className="flex items-center gap-2">
-        <span className={`inline-block w-2 h-2 rounded-full ${dotClass}`} aria-hidden="true" />
-        <span className="font-medium">{label}</span>
+      <div className="flex flex-col">
+        <div className="flex items-center gap-2">
+          <span className={`inline-block w-2 h-2 rounded-full ${dotClass}`} aria-hidden="true" />
+          <span className="font-medium">{label}</span>
+        </div>
+        {loc.phone && String(loc.phone).trim() !== "" && (
+          <div className="text-xs text-muted-foreground">
+            <a href={`tel:${loc.phone}`} className="underline">{loc.phone}</a>
+          </div>
+        )}
       </div>
     );
   }
@@ -351,6 +360,9 @@ export default function GuardsMap({
                           <span className="font-semibold">ID #{currentFollow.guardId}</span>
                         )}
                         <span className="text-muted-foreground"> {" - "} {currentFollow.propertyName ?? "Sin propiedad"}</span>
+                        {currentFollow.phone && String(currentFollow.phone).trim() !== "" && (
+                          <div className="text-xs text-muted-foreground">{currentFollow.phone}</div>
+                        )}
                       </div>
                     </div>
                     <div className="ml-2">
