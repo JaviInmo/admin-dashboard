@@ -3,7 +3,7 @@
    Muestra también el número de teléfono de los guardias disponibles (obtenido desde getGuard).
 */
 
-import React, { useEffect, useRef, useState } from "react";
+import  { useEffect, useRef, useState } from "react";
 import type { MutableRefObject } from "react";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";

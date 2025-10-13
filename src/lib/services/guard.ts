@@ -1,7 +1,5 @@
 /* src/lib/services/guard.ts
-   Servicio de guards — ahora con tipos estrictos para cached-locations y update-location.
-   Behavior change: para cada guard encontrado en cached-locations se llama a getGuard(id)
-   para pedir su teléfono (y nombre si hace falta) y así mostrar siempre el número real.
+   Servicio de guards — tipos estrictos + normalización robusta para cached-locations y update-location.
 */
 
 import type { Guard } from "@/components/Guards/types";
@@ -50,7 +48,7 @@ function mapServerGuard(u: ServerGuard): Guard {
 }
 
 /* ----------------------
-   Funciones existentes
+   CRUD de Guards
    ---------------------- */
 
 export async function listGuards(
@@ -88,35 +86,10 @@ export async function createGuard(payload: CreateGuardPayload): Promise<Guard> {
 		email: payload.email,
 	};
 
-	if (
-		payload.phone !== undefined &&
-		payload.phone !== null &&
-		payload.phone !== ""
-	) {
-		body.phone = payload.phone;
-	}
-	if (payload.ssn !== undefined && payload.ssn !== null && payload.ssn !== "") {
-		body.ssn = payload.ssn;
-	}
-	if (
-		payload.address !== undefined &&
-		payload.address !== null &&
-		payload.address !== ""
-	) {
-		body.address = payload.address;
-	}
-	if (
-		payload.birth_date !== undefined &&
-		payload.birth_date !== null &&
-		payload.birth_date !== ""
-	) {
-		body.birth_date = payload.birth_date;
-	}
-
-	// Defender: nunca enviar user
-	if ("user" in body) {
-		delete (body as any).user;
-	}
+	if (payload.phone) body.phone = payload.phone;
+	if (payload.ssn) body.ssn = payload.ssn;
+	if (payload.address) body.address = payload.address;
+	if (payload.birth_date) body.birth_date = payload.birth_date;
 
 	const { data } = await api.post<ServerGuard>(endpoints.guards, body);
 	return mapServerGuard(data);
@@ -128,48 +101,13 @@ export async function updateGuard(
 ): Promise<Guard> {
 	const body: Record<string, unknown> = {};
 
-	if (payload.first_name !== undefined && payload.first_name !== null) {
-		body.first_name = payload.first_name;
-	}
-	if (payload.last_name !== undefined && payload.last_name !== null) {
-		body.last_name = payload.last_name;
-	}
-	if (payload.email !== undefined && payload.email !== null) {
-		body.email = payload.email;
-	}
-	if (payload.phone !== undefined) {
-		if (payload.phone === "") {
-			// omitimos cadena vacía
-		} else {
-			body.phone = payload.phone;
-		}
-	}
-	if (payload.ssn !== undefined) {
-		if (payload.ssn === "") {
-			// omitimos cadena vacía
-		} else {
-			body.ssn = payload.ssn;
-		}
-	}
-	if (payload.address !== undefined) {
-		if (payload.address === "") {
-			// omitimos cadena vacía
-		} else {
-			body.address = payload.address;
-		}
-	}
-	if (payload.birth_date !== undefined) {
-		if (payload.birth_date === "") {
-			// omitimos cadena vacía
-		} else {
-			body.birth_date = payload.birth_date;
-		}
-	}
-
-	// Defender: nunca enviar user
-	if ("user" in body) {
-		delete (body as any).user;
-	}
+	if (payload.first_name) body.first_name = payload.first_name;
+	if (payload.last_name) body.last_name = payload.last_name;
+	if (payload.email) body.email = payload.email;
+	if (payload.phone) body.phone = payload.phone;
+	if (payload.ssn) body.ssn = payload.ssn;
+	if (payload.address) body.address = payload.address;
+	if (payload.birth_date) body.birth_date = payload.birth_date;
 
 	const { data } = await api.patch<ServerGuard>(
 		`${endpoints.guards}${id}/`,
@@ -183,30 +121,24 @@ export async function deleteGuard(id: number): Promise<void> {
 }
 
 /* ----------------------
-   Nuevas funciones: locations
+   Tipos auxiliares para locations
    ---------------------- */
 
-/**
- * GuardLocation - tipo normalizado que usará la UI
- */
 export type GuardLocation = {
 	guardId: number;
 	lat: number;
 	lon: number;
 	isOnShift: boolean;
-	lastUpdated: string; // ISO string o vacío
+	lastUpdated: string;
 	propertyId?: number | null;
 	propertyName?: string | null;
 	name?: string | null;
 	phone?: string | null;
 };
 
-/**
- * Tipos auxiliares para la respuesta del endpoint cached-locations
- */
 type RawPossibleScalar = string | number | boolean | null;
 type RawPossibleArray = Array<RawPossibleScalar>;
-type RawLocationObject = {
+export type RawLocationObject = {
 	[key: string]: RawPossibleScalar | RawPossibleArray | RawLocationObject | undefined;
 };
 
@@ -217,22 +149,25 @@ type CachedLocationsResponse = {
 };
 
 /* ----------------------
-   Helpers de parseo / type-guards
+   Helpers de parseo
    ---------------------- */
 
 function isObject(v: unknown): v is Record<string, unknown> {
 	return typeof v === "object" && v !== null && !Array.isArray(v);
 }
+
 function firstOf(x: unknown): RawPossibleScalar | undefined {
 	if (Array.isArray(x)) return x.length > 0 ? x[0] : undefined;
 	return x as RawPossibleScalar | undefined;
 }
+
 function toNumber(n: unknown): number | undefined {
 	const s = firstOf(n);
 	if (s === undefined || s === null) return undefined;
 	const num = Number(s);
 	return Number.isFinite(num) ? num : undefined;
 }
+
 function toBoolean(v: unknown): boolean {
 	const f = firstOf(v);
 	if (typeof f === "boolean") return f;
@@ -243,114 +178,54 @@ function toBoolean(v: unknown): boolean {
 	}
 	return false;
 }
+
 function toStringSafe(v: unknown): string {
 	const f = firstOf(v);
 	if (f === undefined || f === null) return "";
 	return String(f);
 }
 
-/**
- * Extrae un nombre legible desde formas comunes que puede devolver el backend.
- * Maneja:
- * - string directo
- * - array con primer elemento string
- * - objeto con fields: name, guard_name, full_name, display_name
- * - objeto con first_name + last_name
- * - objeto anidado guard: { first_name, last_name }
- */
+/* Extrae nombre legible de múltiples formatos */
 function extractName(raw: unknown): string | null {
 	if (raw === undefined || raw === null) return null;
 
-	// si es string simple
 	if (typeof raw === "string") {
 		const s = raw.trim();
 		return s === "" ? null : s;
 	}
 
-	// si es array, tomar primer elemento (si es string/number)
 	if (Array.isArray(raw)) {
-		const f = raw.length > 0 ? raw[0] : undefined;
-		if (typeof f === "string") {
-			const s = f.trim();
-			return s === "" ? null : s;
-		}
+		const f = raw[0];
+		if (typeof f === "string") return f.trim() || null;
 		if (typeof f === "number") return String(f);
-		// si fuese objeto, intentar extraer de él recursivamente
 		if (isObject(f)) return extractName(f);
 		return null;
 	}
 
-	// si es objeto, probar campos comunes
 	if (isObject(raw)) {
-		const anyRaw = raw as Record<string, any>;
-
-		const tryCandidates = (c: unknown) => {
-			if (c === undefined || c === null) return null;
-			if (typeof c === "string") {
-				const s = c.trim();
-				return s === "" ? null : s;
-			}
-			if (typeof c === "number") return String(c);
-			if (Array.isArray(c) && c.length > 0) {
-				const f = c[0];
-				if (typeof f === "string") {
-					const s = f.trim();
-					return s === "" ? null : s;
-				}
-				if (typeof f === "number") return String(f);
-			}
-			if (isObject(c)) {
-				// try nested first/last
-				const fn = c.first_name ?? c.firstName ?? c.guard_first_name;
-				const ln = c.last_name ?? c.lastName ?? c.guard_last_name;
-				if ((fn || ln) && (typeof fn === "string" || typeof ln === "string")) {
-					return `${String(fn ?? "").trim()} ${String(ln ?? "").trim()}`.trim() || null;
-				}
-				// try name-like inside nested
-				const nm = c.name ?? c.guard_name ?? c.full_name ?? c.display_name;
-				if (nm) {
-					return tryCandidates(nm);
-				}
-			}
-			return null;
-		};
-
-		// orden de preferencia
+		const anyRaw = raw as Record<string, unknown>;
 		const candidates = [
-			anyRaw.name,
-			anyRaw.guard_name,
-			anyRaw.full_name,
-			anyRaw.display_name,
-			anyRaw.guard?.full_name,
-			anyRaw.guard?.name,
-			anyRaw.guard?.guard_name,
-			anyRaw.guard?.first_name && anyRaw.guard?.last_name
-				? `${anyRaw.guard.first_name} ${anyRaw.guard.last_name}`
-				: undefined,
-			anyRaw.first_name && anyRaw.last_name ? `${anyRaw.first_name} ${anyRaw.last_name}` : undefined,
-			anyRaw.first_name,
-			anyRaw.last_name,
-			anyRaw.guard_first_name && anyRaw.guard_last_name
-				? `${anyRaw.guard_first_name} ${anyRaw.guard_last_name}`
+			anyRaw["name"],
+			anyRaw["guard_name"],
+			anyRaw["full_name"],
+			anyRaw["display_name"],
+			anyRaw["first_name"] &&
+			anyRaw["last_name"]
+				? `${anyRaw["first_name"]} ${anyRaw["last_name"]}`
 				: undefined,
 		];
-
 		for (const c of candidates) {
-			const v = tryCandidates(c);
-			if (v) return v;
+			const s = toStringSafe(c);
+			if (s.trim()) return s.trim();
 		}
 	}
-
 	return null;
 }
 
-/**
- * getCachedGuardLocations
- *
- * Nota: ahora, una vez parseadas las localizaciones disponibles, se hace una llamada
- * a getGuard(id) para cada guardId presente y se usa el phone que retorne el endpoint
- * (además del nombre si está disponible).
- */
+/* ----------------------
+   getCachedGuardLocations
+   ---------------------- */
+
 export async function getCachedGuardLocations(opts?: {
 	page?: number;
 	pageSize?: number;
@@ -369,7 +244,7 @@ export async function getCachedGuardLocations(opts?: {
 	};
 
 	if (opts?.guardId !== undefined && opts?.guardId !== null) {
-		(params as any).guard_id = opts!.guardId;
+		(params as Record<string, unknown>)["guard_id"] = opts.guardId;
 	}
 
 	const { data } = await api.get<CachedLocationsResponse>(
@@ -381,128 +256,187 @@ export async function getCachedGuardLocations(opts?: {
 	const total = typeof data?.total_guards === "number" ? data.total_guards : 0;
 	const locations: GuardLocation[] = [];
 
-	// Si raw es un arreglo de objetos
 	if (Array.isArray(raw)) {
-		for (const entry of raw) {
+		for (const entry of raw as RawLocationObject[]) {
 			if (!isObject(entry)) continue;
-			const lat = toNumber(entry.lat ?? entry.latitude ?? entry[0]);
-			const lon = toNumber(entry.lon ?? entry.longitude ?? entry[1]);
+
+			const lat = toNumber(entry["lat"] ?? entry["latitude"] ?? entry[0]);
+			const lon = toNumber(entry["lon"] ?? entry["longitude"] ?? entry[1]);
 			if (lat === undefined || lon === undefined) continue;
 
-			const guardIdRaw = entry.guard_id ?? entry.id ?? entry.guard?.id;
-			const guardId = guardIdRaw ? Number(firstOf(guardIdRaw)) : -1;
+			const guardField = entry["guard"];
+			const guardIdRaw =
+				entry["guard_id"] ??
+				entry["id"] ??
+				(isObject(guardField)
+					? (guardField as RawLocationObject)["id"]
+					: undefined);
 
-			const name = extractName(entry) ?? extractName(entry.guard) ?? null;
+			const guardId = guardIdRaw ? Number(firstOf(guardIdRaw)) : -1;
+			const name =
+				extractName(entry) ??
+				extractName(guardField) ??
+				extractName(entry["guard"] ?? null) ??
+				null;
 
 			locations.push({
 				guardId: Number.isFinite(guardId) ? guardId : -1,
 				lat,
 				lon,
-				isOnShift: toBoolean(entry.is_on_shift ?? entry.on_shift ?? entry.onShift),
-				lastUpdated: toStringSafe(entry.last_updated ?? entry.updated_at ?? entry.updatedAt ?? ""),
+				isOnShift: toBoolean(
+					entry["is_on_shift"] ?? entry["on_shift"] ?? entry["onShift"],
+				),
+				lastUpdated: toStringSafe(
+					entry["last_updated"] ??
+						entry["updated_at"] ??
+						entry["updatedAt"] ??
+						"",
+				),
 				propertyId:
-					toNumber(entry.property_id ?? entry.property ?? null) ?? null,
-				propertyName: toStringSafe(entry.property_name ?? entry.property ?? null) || null,
+					toNumber(entry["property_id"] ?? entry["property"] ?? null) ??
+					null,
+				propertyName:
+					toStringSafe(
+						entry["property_name"] ?? entry["property"] ?? null,
+					) || null,
 				name,
-				phone: null, // lo rellenaremos solicitando getGuard más abajo
+				phone: null,
 			});
 		}
 	} else if (isObject(raw)) {
-		// raw es objeto mapeado por guard id => value
-		for (const [key, value] of Object.entries(raw)) {
-			// value puede ser object o array o scalar
+		const rawObj = raw as Record<
+			string,
+			RawLocationObject | RawPossibleArray | RawPossibleScalar | undefined
+		>;
+
+		for (const [key, value] of Object.entries(rawObj)) {
 			if (Array.isArray(value)) {
-				// cada elemento puede ser objeto con lat/lon
-				for (const v of value) {
+				for (const v of value as unknown as RawLocationObject[]) {
 					if (!isObject(v)) continue;
-					const lat = toNumber(v.lat ?? v.latitude ?? v[0]);
-					const lon = toNumber(v.lon ?? v.longitude ?? v[1]);
+
+					const lat = toNumber(v["lat"] ?? v["latitude"] ?? v[0]);
+					const lon = toNumber(v["lon"] ?? v["longitude"] ?? v[1]);
 					if (lat === undefined || lon === undefined) continue;
-					const guardId = Number(key) || Number(firstOf(v.guard_id ?? v.id ?? key));
-					const name = extractName(v) ?? extractName(v.guard) ?? extractName(key) ?? null;
+
+					const guardId =
+						Number(key) ||
+						Number(firstOf(v["guard_id"] ?? v["id"] ?? key));
+					const name =
+						extractName(v) ??
+						extractName(v["guard"]) ??
+						extractName(key) ??
+						null;
 
 					locations.push({
 						guardId: Number.isFinite(guardId) ? guardId : -1,
 						lat,
 						lon,
-						isOnShift: toBoolean(v.is_on_shift ?? v.on_shift ?? v.onShift),
-						lastUpdated: toStringSafe(v.last_updated ?? v.updated_at ?? v.updatedAt ?? ""),
-						propertyId: toNumber(v.property_id ?? v.property ?? null) ?? null,
+						isOnShift: toBoolean(
+							v["is_on_shift"] ?? v["on_shift"] ?? v["onShift"],
+						),
+						lastUpdated: toStringSafe(
+							v["last_updated"] ??
+								v["updated_at"] ??
+								v["updatedAt"] ??
+								"",
+						),
+						propertyId:
+							toNumber(v["property_id"] ?? v["property"] ?? null) ??
+							null,
 						propertyName:
-							toStringSafe(v.property_name ?? v.property ?? null) || null,
+							toStringSafe(
+								v["property_name"] ?? v["property"] ?? null,
+							) || null,
 						name,
 						phone: null,
 					});
 				}
 			} else if (isObject(value)) {
-				const lat = toNumber(value.lat ?? value.latitude ?? value[0]);
-				const lon = toNumber(value.lon ?? value.longitude ?? value[1]);
+				const v = value as RawLocationObject;
+
+				const lat = toNumber(v["lat"] ?? v["latitude"] ?? v[0]);
+				const lon = toNumber(v["lon"] ?? v["longitude"] ?? v[1]);
 				if (lat === undefined || lon === undefined) continue;
-				const guardIdCandidate = Number(firstOf(value.guard_id ?? value.id ?? key));
-				const guardId = Number.isFinite(guardIdCandidate) ? guardIdCandidate : Number(key) || -1;
-				const name = extractName(value) ?? extractName(value.guard) ?? null;
+
+				const guardIdCandidate = Number(
+					firstOf(v["guard_id"] ?? v["id"] ?? key),
+				);
+				const guardId = Number.isFinite(guardIdCandidate)
+					? guardIdCandidate
+					: Number(key) || -1;
+				const name =
+					extractName(v) ?? extractName(v["guard"]) ?? null;
 
 				locations.push({
 					guardId,
 					lat,
 					lon,
-					isOnShift: toBoolean(value.is_on_shift ?? value.on_shift ?? value.onShift),
-					lastUpdated: toStringSafe(value.last_updated ?? value.updated_at ?? value.updatedAt ?? ""),
-					propertyId: toNumber(value.property_id ?? value.property ?? null) ?? null,
-					propertyName: toStringSafe(value.property_name ?? value.property ?? null) || null,
+					isOnShift: toBoolean(
+						v["is_on_shift"] ?? v["on_shift"] ?? v["onShift"],
+					),
+					lastUpdated: toStringSafe(
+						v["last_updated"] ??
+							v["updated_at"] ??
+							v["updatedAt"] ??
+							"",
+					),
+					propertyId:
+						toNumber(v["property_id"] ?? v["property"] ?? null) ??
+						null,
+					propertyName:
+						toStringSafe(
+							v["property_name"] ?? v["property"] ?? null,
+						) || null,
 					name,
 					phone: null,
 				});
-			} else {
-				// si value no es objeto, intentamos parsear campos simples si existen (no muy común)
-				continue;
 			}
 		}
 	}
 
-	// Ahora — para cada guard que aparece en las localizaciones (=> "guardias disponibles")
-	// solicitamos getGuard(id) para obtener su teléfono (y nombre si hace falta).
+	// Rellenar phones/names con getGuard
 	try {
-		const ids = Array.from(new Set(locations.map((l) => l.guardId).filter((id) => Number.isFinite(id) && id > 0)));
+		const ids = Array.from(
+			new Set(
+				locations
+					.map((l) => l.guardId)
+					.filter((id) => Number.isFinite(id) && id > 0),
+			),
+		);
 
 		if (ids.length > 0) {
-			// Hacemos las peticiones en paralelo. Si alguna falla, no fallamos todo el flujo.
-			const promises = ids.map((id) =>
-				getGuard(id).then(
-					(g) => ({ id, name: `${g.firstName ?? ""} ${g.lastName ?? ""}`.trim() || null, phone: g.phone ?? null }),
-					(err) => {
-						console.warn(`getGuard(${id}) failed:`, err);
+			const results = await Promise.all(
+				ids.map(async (id) => {
+					try {
+						const g = await getGuard(id);
+						return {
+							id,
+							name:
+								`${g.firstName ?? ""} ${g.lastName ?? ""}`.trim() ||
+								null,
+							phone: g.phone ?? null,
+						};
+					} catch {
 						return { id, name: null, phone: null };
-					},
-				),
+					}
+				}),
 			);
 
-			const results = await Promise.all(promises);
-
 			for (const res of results) {
-				if (!res) continue;
 				for (const loc of locations) {
 					if (loc.guardId === res.id) {
-						// usamos el phone retornado por getGuard (si existe)
-						if (res.phone) {
-							loc.phone = res.phone;
-						}
-						// rellenamos nombre si no teníamos
-						if ((!loc.name || String(loc.name).trim() === "") && res.name) {
+						if (res.phone) loc.phone = res.phone;
+						if ((!loc.name || !loc.name.trim()) && res.name)
 							loc.name = res.name;
-						}
 					}
 				}
 			}
 		}
 	} catch (err) {
-		console.warn("Error fetching guard details for available guards:", err);
+		console.warn("Error fetching guard details:", err);
 	}
 
-	return {
-		locations,
-		totalGuards: total,
-	};
+	return { locations, totalGuards: total };
 }
 
 /* ----------------------
@@ -534,14 +468,12 @@ export async function updateGuardLocation(
 		is_on_shift: payload.is_on_shift,
 	};
 
-	if (payload.property_id !== undefined) {
+	if (payload.property_id !== undefined)
 		body.property_id = payload.property_id;
-	}
-	if (payload.property_name !== undefined) {
+	if (payload.property_name !== undefined)
 		body.property_name = payload.property_name;
-	}
 
-	const { data } = await api.post<{ success: boolean; message?: string; guard_id?: number; last_updated?: string }>(
+	const { data } = await api.post<UpdateLocationResponse>(
 		`${endpoints.guards}update-location/`,
 		body,
 		{ params: { guard_id: guardId } },
