@@ -1,0 +1,24 @@
+name: Docker Compose CD
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  docker-compose:
+    name: Run Docker Compose
+    runs-on: rolloco
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Reveal secrets with git-secret
+        run: |
+          git secret reveal
+      - name: Build and run containers
+        run: |
+          docker compose --file deploy/docker-compose.yml --project-name=qu_security_frontend up -d --build --remove-orphans
