@@ -10,6 +10,7 @@ export const ES_TEXT = {
   menu: {
     dashboard: "Panel",
     clients: "Clientes",
+     map: "Mapa", 
     guards: "Guardias",
     users: "Usuarios",
     properties: "Propiedades",
