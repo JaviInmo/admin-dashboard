@@ -10,4 +10,9 @@ export default defineConfig({
       '@': path.resolve( './src'),
     },
   },
+  preview: {
+    allowedHosts: ["texaspatrol.cyvy.online"],
+    host: true,
+  },
+
 })
