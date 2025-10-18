@@ -332,10 +332,10 @@ export default function GuardsTable({
 
   const renderActions = (guard: Guard) => (
     isActionsGrouped ? renderGroupedActions(guard) : (
-      <div className="flex items-center gap-1"> {/* gap reducido */}
+      <div className="flex items-center gap-1 flex-wrap justify-center min-w-0">
         {/* Servicios del guard */}
         <Button
-          size="icon"
+          size="sm"
           variant="ghost"
           onClick={(e) => {
             e.stopPropagation();
@@ -343,13 +343,14 @@ export default function GuardsTable({
           }}
           title={getText("guards.table.serviceButton", "Servicios")}
           aria-label={getText("guards.table.serviceAria", "Gestionar servicios de {name}", { name: `${guard.firstName ?? ""}` })}
+          className="h-8 w-8 p-0 flex-shrink-0"
         >
-          <List className="h-4 w-4" />
+          <List className="h-3.5 w-3.5" />
         </Button>
 
         {/* Turnos */}
         <Button
-          size="icon"
+          size="sm"
           variant="ghost"
           onClick={(e) => {
             e.stopPropagation();
@@ -357,13 +358,14 @@ export default function GuardsTable({
           }}
           title={getText("guards.table.shiftsButton", "Turnos")}
           aria-label={getText("guards.table.shiftsAria", "Gestionar turnos de {name}", { name: `${guard.firstName ?? ""}` })}
+          className="h-8 w-8 p-0 flex-shrink-0"
         >
-          <Calendar className="h-4 w-4" />
+          <Calendar className="h-3.5 w-3.5" />
         </Button>
 
         {/* Tarifas */}
         <Button
-          size="icon"
+          size="sm"
           variant="ghost"
           onClick={(e) => {
             e.stopPropagation();
@@ -371,13 +373,14 @@ export default function GuardsTable({
           }}
           title={getText("guards.table.tariffsButton", "Tarifas")}
           aria-label={getText("guards.table.tariffsAria", "Tarifas de {name}", { name: `${guard.firstName ?? ""}` })}
+          className="h-8 w-8 p-0 flex-shrink-0"
         >
-          <Tag className="h-4 w-4" />
+          <Tag className="h-3.5 w-3.5" />
         </Button>
 
         {/* Weapons: abrir panel de armas de este guard */}
         <Button
-          size="icon"
+          size="sm"
           variant="ghost"
           onClick={(e) => {
             e.stopPropagation();
@@ -385,13 +388,14 @@ export default function GuardsTable({
           }}
           title={getText("guards.table.weaponsButton", "Armas")}
           aria-label={getText("guards.table.weaponsAria", "Gestionar armas de {name}", { name: `${guard.firstName ?? ""}` })}
+          className="h-8 w-8 p-0 flex-shrink-0"
         >
-          <GiPistolGun className="h-4 w-4" />
+          <GiPistolGun className="h-3.5 w-3.5" />
         </Button>
 
         {/* Notas: ver (FileText) */}
         <Button
-          size="icon"
+          size="sm"
           variant="ghost"
           onClick={(e) => {
             e.stopPropagation();
@@ -399,13 +403,14 @@ export default function GuardsTable({
           }}
           title={getText("guards.table.notesButton", "Notas")}
           aria-label={getText("guards.table.notesAria", "Ver notas de {name}", { name: `${guard.firstName ?? ""}` })}
+          className="h-8 w-8 p-0 flex-shrink-0"
         >
-          <FileText className="h-4 w-4" />
+          <FileText className="h-3.5 w-3.5" />
         </Button>
 
         {/* Crear nota rápido (Plus) */}
         <Button
-          size="icon"
+          size="sm"
           variant="ghost"
           onClick={(e) => {
             e.stopPropagation();
@@ -413,13 +418,14 @@ export default function GuardsTable({
           }}
           title={getText("guards.table.addNoteButton", "Agregar nota")}
           aria-label={getText("guards.table.addNoteAria", "Agregar nota para {name}", { name: `${guard.firstName ?? ""}` })}
+          className="h-8 w-8 p-0 flex-shrink-0"
         >
-          <Plus className="h-4 w-4" />
+          <Plus className="h-3.5 w-3.5" />
         </Button>
 
         {/* Edit */}
         <Button
-          size="icon"
+          size="sm"
           variant="ghost"
           onClick={(e) => {
             e.stopPropagation();
@@ -427,13 +433,14 @@ export default function GuardsTable({
           }}
           title={getText("actions.edit", "Editar")}
           aria-label={getText("actions.edit", "Editar")}
+          className="h-8 w-8 p-0 flex-shrink-0"
         >
-          <Pencil className="h-4 w-4" />
+          <Pencil className="h-3.5 w-3.5" />
         </Button>
 
         {/* Delete */}
         <Button
-          size="icon"
+          size="sm"
           variant="ghost"
           onClick={(e) => {
             e.stopPropagation();
@@ -441,8 +448,9 @@ export default function GuardsTable({
           }}
           title={getText("actions.delete", "Eliminar")}
           aria-label={getText("actions.delete", "Eliminar")}
+          className="h-8 w-8 p-0 flex-shrink-0 text-red-500 hover:text-red-600"
         >
-          <Trash className="h-4 w-4 text-red-500" />
+          <Trash className="h-3.5 w-3.5" />
         </Button>
       </div>
     )

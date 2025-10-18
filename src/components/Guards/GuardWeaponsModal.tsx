@@ -203,27 +203,27 @@ export default function GuardWeaponsModal({
   ];
 
   const actions = (w: Weapon) => (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-1 flex-wrap justify-center min-w-0">
       <Button
-        size="icon"
+        size="sm"
         variant="ghost"
         onClick={() => setShowEdit(w)}
-        className="h-6 w-6 p-0 hover:bg-orange-50 dark:hover:bg-orange-900/20 hover:text-orange-600 dark:hover:text-orange-400"
+        className="h-8 w-8 p-0 flex-shrink-0 hover:bg-orange-50 dark:hover:bg-orange-900/20 hover:text-orange-600 dark:hover:text-orange-400"
         title="Editar"
         aria-label="editar"
       >
-        <Edit3 className="h-4 w-4" />
+        <Edit3 className="h-3.5 w-3.5" />
       </Button>
 
       <Button
-        size="icon"
+        size="sm"
         variant="ghost"
         onClick={() => setShowDelete(w)}
-        className="h-6 w-6 p-0 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400"
+        className="h-8 w-8 p-0 flex-shrink-0 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400"
         title="Eliminar"
         aria-label="eliminar"
       >
-        <Trash2 className="h-4 w-4" />
+        <Trash2 className="h-3.5 w-3.5" />
       </Button>
     </div>
   );

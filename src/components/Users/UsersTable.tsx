@@ -1,44 +1,31 @@
-// src/components/Users/UsersTable.tsx
-"use client";
+"use client"
 
-import { Pencil, Trash, Eye, Check, X, FileText, Plus, MoreHorizontal } from "lucide-react";
-import * as React from "react";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { ReusableTable, type Column } from "@/components/ui/reusable-table";
-import type { User, Permissions } from "./types";
-import CreateUserDialog from "./Create/Create";
-import EditUserDialog from "./Edit/Edit";
-import DeleteUserDialog from "./Delete/Delete";
-import ShowUserDialog from "./Show/Show";
-import { useI18n } from "@/i18n";
-import type { SortOrder } from "@/lib/sort";
-
-/* Notas: modal y create */
-import UsersNotesModal from "./UsersNotesModal";
-import CreateNote from "@/components/Notes/Create/CreateNote";
+import * as React from "react"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination"
+import { Pencil, Trash, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react"
+import type { User, Permissions } from "./types"
+import CreateUserDialog from "./Create/Create"
+import EditUserDialog from "./Edit/Edit"
+import DeleteUserDialog from "./Delete/Delete"
 
 export interface UsersTableProps {
-  users: (User & { permissions?: Permissions })[];
-  onSelectUser?: (id: number) => void;
-  onRefresh?: () => Promise<void>;
-  serverSide?: boolean;
-  currentPage?: number;
-  totalPages?: number;
-  onPageChange?: (page: number) => void;
-  pageSize?: number;
-  onSearch?: (term: string) => void;
-  onPageSizeChange?: (pageSize: number) => void;
-  sortField: keyof User;
-  sortOrder: SortOrder;
-  toggleSort: (field: keyof User) => void;
-  isPageLoading?: boolean;
+  users: (User & { permissions?: Permissions })[]
+  onSelectUser: (id: number) => void
+  onRefresh?: () => Promise<void>
+  serverSide?: boolean
+  currentPage?: number
+  totalPages?: number
+  onPageChange?: (page: number) => void
+  pageSize?: number
+  onPageSizeChange?: (size: number) => void
+  onSearch?: (term: string) => void
+  isPageLoading?: boolean
+  sortField?: keyof User
+  sortOrder?: "asc" | "desc"
+  toggleSort?: (key: keyof User) => void
 }
 
 export default function UsersTable({
@@ -50,349 +37,234 @@ export default function UsersTable({
   totalPages = 1,
   onPageChange,
   pageSize = 5,
+  onPageSizeChange: _onPageSizeChange,
   onSearch,
-  onPageSizeChange,
-  sortField,
-  sortOrder,
-  toggleSort,
-  isPageLoading = false,
+  isPageLoading: _isPageLoading,
+  sortField: initialSortField = "username",
+  sortOrder: initialSortOrder = "asc",
+  toggleSort: externalToggleSort
 }: UsersTableProps) {
-  const { TEXT, lang } = useI18n();
+  const [page, setPage] = React.useState(1)
+  const [search, setSearch] = React.useState("")
+  const [sortField, setSortField] = React.useState<keyof User>(initialSortField)
+  const [sortOrder, setSortOrder] = React.useState<"asc" | "desc">(initialSortOrder)
 
-  function getText(path: string, fallback?: string, vars?: Record<string, string>) {
-    const parts = path.split(".");
-    let val: any = TEXT;
-    for (const p of parts) {
-      val = val?.[p];
-      if (val == null) break;
-    }
-    let str = typeof val === "string" ? val : fallback ?? path;
-    if (vars && typeof str === "string") {
-      for (const k of Object.keys(vars)) {
-        str = str.replace(new RegExp(`\\{${k}\\}`, "g"), vars[k]);
-      }
-    }
-    return String(str);
-  }
-
-  const [createOpen, setCreateOpen] = React.useState(false);
-  const [editUser, setEditUser] = React.useState<(User & { permissions?: Permissions }) | null>(null);
-  const [deleteUser, setDeleteUser] = React.useState<User | null>(null);
-  const [showUser, setShowUser] = React.useState<(User & { permissions?: Permissions }) | null>(null);
-
-  // Notes: state para ver y crear nota desde user
-  const [notesUser, setNotesUser] = React.useState<User | null>(null);
-  const [createNoteUser, setCreateNoteUser] = React.useState<User | null>(null);
-
-  // Estado para controlar si las acciones están agrupadas - guardado en localStorage
-  const [isActionsGrouped, setIsActionsGrouped] = React.useState(() => {
-    try {
-      const saved = localStorage.getItem('users-table-actions-grouped');
-      return saved ? JSON.parse(saved) : true; // Por defecto compacto (true)
-    } catch {
-      return true; // Por defecto compacto
-    }
-  });
-
-  // Efecto para guardar en localStorage cuando cambie el estado
+  // Sync internal state with props
   React.useEffect(() => {
-    try {
-      localStorage.setItem('users-table-actions-grouped', JSON.stringify(isActionsGrouped));
-    } catch (error) {
-      console.warn('No se pudo guardar la configuración en localStorage:', error);
-    }
-  }, [isActionsGrouped]);
+    if (initialSortField !== sortField) setSortField(initialSortField)
+  }, [initialSortField])
+  
+  React.useEffect(() => {
+    if (initialSortOrder !== sortOrder) setSortOrder(initialSortOrder)
+  }, [initialSortOrder])
 
-  // Normalizar datos de usuarios
-  const normalizedUsers = users.map((u) => ({
+  // Use props if available, otherwise internal state
+  const currentSortField = externalToggleSort ? initialSortField : sortField
+  const currentSortOrder = externalToggleSort ? initialSortOrder : sortOrder
+
+  const [createOpen, setCreateOpen] = React.useState(false)
+  const [editUser, setEditUser] = React.useState<User & { permissions?: Permissions } | null>(null)
+  const [deleteUser, setDeleteUser] = React.useState<User | null>(null)
+
+  const itemsPerPage = pageSize ?? 5
+
+  // estilos y animación del search
+  const [highlightSearch, setHighlightSearch] = React.useState(true)
+  const searchRef = React.useRef<HTMLInputElement | null>(null)
+
+  React.useEffect(() => {
+    if (searchRef.current) {
+      try { searchRef.current.focus() } catch {}
+    }
+    const t = setTimeout(() => setHighlightSearch(false), 3500)
+    return () => clearTimeout(t)
+  }, [])
+
+  const normalizedUsers = users.map(u => ({
     ...u,
     firstName: u.firstName ?? (u.name ? u.name.split(" ").slice(0, -1).join(" ") || u.name : ""),
     lastName: u.lastName ?? (u.name ? u.name.split(" ").slice(-1).join("") : ""),
-  }));
+  } as User))
+
+  const localFilteredAndSorted = normalizedUsers
+    .filter((u) => {
+      const q = search.toLowerCase()
+      return (
+        (u.username ?? "").toLowerCase().includes(q) ||
+        (u.firstName ?? "").toLowerCase().includes(q) ||
+        (u.lastName ?? "").toLowerCase().includes(q) ||
+        (u.email ?? "").toLowerCase().includes(q) ||
+        (u.name ?? "").toLowerCase().includes(q)
+      )
+    })
+    .sort((a, b) => {
+      const valA = (a[currentSortField] ?? "") as unknown as string
+      const valB = (b[currentSortField] ?? "") as unknown as string
+      return currentSortOrder === "asc"
+        ? String(valA).localeCompare(String(valB))
+        : String(valB).localeCompare(String(valA))
+    })
+
+  const effectiveList = serverSide ? normalizedUsers : localFilteredAndSorted
+  const localTotalPages = Math.max(1, Math.ceil(localFilteredAndSorted.length / itemsPerPage))
+  const effectiveTotalPages = serverSide ? Math.max(1, totalPages ?? 1) : localTotalPages
+  const effectivePage = serverSide ? Math.max(1, Math.min(currentPage, effectiveTotalPages)) : page
+  const startIndex = (effectivePage - 1) * itemsPerPage
+  const paginatedUsers = serverSide ? effectiveList : effectiveList.slice(startIndex, startIndex + itemsPerPage)
+
+  React.useEffect(() => {
+    if (!serverSide) setPage(1)
+  }, [users.length, search, serverSide])
+
+  const searchTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  React.useEffect(() => {
+    if (!serverSide) return
+    if (!onSearch) return
+    if (searchTimerRef.current) {
+      clearTimeout(searchTimerRef.current)
+      searchTimerRef.current = null
+    }
+    searchTimerRef.current = setTimeout(() => {
+      onSearch(search)
+    }, 350)
+    return () => {
+      if (searchTimerRef.current) {
+        clearTimeout(searchTimerRef.current)
+        searchTimerRef.current = null
+      }
+    }
+  }, [search, serverSide, onSearch])
+
+  const goToPage = (p: number) => {
+    const newP = Math.max(1, Math.min(effectiveTotalPages, p))
+    if (serverSide) onPageChange?.(newP)
+    else setPage(newP)
+  }
+
+  const toggleSort = (field: keyof User) => {
+    if (externalToggleSort) {
+      externalToggleSort(field)
+    } else {
+      if (currentSortField === field) {
+        setSortOrder(currentSortOrder === "asc" ? "desc" : "asc")
+      } else {
+        setSortField(field)
+        setSortOrder("asc")
+      }
+    }
+  }
+
+  const renderSortIcon = (field: keyof User) => {
+    if (currentSortField !== field) return <ArrowUpDown className="ml-1 h-3 w-3 inline" />
+    return currentSortOrder === "asc" ? (
+      <ArrowUp className="ml-1 h-3 w-3 inline" />
+    ) : (
+      <ArrowDown className="ml-1 h-3 w-3 inline" />
+    )
+  }
 
   const renderRoleText = (u: User) => {
-    if ((u as any).is_superuser || u.isSuperuser) return getText("users.userTypes.superuser", lang === "es" ? "Superusuario" : "Superuser");
-    if ((u as any).is_staff || u.isStaff) return getText("users.userTypes.staff", lang === "es" ? "Staff" : "Staff");
-    return getText("users.userTypes.user", lang === "es" ? "Usuario" : "User");
-  };
-
-  // Definir las columnas de la tabla
-  const columns: Column<User & { permissions?: Permissions }>[] = [
-    {
-      key: "username",
-      label: TEXT.users?.table?.headers?.username ?? getText("users.table.headers.username", lang === "es" ? "Usuario" : "Username"),
-      sortable: true,
-      render: (user) => (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onSelectUser?.(user.id);
-          }}
-          className="text-blue-600 hover:underline"
-        >
-          {user.username}
-        </button>
-      ),
-      cellClassName: "px-3 py-2",
-    },
-    {
-      key: "firstName",
-      label: TEXT.users?.table?.headers?.firstName ?? getText("users.table.headers.firstName", lang === "es" ? "Nombre" : "First Name"),
-      sortable: true,
-      render: (user) => user.firstName || "-",
-      cellClassName: "px-3 py-2",
-    },
-    {
-      key: "lastName",
-      label: TEXT.users?.table?.headers?.lastName ?? getText("users.table.headers.lastName", lang === "es" ? "Apellido" : "Last Name"),
-      sortable: true,
-      render: (user) => user.lastName || "-",
-      cellClassName: "px-3 py-2",
-    },
-    {
-      key: "email",
-      label: TEXT.users?.table?.headers?.email ?? getText("users.table.headers.email", lang === "es" ? "Correo" : "Email"),
-      sortable: true,
-      render: (user) => user.email ?? "-",
-      cellClassName: "px-3 py-2",
-    },
-    {
-      key: "isActive" as keyof (User & { permissions?: Permissions }),
-      label: getText("users.table.headers.status", lang === "es" ? "Estado" : "Status"),
-      sortable: false,
-      headerClassName: "text-center align-middle",
-      headerStyle: { width: "120px", minWidth: "120px", maxWidth: "120px" },
-      cellClassName: "text-center align-middle",
-      cellStyle: { width: "120px", minWidth: "120px", maxWidth: "120px" },
-      render: (user) => {
-        const isActive = (user as any).is_active ?? user.isActive ?? true;
-        return (
-          <div>
-            {isActive ? (
-              <Check className="h-4 w-4 inline-block text-green-600" aria-label={getText("users.status.active", lang === "es" ? "Activo" : "Active")} />
-            ) : (
-              <X className="h-4 w-4 inline-block text-red-500" aria-label={getText("users.status.inactive", lang === "es" ? "Inactivo" : "Inactive")} />
-            )}
-          </div>
-        );
-      },
-    },
-    {
-      key: "isSuperuser" as keyof (User & { permissions?: Permissions }),
-      label: getText("users.table.headers.role", lang === "es" ? "Rol" : "Role"),
-      sortable: false,
-      headerClassName: "text-center align-middle",
-      headerStyle: { width: "120px", minWidth: "120px", maxWidth: "120px" },
-      cellClassName: "text-center align-middle",
-      cellStyle: { width: "120px", minWidth: "120px", maxWidth: "120px" },
-      render: (user) => renderRoleText(user),
-    },
-  ];
-
-  // Campos de búsqueda
-  const searchFields: (keyof (User & { permissions?: Permissions }))[] = [
-    "username",
-    "firstName",
-    "lastName",
-    "email",
-    "name" as keyof (User & { permissions?: Permissions }),
-  ];
-
-  // Acciones agrupadas (modo compacto - dropdown)
-  const renderGroupedActions = (user: User & { permissions?: Permissions }) => (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm">
-          <MoreHorizontal className="h-4 w-4" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent>
-        <DropdownMenuItem onClick={(e) => {
-          e.stopPropagation();
-          setShowUser(user);
-        }}>
-          <Eye className="h-4 w-4 mr-2" />
-          {getText("actions.view", "Ver")}
-        </DropdownMenuItem>
-
-        <DropdownMenuItem onClick={(e) => {
-          e.stopPropagation();
-          setNotesUser(user);
-        }}>
-          <FileText className="h-4 w-4 mr-2" />
-          Notas
-        </DropdownMenuItem>
-
-        <DropdownMenuItem onClick={(e) => {
-          e.stopPropagation();
-          setCreateNoteUser(user);
-        }}>
-          <Plus className="h-4 w-4 mr-2" />
-          Agregar nota
-        </DropdownMenuItem>
-
-        <DropdownMenuSeparator />
-
-        <DropdownMenuItem onClick={(e) => {
-          e.stopPropagation();
-          setEditUser(user);
-        }}>
-          <Pencil className="h-4 w-4 mr-2" />
-          {getText("actions.edit", "Editar")}
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={(e) => {
-          e.stopPropagation();
-          setDeleteUser(user);
-        }}>
-          <Trash className="h-4 w-4 mr-2" />
-          {getText("actions.delete", "Eliminar")}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-
-  // Acciones de fila (ahora con botones para Notas: ver y crear)
-  const renderActions = (user: User & { permissions?: Permissions }) => (
-    isActionsGrouped ? renderGroupedActions(user) : (
-      <>
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={(e) => {
-            e.stopPropagation();
-            setShowUser(user);
-          }}
-          title={getText("actions.view", "Ver")}
-          aria-label={getText("actions.view", "Ver")}
-        >
-          <Eye className="h-4 w-4 text-blue-500" />
-        </Button>
-
-        {/* Ver notas */}
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={(e) => {
-            e.stopPropagation();
-            setNotesUser(user);
-          }}
-          title="Notas"
-          aria-label="Notas"
-        >
-          <FileText className="h-4 w-4" />
-        </Button>
-
-        {/* Crear nota (rápido) */}
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={(e) => {
-            e.stopPropagation();
-            setCreateNoteUser(user);
-          }}
-          title="Agregar nota"
-          aria-label="Agregar nota"
-        >
-          <Plus className="h-4 w-4" />
-        </Button>
-
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={(e) => {
-            e.stopPropagation();
-            setEditUser(user);
-          }}
-          title={getText("actions.edit", "Editar")}
-          aria-label={getText("actions.edit", "Editar")}
-        >
-          <Pencil className="h-4 w-4" />
-        </Button>
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={(e) => {
-            e.stopPropagation();
-            setDeleteUser(user);
-          }}
-          title={getText("actions.delete", "Eliminar")}
-          aria-label={getText("actions.delete", "Eliminar")}
-        >
-          <Trash className="h-4 w-4 text-red-500" />
-        </Button>
-      </>
-    )
-  );
+    if ((u as any).is_superuser || u.isSuperuser) return "Superuser"
+    if ((u as any).is_staff || u.isStaff) return "Staff"
+    return "Usuario"
+  }
 
   return (
-    <>
-      <ReusableTable
-        data={normalizedUsers}
-        columns={columns}
-        getItemId={(user) => user.id}
-        onSelectItem={(id) => onSelectUser?.(Number(id))}
-        title={TEXT.users?.table?.title ?? getText("users.table.title", lang === "es" ? "Lista de Usuarios" : "Users List")}
-        searchPlaceholder={TEXT.users?.table?.searchPlaceholder ?? getText("users.table.searchPlaceholder", lang === "es" ? "Buscar..." : "Search...")}
-        addButtonText={TEXT.users?.table?.add ?? getText("users.table.add", lang === "es" ? "Agregar" : "Add")}
-        onAddClick={() => setCreateOpen(true)}
-        serverSide={serverSide}
-        currentPage={currentPage}
-        totalPages={totalPages}
-        onPageChange={onPageChange}
-        pageSize={pageSize}
-        onPageSizeChange={onPageSizeChange}
-        onSearch={onSearch}
-        searchFields={searchFields}
-        sortField={sortField as keyof (User & { permissions?: Permissions })}
-        sortOrder={sortOrder}
-        toggleSort={toggleSort as (key: keyof (User & { permissions?: Permissions })) => void}
-        actions={renderActions}
-        actionsHeader={TEXT.users?.table?.headers?.actions ?? getText("users.table.headers.actions", lang === "es" ? "Acciones" : "Actions")}
-        isPageLoading={isPageLoading}
-        rightControls={
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsActionsGrouped(!isActionsGrouped)}
-            className="text-xs"
-          >
-            {isActionsGrouped ? "Compacto" : "Desplegado"}
-          </Button>
-        }
-      />
+    <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm space-y-4">
+      {/* estilos inline para animación del search */}
+    
+
+      <div className="flex flex-col md:flex-row items-center gap-3 justify-between">
+        <h3 className="text-lg font-semibold md:mr-4">Lista de Usuarios</h3>
+        <div className="flex-1 md:mx-4 w-full max-w-3xl">
+          <div className={`${highlightSearch ? "search-highlight search-pulse" : ""}`} style={{ minWidth: 280 }}>
+            <Input
+              ref={searchRef}
+              placeholder="Buscar..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full"
+              aria-label="Buscar usuarios"
+            />
+          </div>
+        </div>
+        <div className="flex-none">
+          <Button onClick={() => setCreateOpen(true)}>Agregar</Button>
+        </div>
+      </div>
+
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead onClick={() => toggleSort("username")} className="cursor-pointer select-none">
+              Username {renderSortIcon("username")}
+            </TableHead>
+            <TableHead onClick={() => toggleSort("firstName")} className="cursor-pointer select-none">
+              Nombre {renderSortIcon("firstName")}
+            </TableHead>
+            <TableHead onClick={() => toggleSort("lastName")} className="cursor-pointer select-none">
+              Apellido {renderSortIcon("lastName")}
+            </TableHead>
+            <TableHead onClick={() => toggleSort("email")} className="cursor-pointer select-none">
+              Correo {renderSortIcon("email")}
+            </TableHead>
+            <TableHead className="w-[120px]">Estado</TableHead>
+            <TableHead className="w-[120px]">Rol</TableHead>
+            <TableHead className="w-[100px] text-center">Acciones</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {paginatedUsers.map((user) => (
+            <TableRow key={user.id}>
+              <TableCell>
+                <button
+                  onClick={() => onSelectUser(user.id)}
+                  className="text-blue-600 hover:underline"
+                >
+                  {user.username}
+                </button>
+              </TableCell>
+              <TableCell>{user.firstName}</TableCell>
+              <TableCell>{user.lastName}</TableCell>
+              <TableCell>{user.email}</TableCell>
+              <TableCell>{(user as any).is_active ?? (user.isActive ?? true) ? "Activo" : "Inactivo"}</TableCell>
+              <TableCell>{renderRoleText(user)}</TableCell>
+              <TableCell className="flex gap-2 justify-center">
+                <Button size="icon" variant="ghost" onClick={() => setEditUser(user)}>
+                  <Pencil className="h-4 w-4" />
+                </Button>
+                <Button size="icon" variant="ghost" onClick={() => setDeleteUser(user)}>
+                  <Trash className="h-4 w-4 text-red-500" />
+                </Button>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+
+      <div className="flex justify-end">
+        <Pagination>
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious onClick={() => goToPage(effectivePage - 1)} className={effectivePage === 1 ? "pointer-events-none opacity-50" : ""}/>
+            </PaginationItem>
+            {Array.from({ length: effectiveTotalPages }, (_, i) => (
+              <PaginationItem key={i}>
+                <PaginationLink isActive={effectivePage === i + 1} onClick={() => goToPage(i + 1)}>
+                  {i + 1}
+                </PaginationLink>
+              </PaginationItem>
+            ))}
+            <PaginationItem>
+              <PaginationNext onClick={() => goToPage(effectivePage + 1)} className={effectivePage === effectiveTotalPages ? "pointer-events-none opacity-50" : ""}/>
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
+      </div>
 
       <CreateUserDialog open={createOpen} onClose={() => setCreateOpen(false)} onCreated={onRefresh} />
       {editUser && <EditUserDialog user={editUser} open={!!editUser} onClose={() => setEditUser(null)} onUpdated={onRefresh} />}
       {deleteUser && <DeleteUserDialog user={deleteUser} onClose={() => setDeleteUser(null)} onDeleted={onRefresh} />}
-      {showUser && <ShowUserDialog user={showUser} open={!!showUser} onClose={() => setShowUser(null)} />}
-
-      {/* Users Notes modal (ver / listar / crear desde ahí) */}
-      {notesUser && (
-        <UsersNotesModal
-          user={notesUser}
-          open={!!notesUser}
-          onClose={() => setNotesUser(null)}
-          onUpdated={onRefresh}
-        />
-      )}
-
-      {/* Create Note quick dialog (abre el formulario de crear nota con initialUserId) */}
-      {createNoteUser && (
-        <CreateNote
-          open={!!createNoteUser}
-          onClose={() => setCreateNoteUser(null)}
-          onCreated={async () => {
-            if (onRefresh) {
-              const maybe = onRefresh();
-              if (maybe && typeof (maybe as unknown as Promise<unknown>)?.then === "function") {
-                await maybe;
-              }
-            }
-            setCreateNoteUser(null);
-          }}
-          initialUserId={createNoteUser.id}
-        />
-      )}
-    </>
-  );
+    </div>
+  )
 }

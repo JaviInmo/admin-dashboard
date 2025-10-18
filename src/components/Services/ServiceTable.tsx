@@ -331,9 +331,9 @@ export default function ServicesTable({
   ];
 
   const renderActions = (s: Service) => (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-1 flex-wrap justify-center min-w-0">
       <Button
-        size="icon"
+        size="sm"
         variant="ghost"
         onClick={(e) => {
           e.stopPropagation();
@@ -341,12 +341,13 @@ export default function ServicesTable({
         }}
         title={TEXT?.actions?.view ?? "View"}
         aria-label={TEXT?.actions?.view ?? "View"}
+        className="h-8 w-8 p-0 flex-shrink-0"
       >
         <Eye className={iconSizeClass} />
       </Button>
 
       <Button
-        size="icon"
+        size="sm"
         variant="ghost"
         onClick={(e) => {
           e.stopPropagation();
@@ -354,12 +355,13 @@ export default function ServicesTable({
         }}
         title={TEXT?.services?.table?.notesButton ?? "Notas"}
         aria-label={TEXT?.services?.table?.notesAria ?? "Ver notas del servicio"}
+        className="h-8 w-8 p-0 flex-shrink-0"
       >
         <FileText className={iconSizeClass} />
       </Button>
 
       <Button
-        size="icon"
+        size="sm"
         variant="ghost"
         onClick={(e) => {
           e.stopPropagation();
@@ -367,12 +369,13 @@ export default function ServicesTable({
         }}
         title={TEXT?.services?.table?.addNoteButton ?? "Agregar nota"}
         aria-label={TEXT?.services?.table?.addNoteAria ?? "Agregar nota para el servicio"}
+        className="h-8 w-8 p-0 flex-shrink-0"
       >
         <Plus className={iconSizeClass} />
       </Button>
 
       <Button
-        size="icon"
+        size="sm"
         variant="ghost"
         onClick={(e) => {
           e.stopPropagation();
@@ -380,12 +383,13 @@ export default function ServicesTable({
         }}
         title={TEXT?.actions?.edit ?? "Edit"}
         aria-label={TEXT?.actions?.edit ?? "Edit"}
+        className="h-8 w-8 p-0 flex-shrink-0"
       >
         <Pencil className={iconSizeClass} />
       </Button>
 
       <Button
-        size="icon"
+        size="sm"
         variant="ghost"
         onClick={(e) => {
           e.stopPropagation();
@@ -393,8 +397,9 @@ export default function ServicesTable({
         }}
         title={TEXT?.actions?.delete ?? "Delete"}
         aria-label={TEXT?.actions?.delete ?? "Delete"}
+        className="h-8 w-8 p-0 flex-shrink-0 text-red-500 hover:text-red-600"
       >
-        <Trash className={`${iconSizeClass} text-red-500`} />
+        <Trash className={iconSizeClass} />
       </Button>
     </div>
   );

@@ -119,26 +119,28 @@ export default function ClientPropertiesTable({
     const deleteTemplate = TEXT.properties?.table?.actionDelete ?? ""
 
     return (
-      <>
+      <div className="flex items-center gap-1 flex-wrap justify-center min-w-0">
         <Button
-          size="icon"
+          size="sm"
           variant="ghost"
           onClick={(e) => { e.stopPropagation(); setEditProperty(property); }}
           aria-label={formatTemplate(editTemplate, property)}
           title={formatTemplate(editTemplate, property)}
+          className="h-8 w-8 p-0 flex-shrink-0"
         >
-          <Pencil className="h-4 w-4" />
+          <Pencil className="h-3.5 w-3.5" />
         </Button>
         <Button
-          size="icon"
+          size="sm"
           variant="ghost"
           onClick={(e) => { e.stopPropagation(); setDeleteProperty(property); }}
           aria-label={formatTemplate(deleteTemplate, property)}
           title={formatTemplate(deleteTemplate, property)}
+          className="h-8 w-8 p-0 flex-shrink-0 text-red-500"
         >
-          <Trash className="h-4 w-4 text-red-500" />
+          <Trash className="h-3.5 w-3.5" />
         </Button>
-      </>
+      </div>
     );
   };
 
