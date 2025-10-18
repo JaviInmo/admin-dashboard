@@ -330,10 +330,10 @@ export default function ClientsTable({
   // Acciones de fila (ahora con aria-labels / títulos i18n) — envuelto para centrar y gap como en UsersTable
   const renderActions = (client: AppClient & { clientName: string }) => (
     isActionsGrouped ? renderGroupedActions(client) : (
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1 flex-wrap justify-center min-w-0">
         {/* Ver notas */}
         <Button
-          size="icon"
+          size="sm"
           variant="ghost"
           onClick={(e) => {
             e.stopPropagation();
@@ -341,13 +341,14 @@ export default function ClientsTable({
           }}
           title={getText("clients.table.notesButton", "Notas")}
           aria-label={getText("clients.table.notesAria", "Ver notas del cliente")}
+          className="h-8 w-8 p-0 flex-shrink-0"
         >
-          <FileText className="h-4 w-4" />
+          <FileText className="h-3.5 w-3.5" />
         </Button>
 
         {/* Crear nota (rápido) */}
         <Button
-          size="icon"
+          size="sm"
           variant="ghost"
           onClick={(e) => {
             e.stopPropagation();
@@ -355,12 +356,13 @@ export default function ClientsTable({
           }}
           title={getText("clients.table.addNoteButton", "Agregar nota")}
           aria-label={getText("clients.table.addNoteAria", "Agregar nota para el cliente")}
+          className="h-8 w-8 p-0 flex-shrink-0"
         >
-          <Plus className="h-4 w-4" />
+          <Plus className="h-3.5 w-3.5" />
         </Button>
 
         <Button
-          size="icon"
+          size="sm"
           variant="ghost"
           onClick={(e) => {
             e.stopPropagation();
@@ -368,11 +370,12 @@ export default function ClientsTable({
           }}
           aria-label={formatTemplate(TEXT.clients.table.actionEdit, client)}
           title={formatTemplate(TEXT.clients.table.actionEdit, client)}
+          className="h-8 w-8 p-0 flex-shrink-0"
         >
-          <Pencil className="h-4 w-4" />
+          <Pencil className="h-3.5 w-3.5" />
         </Button>
         <Button
-          size="icon"
+          size="sm"
           variant="ghost"
           onClick={(e) => {
             e.stopPropagation();
@@ -380,8 +383,9 @@ export default function ClientsTable({
           }}
           aria-label={formatTemplate(TEXT.clients.table.actionDelete, client)}
           title={formatTemplate(TEXT.clients.table.actionDelete, client)}
+          className="h-8 w-8 p-0 flex-shrink-0 text-red-500 hover:text-red-600"
         >
-          <Trash className="h-4 w-4 text-red-500" />
+          <Trash className="h-3.5 w-3.5" />
         </Button>
       </div>
     )

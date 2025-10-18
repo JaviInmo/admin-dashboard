@@ -215,9 +215,9 @@ export default function NotesTable({
 
   // Acciones separadas (botones)
   const renderActions = (noteItem: Note) => (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2 flex-wrap justify-center min-w-0">
       <Button
-        size="icon"
+        size="sm"
         variant="ghost"
         onClick={(e) => {
           e.stopPropagation();
@@ -225,12 +225,13 @@ export default function NotesTable({
         }}
         aria-label={getText("actions.show", "Show")}
         title={getText("actions.show", "Show")}
+        className="h-8 w-8 p-0 flex-shrink-0"
       >
-        <Eye className="h-4 w-4" />
+        <Eye className="h-3.5 w-3.5" />
       </Button>
 
       <Button
-        size="icon"
+        size="sm"
         variant="ghost"
         onClick={(e) => {
           e.stopPropagation();
@@ -238,12 +239,13 @@ export default function NotesTable({
         }}
         aria-label={getText("actions.edit", "Edit")}
         title={getText("actions.edit", "Edit")}
+        className="h-8 w-8 p-0 flex-shrink-0"
       >
-        <Pencil className="h-4 w-4" />
+        <Pencil className="h-3.5 w-3.5" />
       </Button>
 
       <Button
-        size="icon"
+        size="sm"
         variant="ghost"
         onClick={(e) => {
           e.stopPropagation();
@@ -251,8 +253,9 @@ export default function NotesTable({
         }}
         aria-label={getText("actions.delete", "Delete")}
         title={getText("actions.delete", "Delete")}
+        className="h-8 w-8 p-0 flex-shrink-0 text-red-500"
       >
-        <Trash className="h-4 w-4 text-red-500" />
+        <Trash className="h-3.5 w-3.5" />
       </Button>
     </div>
   );

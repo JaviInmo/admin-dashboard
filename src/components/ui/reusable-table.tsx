@@ -307,7 +307,7 @@ export function ReusableTable<T extends Record<string, any>>({
                       );
                     })}
                     {actions && (
-                      <th className="text-center font-medium text-foreground px-4 py-4 align-middle" style={{ width: "140px", minWidth: "80px", maxWidth: "140px" }}>
+                      <th className="text-center font-medium text-foreground px-4 py-4 align-middle" style={{ width: "auto", minWidth: "120px", maxWidth: "200px" }}>
                         <span className="font-semibold">{actionsHeaderText}</span>
                       </th>
                     )}
@@ -394,7 +394,7 @@ export function ReusableTable<T extends Record<string, any>>({
                         {actions && (
                           <td 
                             className="text-center px-4 py-3 align-middle" 
-                            style={{ width: "140px", minWidth: "80px", maxWidth: "140px" }}
+                            style={{ width: "auto", minWidth: "120px", maxWidth: "200px" }}
                           >
                             <div className="flex gap-2 justify-center">
                               <TableLoadingCell width="short" />
@@ -474,13 +474,16 @@ export function ReusableTable<T extends Record<string, any>>({
                           </td>
                         );
                       })}
-                      {actions && (
-                        <td className="text-center px-4 py-3 align-middle" style={{ width: "140px", minWidth: "80px", maxWidth: "140px" }}>
-                          <div className="flex gap-2 justify-center" onClick={(e) => e.stopPropagation()}>
-                            {actions(item)}
-                          </div>
-                        </td>
-                      )}
+                        {actions && (
+                          <td 
+                            className="text-center px-4 py-3 align-middle" 
+                            style={{ width: "auto", minWidth: "120px", maxWidth: "200px" }}
+                          >
+                            <div className="flex gap-2 justify-center" onClick={(e) => e.stopPropagation()}>
+                              {actions(item)}
+                            </div>
+                          </td>
+                        )}
                     </tr>
                   ))
                 )}
@@ -506,7 +509,7 @@ export function ReusableTable<T extends Record<string, any>>({
                       );
                     })}
                     {actions && (
-                      <td className="text-center px-4 py-3" style={{ width: "140px", minWidth: "80px", maxWidth: "140px" }}>
+                      <td className="text-center px-4 py-3" style={{ width: "auto", minWidth: "120px", maxWidth: "200px" }}>
                         {/* empty */}
                       </td>
                     )}

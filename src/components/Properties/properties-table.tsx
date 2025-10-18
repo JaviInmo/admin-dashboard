@@ -1,606 +1,474 @@
+// src/components/Properties/PropertiesTable.tsx
 "use client";
 
-import { Pencil, Trash, User, List, MoreHorizontal, Calendar, FileText, Plus } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Pencil, Trash } from "lucide-react";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { ReusableTable, type Column } from "@/components/ui/reusable-table";
-import { ClickableAddress } from "@/components/ui/clickable-address";
+	Pagination,
+	PaginationContent,
+	PaginationItem,
+	PaginationLink,
+	PaginationNext,
+	PaginationPrevious,
+} from "@/components/ui/pagination";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from "@/components/ui/table";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
 } from "@/components/ui/tooltip";
 import type { AppProperty } from "@/lib/services/properties";
 import type { SortOrder } from "@/lib/sort";
-import { useI18n } from "@/i18n";
+import { shouldShowPage } from "../_utils/pagination";
 import CreatePropertyDialog from "./Create/Create";
 import DeletePropertyDialog from "./Delete/Delete";
 import EditPropertyDialog from "./Edit/Edit";
 
-import OwnerDetailsModal from "@/components/Properties/OwnerDetailsModal";
-import PropertyDetailsModal from "@/components/Properties/PropertyDetailsModal";
-import PropertiesServicesModal from "@/components/Properties/PropertiesServicesModal";
-import PropertyShiftsModal from "@/components/Properties/properties shifts content/PropertyShiftsModal";
-
-/* Modal externo de notas */
-import PropertyNotesModal from "./PropertyNotesModal";
-import CreateNote from "@/components/Notes/Create/CreateNote";
-import type { AppClient } from "@/lib/services/clients";
-
+// Componente helper para texto truncado con tooltip
 function TruncatedText({
-  text,
-  maxLength = 30,
+	text,
+	maxLength = 30,
 }: {
-  text: string;
-  maxLength?: number;
+	text: string;
+	maxLength?: number;
 }) {
-  if (!text || text.length <= maxLength) {
-    return <span>{text}</span>;
-  }
+	if (!text || text.length <= maxLength) {
+		return <span>{text}</span>;
+	}
 
-  return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span className="cursor-help truncate block max-w-[200px]">
-            {text.substring(0, maxLength)}...
-          </span>
-        </TooltipTrigger>
-        <TooltipContent side="top" className="max-w-xs">
-          <p className="whitespace-normal break-words">{text}</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
+	return (
+		<TooltipProvider>
+			<Tooltip>
+				<TooltipTrigger asChild>
+					<span className="cursor-help truncate block max-w-[200px]">
+						{text.substring(0, maxLength)}...
+					</span>
+				</TooltipTrigger>
+				<TooltipContent side="top" className="max-w-xs">
+					<p className="whitespace-normal break-words">{text}</p>
+				</TooltipContent>
+			</Tooltip>
+		</TooltipProvider>
+	);
 }
 
 export interface PropertiesTableProps {
-  properties: AppProperty[];
-  onRefresh?: () => Promise<void>;
-  serverSide?: boolean;
-  currentPage?: number;
-  totalPages?: number;
-  onPageChange?: (page: number) => void;
-  pageSize?: number;
-  onPageSizeChange?: (size: number) => void;
-  onSearch?: (term: string) => void;
+	properties: AppProperty[];
+	onSelectProperty?: (id: number) => void;
+	onRefresh?: () => Promise<void>;
+	serverSide?: boolean;
+	currentPage?: number;
+	totalPages?: number;
+	onPageChange?: (page: number) => void;
+	pageSize?: number;
+	onPageSizeChange?: (size: number) => void;
+	onSearch?: (term: string) => void;
+	propertyTypesMap?: Record<number, string>;
+	isPageLoading?: boolean;
 
-  sortField: keyof AppProperty;
-  sortOrder: SortOrder;
-  toggleSort: (field: keyof AppProperty | "ownerName") => void;
-
-  isPageLoading?: boolean;
+	sortField: keyof AppProperty;
+	sortOrder: SortOrder;
+	toggleSort: (key: keyof AppProperty) => void;
 }
 
-type PropertyRow = AppProperty & {
-  ownerName?: string;
-  ownerDetails?: unknown;
-  ownerId?: number | string | undefined;
-};
-
 export default function PropertiesTable({
-  properties,
-  onRefresh,
-  serverSide = false,
-  currentPage = 1,
-  totalPages = 1,
-  onPageChange,
-  pageSize = 5,
-  onPageSizeChange,
-  onSearch,
-  sortField,
-  sortOrder,
-  toggleSort,
-  isPageLoading = false,
+	properties,
+	onSelectProperty,
+	onRefresh,
+	serverSide = false,
+	currentPage = 1,
+	totalPages = 1,
+	onPageChange,
+	pageSize = 5,
+	onSearch,
+	propertyTypesMap,
+
+	sortField,
+	sortOrder,
+	toggleSort,
 }: PropertiesTableProps) {
-  const [createOpen, setCreateOpen] = React.useState(false);
-  const [editProperty, setEditProperty] = React.useState<PropertyRow | null>(null);
-  const [deleteProperty, setDeleteProperty] = React.useState<PropertyRow | null>(null);
-  const { TEXT } = useI18n();
+	const [page, setPage] = React.useState(1);
+	const [search, setSearch] = React.useState("");
 
-  // Owner modal state (strongly typed)
-  const [ownerModalOpen, setOwnerModalOpen] = React.useState(false);
-  const [ownerToShow, setOwnerToShow] = React.useState<number | null>(null);
-  const [ownerInitialData, setOwnerInitialData] = React.useState<unknown | undefined>(undefined);
+	const [createOpen, setCreateOpen] = React.useState(false);
+	const [editProperty, setEditProperty] = React.useState<AppProperty | null>(
+		null,
+	);
+	const [deleteProperty, setDeleteProperty] =
+		React.useState<AppProperty | null>(null);
 
-  // Property details modal
-  const [propertyDetailsOpen, setPropertyDetailsOpen] = React.useState(false);
-  const [propertyToShow, setPropertyToShow] = React.useState<PropertyRow | null>(null);
+	const itemsPerPage = pageSize ?? 5;
 
-  // Services / Shifts modals
-  const [shiftProperty, setShiftProperty] = React.useState<PropertyRow | null>(null);
-  const [servicesProperty, setServicesProperty] = React.useState<PropertyRow | null>(null);
+	// estilos y animación del search
+	const [highlightSearch, setHighlightSearch] = React.useState(true);
+	const searchRef = React.useRef<HTMLInputElement | null>(null);
 
-  // Notes: property to view notes (open modal) and quick-create note
-  const [notesProperty, setNotesProperty] = React.useState<PropertyRow | null>(null);
-  const [createNoteProperty, setCreateNoteProperty] = React.useState<PropertyRow | null>(null);
+	React.useEffect(() => {
+		if (searchRef.current) {
+			try {
+				searchRef.current.focus();
+			} catch {}
+		}
+		const t = setTimeout(() => setHighlightSearch(false), 3500);
+		return () => clearTimeout(t);
+	}, []);
 
-  // local setting: actions grouped
-  const [isActionsGrouped, setIsActionsGrouped] = React.useState<boolean>(() => {
-    try {
-      const saved = localStorage.getItem('properties-table-actions-grouped');
-      return saved ? JSON.parse(saved) as boolean : true;
-    } catch {
-      return true;
-    }
-  });
+	/**
+	 * Normalización:
+	 * - ownerName: intenta username, luego nombre completo, luego fallback a #ownerId
+	 * - typesOfServiceStr: soporta:
+	 *     - [{id, name}, {..}] -> mostrar names
+	 *     - [1,2,3] -> usar propertyTypesMap (si viene) o mostrar ids
+	 */
+	const normalized = properties.map((p) => {
+		// owner name
+		const od: any = (p as any).ownerDetails ?? {};
+		let ownerName = "";
+		// posibles campos donde puede venir el username
+		const usernameCandidates = [od.username, od.user_username, od.user_name];
+		for (const cand of usernameCandidates) {
+			if (typeof cand === "string" && cand.trim() !== "") {
+				ownerName = cand.trim();
+				break;
+			}
+		}
+		if (!ownerName) {
+			const first = od.first_name ?? od.firstName ?? "";
+			const last = od.last_name ?? od.lastName ?? "";
+			if ((first || last) && `${first} ${last}`.trim() !== "")
+				ownerName = `${first} ${last}`.trim();
+		}
+		if (!ownerName) {
+			// ownerDetails.user a veces es un id numérico
+			if (typeof od.user === "number") ownerName = `#${od.user}`;
+		}
+		if (!ownerName)
+			ownerName = `#${(p as any).ownerId ?? (p as any).owner ?? p.id}`;
 
-  React.useEffect(() => {
-    try {
-      localStorage.setItem('properties-table-actions-grouped', JSON.stringify(isActionsGrouped));
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    } catch (e) {
-      // noop
-    }
-  }, [isActionsGrouped]);
+		// types_of_service puede venir como array de objetos { id, name } o array de ids
+		let typesOfServiceStr = "";
+		const tos: any =
+			(p as any).typesOfService ?? (p as any).types_of_service ?? [];
+		if (Array.isArray(tos)) {
+			typesOfServiceStr = tos
+				.map((t: any) => {
+					if (!t && t !== 0) return null;
+					// si t es objeto con name
+					if (typeof t === "object") {
+						return String(t.name ?? t.title ?? t.id ?? "");
+					}
+					// si t es number (id), buscar en map si existe
+					if (typeof t === "number") {
+						return propertyTypesMap?.[t] ?? String(t);
+					}
+					// si t es string (ej. '1' o 'name')
+					if (typeof t === "string") {
+						// si es numérica, buscar en map
+						const n = Number(t);
+						if (!Number.isNaN(n)) return propertyTypesMap?.[n] ?? t;
+						return t;
+					}
+					return null;
+				})
+				.filter(Boolean)
+				.join(", ");
+		}
 
-  // Safe text getter without using `any`
-  function getText(path: string, fallback?: string) {
-    const parts = path.split(".");
-    let val: unknown = TEXT;
-    for (const p of parts) {
-      if (val && typeof val === "object" && (p in (val as Record<string, unknown>))) {
-        val = (val as Record<string, unknown>)[p];
-      } else {
-        val = undefined;
-        break;
-      }
-    }
-    if (typeof val === "string") return val;
-    return fallback ?? path;
-  }
+		return {
+			...(p as any),
+			ownerName,
+			typesOfServiceStr,
+		} as AppProperty & { ownerName: string; typesOfServiceStr: string };
+	});
 
-  // Normalize properties: create ownerName and ownerId in a typed manner
-  const normalizedProperties: PropertyRow[] = properties.map((p) => {
-    const ownerDetails: unknown = (p as unknown as Record<string, unknown>).ownerDetails ?? {};
-    let ownerName = "";
+	const localFilteredAndSorted = normalized
+		.filter((p) => {
+			const q = search.toLowerCase();
+			return (
+				(p.ownerName ?? "").toLowerCase().includes(q) ||
+				(p.name ?? "").toLowerCase().includes(q) ||
+				(p.address ?? "").toLowerCase().includes(q) ||
+				(p.typesOfServiceStr ?? "").toLowerCase().includes(q) ||
+				(p.alias ?? "").toLowerCase().includes(q) ||
+				(p.description ?? "").toLowerCase().includes(q)
+			);
+		})
+		.sort((a, b) => {
+			const valA = (a as any)[sortField] ?? "";
+			const valB = (b as any)[sortField] ?? "";
+			return sortOrder === "asc"
+				? String(valA).localeCompare(String(valB))
+				: String(valB).localeCompare(String(valA));
+		});
 
-    const usernameCandidates = [
-      (ownerDetails as Record<string, unknown>)?.username,
-      (ownerDetails as Record<string, unknown>)?.user_username,
-      (ownerDetails as Record<string, unknown>)?.user_name,
-    ];
+	const effectiveList = serverSide ? normalized : localFilteredAndSorted;
+	const localTotalPages = Math.max(
+		1,
+		Math.ceil(localFilteredAndSorted.length / itemsPerPage),
+	);
+	const effectiveTotalPages = serverSide
+		? Math.max(1, totalPages ?? 1)
+		: localTotalPages;
+	const effectivePage = serverSide
+		? Math.max(1, Math.min(currentPage, effectiveTotalPages))
+		: page;
+	const startIndex = (effectivePage - 1) * itemsPerPage;
+	const paginated = serverSide
+		? effectiveList
+		: effectiveList.slice(startIndex, startIndex + itemsPerPage);
 
-    for (const cand of usernameCandidates) {
-      if (typeof cand === "string" && cand.trim() !== "") {
-        ownerName = cand.trim();
-        break;
-      }
-    }
+	React.useEffect(() => {
+		if (!serverSide) setPage(1);
+	}, [properties.length, search, serverSide]);
 
-    if (!ownerName) {
-      const first = (ownerDetails as Record<string, unknown>)?.first_name ?? (ownerDetails as Record<string, unknown>)?.firstName ?? "";
-      const last = (ownerDetails as Record<string, unknown>)?.last_name ?? (ownerDetails as Record<string, unknown>)?.lastName ?? "";
-      if ((typeof first === "string" && first.trim() !== "") || (typeof last === "string" && last.trim() !== "")) {
-        ownerName = `${String(first).trim()} ${String(last).trim()}`.trim();
-      }
-    }
+	const searchTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
+		null,
+	);
+	React.useEffect(() => {
+		if (!serverSide) return;
+		if (!onSearch) return;
+		if (searchTimerRef.current) {
+			clearTimeout(searchTimerRef.current);
+			searchTimerRef.current = null;
+		}
+		searchTimerRef.current = setTimeout(() => {
+			onSearch(search);
+		}, 350);
+		return () => {
+			if (searchTimerRef.current) {
+				clearTimeout(searchTimerRef.current);
+				searchTimerRef.current = null;
+			}
+		};
+	}, [search, serverSide, onSearch]);
 
-    if (!ownerName) {
-      const userVal = (ownerDetails as Record<string, unknown>)?.user;
-      if (typeof userVal === "number") ownerName = `#${userVal}`;
-      if (!ownerName && typeof userVal === "string" && userVal.trim() !== "") ownerName = userVal.trim();
-    }
+	const goToPage = (p: number) => {
+		const newP = Math.max(1, Math.min(effectiveTotalPages, p));
+		if (serverSide) onPageChange?.(newP);
+		else setPage(newP);
+	};
 
-    const ownerIdCandidate = (p as unknown as Record<string, unknown>)?.ownerId ?? (p as unknown as Record<string, unknown>)?.owner ?? undefined;
-    const ownerId = typeof ownerIdCandidate === "number" ? ownerIdCandidate : (typeof ownerIdCandidate === "string" && ownerIdCandidate.trim() !== "" ? ownerIdCandidate : undefined);
+	const renderSortIcon = (field: string) => {
+		if (sortField !== field)
+			return <ArrowUpDown className="ml-1 h-3 w-3 inline" />;
+		return sortOrder === "asc" ? (
+			<ArrowUp className="ml-1 h-3 w-3 inline" />
+		) : (
+			<ArrowDown className="ml-1 h-3 w-3 inline" />
+		);
+	};
 
-    if (!ownerName) {
-      if (ownerId !== undefined) ownerName = `#${ownerId}`;
-      else ownerName = `#${(p as unknown as Record<string, unknown>)?.id ?? ""}`;
-    }
+	return (
+		<div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm space-y-4">
+			<div className="flex flex-col md:flex-row items-center gap-3 justify-between">
+				<h3 className="text-lg font-semibold md:mr-4">Lista de Propiedades</h3>
+				<div className="flex-1 md:mx-4 w-full max-w-3xl">
+					<div
+						className={`${highlightSearch ? "search-highlight search-pulse" : ""}`}
+						style={{ minWidth: 280 }}
+					>
+						<Input
+							ref={searchRef}
+							placeholder="Buscar..."
+							value={search}
+							onChange={(e) => setSearch(e.target.value)}
+							className="w-full"
+							aria-label="Buscar propiedades"
+						/>
+					</div>
+				</div>
+				<div className="flex-none">
+					<Button onClick={() => setCreateOpen(true)}>Agregar</Button>
+				</div>
+			</div>
 
-    return {
-      ...p,
-      ownerName,
-      ownerDetails,
-      ownerId,
-    } as PropertyRow;
-  });
+			<Table>
+				<TableHeader>
+					<TableRow>
+						<TableHead
+							onClick={() => toggleSort("id")}
+							className="cursor-pointer select-none"
+						>
+							Owner {renderSortIcon("ownerName")}
+						</TableHead>
+						<TableHead
+							onClick={() => toggleSort("name")}
+							className="cursor-pointer select-none"
+						>
+							Name {renderSortIcon("name")}
+						</TableHead>
+						<TableHead
+							onClick={() => toggleSort("address")}
+							className="cursor-pointer select-none"
+						>
+							Address {renderSortIcon("address")}
+						</TableHead>
+						<TableHead
+							onClick={() => toggleSort("name")}
+							className="cursor-pointer select-none"
+						>
+							Service Types {renderSortIcon("name")}
+						</TableHead>
+						<TableHead
+							onClick={() => toggleSort("name")}
+							className="cursor-pointer select-none"
+						>
+							Monthly Rate {renderSortIcon("name")}
+						</TableHead>
+						<TableHead
+							onClick={() => toggleSort("name")}
+							className="cursor-pointer select-none"
+						>
+							Total Hours {renderSortIcon("name")}
+						</TableHead>
+						<TableHead
+							onClick={() => toggleSort("contractStartDate")}
+							className="cursor-pointer select-none"
+						>
+							Start Date {renderSortIcon("contractStartDate")}
+						</TableHead>
+						<TableHead className="w-[100px] text-center">Actions</TableHead>
+					</TableRow>
+				</TableHeader>
+				<TableBody>
+					{paginated.map((p, idx) => (
+						<TableRow
+							key={p.id}
+							className={`cursor-pointer hover:bg-muted ${idx % 2 === 0 ? "bg-transparent" : "bg-muted/5"}`}
+							onClick={() => onSelectProperty?.(p.id)}
+							role={onSelectProperty ? "button" : undefined}
+							tabIndex={onSelectProperty ? 0 : undefined}
+							onKeyDown={(e) => {
+								if (!onSelectProperty) return;
+								if (e.key === "Enter" || e.key === " ") {
+									e.preventDefault();
+									onSelectProperty(p.id);
+								}
+							}}
+						>
+							<TableCell>
+								{/* ownerName plain text (no blue) */}
+								<div className="w-full">
+									<span>
+										{(p as any).ownerName ??
+											`#${(p as any).ownerId ?? (p as any).owner ?? p.id}`}
+									</span>
+								</div>
+							</TableCell>
+							<TableCell>
+								<TruncatedText text={p.name || ""} maxLength={25} />
+							</TableCell>
+							<TableCell>
+								<TruncatedText text={p.address || ""} maxLength={30} />
+							</TableCell>
+							<TableCell>
+								<TruncatedText
+									text={(p as any).typesOfServiceStr || "-"}
+									maxLength={25}
+								/>
+							</TableCell>
+							<TableCell>{p.shiftsCount ?? "-"}</TableCell>
+							<TableCell>{p.expensesCount ?? "-"}</TableCell>
+							<TableCell>{p.contractStartDate ?? "-"}</TableCell>
+							<TableCell className="flex gap-2 justify-center">
+								<Button
+									size="icon"
+									variant="ghost"
+									onClick={(e) => {
+										e.stopPropagation();
+										setEditProperty(p);
+									}}
+								>
+									<Pencil className="h-4 w-4" />
+								</Button>
+								<Button
+									size="icon"
+									variant="ghost"
+									onClick={(e) => {
+										e.stopPropagation();
+										setDeleteProperty(p);
+									}}
+								>
+									<Trash className="h-4 w-4 text-red-500" />
+								</Button>
+							</TableCell>
+						</TableRow>
+					))}
+				</TableBody>
+			</Table>
 
-  // columns typed with PropertyRow
-  const columns: Column<PropertyRow>[] = [
-    {
-      key: "ownerId",
-      label: getText("properties.table.headers.owner", "Owner"),
-      sortable: true,
-      render: (p) => {
-        const ownerIdVal = p.ownerId ?? undefined;
-        const ownerLabel = p.ownerName ?? (ownerIdVal ? `#${ownerIdVal}` : "-");
-        return (
-          <div className="w-full">
-            <span className="text-foreground text-sm">
-              {ownerLabel}
-            </span>
-          </div>
-        );
-      },
-      headerClassName: "px-1 py-1 text-sm",
-      cellClassName: "px-1 py-1 text-sm",
-      headerStyle: { width: "120px", minWidth: "100px", maxWidth: "140px" },
-      cellStyle: { width: "120px", minWidth: "100px", maxWidth: "140px" },
-    },
-    {
-      key: "alias",
-      label: getText("properties.table.headers.alias", "Nick"),
-      sortable: true,
-      render: (p) => <TruncatedText text={String(p.alias ?? "-")} maxLength={15} />,
-      headerClassName: "px-1 py-1 text-sm",
-      cellClassName: "px-1 py-1 text-sm",
-      headerStyle: { width: "100px", minWidth: "80px", maxWidth: "120px" },
-      cellStyle: { width: "100px", minWidth: "80px", maxWidth: "120px" },
-    },
-    {
-      key: "name",
-      label: getText("properties.table.headers.name", "Name"),
-      sortable: true,
-      render: (p) => <TruncatedText text={String(p.name ?? "")} maxLength={20} />,
-      headerClassName: "px-1 py-1 text-sm",
-      cellClassName: "px-1 py-1 text-sm",
-      headerStyle: { width: "120px", minWidth: "100px", maxWidth: "150px" },
-      cellStyle: { width: "120px", minWidth: "100px", maxWidth: "150px" },
-    },
-    {
-      key: "address",
-      label: getText("properties.table.headers.address", "Address"),
-      sortable: true,
-      render: (p) => <ClickableAddress address={String(p.address ?? "")} />,
-      headerClassName: "px-1 py-1 text-sm",
-      cellClassName: "px-1 py-1 text-sm",
-      headerStyle: { width: "150px", minWidth: "120px", maxWidth: "200px" },
-      cellStyle: { width: "150px", minWidth: "120px", maxWidth: "200px" },
-    },
-    {
-      key: "contractStartDate",
-      label: getText("properties.table.headers.contractStartDate", "Contract Start"),
-      sortable: true,
-      render: (p) => {
-        const raw = (p as unknown as Record<string, unknown>)?.contractStartDate ?? (p as unknown as Record<string, unknown>)?.contract_start_date ?? null;
-        if (!raw) return <span className="text-sm">-</span>;
-        try {
-          const d = new Date(String(raw));
-          if (Number.isNaN(d.getTime())) return <span className="text-sm">{String(raw)}</span>;
-          return <span className="text-sm">{d.toLocaleDateString()}</span>;
-        } catch {
-          return <span className="text-sm">{String(raw)}</span>;
-        }
-      },
-      headerClassName: "px-1 py-1 text-sm text-center",
-      cellClassName: "px-1 py-1 text-sm text-center",
-      headerStyle: { width: "120px", minWidth: "100px", maxWidth: "140px" },
-      cellStyle: { width: "120px", minWidth: "100px", maxWidth: "140px" },
-    },
-  ];
+			<div className="flex justify-end">
+				<Pagination>
+					<PaginationContent>
+						<PaginationItem>
+							<PaginationPrevious
+								onClick={() => goToPage(effectivePage - 1)}
+								className={
+									effectivePage === 1 ? "pointer-events-none opacity-50" : ""
+								}
+							/>
+						</PaginationItem>
 
-  const searchFields: (keyof AppProperty)[] = ["name", "alias", "address"];
+						{Array.from({ length: effectiveTotalPages }, (_, i) => i)
+							.filter((item) =>
+								shouldShowPage(item, effectivePage, effectiveTotalPages),
+							)
+							.map((item) => (
+								<PaginationItem key={item}>
+									<PaginationLink
+										isActive={effectivePage === item + 1}
+										onClick={() => goToPage(item + 1)}
+									>
+										{item + 1}
+									</PaginationLink>
+								</PaginationItem>
+							))}
 
-  // grouped actions (menu)
-  const renderGroupedActions = (property: PropertyRow) => (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm">
-          <MoreHorizontal className="h-4 w-4" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent>
-        <DropdownMenuItem onClick={(e) => {
-          e.stopPropagation();
-          setServicesProperty(property);
-        }}>
-          <List className="h-4 w-4 mr-2" />
-          {getText("properties.table.servicesButton", "Servicios")}
-        </DropdownMenuItem>
+						<PaginationItem>
+							<PaginationNext
+								onClick={() => goToPage(effectivePage + 1)}
+								className={
+									effectivePage === effectiveTotalPages
+										? "pointer-events-none opacity-50"
+										: ""
+								}
+							/>
+						</PaginationItem>
+					</PaginationContent>
+				</Pagination>
+			</div>
 
-        <DropdownMenuItem onClick={(e) => {
-          e.stopPropagation();
-          setShiftProperty(property);
-        }}>
-          <Calendar className="h-4 w-4 mr-2" />
-          {getText("properties.table.shiftsButton", "Turnos")}
-        </DropdownMenuItem>
-
-        <DropdownMenuItem onClick={(e) => {
-          e.stopPropagation();
-          const ownerIdVal = property.ownerId ?? undefined;
-          if (ownerIdVal !== undefined) {
-            setOwnerToShow(Number(ownerIdVal));
-            setOwnerInitialData(property.ownerDetails ?? undefined);
-            setOwnerModalOpen(true);
-          }
-        }}>
-          <User className="h-4 w-4 mr-2" />
-          Ver propietario
-        </DropdownMenuItem>
-
-        <DropdownMenuSeparator />
-
-        {/* Notas: ver y crear */}
-        <DropdownMenuItem onClick={(e) => {
-          e.stopPropagation();
-          setNotesProperty(property);
-        }}>
-          <FileText className="h-4 w-4 mr-2" />
-          {getText("properties.table.notesButton", "Notas")}
-        </DropdownMenuItem>
-
-        <DropdownMenuItem onClick={(e) => {
-          e.stopPropagation();
-          setCreateNoteProperty(property);
-        }}>
-          <Plus className="h-4 w-4 mr-2" />
-          {getText("properties.table.addNoteButton", "Agregar nota")}
-        </DropdownMenuItem>
-
-        <DropdownMenuSeparator />
-
-        <DropdownMenuItem onClick={(e) => {
-          e.stopPropagation();
-          setEditProperty(property);
-        }}>
-          <Pencil className="h-4 w-4 mr-2" />
-          Editar
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={(e) => {
-          e.stopPropagation();
-          setDeleteProperty(property);
-        }}>
-          <Trash className="h-4 w-4 mr-2" />
-          Eliminar
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-
-  // row actions (expanded)
-  const renderActions = (property: PropertyRow) => (
-    isActionsGrouped ? renderGroupedActions(property) : (
-      <div className="flex items-center gap-1">
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={(e) => {
-            e.stopPropagation();
-            setServicesProperty(property);
-          }}
-          title={getText("properties.table.servicesButton", "Services")}
-          aria-label={getText("properties.table.servicesAria", "Ver servicios de la propiedad")}
-        >
-          <List className="h-4 w-4" />
-        </Button>
-
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={(e) => {
-            e.stopPropagation();
-            setShiftProperty(property);
-          }}
-          title={getText("properties.table.shiftsButton", "Turnos")}
-          aria-label={getText("properties.table.shiftsAria", "Gestionar turnos de la propiedad")}
-        >
-          <Calendar className="h-4 w-4" />
-        </Button>
-
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={(e) => {
-            e.stopPropagation();
-            const ownerIdVal = property.ownerId ?? undefined;
-            if (ownerIdVal !== undefined) {
-              setOwnerToShow(Number(ownerIdVal));
-              setOwnerInitialData(property.ownerDetails ?? undefined);
-              setOwnerModalOpen(true);
-            }
-          }}
-          title="Ver propietario"
-          aria-label="Ver propietario"
-        >
-          <User className="h-4 w-4" />
-        </Button>
-
-        {/* Notas: ver */}
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={(e) => {
-            e.stopPropagation();
-            setNotesProperty(property);
-          }}
-          title={getText("properties.table.notesButton", "Notas")}
-          aria-label={getText("properties.table.notesAria", "Ver notas de la propiedad")}
-        >
-          <FileText className="h-4 w-4" />
-        </Button>
-
-        {/* Notas: crear nota rápido */}
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={(e) => {
-            e.stopPropagation();
-            setCreateNoteProperty(property);
-          }}
-          title={getText("properties.table.addNoteButton", "Agregar nota")}
-          aria-label={getText("properties.table.addNoteAria", "Agregar nota para la propiedad")}
-        >
-          <Plus className="h-4 w-4" />
-        </Button>
-
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={(e) => {
-            e.stopPropagation();
-            setEditProperty(property);
-          }}
-        >
-          <Pencil className="h-4 w-4" />
-        </Button>
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={(e) => {
-            e.stopPropagation();
-            setDeleteProperty(property);
-          }}
-        >
-          <Trash className="h-4 w-4 text-red-500" />
-        </Button>
-      </div>
-    )
-  );
-
-  return (
-    <>
-      <ReusableTable<PropertyRow>
-        className="text-sm"
-        data={normalizedProperties}
-        columns={columns}
-        getItemId={(p) => p.id}
-        onSelectItem={(id) => {
-          const property = normalizedProperties.find((x) => x.id === Number(id));
-          if (property) {
-            setPropertyToShow(property);
-            setPropertyDetailsOpen(true);
-          }
-        }}
-        title={getText("properties.table.title", "Properties List")}
-        searchPlaceholder={getText("properties.table.searchPlaceholder", "Search properties...")}
-        addButtonText={getText("properties.table.add", "Add")}
-        onAddClick={() => setCreateOpen(true)}
-        serverSide={serverSide}
-        currentPage={currentPage}
-        totalPages={totalPages}
-        onPageChange={onPageChange}
-        pageSize={pageSize}
-        onPageSizeChange={onPageSizeChange}
-        onSearch={onSearch}
-        searchFields={searchFields}
-        sortField={sortField as keyof PropertyRow}
-        sortOrder={sortOrder}
-        toggleSort={toggleSort}
-        actions={renderActions}
-        isPageLoading={isPageLoading}
-        rightControls={
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsActionsGrouped(!isActionsGrouped)}
-            className="text-xs"
-          >
-            {isActionsGrouped ? "Compacto" : "Desplegado"}
-          </Button>
-        }
-      />
-
-      {/* Create / Edit / Delete property dialogs */}
-      <CreatePropertyDialog
-        open={createOpen}
-        onClose={() => setCreateOpen(false)}
-        onCreated={onRefresh}
-      />
-      {editProperty && (
-        <EditPropertyDialog
-          property={editProperty}
-          open={!!editProperty}
-          onClose={() => setEditProperty(null)}
-          onUpdated={onRefresh}
-        />
-      )}
-      {deleteProperty && (
-        <DeletePropertyDialog
-          property={deleteProperty}
-          open={!!deleteProperty}
-          onClose={() => setDeleteProperty(null)}
-          onDeleted={onRefresh}
-        />
-      )}
-
-      {/* Owner modal */}
-      <OwnerDetailsModal
-        ownerId={ownerToShow ?? undefined}
-        initialData={ownerInitialData as Partial<AppClient> | undefined}
-        open={ownerModalOpen}
-        onClose={() => {
-          setOwnerModalOpen(false);
-          setOwnerToShow(null);
-          setOwnerInitialData(undefined);
-        }}
-        onUpdated={onRefresh}
-      />
-
-      {/* Property details modal */}
-      {propertyToShow && (
-        <PropertyDetailsModal
-          property={propertyToShow}
-          open={propertyDetailsOpen}
-          onClose={() => {
-            setPropertyDetailsOpen(false);
-            setPropertyToShow(null);
-          }}
-        />
-      )}
-
-      {/* Services modal */}
-      {servicesProperty && (
-        <PropertiesServicesModal
-          propertyId={servicesProperty.id}
-          propertyName={servicesProperty.name || servicesProperty.alias || `Propiedad ${servicesProperty.id}`}
-          open={!!servicesProperty}
-          onClose={() => setServicesProperty(null)}
-          onUpdated={onRefresh}
-        />
-      )}
-
-      {/* Shifts modal */}
-      {shiftProperty && (
-        <PropertyShiftsModal
-          propertyId={shiftProperty.id}
-          propertyName={shiftProperty.name}
-          propertyAlias={shiftProperty.alias}
-          open={!!shiftProperty}
-          onClose={() => setShiftProperty(null)}
-        />
-         )}
-
-      {/* Property Notes modal (external) */}
-      {notesProperty && (
-        <PropertyNotesModal
-          property={notesProperty}
-          open={!!notesProperty}
-          onClose={() => setNotesProperty(null)}
-          onUpdated={onRefresh}
-        />
-      )}
-
-      {/* CreateNote quick dialog (autocompleta propiedad) */}
-  {createNoteProperty && (
-  <CreateNote
-    open={!!createNoteProperty}
-    onClose={() => setCreateNoteProperty(null)}
-    onCreated={async () => {
-      if (onRefresh) {
-        const maybe = onRefresh();
-        if (maybe && typeof (maybe as unknown as Promise<unknown>)?.then === "function") {
-          await maybe;
-        }
-      }
-      setCreateNoteProperty(null);
-    }}
-    initialPropertyId={createNoteProperty.id} // <- importante
-  />
-)}
-
-
-    </>
-  );
+			<CreatePropertyDialog
+				open={createOpen}
+				onClose={() => setCreateOpen(false)}
+				onCreated={onRefresh}
+			/>
+			{editProperty && (
+				<EditPropertyDialog
+					property={editProperty}
+					open={!!editProperty}
+					onClose={() => setEditProperty(null)}
+					onUpdated={onRefresh}
+				/>
+			)}
+			{deleteProperty && (
+				<DeletePropertyDialog
+					property={deleteProperty}
+					open={!!deleteProperty}
+					onClose={() => setDeleteProperty(null)}
+					onDeleted={onRefresh}
+				/>
+			)}
+		</div>
+	);
 }
