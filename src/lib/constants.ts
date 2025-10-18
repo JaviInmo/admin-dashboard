@@ -6,7 +6,7 @@
 export const API_BASE_ROOT = 'https://wr60a2rc2j.execute-api.us-east-2.amazonaws.com/dev/' as const
 export const DEFAULT_LANG = 'en' as const
 // Backwards-compat: a default-constructed base URL that includes the default locale
-export const API_BASE_URL = `${API_BASE_ROOT}${DEFAULT_LANG}/` as const
+
 
 // If your backend uses cookie-based auth and same-site cookies, set this to true
 export const WITH_CREDENTIALS = false as const
