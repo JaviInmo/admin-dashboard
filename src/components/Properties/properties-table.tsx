@@ -27,6 +27,8 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useNavigate } from "react-router-dom";
+import { addressAutocompleteService } from "@/lib/services/address-autocomplete";
 import type { AppProperty } from "@/lib/services/properties";
 import type { SortOrder } from "@/lib/sort";
 import { shouldShowPage } from "../_utils/pagination";
@@ -64,7 +66,6 @@ function TruncatedText({
 
 export interface PropertiesTableProps {
 	properties: AppProperty[];
-	onSelectProperty?: (id: number) => void;
 	onRefresh?: () => Promise<void>;
 	serverSide?: boolean;
 	currentPage?: number;
@@ -83,7 +84,6 @@ export interface PropertiesTableProps {
 
 export default function PropertiesTable({
 	properties,
-	onSelectProperty,
 	onRefresh,
 	serverSide = false,
 	currentPage = 1,
@@ -97,6 +97,49 @@ export default function PropertiesTable({
 	sortOrder,
 	toggleSort,
 }: PropertiesTableProps) {
+	const navigate = useNavigate();
+
+	const handleAddressClick = async (property: AppProperty & { ownerName: string; typesOfServiceStr: string }) => {
+		if (!property.address || property.address.trim() === "") {
+			console.warn("No address available for property:", property.id);
+			return;
+		}
+
+		try {
+			// Try to geocode the address
+			const suggestions = await addressAutocompleteService.searchAddresses(property.address, 'us');
+			
+			if (suggestions.length > 0) {
+				const bestMatch = suggestions[0];
+				const lat = parseFloat(bestMatch.lat);
+				const lon = parseFloat(bestMatch.lon);
+				
+				if (!isNaN(lat) && !isNaN(lon)) {
+					// Navigate to map with property pin
+					navigate('/map', {
+						state: {
+							propertyPin: {
+								address: property.address,
+								name: property.name || `Property #${property.id}`,
+								lat,
+								lon
+							}
+						}
+					});
+					return;
+				}
+			}
+			
+			// If geocoding fails, show error and navigate to map anyway
+			console.warn("Could not geocode address:", property.address);
+			navigate('/map');
+			
+		} catch (error) {
+			console.error("Error geocoding address:", error);
+			// Navigate to map even if geocoding fails
+			navigate('/map');
+		}
+	};
 	const [page, setPage] = React.useState(1);
 	const [search, setSearch] = React.useState("");
 
@@ -297,66 +340,63 @@ export default function PropertiesTable({
 					<TableRow>
 						<TableHead
 							onClick={() => toggleSort("id")}
-							className="cursor-pointer select-none"
+							className="cursor-pointer select-none px-2 py-2 text-xs text-center"
+							style={{ width: "12%" }}
 						>
 							Owner {renderSortIcon("ownerName")}
 						</TableHead>
 						<TableHead
 							onClick={() => toggleSort("name")}
-							className="cursor-pointer select-none"
+							className="cursor-pointer select-none px-2 py-2 text-xs text-center"
+							style={{ width: "15%" }}
 						>
 							Name {renderSortIcon("name")}
 						</TableHead>
 						<TableHead
 							onClick={() => toggleSort("address")}
-							className="cursor-pointer select-none"
+							className="cursor-pointer select-none px-2 py-2 text-xs text-center"
+							style={{ width: "20%" }}
 						>
 							Address {renderSortIcon("address")}
 						</TableHead>
 						<TableHead
 							onClick={() => toggleSort("name")}
-							className="cursor-pointer select-none"
+							className="cursor-pointer select-none px-2 py-2 text-xs text-center"
+							style={{ width: "15%" }}
 						>
 							Service Types {renderSortIcon("name")}
 						</TableHead>
 						<TableHead
 							onClick={() => toggleSort("name")}
-							className="cursor-pointer select-none"
+							className="cursor-pointer select-none px-2 py-2 text-xs text-center"
+							style={{ width: "10%" }}
 						>
-							Monthly Rate {renderSortIcon("name")}
+							Shifts Count {renderSortIcon("name")}
 						</TableHead>
 						<TableHead
 							onClick={() => toggleSort("name")}
-							className="cursor-pointer select-none"
+							className="cursor-pointer select-none px-2 py-2 text-xs text-center"
+							style={{ width: "10%" }}
 						>
-							Total Hours {renderSortIcon("name")}
+							Expenses Count {renderSortIcon("name")}
 						</TableHead>
 						<TableHead
 							onClick={() => toggleSort("contractStartDate")}
-							className="cursor-pointer select-none"
+							className="cursor-pointer select-none px-2 py-2 text-xs text-center"
+							style={{ width: "13%" }}
 						>
 							Start Date {renderSortIcon("contractStartDate")}
 						</TableHead>
-						<TableHead className="w-[100px] text-center">Actions</TableHead>
+						<TableHead className="px-2 py-2 text-xs text-center" style={{ width: "5%" }}>Actions</TableHead>
 					</TableRow>
 				</TableHeader>
 				<TableBody>
 					{paginated.map((p, idx) => (
 						<TableRow
 							key={p.id}
-							className={`cursor-pointer hover:bg-muted ${idx % 2 === 0 ? "bg-transparent" : "bg-muted/5"}`}
-							onClick={() => onSelectProperty?.(p.id)}
-							role={onSelectProperty ? "button" : undefined}
-							tabIndex={onSelectProperty ? 0 : undefined}
-							onKeyDown={(e) => {
-								if (!onSelectProperty) return;
-								if (e.key === "Enter" || e.key === " ") {
-									e.preventDefault();
-									onSelectProperty(p.id);
-								}
-							}}
+							className={`hover:bg-muted ${idx % 2 === 0 ? "bg-transparent" : "bg-muted/5"}`}
 						>
-							<TableCell>
+							<TableCell className="px-2 py-2 text-center text-xs">
 								{/* ownerName plain text (no blue) */}
 								<div className="w-full">
 									<span>
@@ -365,42 +405,60 @@ export default function PropertiesTable({
 									</span>
 								</div>
 							</TableCell>
-							<TableCell>
+							<TableCell className="px-2 py-2 text-center text-xs">
 								<TruncatedText text={p.name || ""} maxLength={25} />
 							</TableCell>
-							<TableCell>
-								<TruncatedText text={p.address || ""} maxLength={30} />
+							<TableCell className="px-2 py-2 text-center text-xs">
+								<button
+									type="button"
+									onClick={(e) => {
+										e.stopPropagation();
+										handleAddressClick(p);
+									}}
+									className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer bg-transparent border-none p-0 font-normal truncate block max-w-[200px]"
+									title="Ver en mapa"
+								>
+									{p.address || ""}
+								</button>
 							</TableCell>
-							<TableCell>
+							<TableCell className="px-2 py-2 text-center text-xs">
 								<TruncatedText
 									text={(p as any).typesOfServiceStr || "-"}
 									maxLength={25}
 								/>
 							</TableCell>
-							<TableCell>{p.shiftsCount ?? "-"}</TableCell>
-							<TableCell>{p.expensesCount ?? "-"}</TableCell>
-							<TableCell>{p.contractStartDate ?? "-"}</TableCell>
-							<TableCell className="flex gap-2 justify-center">
-								<Button
-									size="icon"
-									variant="ghost"
-									onClick={(e) => {
-										e.stopPropagation();
-										setEditProperty(p);
-									}}
-								>
-									<Pencil className="h-4 w-4" />
-								</Button>
-								<Button
-									size="icon"
-									variant="ghost"
-									onClick={(e) => {
-										e.stopPropagation();
-										setDeleteProperty(p);
-									}}
-								>
-									<Trash className="h-4 w-4 text-red-500" />
-								</Button>
+							<TableCell className="px-2 py-2 text-center text-xs">
+								{p.shiftsCount ?? "-"}
+							</TableCell>
+							<TableCell className="px-2 py-2 text-center text-xs">
+								{p.expensesCount ?? "-"}
+							</TableCell>
+							<TableCell className="px-2 py-2 text-center text-xs">
+								{p.contractStartDate ?? "-"}
+							</TableCell>
+							<TableCell className="px-2 py-2 text-center text-xs">
+								<div className="flex gap-2 justify-center">
+									<Button
+										size="icon"
+										variant="ghost"
+										onClick={(e) => {
+											e.stopPropagation();
+											setEditProperty(p);
+										}}
+									>
+										<Pencil className="h-4 w-4" />
+									</Button>
+									<Button
+										size="icon"
+										variant="ghost"
+										onClick={(e) => {
+											e.stopPropagation();
+											setDeleteProperty(p);
+										}}
+									>
+										<Trash className="h-4 w-4 text-red-500" />
+									</Button>
+								</div>
 							</TableCell>
 						</TableRow>
 					))}
