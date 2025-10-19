@@ -181,7 +181,9 @@ export default function ClientsPage() {
       await queryClient.invalidateQueries({
         queryKey: ["client-properties", selectedClientId],
       });
-    } catch {}
+    } catch {
+      // Ignore query invalidation errors (may fail if cache is corrupted)
+    }
   }, [queryClient, selectedClientId]);
 
   React.useEffect(() => {

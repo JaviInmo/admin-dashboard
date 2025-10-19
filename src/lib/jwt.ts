@@ -13,7 +13,7 @@ export function decodeJWT(token: string): JwtClaims | null {
     const decoded = atob(padded)
     return JSON.parse(decoded)
   } catch (err) {
-    // eslint-disable-next-line no-console
+     
     console.error('Error decoding JWT:', err)
     return null
   }

@@ -144,7 +144,7 @@ export default function ClientsTable({
   // Normaliza número para usar en enlace de wa.me (maneja +, 00, paréntesis, espacios, guiones)
   function normalizePhoneForWhatsapp(raw?: string | null): string {
     if (!raw) return "";
-    let trimmed = String(raw).trim();
+    const trimmed = String(raw).trim();
     // eliminar paréntesis, espacios, guiones, puntos
     let cleaned = trimmed.replace(/[\s().\-]/g, "");
     // si comienza con +, quitar el +
@@ -162,7 +162,7 @@ export default function ClientsTable({
     return digits;
   }
 
-  // Definir las columnas de la tabla - email (índice 1) será sacrificado
+  // Definir las columnas de la tabla - simétricas con porcentajes
   const columns: Column<AppClient & { clientName: string }>[] = [
     {
       key: "clientName" as keyof (AppClient & { clientName: string }),
@@ -177,7 +177,7 @@ export default function ClientsTable({
               e.stopPropagation();
               setDetailsClient(client as AppClient & { clientName: string });
             }}
-            className="text-left text-blue-600 hover:underline cursor-pointer text-sm"
+            className="text-left text-blue-600 hover:underline cursor-pointer text-xs text-center"
             title="Ver detalles del cliente"
             aria-label="Ver detalles del cliente"
           >
@@ -185,17 +185,21 @@ export default function ClientsTable({
           </button>
         );
       },
-      // espaciado compacto como Guards
-      headerClassName: "px-2 py-1 text-sm",
-      cellClassName: "px-2 py-1 text-sm",
+      // distribución simétrica: cada columna ~20% del espacio disponible (80% total para datos, 20% para actions)
+      width: "20%",
+      minWidth: "100px", // mínimo razonable
+      headerClassName: "px-2 py-2 text-xs text-center", // centrado para simetría
+      cellClassName: "px-2 py-2 text-xs text-center", // centrado para simetría
     },
     {
       key: "email",
-      label: TEXT.clients.list.headers.email, // Esta columna se sacrificará
+      label: TEXT.clients.list.headers.email,
       sortable: true,
       render: (client) => <ClickableEmail email={client.email || ""} />,
-      headerClassName: "px-2 py-1 text-sm",
-      cellClassName: "px-2 py-1 text-sm",
+      width: "20%",
+      minWidth: "120px", // mínimo más amplio para emails
+      headerClassName: "px-2 py-2 text-xs text-center",
+      cellClassName: "px-2 py-2 text-xs text-center",
     },
     {
       key: "phone",
@@ -203,7 +207,7 @@ export default function ClientsTable({
       sortable: true,
       render: (client) => {
         const phone = client.phone ?? "";
-        if (!phone) return "-";
+        if (!phone) return <div className="text-center">-</div>;
 
         const normalized = normalizePhoneForWhatsapp(phone);
         const waUrl = normalized ? `https://wa.me/${encodeURIComponent(normalized)}` : `https://wa.me/${encodeURIComponent(phone)}`;
@@ -222,14 +226,16 @@ export default function ClientsTable({
             }}
             title={linkTitle}
             aria-label={ariaLabel}
-            className="text-blue-600 hover:underline text-sm"
+            className="text-blue-600 hover:underline text-xs text-center"
           >
             {phone}
           </a>
         );
       },
-      headerClassName: "px-2 py-1 text-sm",
-      cellClassName: "px-2 py-1 text-sm",
+      width: "20%",
+      minWidth: "100px", // mínimo para teléfonos
+      headerClassName: "px-2 py-2 text-xs text-center",
+      cellClassName: "px-2 py-2 text-xs text-center",
     },
   ];
 
@@ -241,10 +247,12 @@ export default function ClientsTable({
       sortable: true,
       render: (client) => {
         const balance = (client as any).balance ?? 0;
-        return <span className="text-sm">{typeof balance === "number" ? `$${balance.toFixed(2)}` : String(balance)}</span>;
+        return <span className="text-xs text-center">{typeof balance === "number" ? `$${balance.toFixed(2)}` : String(balance)}</span>;
       },
-      headerClassName: "px-2 py-1 text-sm",
-      cellClassName: "px-2 py-1 text-sm",
+      width: "20%",
+      minWidth: "80px",
+      headerClassName: "px-2 py-2 text-xs text-center",
+      cellClassName: "px-2 py-2 text-xs text-center",
     });
   }
 
@@ -252,21 +260,20 @@ export default function ClientsTable({
     key: "status" as keyof (AppClient & { clientName: string }),
     label: TEXT.clients.list.headers.status,
     sortable: false,
-    // usa headerStyle para forzar ancho exacto de columna (evita que la estrategia inteligente la haga enorme)
-    headerClassName: "text-center align-middle px-2 py-1 text-sm",
-    headerStyle: { width: "120px", minWidth: "120px", maxWidth: "120px" },
-    // celdas centradas
-    cellClassName: "text-center align-middle px-2 py-1 text-sm",
-    cellStyle: { width: "120px", minWidth: "120px", maxWidth: "120px" },
+    // distribución simétrica: 20% del espacio
+    width: "20%",
+    minWidth: "80px",
+    headerClassName: "px-2 py-2 text-xs text-center",
+    cellClassName: "px-2 py-2 text-xs text-center",
     render: (client) => {
       const status = (client as any).status ?? "active";
       const isActive = typeof status === "string" ? status.toLowerCase() === "active" : Boolean(status);
       return (
-        <div>
+        <div className="flex justify-center">
           {isActive ? (
-            <Check className="h-4 w-4 inline-block text-green-600" aria-label={statusActiveLabel} />
+            <Check className="h-4 w-4 text-green-600" aria-label={statusActiveLabel} />
           ) : (
-            <X className="h-4 w-4 inline-block text-red-500" aria-label={statusInactiveLabel} />
+            <X className="h-4 w-4 text-red-500" aria-label={statusInactiveLabel} />
           )}
         </div>
       );
@@ -394,7 +401,7 @@ export default function ClientsTable({
   return (
     <>
       <ReusableTable
-        className="text-sm" // más compacto como Guards
+        className="text-sm" // compacto como Guards
         data={normalizedClients}
         columns={columns}
         getItemId={(client) => client.id}

@@ -213,8 +213,8 @@ const convertToShiftEvent = (shift: Shift, guard: Guard | undefined, property: A
 
   // construir etiqueta de horario del servicio si existe en detalles (HH:mm)
   let serviceTimeLabel: string | undefined;
-  const st = shift.serviceDetails?.startTime || (shift.serviceDetails as any)?.start_time;
-  const et = shift.serviceDetails?.endTime || (shift.serviceDetails as any)?.end_time;
+  const st = shift.serviceDetails?.startTime || (shift.serviceDetails as Record<string, unknown>)?.start_time as string;
+  const et = shift.serviceDetails?.endTime || (shift.serviceDetails as Record<string, unknown>)?.end_time as string;
   if (typeof st === 'string' && typeof et === 'string' && st && et) {
     serviceTimeLabel = `${st} - ${et}`;
   }

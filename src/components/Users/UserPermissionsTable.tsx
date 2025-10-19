@@ -97,7 +97,9 @@ export default function UserPermissionsTableModern({
     if (searchRef.current) {
       try {
         searchRef.current.focus();
-      } catch {}
+      } catch {
+        // Ignore focus errors (element might not be available)
+      }
     }
     const t = setTimeout(() => setHighlightSearch(false), 3500);
     return () => clearTimeout(t);
@@ -297,7 +299,7 @@ export default function UserPermissionsTableModern({
         setProperties(simple);
       } catch (err: any) {
         console.error("[UserPermissionsTable] load error", err);
-        setError((TEXT as any)?.users?.permissionsTable?.loadError ?? "Error cargando permisos/usuario");
+        setError(TEXT.users?.permissionsTable?.loadError ?? "Error cargando permisos/usuario");
       } finally {
         if (mounted) setLoadingOptions(false);
       }
@@ -370,15 +372,15 @@ const setPropertyAccessType = (id: number, type: string) => {
             userId,
             g.resource,
             g.action,
-            (TEXT as any)?.users?.permissionsTable?.grantReason ?? "Otorgado desde UI"
+            TEXT.users?.permissionsTable?.grantReason ?? "Otorgado desde UI"
           );
           const createdId = Number(r?.id ?? r?.permission_id ?? r?.pk ?? null);
           if (createdId)
             permissionIdMapRef.current[`${g.resource}.${g.action}`] = createdId;
         } catch (err: any) {
           console.error("grantResourcePermission failed", err);
-          setError((TEXT as any)?.users?.permissionsTable?.grantError ?? "Error otorgando permisos (ver consola)");
-          toast.error((TEXT as any)?.users?.permissionsTable?.grantError ?? "Error otorgando permisos");
+          setError(TEXT.users?.permissionsTable?.grantError ?? "Error otorgando permisos (ver consola)");
+          toast.error(TEXT.users?.permissionsTable?.grantError ?? "Error otorgando permisos");
           setLoading(false);
           return;
         }
@@ -386,14 +388,14 @@ const setPropertyAccessType = (id: number, type: string) => {
 
       for (const pid of toRevokeIds) {
         try {
-          await revokeResourcePermissionById(pid, (TEXT as any)?.users?.permissionsTable?.revokeReason ?? "Revocado desde UI");
+          await revokeResourcePermissionById(pid, TEXT.users?.permissionsTable?.revokeReason ?? "Revocado desde UI");
           for (const k of Object.keys(permissionIdMapRef.current)) {
             if (permissionIdMapRef.current[k] === pid)
               permissionIdMapRef.current[k] = null;
           }
         } catch (err: any) {
           console.error("revokeResourcePermissionById failed", err);
-          setError((TEXT as any)?.users?.permissionsTable?.revokeError ?? "Error revocando permisos (ver consola)");
+          setError(TEXT.users?.permissionsTable?.revokeError ?? "Error revocando permisos (ver consola)");
           toast.error("Error revocando permisos");
           setLoading(false);
           return;
@@ -433,7 +435,7 @@ const setPropertyAccessType = (id: number, type: string) => {
             g.propertyId,
             g.accessType,
             undefined,
-            (TEXT as any)?.users?.permissionsTable?.grantReason ?? "Otorgado desde UI"
+            TEXT.users?.permissionsTable?.grantReason ?? "Otorgado desde UI"
           );
           const createdId = Number(r?.id ?? r?.access_id ?? r?.pk ?? null);
           if (createdId) {
@@ -448,8 +450,8 @@ const setPropertyAccessType = (id: number, type: string) => {
           }
         } catch (err: any) {
           console.error("grantPropertyAccess failed", err);
-          setError((TEXT as any)?.users?.permissionsTable?.grantPropertyError ?? "Error otorgando accesos a propiedades (ver consola)");
-          toast.error((TEXT as any)?.users?.permissionsTable?.grantPropertyError ?? "Error en accesos a propiedades");
+          setError(TEXT.users?.permissionsTable?.grantPropertyError ?? "Error otorgando accesos a propiedades (ver consola)");
+          toast.error(TEXT.users?.permissionsTable?.grantPropertyError ?? "Error en accesos a propiedades");
           setLoading(false);
           return;
         }
@@ -462,12 +464,12 @@ const setPropertyAccessType = (id: number, type: string) => {
             u.propertyId,
             u.accessType,
             undefined,
-            (TEXT as any)?.users?.permissionsTable?.updateReason ?? "Actualizado desde UI"
+            TEXT.users?.permissionsTable?.updateReason ?? "Actualizado desde UI"
           );
         } catch (err: any) {
           console.error("update property access failed", err);
-          setError((TEXT as any)?.users?.permissionsTable?.updatePropertyError ?? "Error actualizando accesos (ver consola)");
-          toast.error((TEXT as any)?.users?.permissionsTable?.updatePropertyError ?? "Error actualizando accesos");
+          setError(TEXT.users?.permissionsTable?.updatePropertyError ?? "Error actualizando accesos (ver consola)");
+          toast.error(TEXT.users?.permissionsTable?.updatePropertyError ?? "Error actualizando accesos");
           setLoading(false);
           return;
         }
@@ -475,7 +477,7 @@ const setPropertyAccessType = (id: number, type: string) => {
 
       for (const aid of revokes) {
         try {
-          await revokePropertyAccessById(aid, (TEXT as any)?.users?.permissionsTable?.revokeReason ?? "Revocado desde UI");
+          await revokePropertyAccessById(aid, TEXT.users?.permissionsTable?.revokeReason ?? "Revocado desde UI");
           setSelectedProperties((prev) => {
             const copy = { ...(prev ?? {}) };
             for (const [kStr, v] of Object.entries(copy)) {
@@ -487,21 +489,21 @@ const setPropertyAccessType = (id: number, type: string) => {
           });
         } catch (err: any) {
           console.error("revokePropertyAccessById failed", err);
-          setError((TEXT as any)?.users?.permissionsTable?.revokePropertyError ?? "Error revocando accesos (ver consola)");
-          toast.error((TEXT as any)?.users?.permissionsTable?.revokePropertyError ?? "Error revocando accesos");
+          setError(TEXT.users?.permissionsTable?.revokePropertyError ?? "Error revocando accesos (ver consola)");
+          toast.error(TEXT.users?.permissionsTable?.revokePropertyError ?? "Error revocando accesos");
           setLoading(false);
           return;
         }
       }
 
-      toast.success((TEXT as any)?.users?.permissionsTable?.saveSuccess ?? "Cambios guardados correctamente");
+      toast.success(TEXT.users?.permissionsTable?.saveSuccess ?? "Cambios guardados correctamente");
 setHasChanges(false);
 if (onUpdated) await onUpdated();
 
     } catch (err: any) {
       console.error("[UserPermissionsTable] save error", err);
       setError(String(err?.message ?? err));
-      toast.error((TEXT as any)?.users?.permissionsTable?.saveError ?? "Error guardando cambios");
+      toast.error(TEXT.users?.permissionsTable?.saveError ?? "Error guardando cambios");
     } finally {
       setLoading(false);
     }
@@ -552,10 +554,10 @@ if (onUpdated) await onUpdated();
               </div>
               <div>
                 <CardTitle className="text-xl font-semibold">
-                  {(TEXT as any)?.users?.permissionsTable?.title ?? "Permisos del usuario"}
+                  {TEXT.users?.permissionsTable?.title ?? "Permisos del usuario"}
                 </CardTitle>
                 <p className="text-sm text-muted-foreground mt-1">
-                  {(TEXT as any)?.users?.permissionsTable?.subtitle ?? "Gestiona los permisos y accesos de"}{" "}
+                  {TEXT.users?.permissionsTable?.subtitle ?? "Gestiona los permisos y accesos de"}{" "}
                   <Badge variant="secondary" className="ml-1">
                     {displayName}
                   </Badge>
@@ -575,10 +577,10 @@ if (onUpdated) await onUpdated();
                     setAvailableActions(av);
                     setResourceLabels(resLabels);
                     setActionLabels(actLabels);
-                    toast.success((TEXT as any)?.users?.permissionsTable?.refreshSuccess ?? "Opciones recargadas");
+                    toast.success(TEXT.users?.permissionsTable?.refreshSuccess ?? "Opciones recargadas");
                   } catch (err) {
                     console.error("refresh available options failed", err);
-                    toast.error((TEXT as any)?.users?.permissionsTable?.refreshError ?? "Error recargando opciones");
+                    toast.error(TEXT.users?.permissionsTable?.refreshError ?? "Error recargando opciones");
                   } finally {
                     setLoadingOptions(false);
                   }
@@ -598,7 +600,7 @@ if (onUpdated) await onUpdated();
   className={`gap-2 ${hasChanges ? "bg-accent hover:bg-accent/90" : "bg-muted cursor-not-allowed"}`}
 >
   <Save className="h-4 w-4" />
-  {loading ? ((TEXT as any)?.users?.permissionsTable?.saving ?? "Guardando...") : ((TEXT as any)?.users?.permissionsTable?.save ?? "Guardar cambios")}
+  {loading ? (TEXT.users?.permissionsTable?.saving ?? "Guardando...") : (TEXT.users?.permissionsTable?.save ?? "Guardar cambios")}
 </Button>
 
             </div>
@@ -611,7 +613,7 @@ if (onUpdated) await onUpdated();
           <CardContent className="flex items-center justify-center py-12">
             <div className="flex items-center gap-3 text-muted-foreground">
               <RefreshCw className="h-5 w-5 animate-spin" />
-              <span>{(TEXT as any)?.users?.permissionsTable?.loadingOptions ?? "Cargando opciones y permisos…"}</span>
+              <span>{TEXT.users?.permissionsTable?.loadingOptions ?? "Cargando opciones y permisos…"}</span>
             </div>
           </CardContent>
         </Card>
@@ -629,7 +631,7 @@ if (onUpdated) await onUpdated();
           <CardContent className="flex items-center justify-center py-12">
             <div className="text-center text-muted-foreground">
               <Shield className="h-8 w-8 mx-auto mb-3 opacity-50" />
-              <p>{(TEXT as any)?.users?.permissionsTable?.noOptions ?? "No hay opciones de permisos disponibles."}</p>
+              <p>{TEXT.users?.permissionsTable?.noOptions ?? "No hay opciones de permisos disponibles."}</p>
             </div>
           </CardContent>
         </Card>
@@ -644,10 +646,10 @@ if (onUpdated) await onUpdated();
                 </div>
                 <div>
                   <CardTitle className="text-lg">
-                    {(TEXT as any)?.users?.permissionsTable?.resourcePermissions?.title ?? "Permisos por recurso"}
+                    {TEXT.users?.permissionsTable?.resourcePermissions?.title ?? "Permisos por recurso"}
                   </CardTitle>
                   <p className="text-sm text-muted-foreground">
-                    {(TEXT as any)?.users?.permissionsTable?.resourcePermissions?.subtitle ?? "Configura los permisos específicos para cada tipo de recurso"}
+                    {TEXT.users?.permissionsTable?.resourcePermissions?.subtitle ?? "Configura los permisos específicos para cada tipo de recurso"}
                   </p>
                 </div>
               </div>
@@ -702,7 +704,7 @@ if (onUpdated) await onUpdated();
 
               <div className="mt-6 p-4 bg-muted/30 rounded-lg">
                 <p className="text-xs text-muted-foreground">
-                  {(TEXT as any)?.users?.permissionsTable?.resourcePermissions?.note ?? "Los cambios se aplican con grant/revoke por resource/action usando los endpoints administrativos."}
+                  {TEXT.users?.permissionsTable?.resourcePermissions?.note ?? "Los cambios se aplican con grant/revoke por resource/action usando los endpoints administrativos."}
                 </p>
               </div>
             </CardContent>
@@ -719,9 +721,9 @@ if (onUpdated) await onUpdated();
   <div className="flex items-start md:items-center w-full gap-4">
     {/* IZQUIERDA: ocupa todo el espacio disponible */}
     <div className="flex-1 min-w-0">
-      <CardTitle className="text-lg">{(TEXT as any)?.users?.permissionsTable?.propertyAccess?.title ?? "Acceso a propiedades"}</CardTitle>
+      <CardTitle className="text-lg">{TEXT.users?.permissionsTable?.propertyAccess?.title ?? "Acceso a propiedades"}</CardTitle>
       <p className="text-sm text-muted-foreground mt-1">
-        {(TEXT as any)?.users?.permissionsTable?.propertyAccess?.subtitle ?? "Gestiona el acceso específico a cada propiedad del sistema"}
+        {TEXT.users?.permissionsTable?.propertyAccess?.subtitle ?? "Gestiona el acceso específico a cada propiedad del sistema"}
       </p>
     </div>
 

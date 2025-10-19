@@ -164,7 +164,7 @@ export default function GuardsTable({
   }
 
   // ---------------------------------------------------------------------------
-  // Columns: comprimidas todavía más (nombre/apellido más pequeñas)
+  // Columns: simétricas con porcentajes, actions priorizada (ancho fijo, no se encoje)
   // ---------------------------------------------------------------------------
   const columns: Column<Guard>[] = [
     {
@@ -172,43 +172,35 @@ export default function GuardsTable({
       label: guardTable.headers?.name ?? getText("guards.table.headers.name", "Nombre"),
       sortable: true,
       render: (guard) => <div className="truncate text-xs">{guard.firstName ?? ""}</div>,
-      // padding reducido y fuente más pequeña
-      headerClassName: "px-1 py-1 text-xs",
-      cellClassName: "px-1 py-1 text-xs",
-      // anchos compactos (más comprimidos)
-      width: "110px",
-      minWidth: "60px",
-      maxWidth: "150px",
-      headerStyle: { width: "110px", minWidth: "60px", maxWidth: "150px" },
-      cellStyle: { width: "110px", minWidth: "60px", maxWidth: "150px" },
+      // distribución simétrica: cada columna de datos ~18% del espacio disponible (72% total para datos, 28% para actions con ancho fijo)
+      width: "18%",
+      minWidth: "80px", // mínimo razonable para no encogerse demasiado en pantallas pequeñas
+      headerClassName: "px-2 py-2 text-xs text-center", // centrado para simetría
+      cellClassName: "px-2 py-2 text-xs text-center", // centrado para simetría
     },
     {
       key: "lastName",
       label: guardTable.headers?.lastName ?? getText("guards.table.headers.lastName", "Apellido"),
       sortable: true,
       render: (guard) => <div className="truncate text-xs">{guard.lastName ?? ""}</div>,
-      headerClassName: "px-1 py-1 text-xs",
-      cellClassName: "px-1 py-1 text-xs",
-      width: "100px",
-      minWidth: "50px",
-      maxWidth: "140px",
-      headerStyle: { width: "100px", minWidth: "50px", maxWidth: "140px" },
-      cellStyle: { width: "100px", minWidth: "50px", maxWidth: "140px" },
+      width: "18%",
+      minWidth: "80px",
+      headerClassName: "px-2 py-2 text-xs text-center",
+      cellClassName: "px-2 py-2 text-xs text-center",
     },
     {
       key: "email",
       label: guardTable.headers?.email ?? getText("guards.table.headers.email", "Correo"),
       sortable: true,
       render: (guard) => (
-        <div className="truncate text-xs">
+        <div className="truncate text-xs text-center">
           <ClickableEmail email={guard.email || ""} />
         </div>
       ),
-      headerClassName: "px-1 py-1 text-xs",
-      cellClassName: "px-1 py-1 text-xs",
-      // email tiene espacio para estirarse si hace falta, pero con un min razonable
-      headerStyle: { minWidth: "140px", maxWidth: "420px" },
-      cellStyle: { minWidth: "140px", maxWidth: "420px" },
+      width: "18%", // mismo ancho que las otras para simetría (aunque emails podrían necesitar más espacio, el responsive lo manejará)
+      minWidth: "120px", // mínimo más amplio para emails
+      headerClassName: "px-2 py-2 text-xs text-center",
+      cellClassName: "px-2 py-2 text-xs text-center",
     },
     {
       key: "phone",
@@ -216,7 +208,7 @@ export default function GuardsTable({
       sortable: false,
       render: (guard) => {
         const phone = guard.phone ?? "";
-        if (!phone) return "-";
+        if (!phone) return <div className="text-center">-</div>;
 
         const normalized = normalizePhoneForWhatsapp(phone);
         const waUrl = normalized ? `https://wa.me/${encodeURIComponent(normalized)}` : `https://wa.me/${encodeURIComponent(phone)}`;
@@ -233,17 +225,17 @@ export default function GuardsTable({
             }}
             title={linkTitle}
             aria-label={ariaLabel}
-            className="text-blue-600 hover:underline text-xs truncate block"
-            style={{ maxWidth: 120 }}
+            className="text-blue-600 hover:underline text-xs truncate block text-center"
+            style={{ maxWidth: 120, margin: "0 auto" }}
           >
             {phone}
           </a>
         );
       },
-      headerClassName: "px-1 py-1 text-xs",
-      cellClassName: "px-1 py-1 text-xs",
-      headerStyle: { width: "100px", minWidth: "80px", maxWidth: "140px" },
-      cellStyle: { width: "100px", minWidth: "80px", maxWidth: "140px" },
+      width: "18%",
+      minWidth: "100px", // mínimo para teléfonos con formato
+      headerClassName: "px-2 py-2 text-xs text-center",
+      cellClassName: "px-2 py-2 text-xs text-center",
     },
 
     // Si más columnas son necesarias, añadelas aquí (por ejemplo roles, activo, etc.)

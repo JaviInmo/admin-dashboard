@@ -36,7 +36,9 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     try {
       window.localStorage.setItem(LANG_STORAGE_KEY, lang)
-    } catch {}
+    } catch {
+      // Ignore localStorage errors (e.g., when disabled or quota exceeded)
+    }
     // Update Axios base URL dynamically to include locale prefix
     // For local backend, always append /en/ (Django expects language prefix)
     // For AWS backend, append the selected language

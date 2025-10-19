@@ -1,0 +1,91 @@
+/* Optimizations for map tile rendering */
+
+/* Hardware acceleration for tiles */
+.leaflet-tile-container {
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* Optimize tile loading */
+.leaflet-tile {
+  /* Use GPU for image rendering */
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  
+  /* Hardware acceleration */
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  
+  /* Smooth transitions - IMPORTANT for preventing gray areas */
+  transition: opacity 0.3s ease-in-out;
+  
+  /* Keep tiles visible while loading */
+  opacity: 1 !important;
+}
+
+/* Loading tiles should start visible, not transparent */
+.leaflet-tile-loading {
+  opacity: 0.6 !important; /* Show faded version instead of gray */
+}
+
+/* Prevent flickering during load */
+.leaflet-tile-loaded {
+  opacity: 1 !important;
+}
+
+/* CRITICAL: Keep old tiles visible during zoom */
+.leaflet-zoom-animated .leaflet-tile {
+  /* Don't hide tiles during zoom animation */
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+/* Fade out old tiles slowly to prevent gray gaps */
+.leaflet-fade-anim .leaflet-tile {
+  transition: opacity 0.5s ease-in-out !important;
+}
+
+/* Custom class for our tiles */
+.map-tiles {
+  /* Enable hardware acceleration */
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
+}
+
+/* Optimize map pane */
+.leaflet-map-pane {
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
+}
+
+/* Smooth panning */
+.leaflet-container {
+  /* Hardware acceleration */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  
+  /* Smooth scrolling */
+  -webkit-overflow-scrolling: touch;
+  
+  /* IMPORTANT: Background color while tiles load */
+  background-color: #e0e0e0; /* Light gray instead of white/transparent */
+}
+
+/* Optimize marker rendering */
+.leaflet-marker-pane {
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
+}
+
+/* Reduce repaints during pan/zoom */
+.leaflet-zoom-animated {
+  will-change: transform;
+}
+
+/* CRITICAL: Show parent tiles scaled up if child tiles not available */
+.leaflet-tile-container img {
+  /* Allow upscaling from lower zoom levels */
+  image-rendering: auto;
+  -ms-interpolation-mode: bicubic;
+}

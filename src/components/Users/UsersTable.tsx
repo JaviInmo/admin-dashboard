@@ -22,7 +22,6 @@ export interface UsersTableProps {
   pageSize?: number
   onPageSizeChange?: (size: number) => void
   onSearch?: (term: string) => void
-  isPageLoading?: boolean
   sortField?: keyof User
   sortOrder?: "asc" | "desc"
   toggleSort?: (key: keyof User) => void
@@ -37,9 +36,7 @@ export default function UsersTable({
   totalPages = 1,
   onPageChange,
   pageSize = 5,
-  onPageSizeChange: _onPageSizeChange,
   onSearch,
-  isPageLoading: _isPageLoading,
   sortField: initialSortField = "username",
   sortOrder: initialSortOrder = "asc",
   toggleSort: externalToggleSort
@@ -74,7 +71,9 @@ export default function UsersTable({
 
   React.useEffect(() => {
     if (searchRef.current) {
-      try { searchRef.current.focus() } catch {}
+      try { searchRef.current.focus() } catch {
+        // Ignore focus errors (element might not be available)
+      }
     }
     const t = setTimeout(() => setHighlightSearch(false), 3500)
     return () => clearTimeout(t)
@@ -164,13 +163,13 @@ export default function UsersTable({
   }
 
   const renderRoleText = (u: User) => {
-    if ((u as any).is_superuser || u.isSuperuser) return "Superuser"
-    if ((u as any).is_staff || u.isStaff) return "Staff"
+    if (u.isSuperuser) return "Superuser"
+    if (u.isStaff) return "Staff"
     return "Usuario"
   }
 
   return (
-    <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm space-y-4">
+    <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm space-y-4 text-sm">
       {/* estilos inline para animación del search */}
     
 
@@ -196,46 +195,48 @@ export default function UsersTable({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead onClick={() => toggleSort("username")} className="cursor-pointer select-none">
+            <TableHead onClick={() => toggleSort("username")} className="cursor-pointer select-none px-2 py-2 text-xs text-center" style={{ width: "14%" }}>
               Username {renderSortIcon("username")}
             </TableHead>
-            <TableHead onClick={() => toggleSort("firstName")} className="cursor-pointer select-none">
+            <TableHead onClick={() => toggleSort("firstName")} className="cursor-pointer select-none px-2 py-2 text-xs text-center" style={{ width: "14%" }}>
               Nombre {renderSortIcon("firstName")}
             </TableHead>
-            <TableHead onClick={() => toggleSort("lastName")} className="cursor-pointer select-none">
+            <TableHead onClick={() => toggleSort("lastName")} className="cursor-pointer select-none px-2 py-2 text-xs text-center" style={{ width: "14%" }}>
               Apellido {renderSortIcon("lastName")}
             </TableHead>
-            <TableHead onClick={() => toggleSort("email")} className="cursor-pointer select-none">
+            <TableHead onClick={() => toggleSort("email")} className="cursor-pointer select-none px-2 py-2 text-xs text-center" style={{ width: "20%" }}>
               Correo {renderSortIcon("email")}
             </TableHead>
-            <TableHead className="w-[120px]">Estado</TableHead>
-            <TableHead className="w-[120px]">Rol</TableHead>
-            <TableHead className="w-[100px] text-center">Acciones</TableHead>
+            <TableHead className="px-2 py-2 text-xs text-center" style={{ width: "14%" }}>Estado</TableHead>
+            <TableHead className="px-2 py-2 text-xs text-center" style={{ width: "14%" }}>Rol</TableHead>
+            <TableHead className="px-2 py-2 text-xs text-center" style={{ width: "10%" }}>Acciones</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {paginatedUsers.map((user) => (
             <TableRow key={user.id}>
-              <TableCell>
+              <TableCell className="px-2 py-2 text-xs text-center">
                 <button
                   onClick={() => onSelectUser(user.id)}
-                  className="text-blue-600 hover:underline"
+                  className="text-blue-600 hover:underline text-center"
                 >
                   {user.username}
                 </button>
               </TableCell>
-              <TableCell>{user.firstName}</TableCell>
-              <TableCell>{user.lastName}</TableCell>
-              <TableCell>{user.email}</TableCell>
-              <TableCell>{(user as any).is_active ?? (user.isActive ?? true) ? "Activo" : "Inactivo"}</TableCell>
-              <TableCell>{renderRoleText(user)}</TableCell>
-              <TableCell className="flex gap-2 justify-center">
-                <Button size="icon" variant="ghost" onClick={() => setEditUser(user)}>
-                  <Pencil className="h-4 w-4" />
-                </Button>
-                <Button size="icon" variant="ghost" onClick={() => setDeleteUser(user)}>
-                  <Trash className="h-4 w-4 text-red-500" />
-                </Button>
+              <TableCell className="px-2 py-2 text-xs text-center">{user.firstName}</TableCell>
+              <TableCell className="px-2 py-2 text-xs text-center">{user.lastName}</TableCell>
+              <TableCell className="px-2 py-2 text-xs text-center">{user.email}</TableCell>
+              <TableCell className="px-2 py-2 text-xs text-center">{user.isActive ?? true ? "Activo" : "Inactivo"}</TableCell>
+              <TableCell className="px-2 py-2 text-xs text-center">{renderRoleText(user)}</TableCell>
+              <TableCell className="px-2 py-2 text-center">
+                <div className="flex gap-2 justify-center">
+                  <Button size="icon" variant="ghost" onClick={() => setEditUser(user)}>
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button size="icon" variant="ghost" onClick={() => setDeleteUser(user)}>
+                    <Trash className="h-4 w-4 text-red-500" />
+                  </Button>
+                </div>
               </TableCell>
             </TableRow>
           ))}

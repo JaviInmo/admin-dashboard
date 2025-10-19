@@ -941,8 +941,8 @@ export default function GuardShiftsModalImproved({ guardId, guardName, open, onC
 
                               const startTimeStr = shift.plannedStartTime || shift.startTime;
                               const endTimeStr = shift.plannedEndTime || shift.endTime;
-                              let startMs = startTimeStr ? new Date(startTimeStr).getTime() : sod;
-                              let endMs = endTimeStr ? new Date(endTimeStr).getTime() : Math.min(startMs + 60 * 60 * 1000, eod);
+                              const startMs = startTimeStr ? new Date(startTimeStr).getTime() : sod;
+                              const endMs = endTimeStr ? new Date(endTimeStr).getTime() : Math.min(startMs + 60 * 60 * 1000, eod);
 
                               const clampedStart = Math.max(startMs, sod);
                               const clampedEnd = Math.min(endMs, eod);

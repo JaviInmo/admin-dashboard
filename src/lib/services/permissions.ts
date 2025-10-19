@@ -247,7 +247,7 @@ export async function assignUserPermissions(userId: number, permissionCodenames:
       continue
     }
     const [rPart, aPart] = clean.split(sep)
-    let resource = String(rPart).toLowerCase()
+    const resource = String(rPart).toLowerCase()
     let action = String(aPart).toLowerCase()
 
     // Mapeo común: edit -> update

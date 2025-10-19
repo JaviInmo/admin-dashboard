@@ -26,7 +26,7 @@ export default function UsersPage() {
   const visitedCache = useVisitedPagesCache<PaginatedResult<User>>();
 
   const [page, setPage] = React.useState<number>(1);
-  const [pageSize, setPageSize] = React.useState<number>(DEFAULT_PAGE_SIZE);
+  const [pageSize] = React.useState<number>(DEFAULT_PAGE_SIZE);
   const [search, setSearch] = React.useState<string>("");
   const [sortField, setSortField] = React.useState<keyof User>("username");
   const [sortOrder, setSortOrder] = React.useState<SortOrder>("asc");
@@ -141,10 +141,6 @@ export default function UsersPage() {
         totalPages={totalPages}
         onPageChange={(p) => setPage(p)}
         pageSize={pageSize}
-        onPageSizeChange={(size) => {
-          setPageSize(size);
-          setPage(1);
-        }}
         onSearch={(term) => {
           setSearch(term);
           setPage(1);
@@ -152,7 +148,6 @@ export default function UsersPage() {
         toggleSort={toggleSort}
         sortField={sortField}
         sortOrder={sortOrder}
-        isPageLoading={shouldShowLoading}
       />
     </div>
   );

@@ -114,6 +114,19 @@ export function ReusableTable<T extends Record<string, any>>({
 
   const columnStrategy = useIntelligentColumns(columns, data, tableContainerRef as React.RefObject<HTMLElement>);
 
+  // Calcular altura de fila consistente para evitar saltos durante loading
+  const hasSmallPadding = columns.some(col => col.cellClassName?.includes('py-1'));
+  const hasMediumPadding = columns.some(col => col.cellClassName?.includes('py-2'));
+  
+  let rowHeight: string;
+  if (hasSmallPadding) {
+    rowHeight = "49px"; // Para guards (py-1)
+  } else if (hasMediumPadding) {
+    rowHeight = "53px"; // Para clients (py-2)
+  } else {
+    rowHeight = "57px"; // Para properties/users (py-3 default)
+  }
+
   const getColumnStyle = (column: Column<T>, columnIndex: number) => {
     const styles: React.CSSProperties = {};
     // si la columna define width explícito, úsalo (tiene prioridad)
@@ -147,7 +160,9 @@ export function ReusableTable<T extends Record<string, any>>({
     if (searchRef.current) {
       try {
         searchRef.current.focus();
-      } catch {}
+      } catch {
+        // Ignore focus errors (element might not be available)
+      }
     }
     const t = setTimeout(() => setHighlightSearch(false), 3500);
     return () => clearTimeout(t);
@@ -333,19 +348,6 @@ export function ReusableTable<T extends Record<string, any>>({
                 {isPageLoading ? (
                   // Loading rows with pulse effect
                   (() => {
-                    // Detectar el tipo de padding que usan las columnas para ajustar altura
-                    const hasSmallPadding = columns.some(col => col.cellClassName?.includes('py-1'));
-                    const hasMediumPadding = columns.some(col => col.cellClassName?.includes('py-2'));
-                    
-                    let rowHeight: string;
-                    if (hasSmallPadding) {
-                      rowHeight = "49px"; // Para guards (py-1)
-                    } else if (hasMediumPadding) {
-                      rowHeight = "53px"; // Para clients (py-2)
-                    } else {
-                      rowHeight = "57px"; // Para properties/users (py-3 default)
-                    }
-                    
                     return Array.from({ length: pageSize }, (_, rowIdx) => (
                       <tr
                         key={`loading-row-${rowIdx}`}
@@ -358,7 +360,7 @@ export function ReusableTable<T extends Record<string, any>>({
 
                           const tdClasses = [
                             "px-4",
-                            "py-3", 
+                            hasMediumPadding ? "py-2" : hasSmallPadding ? "py-1" : "py-3",
                             "border-r",
                             "border-border/20",
                             "last:border-r-0",
@@ -393,7 +395,7 @@ export function ReusableTable<T extends Record<string, any>>({
                         })}
                         {actions && (
                           <td 
-                            className="text-center px-4 py-3 align-middle" 
+                            className={`text-center ${hasMediumPadding ? "py-2" : hasSmallPadding ? "py-1" : "py-3"} align-middle`} 
                             style={{ width: "auto", minWidth: "120px", maxWidth: "200px" }}
                           >
                             <div className="flex gap-2 justify-center">
@@ -445,6 +447,7 @@ export function ReusableTable<T extends Record<string, any>>({
                           onSelectItem?.(getItemId(item));
                         }
                       }}
+                      style={{ height: rowHeight }}
                     >
                       {columns.map((column, colIndex) => {
                         const isHidden = columnStrategy.hiddenColumns.includes(colIndex);
@@ -456,7 +459,7 @@ export function ReusableTable<T extends Record<string, any>>({
                         const tdClasses = [
                           hasCellTextAlign ? "" : "text-left",
                           "px-4",
-                          "py-3",
+                          hasMediumPadding ? "py-2" : hasSmallPadding ? "py-1" : "py-3",
                           "border-r",
                           "border-border/20",
                           "last:border-r-0",
@@ -476,7 +479,7 @@ export function ReusableTable<T extends Record<string, any>>({
                       })}
                         {actions && (
                           <td 
-                            className="text-center px-4 py-3 align-middle" 
+                            className={`text-center ${hasMediumPadding ? "py-2" : hasSmallPadding ? "py-1" : "py-3"} align-middle`} 
                             style={{ width: "auto", minWidth: "120px", maxWidth: "200px" }}
                           >
                             <div className="flex gap-2 justify-center" onClick={(e) => e.stopPropagation()}>
@@ -492,13 +495,20 @@ export function ReusableTable<T extends Record<string, any>>({
                   <tr
                     key={emptyRow.id}
                     className={`border-b border-border/50 ${ (paginatedData.length + emptyIdx) % 2 === 0 ? "bg-transparent" : "bg-muted/10" }`}
-                    style={{ height: "49px" }}
+                    style={{ height: rowHeight }}
                   >
                     {columns.map((column, colIndex) => {
                       const isHidden = columnStrategy.hiddenColumns.includes(colIndex);
                       if (isHidden) return null;
 
-                      const tdClasses = ["px-4", "py-3", "border-r", "border-border/20", "last:border-r-0", "align-middle"]
+                      const tdClasses = [
+                        hasMediumPadding ? "py-2" : hasSmallPadding ? "py-1" : "py-3",
+                        "px-4", 
+                        "border-r", 
+                        "border-border/20", 
+                        "last:border-r-0", 
+                        "align-middle"
+                      ]
                         .filter(Boolean)
                         .join(" ");
 
@@ -509,7 +519,7 @@ export function ReusableTable<T extends Record<string, any>>({
                       );
                     })}
                     {actions && (
-                      <td className="text-center px-4 py-3" style={{ width: "auto", minWidth: "120px", maxWidth: "200px" }}>
+                      <td className={`text-center ${hasMediumPadding ? "py-2" : hasSmallPadding ? "py-1" : "py-3"}`} style={{ width: "auto", minWidth: "120px", maxWidth: "200px" }}>
                         {/* empty */}
                       </td>
                     )}

@@ -1854,7 +1854,9 @@ export default function PropertyShiftsModalImproved({
       e.dataTransfer.setData("text/plain", String(guardId));
       // Also set JSON for robustness
       e.dataTransfer.setData("application/json", JSON.stringify({ guardId }));
-    } catch {}
+    } catch {
+      // Ignore drag & drop data transfer errors (may fail in some browsers)
+    }
     e.dataTransfer.effectAllowed = "copy";
   }, []);
 
@@ -1896,7 +1898,9 @@ export default function PropertyShiftsModalImproved({
       try {
         const json = e.dataTransfer.getData("application/json");
         if (json) guardIdStr = String((JSON.parse(json) || {}).guardId ?? "");
-      } catch {}
+      } catch {
+        // Ignore JSON parsing errors during drag & drop
+      }
     }
     const guardId = Number(guardIdStr);
     if (!guardId || Number.isNaN(guardId)) {

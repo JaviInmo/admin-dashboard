@@ -182,7 +182,7 @@ export default function CreateNote({
     return () => {
       mounted = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [open, initialGuardId, initialPropertyId, initialUserId]);
 
   useEffect(() => {
@@ -390,7 +390,7 @@ export default function CreateNote({
       resetForm();
       onClose();
     } catch (err) {
-      // eslint-disable-next-line no-console
+       
       console.error("Error creating note:", err);
       showErrorToast(getTextFromObject(TEXT, "actions.create", "Failed to create note"));
       setGeneralError(getTextFromObject(TEXT, "actions.create", "Failed to create note. Please try again."));

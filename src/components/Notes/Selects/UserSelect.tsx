@@ -122,7 +122,7 @@ export default function UserSelect({
           setResults(combined);
           setDropdownOpen(true);
         } catch (err) {
-          // eslint-disable-next-line no-console
+           
           console.error("UserSelect listUsers error:", err);
           setResults(local);
         } finally {

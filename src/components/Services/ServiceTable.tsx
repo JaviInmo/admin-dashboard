@@ -163,14 +163,6 @@ export default function ServicesTable({
     ? "px-4 py-2 text-base"
     : "px-3 py-2 text-sm";
 
-  const headerCellSmallStyle = compact
-    ? { width: "80px", minWidth: "60px" }
-    : shrinkToFit
-    ? { width: "90px", minWidth: "70px" }
-    : largeMode
-    ? { width: "160px", minWidth: "140px" }
-    : { width: "120px", minWidth: "100px" };
-
   const iconSizeClass = compact
     ? "h-3 w-3"
     : shrinkToFit
@@ -208,9 +200,10 @@ export default function ServicesTable({
           <span className="font-medium">{s.name}</span>
         </Trunc>
       ),
-      headerClassName: sizeHeaderCell,
-      cellClassName: `${sizeHeaderCell} max-w-[220px]`,
-      autoSize: true,
+      headerClassName: `${sizeHeaderCell} text-center`,
+      cellClassName: `${sizeHeaderCell} text-center`,
+      headerStyle: { width: "18%" },
+      cellStyle: { width: "18%" },
     }] : []),
 
     ...(mergedColumnsConfig.showGuard ? [{
@@ -218,8 +211,10 @@ export default function ServicesTable({
       label: tableText.headers?.guard ?? "Guard",
       sortable: true,
       render: (s: Service) => <Trunc title={s.guardName}>{s.guardName ?? "-"}</Trunc>,
-      headerClassName: sizeHeaderCell,
-      cellClassName: sizeHeaderCell,
+      headerClassName: `${sizeHeaderCell} text-center`,
+      cellClassName: `${sizeHeaderCell} text-center`,
+      headerStyle: { width: "15%" },
+      cellStyle: { width: "15%" },
     }] : []),
 
     ...(mergedColumnsConfig.showProperty ? [{
@@ -229,8 +224,10 @@ export default function ServicesTable({
       render: (s: Service) => (
         <Trunc title={s.propertyName}>{s.propertyName ?? "-"}</Trunc>
       ),
-      headerClassName: sizeHeaderCell,
-      cellClassName: sizeHeaderCell,
+      headerClassName: `${sizeHeaderCell} text-center`,
+      cellClassName: `${sizeHeaderCell} text-center`,
+      headerStyle: { width: "15%" },
+      cellStyle: { width: "15%" },
     }] : []),
 
     {
@@ -240,10 +237,10 @@ export default function ServicesTable({
       render: (s: Service) => (
         <Trunc title={String(s.totalHours ?? null)}>{s.totalHours ?? "-"}</Trunc>
       ),
-      headerClassName: sizeHeaderCell,
-      cellClassName: sizeHeaderCell,
-      headerStyle: headerCellSmallStyle,
-      cellStyle: headerCellSmallStyle,
+      headerClassName: `${sizeHeaderCell} text-center`,
+      cellClassName: `${sizeHeaderCell} text-center`,
+      headerStyle: { width: "10%" },
+      cellStyle: { width: "10%" },
     },
     {
       key: "rate" as keyof Service,
@@ -252,10 +249,10 @@ export default function ServicesTable({
       render: (s: Service) => (
         <Trunc title={String(s.rate ?? null)}>{s.rate ?? "-"}</Trunc>
       ),
-      headerClassName: sizeHeaderCell,
-      cellClassName: sizeHeaderCell,
-      headerStyle: headerCellSmallStyle,
-      cellStyle: headerCellSmallStyle,
+      headerClassName: `${sizeHeaderCell} text-center`,
+      cellClassName: `${sizeHeaderCell} text-center`,
+      headerStyle: { width: "10%" },
+      cellStyle: { width: "10%" },
     },
     {
       key: "monthlyBudget" as keyof Service,
@@ -266,10 +263,10 @@ export default function ServicesTable({
           {s.monthlyBudget ?? "-"}
         </Trunc>
       ),
-      headerClassName: sizeHeaderCell,
-      cellClassName: sizeHeaderCell,
-      headerStyle: headerCellSmallStyle,
-      cellStyle: headerCellSmallStyle,
+      headerClassName: `${sizeHeaderCell} text-center`,
+      cellClassName: `${sizeHeaderCell} text-center`,
+      headerStyle: { width: "10%" },
+      cellStyle: { width: "10%" },
     },
     {
       key: "recurrent" as keyof Service,
@@ -285,16 +282,8 @@ export default function ServicesTable({
       },
       headerClassName: `${sizeHeaderCell} text-center`,
       cellClassName: `${sizeHeaderCell} text-center`,
-      headerStyle: shrinkToFit
-        ? { width: "100px", minWidth: "80px" }
-        : largeMode
-        ? { width: "140px", minWidth: "120px" }
-        : { width: "100px", minWidth: "80px" },
-      cellStyle: shrinkToFit
-        ? { width: "100px", minWidth: "80px" }
-        : largeMode
-        ? { width: "140px", minWidth: "120px" }
-        : { width: "100px", minWidth: "80px" },
+      headerStyle: { width: "10%" },
+      cellStyle: { width: "10%" },
     },
 
     ...(mergedColumnsConfig.showActive ? [{
@@ -311,16 +300,8 @@ export default function ServicesTable({
       },
       headerClassName: `${sizeHeaderCell} text-center`,
       cellClassName: `${sizeHeaderCell} text-center`,
-      headerStyle: shrinkToFit
-        ? { width: "100px", minWidth: "80px" }
-        : largeMode
-        ? { width: "140px", minWidth: "120px" }
-        : { width: "90px", minWidth: "70px" },
-      cellStyle: shrinkToFit
-        ? { width: "100px", minWidth: "80px" }
-        : largeMode
-        ? { width: "140px", minWidth: "120px" }
-        : { width: "90px", minWidth: "70px" },
+      headerStyle: { width: "8%" },
+      cellStyle: { width: "8%" },
     }] : []),
   ];
 

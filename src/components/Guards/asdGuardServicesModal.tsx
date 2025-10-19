@@ -56,7 +56,7 @@ export default function GuardServicesModal({ guardId, guardName, open, onClose, 
       setSortField("name");
       setSortOrder("asc");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [open]);
 
   const apiOrdering = React.useMemo(() => {

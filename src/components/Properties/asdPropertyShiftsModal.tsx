@@ -28,7 +28,7 @@ import ShowShift from "@/components/Shifts/Show/Show";
 import EditShift from "@/components/Shifts/Edit/Edit";
 import DeleteShift from "@/components/Shifts/Delete/Delete";
 import type { Shift } from "@/components/Shifts/types";
-import { listShiftsByGuard } from "@/lib/services/shifts";
+import { listShiftsByProperty } from "@/lib/services/shifts";
 import { getProperty } from "@/lib/services/properties";
 import type { AppProperty } from "@/lib/services/properties";
 
@@ -87,15 +87,15 @@ function isSameDay(date1: Date, date2: Date): boolean {
 }
 
 type Props = {
-  guardId: number;
-  guardName?: string;
+  propertyId: number;
+  propertyName?: string;
   open: boolean;
   onClose: () => void;
 };
 
-export default function GuardsShiftsModal({
-  guardId,
-  guardName,
+export default function PropertyShiftsModalSimple({
+  propertyId,
+  propertyName,
   open,
   onClose,
 }: Props) {
@@ -162,7 +162,7 @@ export default function GuardsShiftsModal({
     async function fetchFirst() {
       setLoading(true);
       try {
-        const res = await listShiftsByGuard(guardId, 1, 50, "-start_time");
+        const res = await listShiftsByProperty(propertyId, 1, 50, "-start_time");
         const normalized = normalizeShiftsArray(res);
         if (!mounted) return;
         setShifts(normalized);
@@ -215,7 +215,7 @@ export default function GuardsShiftsModal({
       mounted = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, guardId]);
+  }, [open, propertyId]);
 
   // Precargar cache de guardias para búsqueda rápida
   React.useEffect(() => {
@@ -250,7 +250,7 @@ export default function GuardsShiftsModal({
     const nextPage = page + 1;
     setLoading(true);
     try {
-      const res = await listShiftsByGuard(guardId, nextPage, 50, "-start_time");
+      const res = await listShiftsByProperty(propertyId, nextPage, 50, "-start_time");
       const newItems = normalizeShiftsArray(res);
       setShifts((p) => [...p, ...newItems]);
       setPage(nextPage);
@@ -408,14 +408,14 @@ export default function GuardsShiftsModal({
           <div className="flex items-center justify-between w-full pt-4">
             <div>
               <DialogTitle className="text-lg px-2">
-                {guardName
-                  ? `${TEXT?.shifts?.show?.title ?? "Turnos"} | ${guardName}`
+                {propertyName
+                  ? `${TEXT?.shifts?.show?.title ?? "Turnos"} | ${propertyName}`
                   : TEXT?.shifts?.show?.title ?? "Turnos"}
               </DialogTitle>
               <div className="text-xs text-muted-foreground px-2">
                 {selectedDate
                   ? `Turnos para ${selectedDate.toLocaleDateString()}`
-                  : "Todos los turnos del guardia"}
+                  : "Todos los turnos de la propiedad"}
               </div>
             </div>
             <div className="flex items-center gap-2 pr-1">
@@ -512,7 +512,7 @@ export default function GuardsShiftsModal({
                   <div className="rounded border border-dashed border-muted/50 p-4 text-sm text-muted-foreground text-center">
                     {selectedDate
                       ? `No hay turnos para ${selectedDate.toLocaleDateString()}`
-                      : "No hay turnos para este guardia"}
+                      : "No hay turnos para esta propiedad"}
                   </div>
                 ) : (
                   filteredShifts.map((s) => {
@@ -668,7 +668,7 @@ export default function GuardsShiftsModal({
       <CreateShift
         open={openCreate}
         onClose={() => setOpenCreate(false)}
-        guardId={guardId}
+        propertyId={propertyId}
         selectedDate={selectedDate}
         preloadedGuards={allGuardsCache}
         onCreated={handleCreated}

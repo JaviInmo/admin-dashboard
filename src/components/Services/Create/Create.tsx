@@ -143,7 +143,7 @@ export default function CreateServiceDialog({
       setPropertySelectedLabel("");
       setPropertyInput("");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [open, initialGuardId, initialGuardLabel, initialPropertyId, initialPropertyLabel]);
 
   const resetForm = () => {

@@ -56,7 +56,7 @@ export default function PropertyServicesModal({ propertyId, propertyName, open, 
       setSortField("name");
       setSortOrder("asc");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [open]);
 
   const apiOrdering = React.useMemo(() => {

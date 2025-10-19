@@ -117,7 +117,9 @@ export default function EditUserDialog({ user, open, onClose, onUpdated }: Props
     if (searchRef.current) {
       try {
         searchRef.current.focus();
-      } catch {}
+      } catch {
+        // Ignore focus errors (element might not be available)
+      }
     }
     const t = setTimeout(() => setHighlightSearch(false), 3500);
     return () => clearTimeout(t);

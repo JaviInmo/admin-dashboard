@@ -100,7 +100,7 @@ export default function ShowWeapon({ id, open, onClose, onUpdated }: Props) {
           <DialogHeader>
             <div className="flex items-center justify-between w-full">
               <DialogTitle>
-                {(TEXT as any)?.weapons?.show?.title ?? "Weapon"} — {weapon ? weaponLabel : <Skeleton className="inline-block w-32 h-5" />}
+                Weapon — {weapon ? weaponLabel : <Skeleton className="inline-block w-32 h-5" />}
               </DialogTitle>
               <div className="flex gap-2">
                 <Button
@@ -109,7 +109,7 @@ export default function ShowWeapon({ id, open, onClose, onUpdated }: Props) {
                   onClick={() => setShowEdit(true)}
                   disabled={loading || !weapon}
                 >
-                  {(TEXT as any)?.actions?.edit ?? "Edit"}
+                  {TEXT.actions?.edit ?? "Edit"}
                 </Button>
                 <Button
                   variant="destructive"
@@ -117,7 +117,7 @@ export default function ShowWeapon({ id, open, onClose, onUpdated }: Props) {
                   onClick={() => setShowDelete(true)}
                   disabled={loading || !weapon}
                 >
-                  {(TEXT as any)?.actions?.delete ?? "Delete"}
+                  {TEXT.actions?.delete ?? "Delete"}
                 </Button>
               </div>
             </div>
@@ -134,7 +134,7 @@ export default function ShowWeapon({ id, open, onClose, onUpdated }: Props) {
             ) : error ? (
               <div className="text-sm text-red-600">{error}</div>
             ) : !weapon ? (
-              <div className="text-sm text-muted-foreground">{(TEXT as any)?.common?.notFoundDescription ?? "No weapon found."}</div>
+              <div className="text-sm text-muted-foreground">{TEXT.common?.notFoundDescription ?? "No weapon found."}</div>
             ) : (
               <div className="grid grid-cols-1 gap-3">
                 <div>

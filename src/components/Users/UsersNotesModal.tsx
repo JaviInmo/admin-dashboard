@@ -137,7 +137,7 @@ export default function UsersNotesModal({ user, open, onClose, onUpdated }: Prop
             onPageChange={(p: number) => setCurrentPage(p)}
             toggleSort={() => {}}
             sortField={"created_at" as keyof Note}
-            sortOrder={"desc" as any}
+            sortOrder={"desc" as "asc" | "desc"}
             isPageLoading={loading}
             // PASAMOS initialUserId para autocompletar user en CreateNote
             initialUserId={Number((user as unknown as { id?: unknown })?.id ?? NaN)}

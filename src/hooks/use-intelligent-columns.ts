@@ -133,8 +133,8 @@ export const useIntelligentColumns = <T extends Record<string, any>>(
     
     // Estrategia 3: Sacrificar columnas
     const sacrificeOrder = getSacrificeOrder(columns);
-    let hiddenColumns: number[] = [];
-    let visibleMinWidths = [...minWidths];
+    const hiddenColumns: number[] = [];
+    const visibleMinWidths = [...minWidths];
     
     // Intentar ocultar columnas hasta que quepa
     for (const sacrificeIndex of sacrificeOrder) {

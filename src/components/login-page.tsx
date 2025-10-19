@@ -45,7 +45,9 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
           else if (Array.isArray(data.username) && data.username[0]) message = data.username[0]
           else if (Array.isArray(data.password) && data.password[0]) message = data.password[0]
         }
-      } catch {}
+      } catch {
+        // Ignore error response parsing errors (server may return unexpected format)
+      }
       setError(message)
     } finally {
       setLoading(false)
