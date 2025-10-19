@@ -38,7 +38,16 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
       window.localStorage.setItem(LANG_STORAGE_KEY, lang)
     } catch {}
     // Update Axios base URL dynamically to include locale prefix
-    api.defaults.baseURL = `${API_BASE_ROOT}${lang}/`
+    // For local backend, always append /en/ (Django expects language prefix)
+    // For AWS backend, append the selected language
+    const ENV_API_URL = import.meta.env.VITE_API_BASE_URL
+    if (ENV_API_URL) {
+      // Local development: always use /en/
+      api.defaults.baseURL = `${API_BASE_ROOT}en/`
+    } else {
+      // AWS backend: use selected language
+      api.defaults.baseURL = `${API_BASE_ROOT}${lang}/`
+    }
   }, [lang])
 
   const TEXT = useMemo(() => (lang === 'es' ? ES_TEXT : EN_TEXT), [lang])

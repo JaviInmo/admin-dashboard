@@ -19,9 +19,16 @@ export const api = axios.create({
 // Initialize baseURL with persisted language (before any requests)
 try {
   if (typeof window !== 'undefined') {
-    const saved = window.localStorage.getItem('app.lang')
-    const lang = saved === 'en' || saved === 'es' ? saved : DEFAULT_LANG
-    api.defaults.baseURL = `${API_BASE_ROOT}${lang}/`
+    const ENV_API_URL = import.meta.env.VITE_API_BASE_URL
+    if (ENV_API_URL) {
+      // Local development: always use /en/
+      api.defaults.baseURL = `${API_BASE_ROOT}en/`
+    } else {
+      // AWS backend: use persisted language preference
+      const saved = window.localStorage.getItem('app.lang')
+      const lang = saved === 'en' || saved === 'es' ? saved : DEFAULT_LANG
+      api.defaults.baseURL = `${API_BASE_ROOT}${lang}/`
+    }
   }
 } catch {}
 

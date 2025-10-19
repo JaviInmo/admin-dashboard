@@ -3,11 +3,16 @@
 // Update API_BASE_URL as needed per environment.
 
 // Root without locale; locale will be appended dynamically (e.g., /en/ or /es/)
-export const API_BASE_ROOT = import.meta.env.VITE_API_BASE_URL
-//  'https://wr60a2rc2j.execute-api.us-east-2.amazonaws.com/dev/' as const
-export const DEFAULT_LANG = 'en' as const
-// Backwards-compat: a default-constructed base URL that includes the default locale
+const ENV_API_URL = import.meta.env.VITE_API_BASE_URL
+// If VITE_API_BASE_URL is set, use it directly (local development)
+// Otherwise use AWS with language path
+export const API_BASE_ROOT = ENV_API_URL 
+  ? (ENV_API_URL.endsWith('/') ? ENV_API_URL : `${ENV_API_URL}/`)
+  : 'https://wr60a2rc2j.execute-api.us-east-2.amazonaws.com/dev/'
 
+export const DEFAULT_LANG = 'en' as const
+
+// Initial base URL (will be updated dynamically based on environment and language)
 export const API_BASE_URL = `${API_BASE_ROOT}${DEFAULT_LANG}/` as const
 
 
