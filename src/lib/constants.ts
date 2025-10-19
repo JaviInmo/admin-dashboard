@@ -8,6 +8,8 @@ export const API_BASE_ROOT = import.meta.env.VITE_API_BASE_URL
 export const DEFAULT_LANG = 'en' as const
 // Backwards-compat: a default-constructed base URL that includes the default locale
 
+export const API_BASE_URL = `${API_BASE_ROOT}${DEFAULT_LANG}/` as const
+
 
 // If your backend uses cookie-based auth and same-site cookies, set this to true
 export const WITH_CREDENTIALS = false as const
