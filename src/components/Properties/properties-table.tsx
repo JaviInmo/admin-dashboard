@@ -1,7 +1,7 @@
 // src/components/Properties/properties-table.tsx
 "use client";
 
-import { Pencil, Trash, Calendar, FileText, Plus, Eye, MapPin, MoreHorizontal } from "lucide-react";
+import { Pencil, Trash, Calendar, FileText, Plus, Eye, MapPin, MoreHorizontal, List } from "lucide-react";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,6 +21,7 @@ import EditPropertyDialog from "./Edit/Edit";
 import PropertyDetailsModal from "./PropertyDetailsModal";
 import PropertyShiftsModal from "./properties shifts content/PropertyShiftsModal";
 import PropertyNotesModal from "./PropertyNotesModal";
+import PropertyServicesModal from "@/components/Properties/PropertyServicesModal";
 import { ReusableTable, type Column } from "@/components/ui/reusable-table";
 import { useI18n } from "@/i18n";
 
@@ -124,6 +125,9 @@ export default function PropertiesTable({
   const [shiftsProperty, setShiftsProperty] = React.useState<AppProperty | null>(null);
   const [notesProperty, setNotesProperty] = React.useState<AppProperty | null>(null);
 
+  // Nuevo estado: abrir modal de services para esta propiedad
+  const [propertyServices, setPropertyServices] = React.useState<{ propertyId: number; propertyName?: string } | null>(null);
+
   const handleAddressClick = async (property: AppProperty & { ownerName: string; typesOfServiceStr: string }) => {
     if (!property.address || property.address.trim() === "") {
       console.warn("No address available for property:", property.id);
@@ -225,7 +229,6 @@ export default function PropertiesTable({
       key: "ownerName",
       label: getText("properties.table.headers.owner", "Owner"),
       sortable: true,
-      // dejar en autoSize para que se reduzca al contenido
       autoSize: true,
       minWidth: "80px",
       headerClassName: "px-2 py-2 text-xs text-center",
@@ -248,7 +251,6 @@ export default function PropertiesTable({
       key: "address",
       label: getText("properties.table.headers.address", "Address"),
       sortable: true,
-      // fuerza ancho más pequeño para direcciones largas
       width: "140px",
       minWidth: "100px",
       headerClassName: "px-2 py-2 text-xs text-center",
@@ -325,6 +327,15 @@ export default function PropertiesTable({
           {getText("properties.table.viewMap", "Ver en mapa")}
         </DropdownMenuItem>
 
+        {/* NUEVO: abrir modal de Services para ESTA propiedad */}
+        <DropdownMenuItem onClick={(e) => {
+          e.stopPropagation();
+          setPropertyServices({ propertyId: Number(property.id), propertyName: property.name });
+        }}>
+          <List className="h-4 w-4 mr-2" />
+          {getText("properties.table.viewServices", "Ver servicios")}
+        </DropdownMenuItem>
+
         <DropdownMenuItem onClick={(e) => {
           e.stopPropagation();
           setShiftsProperty(property);
@@ -343,6 +354,7 @@ export default function PropertiesTable({
 
         <DropdownMenuItem onClick={(e) => {
           e.stopPropagation();
+          // TODO: Implementar agregar nota rápida
           console.log("Agregar nota a propiedad:", property.id);
         }}>
           <Plus className="h-4 w-4 mr-2" />
@@ -408,6 +420,21 @@ export default function PropertiesTable({
           <MapPin className="h-3.5 w-3.5" />
         </Button>
 
+        {/* NUEVO: Ver servicios de la propiedad */}
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={(e) => {
+            e.stopPropagation();
+            setPropertyServices({ propertyId: Number(property.id), propertyName: property.name });
+          }}
+          title={getText("properties.table.viewServices", "Ver servicios")}
+          aria-label={getText("properties.table.viewServicesAria", "Ver servicios de la propiedad")}
+          className="h-8 w-8 p-0 flex-shrink-0"
+        >
+          <List className="h-3.5 w-3.5" />
+        </Button>
+
         {/* Ver shifts */}
         <Button
           size="sm"
@@ -417,7 +444,6 @@ export default function PropertiesTable({
             setShiftsProperty(property);
           }}
           title={getText("properties.table.viewShifts", "Ver shifts")}
-          aria-label={getText("properties.table.viewShifts", "Ver shifts")}
           className="h-8 w-8 p-0 flex-shrink-0"
         >
           <Calendar className="h-3.5 w-3.5" />
@@ -432,7 +458,6 @@ export default function PropertiesTable({
             setNotesProperty(property);
           }}
           title={getText("properties.table.viewNotes", "Ver notas")}
-          aria-label={getText("properties.table.viewNotes", "Ver notas")}
           className="h-8 w-8 p-0 flex-shrink-0"
         >
           <FileText className="h-3.5 w-3.5" />
@@ -444,10 +469,10 @@ export default function PropertiesTable({
           variant="ghost"
           onClick={(e) => {
             e.stopPropagation();
+            // TODO: Implementar agregar nota rápida
             console.log("Agregar nota a propiedad:", property.id);
           }}
           title={getText("properties.table.addNote", "Agregar nota")}
-          aria-label={getText("properties.table.addNote", "Agregar nota")}
           className="h-8 w-8 p-0 flex-shrink-0"
         >
           <Plus className="h-3.5 w-3.5" />
@@ -462,7 +487,6 @@ export default function PropertiesTable({
             setEditProperty(property);
           }}
           title={getText("actions.edit", "Editar")}
-          aria-label={getText("actions.edit", "Editar")}
           className="h-8 w-8 p-0 flex-shrink-0"
         >
           <Pencil className="h-3.5 w-3.5" />
@@ -477,7 +501,6 @@ export default function PropertiesTable({
             setDeleteProperty(property);
           }}
           title={getText("actions.delete", "Eliminar")}
-          aria-label={getText("actions.delete", "Eliminar")}
           className="h-8 w-8 p-0 flex-shrink-0 text-red-500 hover:text-red-600"
         >
           <Trash className="h-3.5 w-3.5" />
@@ -580,6 +603,17 @@ export default function PropertiesTable({
           property={notesProperty}
           open={!!notesProperty}
           onClose={() => setNotesProperty(null)}
+          onUpdated={onRefresh}
+        />
+      )}
+
+      {/* NUEVO: Property Services Modal */}
+      {propertyServices && (
+        <PropertyServicesModal
+          propertyId={propertyServices.propertyId}
+          propertyName={propertyServices.propertyName}
+          open={!!propertyServices}
+          onClose={() => setPropertyServices(null)}
           onUpdated={onRefresh}
         />
       )}

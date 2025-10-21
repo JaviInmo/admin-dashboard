@@ -248,6 +248,9 @@ export const EN_TEXT = {
       addNote: "Add note",
       compactMode: "Compact",
       expandedMode: "Expanded",
+      // NEW: view property services (used by PropertiesTable)
+      viewServices: "View services",
+      viewServicesAria: "Open services for this property",
     },
     form: {
       editTitle: "Edit Property",
@@ -336,7 +339,7 @@ export const EN_TEXT = {
         address: "Address",
         contractStartDate: "Contract Start Date",
         created: "Created",
-        updated: "Updated",
+        updated: "Last Updated",
         description: "Description",
         owner: "Owner",
         ownerEmail: "Owner Email",
@@ -382,6 +385,9 @@ export const EN_TEXT = {
       notesTitle: "Notes for guard",
       serviceButton: "Services",
       serviceAria: "Manage services for {name}",
+      // NEW: property services button label/aria
+      propertyServicesButton: "Property services",
+      propertyServicesAria: "View services for the guard's assigned property",
       shiftsButton: "Shifts",
       shiftsAria: "Manage shifts for {name}",
       tariffsButton: "Tariffs",
@@ -564,7 +570,7 @@ export const EN_TEXT = {
       updateReason: "Updated from UI",
       resourcePermissions: {
         title: "Permissions by resource",
-        subtitle: "Configure specific permissions for each resource type",
+        subtitle: "Configure specific permissions for each major resource",
         note: "Changes are applied with grant/revoke by resource/action using administrative endpoints.",
       },
       propertyAccess: {
@@ -919,7 +925,7 @@ export const EN_TEXT = {
       security: {
         title: "🛡️ Security Metrics",
         incidentsThisMonth: "Incidents This Month",
-        vsLastMonth: "vs Last Month",
+        vsLastMonth: "vs last month",
         responseTime: "Response Time",
         incidentsResolved: "incidents resolved",
         preventionScore: "Prevention Score",

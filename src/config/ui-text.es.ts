@@ -254,6 +254,9 @@ export const ES_TEXT = {
       addNote: "Agregar nota",
       compactMode: "Compacto",
       expandedMode: "Desplegado",
+      // NEW: ver servicios de la propiedad
+      viewServices: "Ver servicios",
+      viewServicesAria: "Abrir servicios de esta propiedad",
     },
     form: {
       editTitle: "Editar Propiedad",
@@ -388,6 +391,9 @@ export const ES_TEXT = {
       notesTitle: "Notas para guardia",
       serviceButton: "Servicios",
       serviceAria: "Gestionar servicios de {name}",
+      // NEW: label para el botón de servicios de la propiedad
+      propertyServicesButton: "Servicios de la propiedad",
+      propertyServicesAria: "Ver servicios de la propiedad asignada al guardia",
       shiftsButton: "Turnos",
       shiftsAria: "Gestionar turnos de {name}",
       tariffsButton: "Tarifas",
