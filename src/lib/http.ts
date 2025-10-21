@@ -19,18 +19,27 @@ export const api = axios.create({
 // Initialize baseURL with persisted language (before any requests)
 try {
   if (typeof window !== 'undefined') {
-    const ENV_API_URL = import.meta.env.VITE_API_BASE_URL
-    if (ENV_API_URL) {
-      // Local development: always use /en/
-      api.defaults.baseURL = `${API_BASE_ROOT}en/`
+    const ENV_API_URL = import.meta.env.VITE_API_BASE_URL as string | undefined
+    // Derive language preference
+    const saved = window.localStorage.getItem('app.lang')
+    const lang = saved === 'en' || saved === 'es' ? saved : DEFAULT_LANG
+
+    if (ENV_API_URL && ENV_API_URL.length > 0) {
+      // Normalize trailing slash
+      const base = ENV_API_URL.endsWith('/') ? ENV_API_URL : `${ENV_API_URL}/`
+      // If the env URL already looks like an API root (contains /api or /v{num}), use it as-is.
+      const looksLikeApiRoot = /\/api\/?$|\/v\d+\/?$/i.test(base)
+      api.defaults.baseURL = looksLikeApiRoot ? base : `${base}${lang}/`
     } else {
-      // AWS backend: use persisted language preference
-      const saved = window.localStorage.getItem('app.lang')
-      const lang = saved === 'en' || saved === 'es' ? saved : DEFAULT_LANG
+      // Default: use configured API_BASE_ROOT + saved language
       api.defaults.baseURL = `${API_BASE_ROOT}${lang}/`
     }
   }
-} catch {}
+} catch (e) {
+  // If anything goes wrong during initialization, keep the default API_BASE_URL.
+  // Avoid throwing during module initialization.
+  console.warn('Failed to initialize api.baseURL from env:', e)
+}
 
 // Track refresh state to avoid multiple parallel refresh calls
 let isRefreshing = false
