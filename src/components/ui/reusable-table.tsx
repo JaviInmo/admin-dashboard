@@ -1,3 +1,4 @@
+// src/components/ui/reusable-table.tsx
 "use client";
 
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
@@ -51,9 +52,9 @@ export interface ReusableTableProps<T> {
   onSearch?: (term: string) => void;
   searchFields?: (keyof T)[];
 
-  sortField?: keyof T;
+  sortField?: keyof T | string;
   sortOrder?: SortOrder;
-  toggleSort?: (field: keyof T) => void;
+  toggleSort?: (field: keyof T | string) => void;
 
   actions?: (item: T) => React.ReactNode;
   actionsHeader?: string;
@@ -120,22 +121,27 @@ export function ReusableTable<T extends Record<string, any>>({
   
   let rowHeight: string;
   if (hasSmallPadding) {
-    rowHeight = "49px"; // Para guards (py-1)
+    rowHeight = "49px";
   } else if (hasMediumPadding) {
-    rowHeight = "53px"; // Para clients (py-2)
+    rowHeight = "53px";
   } else {
-    rowHeight = "57px"; // Para properties/users (py-3 default)
+    rowHeight = "57px";
   }
 
   const getColumnStyle = (column: Column<T>, columnIndex: number) => {
     const styles: React.CSSProperties = {};
-    // si la columna define width explícito, úsalo (tiene prioridad)
     if (column.width) styles.width = column.width;
     if (column.minWidth) styles.minWidth = column.minWidth;
     if (column.maxWidth) styles.maxWidth = column.maxWidth;
 
-    // fallback a estrategia inteligente (solo si no se definió width explícito)
-    if (!column.width && columnStrategy.widths[columnIndex]) {
+    if (column.autoSize) {
+      styles.width = "auto";
+      styles.whiteSpace = "nowrap";
+      styles.overflow = "hidden";
+      styles.textOverflow = "ellipsis";
+    }
+
+    if (!column.width && !column.autoSize && columnStrategy.widths[columnIndex]) {
       styles.width = columnStrategy.widths[columnIndex];
       styles.minWidth = columnStrategy.type === "content-based" ? "80px" : "60px";
     }
@@ -143,7 +149,7 @@ export function ReusableTable<T extends Record<string, any>>({
     if (columnStrategy.type === "sacrifice" || columnStrategy.type === "content-based") {
       styles.overflow = "hidden";
       styles.textOverflow = "ellipsis";
-      styles.whiteSpace = "nowrap";
+      styles.whiteSpace = styles.whiteSpace ?? "nowrap";
     }
     return styles;
   };
@@ -161,19 +167,28 @@ export function ReusableTable<T extends Record<string, any>>({
       try {
         searchRef.current.focus();
       } catch {
-        // Ignore focus errors (element might not be available)
+        // ignore
       }
     }
     const t = setTimeout(() => setHighlightSearch(false), 3500);
     return () => clearTimeout(t);
   }, []);
 
+  const getSearchableValue = (value: any) => {
+    if (value == null) return "";
+    if (Array.isArray(value)) return value.join(" ");
+    if (typeof value === "object") {
+      return (value.name ?? value.title ?? JSON.stringify(value)) + "";
+    }
+    return String(value);
+  };
+
   const localFiltered = data.filter((item) => {
     const q = (search ?? "").toLowerCase();
     if (!q) return true;
     return searchFields.some((field) => {
-      const value = item[field];
-      return String(value ?? "").toLowerCase().includes(q);
+      const value = (item as any)[field];
+      return getSearchableValue(value).toLowerCase().includes(q);
     });
   });
 
@@ -228,9 +243,9 @@ export function ReusableTable<T extends Record<string, any>>({
     }
   };
 
-  const renderSortIcon = (field: keyof T) => {
+  const renderSortIcon = (field: keyof T | string) => {
     if (!toggleSort) return null;
-    if (sortField !== field)
+    if (String(sortField) !== String(field))
       return <ArrowUpDown className="h-4 w-4 text-muted-foreground/60 hover:text-muted-foreground transition-colors" />;
     return sortOrder === "asc" ? <ArrowUp className="h-4 w-4 text-primary" /> : <ArrowDown className="h-4 w-4 text-primary" />;
   };
@@ -245,7 +260,7 @@ export function ReusableTable<T extends Record<string, any>>({
 
   return (
     <div className={`rounded-lg border bg-card p-6 text-card-foreground shadow-sm space-y-4 ${className}`}>
-      {/* Header */}
+      {/* Header controls */}
       <div className="flex flex-col md:flex-row items-center gap-3 justify-between">
         {title && <h3 className="text-lg font-semibold md:mr-4">{title}</h3>}
 
@@ -273,267 +288,292 @@ export function ReusableTable<T extends Record<string, any>>({
         )}
       </div>
 
-      {/* Table */}
-      <div className="rounded-md border" ref={tableContainerRef}>
-        <div className="relative">
-          {/* Fixed Header */}
-          <div className="bg-background border-b sticky top-0 z-30">
-            <div className="overflow-hidden">
-              <table className="w-full" style={{ tableLayout: "fixed" }}>
-                <thead>
-                  <tr>
-                    {columns.map((column, index) => {
-                      const isHidden = columnStrategy.hiddenColumns.includes(index);
-                      if (isHidden) return null;
+      {/* Table container: single table with sticky thead */}
+      <div
+        className="rounded-md border overflow-auto"
+        ref={tableContainerRef}
+        style={{ maxHeight: "50vh", scrollbarWidth: "thin", scrollbarColor: "hsl(var(--border)) transparent" }}
+      >
+        <table className="w-full" style={{ tableLayout: "auto", borderCollapse: "separate" }}>
+          <thead>
+            <tr>
+              {columns.map((column, index) => {
+                const isHidden = columnStrategy.hiddenColumns.includes(index);
+                if (isHidden) return null;
 
-                      // detect alignment classes in headerClassName
-                      const hasHeaderTextAlign = !!(column.headerClassName && /\btext-(left|center|right|start|end)\b/.test(column.headerClassName));
-                      const hasHeaderCenter = !!(column.headerClassName && /\btext-center\b/.test(column.headerClassName));
+                const hasHeaderTextAlign = !!(column.headerClassName && /\btext-(left|center|right|start|end)\b/.test(column.headerClassName));
+                const hasHeaderCenter = !!(column.headerClassName && /\btext-center\b/.test(column.headerClassName));
 
-                      const thClasses = [
-                        hasHeaderTextAlign ? "" : "text-left",
-                        "font-medium",
-                        "text-foreground",
-                        "px-4",
-                        "py-4",
-                        "border-r",
-                        "border-border/30",
-                        "last:border-r-0",
-                        "align-middle",
-                        getColumnClasses(column),
-                        column.headerClassName || "",
-                      ]
-                        .filter(Boolean)
-                        .join(" ");
+                const thClasses = [
+                  hasHeaderTextAlign ? "" : "text-left",
+                  "font-medium",
+                  "text-foreground",
+                  "px-4",
+                  "py-4",
+                  "border-r",
+                  "border-border/30",
+                  "last:border-r-0",
+                  "align-middle",
+                  getColumnClasses(column),
+                  column.headerClassName || "",
+                  // ensure header can shrink
+                  "min-w-0",
+                ]
+                  .filter(Boolean)
+                  .join(" ");
 
-                      // if header wants center, center label+icon; else justify-between (label left, icon right)
-                      const headerInnerClass = hasHeaderCenter ? "flex items-center justify-center gap-1 min-h-[1.5rem]" : "flex items-center justify-between min-h-[1.5rem]";
-                      const iconWrapperClass = hasHeaderCenter ? "flex-shrink-0" : "flex-shrink-0 ml-1";
+                const headerInnerClass = hasHeaderCenter ? "flex items-center justify-center gap-1 min-h-[1.5rem] min-w-0" : "flex items-center justify-between min-h-[1.5rem] min-w-0";
+                const iconWrapperClass = hasHeaderCenter ? "flex-shrink-0" : "flex-shrink-0 ml-1";
 
-                      return (
-                        <th key={String(column.key)} onClick={column.sortable && toggleSort ? () => toggleSort(column.key) : undefined} className={thClasses} style={{ ...getColumnStyle(column, index), ...(column.headerStyle || {}) }}>
-                          <div className={headerInnerClass}>
-                            <span className={`truncate font-semibold ${hasHeaderCenter ? "text-center" : ""}`}>{column.label}</span>
-                            <div className={iconWrapperClass}>
-                              {column.sortable && toggleSort && renderSortIcon(column.key)}
-                            </div>
-                          </div>
-                        </th>
-                      );
-                    })}
-                    {actions && (
-                      <th className="text-center font-medium text-foreground px-4 py-4 align-middle" style={{ width: "auto", minWidth: "120px", maxWidth: "200px" }}>
-                        <span className="font-semibold">{actionsHeaderText}</span>
-                      </th>
-                    )}
-                  </tr>
-                </thead>
-              </table>
-            </div>
-          </div>
+                return (
+                  <th
+                    key={String(column.key)}
+                    onClick={column.sortable && toggleSort ? () => toggleSort(column.key) : undefined}
+                    className={thClasses}
+                    style={{
+                      ...getColumnStyle(column, index),
+                      ...(column.headerStyle || {}),
+                      position: "sticky",
+                      top: 0,
+                      zIndex: 30,
+                      background: "var(--background)",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      minWidth: (column.minWidth ?? undefined),
+                    }}
+                  >
+                    <div className={headerInnerClass} style={{ minWidth: 0 }}>
+                      <div className={`truncate font-semibold min-w-0`} style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {column.label}
+                      </div>
+                      <div className={iconWrapperClass}>
+                        {column.sortable && toggleSort && renderSortIcon(column.key)}
+                      </div>
+                    </div>
+                  </th>
+                );
+              })}
 
-          {/* Scrollable Body */}
-          <div
-            className="max-h-[50vh] overflow-auto scroll-smooth
-                       scrollbar-thin scrollbar-track-transparent scrollbar-thumb-border
-                       hover:scrollbar-thumb-muted-foreground/50 scrollbar-thumb-rounded-full
-                       transition-all duration-200"
-            style={{
-              scrollbarWidth: "thin",
-              scrollbarColor: "hsl(var(--border)) transparent",
-            }}
-          >
-            <table className="w-full" style={{ tableLayout: "fixed" }}>
-              <tbody>
-                {isPageLoading ? (
-                  // Loading rows with pulse effect
-                  (() => {
-                    return Array.from({ length: pageSize }, (_, rowIdx) => (
-                      <tr
-                        key={`loading-row-${rowIdx}`}
-                        className={`border-b border-border/50 ${rowIdx % 2 === 0 ? "bg-transparent" : "bg-muted/10"}`}
-                        style={{ height: rowHeight }}
+              {actions && (
+                <th
+                  className="text-center font-medium text-foreground px-4 py-4 align-middle min-w-0"
+                  style={{
+                    width: "auto",
+                    minWidth: "140px",
+                    maxWidth: "260px",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    position: "sticky",
+                    top: 0,
+                    zIndex: 30,
+                    background: "var(--background)",
+                  }}
+                >
+                  <div className="truncate min-w-0" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {actionsHeaderText}
+                  </div>
+                </th>
+              )}
+            </tr>
+          </thead>
+
+          <tbody>
+            {isPageLoading ? (
+              Array.from({ length: pageSize }, (_, rowIdx) => (
+                <tr
+                  key={`loading-row-${rowIdx}`}
+                  className={`border-b border-border/50 ${rowIdx % 2 === 0 ? "bg-transparent" : "bg-muted/10"}`}
+                  style={{ height: rowHeight }}
+                >
+                  {columns.map((column, colIndex) => {
+                    const isHidden = columnStrategy.hiddenColumns.includes(colIndex);
+                    if (isHidden) return null;
+
+                    const tdClasses = [
+                      "px-4",
+                      hasMediumPadding ? "py-2" : hasSmallPadding ? "py-1" : "py-3",
+                      "border-r",
+                      "border-border/20",
+                      "last:border-r-0",
+                      "align-middle",
+                      column.cellClassName || "",
+                      "min-w-0",
+                    ]
+                      .filter(Boolean)
+                      .join(" ");
+
+                    let loadingWidth: "short" | "medium" | "long" | "full" = "medium";
+                    const columnKey = String(column.key).toLowerCase();
+
+                    if (columnKey.includes('name') || columnKey.includes('title')) {
+                      loadingWidth = "long";
+                    } else if (columnKey.includes('phone') || columnKey.includes('status')) {
+                      loadingWidth = "short";
+                    } else if (columnKey.includes('email') || columnKey.includes('address')) {
+                      loadingWidth = "medium";
+                    }
+
+                    return (
+                      <td
+                        key={String(column.key)}
+                        className={tdClasses}
+                        style={{
+                          ...getColumnStyle(column, colIndex),
+                        }}
                       >
-                        {columns.map((column, colIndex) => {
-                          const isHidden = columnStrategy.hiddenColumns.includes(colIndex);
-                          if (isHidden) return null;
-
-                          const tdClasses = [
-                            "px-4",
-                            hasMediumPadding ? "py-2" : hasSmallPadding ? "py-1" : "py-3",
-                            "border-r",
-                            "border-border/20",
-                            "last:border-r-0",
-                            "align-middle",
-                          ]
-                            .filter(Boolean)
-                            .join(" ");
-
-                          // Vary loading cell widths based on column type/content
-                          let loadingWidth: "short" | "medium" | "long" | "full" = "medium";
-                          const columnKey = String(column.key).toLowerCase();
-                          
-                          if (columnKey.includes('name') || columnKey.includes('title')) {
-                            loadingWidth = "long";
-                          } else if (columnKey.includes('phone') || columnKey.includes('status')) {
-                            loadingWidth = "short";
-                          } else if (columnKey.includes('email') || columnKey.includes('address')) {
-                            loadingWidth = "medium";
-                          }
-
-                          return (
-                            <td 
-                              key={String(column.key)} 
-                              className={tdClasses} 
-                              style={getColumnStyle(column, colIndex)}
-                            >
-                              <div className="truncate">
-                                <TableLoadingCell width={loadingWidth} />
-                              </div>
-                            </td>
-                          );
-                        })}
-                        {actions && (
-                          <td 
-                            className={`text-center ${hasMediumPadding ? "py-2" : hasSmallPadding ? "py-1" : "py-3"} align-middle`} 
-                            style={{ width: "auto", minWidth: "120px", maxWidth: "200px" }}
-                          >
-                            <div className="flex gap-2 justify-center">
-                              <TableLoadingCell width="short" />
-                              <TableLoadingCell width="short" />
-                            </div>
-                          </td>
-                        )}
-                      </tr>
-                    ));
-                  })()
-                ) : paginatedData.length === 0 ? (
-                  // No data message
-                  <tr>
-                    <td 
-                      colSpan={columns.filter((_, index) => !columnStrategy.hiddenColumns.includes(index)).length + (actions ? 1 : 0)}
-                      className="px-4 py-12 text-center text-muted-foreground"
-                    >
-                      <div className="flex flex-col items-center gap-2">
-                        <div className="w-12 h-12 rounded-full bg-muted/20 flex items-center justify-center mb-2">
-                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 12h6m-6-4h6m2 5.291A7.962 7.962 0 0112 15c-2.34 0-4.47-.881-6.084-2.334.414-.98.858-1.895 1.39-2.732A9.936 9.936 0 0112 7c.993 0 1.953.138 2.863.395M6.228 6.228L21 21" />
-                          </svg>
+                        <div className="truncate min-w-0">
+                          <TableLoadingCell width={loadingWidth} />
                         </div>
-                        <span className="text-sm font-medium">
-                          {TEXT?.table?.noMatch ?? "No hay coincidencias"}
-                        </span>
-                        <span className="text-xs text-muted-foreground/70">
-                          {search 
-                            ? (TEXT?.table?.noResults?.replace("{search}", search) ?? `No se encontraron resultados para "${search}"`)
-                            : (TEXT?.table?.noData ?? "No hay datos disponibles")
-                          }
-                        </span>
+                      </td>
+                    );
+                  })}
+
+                  {actions && (
+                    <td
+                      className={`text-center ${hasMediumPadding ? "py-2" : hasSmallPadding ? "py-1" : "py-3"} align-middle`}
+                      style={{ width: "auto", minWidth: "140px", maxWidth: "260px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+                    >
+                      <div className="flex gap-2 justify-center">
+                        <TableLoadingCell width="short" />
+                        <TableLoadingCell width="short" />
                       </div>
                     </td>
-                  </tr>
-                ) : (
-                  // Normal data rows
-                  paginatedData.map((item, rowIdx) => (
-                    <tr
-                      key={String(getItemId(item))}
-                      className={`cursor-pointer hover:bg-muted/50 transition-colors duration-150 ${rowIdx % 2 === 0 ? "bg-transparent" : "bg-muted/10"} border-b border-border/50`}
-                      onClick={() => onSelectItem?.(getItemId(item))}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          onSelectItem?.(getItemId(item));
-                        }
-                      }}
-                      style={{ height: rowHeight }}
-                    >
-                      {columns.map((column, colIndex) => {
-                        const isHidden = columnStrategy.hiddenColumns.includes(colIndex);
-                        if (isHidden) return null;
+                  )}
+                </tr>
+              ))
+            ) : paginatedData.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={columns.filter((_, index) => !columnStrategy.hiddenColumns.includes(index)).length + (actions ? 1 : 0)}
+                  className="px-4 py-12 text-center text-muted-foreground"
+                >
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="w-12 h-12 rounded-full bg-muted/20 flex items-center justify-center mb-2">
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 12h6m-6-4h6m2 5.291A7.962 7.962 0 0112 15c-2.34 0-4.47-.881-6.084-2.334.414-.98.858-1.895 1.39-2.732A9.936 9.936 0 0112 7c.993 0 1.953.138 2.863.395M6.228 6.228L21 21" />
+                      </svg>
+                    </div>
+                    <span className="text-sm font-medium">
+                      {TEXT?.table?.noMatch ?? "No hay coincidencias"}
+                    </span>
+                    <span className="text-xs text-muted-foreground/70">
+                      {search
+                        ? (TEXT?.table?.noResults?.replace("{search}", search) ?? `No se encontraron resultados para "${search}"`)
+                        : (TEXT?.table?.noData ?? "No hay datos disponibles")
+                      }
+                    </span>
+                  </div>
+                </td>
+              </tr>
+            ) : (
+              paginatedData.map((item, rowIdx) => (
+                <tr
+                  key={String(getItemId(item))}
+                  className={`cursor-pointer hover:bg-muted/50 transition-colors duration-150 ${rowIdx % 2 === 0 ? "bg-transparent" : "bg-muted/10"} border-b border-border/50`}
+                  onClick={() => onSelectItem?.(getItemId(item))}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      onSelectItem?.(getItemId(item));
+                    }
+                  }}
+                  style={{ height: rowHeight }}
+                >
+                  {columns.map((column, colIndex) => {
+                    const isHidden = columnStrategy.hiddenColumns.includes(colIndex);
+                    if (isHidden) return null;
 
-                        const hasCellTextAlign = !!(column.cellClassName && /\btext-(left|center|right|start|end)\b/.test(column.cellClassName));
-                        const hasCellCenter = !!(column.cellClassName && /\btext-center\b/.test(column.cellClassName));
+                    const hasCellTextAlign = !!(column.cellClassName && /\btext-(left|center|right|start|end)\b/.test(column.cellClassName));
+                    const hasCellCenter = !!(column.cellClassName && /\btext-center\b/.test(column.cellClassName));
 
-                        const tdClasses = [
-                          hasCellTextAlign ? "" : "text-left",
-                          "px-4",
-                          hasMediumPadding ? "py-2" : hasSmallPadding ? "py-1" : "py-3",
-                          "border-r",
-                          "border-border/20",
-                          "last:border-r-0",
-                          "align-middle",
-                          column.cellClassName || "",
-                        ]
-                          .filter(Boolean)
-                          .join(" ");
+                    const tdClasses = [
+                      hasCellTextAlign ? "" : "text-left",
+                      "px-4",
+                      hasMediumPadding ? "py-2" : hasSmallPadding ? "py-1" : "py-3",
+                      "border-r",
+                      "border-border/20",
+                      "last:border-r-0",
+                      "align-middle",
+                      column.cellClassName || "",
+                      "min-w-0",
+                    ]
+                      .filter(Boolean)
+                      .join(" ");
 
-                        return (
-                          <td key={String(column.key)} className={tdClasses} style={{ ...getColumnStyle(column, colIndex), ...(column.cellStyle || {}) }}>
-                            <div className={`truncate ${hasCellCenter ? "text-center" : ""}`}>
-                              {column.render ? column.render(item) : String(item[column.key] ?? "-")}
-                            </div>
-                          </td>
-                        );
-                      })}
-                        {actions && (
-                          <td 
-                            className={`text-center ${hasMediumPadding ? "py-2" : hasSmallPadding ? "py-1" : "py-3"} align-middle`} 
-                            style={{ width: "auto", minWidth: "120px", maxWidth: "200px" }}
-                          >
-                            <div className="flex gap-2 justify-center" onClick={(e) => e.stopPropagation()}>
-                              {actions(item)}
-                            </div>
-                          </td>
-                        )}
-                    </tr>
-                  ))
-                )}
-
-                {!isPageLoading && emptyRows.map((emptyRow, emptyIdx) => (
-                  <tr
-                    key={emptyRow.id}
-                    className={`border-b border-border/50 ${ (paginatedData.length + emptyIdx) % 2 === 0 ? "bg-transparent" : "bg-muted/10" }`}
-                    style={{ height: rowHeight }}
-                  >
-                    {columns.map((column, colIndex) => {
-                      const isHidden = columnStrategy.hiddenColumns.includes(colIndex);
-                      if (isHidden) return null;
-
-                      const tdClasses = [
-                        hasMediumPadding ? "py-2" : hasSmallPadding ? "py-1" : "py-3",
-                        "px-4", 
-                        "border-r", 
-                        "border-border/20", 
-                        "last:border-r-0", 
-                        "align-middle"
-                      ]
-                        .filter(Boolean)
-                        .join(" ");
-
-                      return (
-                        <td key={String(column.key)} className={tdClasses} style={getColumnStyle(column, colIndex)}>
-                          <div className="truncate" />
-                        </td>
-                      );
-                    })}
-                    {actions && (
-                      <td className={`text-center ${hasMediumPadding ? "py-2" : hasSmallPadding ? "py-1" : "py-3"}`} style={{ width: "auto", minWidth: "120px", maxWidth: "200px" }}>
-                        {/* empty */}
+                    return (
+                      <td
+                        key={String(column.key)}
+                        className={tdClasses}
+                        style={{ ...getColumnStyle(column, colIndex), ...(column.cellStyle || {}) }}
+                      >
+                        <div className={`truncate min-w-0 ${hasCellCenter ? "text-center" : ""}`} style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {column.render ? column.render(item) : String(item[column.key] ?? "-")}
+                        </div>
                       </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                    );
+                  })}
+
+                  {actions && (
+                    <td
+                      className={`text-center ${hasMediumPadding ? "py-2" : hasSmallPadding ? "py-1" : "py-3"} align-middle`}
+                      style={{ width: "auto", minWidth: "140px", maxWidth: "260px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+                    >
+                      <div className="flex gap-2 justify-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        {actions(item)}
+                      </div>
+                    </td>
+                  )}
+                </tr>
+              ))
+            )}
+
+            {!isPageLoading && emptyRows.map((emptyRow, emptyIdx) => (
+              <tr
+                key={emptyRow.id}
+                className={`border-b border-border/50 ${ (paginatedData.length + emptyIdx) % 2 === 0 ? "bg-transparent" : "bg-muted/10" }`}
+                style={{ height: rowHeight }}
+              >
+                {columns.map((column, colIndex) => {
+                  const isHidden = columnStrategy.hiddenColumns.includes(colIndex);
+                  if (isHidden) return null;
+
+                  const tdClasses = [
+                    hasMediumPadding ? "py-2" : hasSmallPadding ? "py-1" : "py-3",
+                    "px-4",
+                    "border-r",
+                    "border-border/20",
+                    "last:border-r-0",
+                    "align-middle",
+                    "min-w-0",
+                  ]
+                    .filter(Boolean)
+                    .join(" ");
+
+                  return (
+                    <td key={String(column.key)} className={tdClasses} style={getColumnStyle(column, colIndex)}>
+                      <div className="truncate min-w-0" />
+                    </td>
+                  );
+                })}
+
+                {actions && (
+                  <td className={`text-center ${hasMediumPadding ? "py-2" : hasSmallPadding ? "py-1" : "py-3"}`} style={{ width: "auto", minWidth: "140px", maxWidth: "260px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {/* empty */}
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
       {/* Pagination */}
       <div className="flex justify-between items-center">
-        <div></div> {/* Espaciador izquierdo */}
+        <div></div>
         <ReusablePagination
           currentPage={displayEffectivePage}
           totalPages={displayEffectiveTotalPages}
