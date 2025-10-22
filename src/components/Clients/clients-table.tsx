@@ -39,9 +39,9 @@ export interface ClientsTableProps {
   onSearch?: (term: string) => void;
   isPageLoading?: boolean;
 
-  sortField: keyof Client;
+  sortField: keyof Client | string;
   sortOrder: SortOrder;
-  toggleSort: (key: keyof Client) => void;
+  toggleSort: (field: keyof Client | string) => void;
 
   // ocultar columna balance (por defecto: oculto)
   hideBalance?: boolean;
@@ -420,7 +420,7 @@ export default function ClientsTable({
         searchFields={searchFields}
         sortField={sortField as keyof (AppClient & { clientName: string })}
         sortOrder={sortOrder}
-        toggleSort={toggleSort as (key: keyof (AppClient & { clientName: string })) => void}
+        toggleSort={toggleSort}
         actions={(client) => (
           // el wrapper que devuelve actions se centrará y tendrá gap 2 por el ReusableTable
           renderActions(client as AppClient & { clientName: string })

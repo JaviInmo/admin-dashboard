@@ -262,6 +262,7 @@ export function getCombinedFooterGaps(
   if (!hoveredDay) return null; // No mostrar nada si no hay día hovered
 
   const allGaps: string[] = [];
+  const hoveredDayStr = hoveredDay.toISOString().split('T')[0]; // YYYY-MM-DD
 
   // Calcular brechas solo para el día hovered
   const key = `${hoveredDay.getFullYear()}-${pad(hoveredDay.getMonth() + 1)}-${pad(hoveredDay.getDate())}`;
@@ -273,32 +274,38 @@ export function getCombinedFooterGaps(
     allShiftsForDay.push(...shifts);
   });
 
-  // Obtener los serviceIds únicos que tienen turnos en este día
-  const activeServiceIds = new Set<number>();
-  allShiftsForDay.forEach(shift => {
-    if (shift.service) {
-      activeServiceIds.add(shift.service);
-    }
-  });
-
   // Si hay un servicio seleccionado, mostrar brechas solo de ese servicio
   if (selectedService && selectedService.startTime && selectedService.endTime) {
     // Verificar si el día hovered está en el schedule del servicio seleccionado
-    const hoveredDayStr = hoveredDay.toISOString().split('T')[0]; // YYYY-MM-DD
     const isHoveredDayInSchedule = selectedService.schedule && selectedService.schedule.includes(hoveredDayStr);
     
     if (!isHoveredDayInSchedule) {
-      // Si el día no está en el schedule del servicio, no mostrar gaps
-      return [];
+      // Si el día no está en el schedule del servicio, mostrar mensaje de no contratado
+      return ["No hay servicios contratados en este día"];
     }
 
-    const gaps = getServiceCoverageGaps(allShiftsForDay, selectedService.startTime!, selectedService.endTime!, selectedService.name);
+    // Filtrar turnos solo del servicio seleccionado
+    const shiftsForService = allShiftsForDay.filter(shift => shift.service === selectedService.id);
+    const gaps = getServiceCoverageGaps(shiftsForService, selectedService.startTime!, selectedService.endTime!, selectedService.name);
     gaps.forEach(gap => allGaps.push(gap.description));
   } else {
-    // Si no hay servicio seleccionado, mostrar brechas solo de servicios que tienen turnos en este día
-    const activeServices = services.filter(s => s.startTime && s.endTime && activeServiceIds.has(s.id));
-    activeServices.forEach(service => {
-      const gaps = getServiceCoverageGaps(allShiftsForDay, service.startTime!, service.endTime!, service.name);
+    // Si no hay servicio seleccionado, mostrar brechas de todos los servicios que incluyen este día en su schedule
+    const servicesForThisDay = services.filter(s => 
+      s.startTime && 
+      s.endTime && 
+      s.schedule && 
+      s.schedule.includes(hoveredDayStr)
+    );
+    
+    // Si no hay servicios contratados para este día, retornar mensaje especial
+    if (servicesForThisDay.length === 0) {
+      return ["No hay servicios contratados en este día"];
+    }
+    
+    servicesForThisDay.forEach(service => {
+      // Filtrar turnos específicos de este servicio
+      const shiftsForService = allShiftsForDay.filter(shift => shift.service === service.id);
+      const gaps = getServiceCoverageGaps(shiftsForService, service.startTime!, service.endTime!, service.name);
       gaps.forEach(gap => allGaps.push(gap.description));
     });
   }
@@ -367,10 +374,19 @@ export function getDayCoverageInfo(
   services: Array<{ id: number; name: string; startTime: string | null; endTime: string | null; schedule: string[] | null }>,
   shiftsByGuardAndDate: Map<number, Record<string, ShiftApi[]>>
 ): DayCoverageInfo {
+  const dayStr = day.toISOString().split('T')[0]; // YYYY-MM-DD
+  const key = `${day.getFullYear()}-${pad(day.getMonth() + 1)}-${pad(day.getDate())}`;
+
+  // Obtener todos los turnos de todos los guardias para este día
+  const allShiftsForDay: ShiftApi[] = [];
+  shiftsByGuardAndDate.forEach((shiftsByDate) => {
+    const shifts = shiftsByDate[key] || [];
+    allShiftsForDay.push(...shifts);
+  });
+
   // Si hay un servicio seleccionado, verificar solo ese
   if (selectedService && selectedService.startTime && selectedService.endTime) {
     // Verificar si el día está en el schedule del servicio seleccionado
-    const dayStr = day.toISOString().split('T')[0]; // YYYY-MM-DD
     const isDayInSchedule = selectedService.schedule && selectedService.schedule.includes(dayStr);
     
     if (!isDayInSchedule) {
@@ -382,19 +398,10 @@ export function getDayCoverageInfo(
       };
     }
 
-    const key = `${day.getFullYear()}-${pad(day.getMonth() + 1)}-${pad(day.getDate())}`;
-
-    // Obtener todos los turnos de todos los guardias para este día
-    const allShiftsForDay: ShiftApi[] = [];
-    shiftsByGuardAndDate.forEach((shiftsByDate) => {
-      const shifts = shiftsByDate[key] || [];
-      allShiftsForDay.push(...shifts);
-    });
-
     // Filtrar turnos solo del servicio seleccionado
     const shiftsForService = allShiftsForDay.filter(shift => shift.service === selectedService.id);
     
-    // Siempre calcular gaps para el servicio seleccionado, incluso si no tiene turnos
+    // Calcular gaps para el servicio seleccionado
     // Si no tiene turnos, mostrará el gap completo del horario del servicio
     const gaps = getServiceCoverageGaps(
       shiftsForService,
@@ -410,41 +417,33 @@ export function getDayCoverageInfo(
     };
   }
 
-  // Si no hay servicio seleccionado (vista "todos"), verificar si hay algún servicio con brecha
-  const key = `${day.getFullYear()}-${pad(day.getMonth() + 1)}-${pad(day.getDate())}`;
-
-  // Obtener todos los turnos de todos los guardias para este día
-  const allShiftsForDay: ShiftApi[] = [];
-  shiftsByGuardAndDate.forEach((shiftsByDate) => {
-    const shifts = shiftsByDate[key] || [];
-    allShiftsForDay.push(...shifts);
-  });
-
-  // Obtener serviceIds únicos que tienen turnos en este día
-  const activeServiceIds = new Set<number>();
-  allShiftsForDay.forEach(shift => {
-    if (shift.service) {
-      activeServiceIds.add(shift.service);
-    }
-  });
-
-  // Solo evaluar servicios que tienen turnos en este día
-  const servicesWithTimes = services.filter(s => 
-    s.startTime && s.endTime && activeServiceIds.has(s.id)
+  // Si no hay servicio seleccionado (vista "todos"), verificar todos los servicios que incluyan este día en su schedule
+  // Filtrar servicios que tienen horarios definidos y que incluyen este día en su schedule
+  const servicesForThisDay = services.filter(s => 
+    s.startTime && 
+    s.endTime && 
+    s.schedule && 
+    s.schedule.includes(dayStr)
   );
-  if (servicesWithTimes.length === 0) {
+
+  if (servicesForThisDay.length === 0) {
+    // Si ningún servicio tiene este día en su schedule, no marcar gaps
     return { shouldHighlight: false, gaps: [], serviceName: null };
   }
 
-  // Verificar brechas para servicios que tienen turnos en este día
+  // Verificar brechas para todos los servicios que incluyen este día en su schedule
   const allGaps: Array<{ serviceName: string; gaps: CoverageGap[] }> = [];
-  servicesWithTimes.forEach(service => {
+  servicesForThisDay.forEach(service => {
+    // Filtrar turnos específicos de este servicio
+    const shiftsForService = allShiftsForDay.filter(shift => shift.service === service.id);
+    
     const serviceGaps = getServiceCoverageGaps(
-      allShiftsForDay,
+      shiftsForService,
       service.startTime!,
       service.endTime!,
       service.name
     );
+    
     if (serviceGaps.length > 0) {
       allGaps.push({ serviceName: service.name, gaps: serviceGaps });
     }

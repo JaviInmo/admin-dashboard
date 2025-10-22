@@ -54,7 +54,7 @@ export default function ServicesPage() {
   }, []);
 
   const apiOrdering = React.useMemo(() => {
-    const mapped = mapServiceSortField(sortField);
+    const mapped = mapServiceSortField(sortField ?? "name");
     return generateSort(mapped, sortOrder);
   }, [sortField, sortOrder]);
 
@@ -126,11 +126,12 @@ export default function ServicesPage() {
     }
   }, [page, totalPages, isFetching]);
 
-  const toggleSort = React.useCallback((field: keyof Service) => {
-    if (sortField === field) {
+  const toggleSort = React.useCallback((field: keyof Service | string) => {
+    const typedField = field as keyof Service;
+    if (sortField === typedField) {
       setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
     } else {
-      setSortField(field);
+      setSortField(typedField);
       setSortOrder("asc");
     }
     setPage(1);

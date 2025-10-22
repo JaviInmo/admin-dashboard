@@ -528,22 +528,11 @@ export default function CreateShift({
 
         let servicesArr = extractItems<AppService>(response);
 
-        // Filtrar servicios por fecha específica si hay fecha seleccionada
-        if (selectedDate) {
-          // Convertir la fecha seleccionada a formato YYYY-MM-DD
-          const selectedDateStr = selectedDate.toISOString().split('T')[0];
-
-          // Filtrar servicios que tienen la fecha seleccionada en su schedule
-          servicesArr = servicesArr.filter((service: any) => {
-            return service.schedule && Array.isArray(service.schedule) &&
-                   service.schedule.includes(selectedDateStr);
-          });
-        }
-
+        // No filtrar por fecha, cargar todos los servicios de la propiedad
         setPropertyServices(servicesArr);
 
-        // Preseleccionar el primer servicio disponible si hay fecha seleccionada
-        if (selectedDate && servicesArr.length > 0 && !selectedService) {
+        // Preseleccionar el primer servicio disponible si no hay ninguno seleccionado
+        if (servicesArr.length > 0 && !selectedService) {
           setSelectedService(servicesArr[0]);
         } else if (selectedService && !servicesArr.find((s) => s.id === selectedService.id)) {
           setSelectedService(null);
@@ -560,7 +549,7 @@ export default function CreateShift({
     return () => {
       mounted = false;
     };
-  }, [selectedProperty?.id, selectedDate, selectedService]);
+  }, [selectedProperty?.id, selectedService]);
 
   // Pre-populate shift times when a service is selected
   React.useEffect(() => {

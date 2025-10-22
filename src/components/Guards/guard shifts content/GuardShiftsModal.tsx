@@ -16,6 +16,7 @@ import ShiftActionsDialog from "@/components/Guards/guard shifts content/ShiftAc
 
 import { useShifts } from "@/components/Guards/guard shifts content/hooks/useShifts";
 import { useShiftsDerived } from "@/components/Guards/guard shifts content/hooks/useShiftsDerived";
+import { listProperties } from "@/lib/services/properties";
 
 import type { Shift } from "@/components/Shifts/types";
 import type { AppProperty } from "@/lib/services/properties";
@@ -85,6 +86,9 @@ export default function GuardShiftsModal({ guardId, guardName, open, onClose }: 
     return d;
   });
 
+  // Load all properties for create shift
+  const [allProperties, setAllProperties] = React.useState<AppProperty[]>([]);
+
   // useEffect para actualizar selectedMonth cuando cambia startDate
   React.useEffect(() => {
     const monthStart = new Date(startDate);
@@ -94,7 +98,6 @@ export default function GuardShiftsModal({ guardId, guardName, open, onClose }: 
   }, [startDate]);
 
   const {
-    propertiesAll,
     propertiesFiltered,
     days,
     shiftsByPropertyAndDate,
@@ -137,6 +140,26 @@ export default function GuardShiftsModal({ guardId, guardName, open, onClose }: 
       mounted = false;
     };
   }, [open, guardId, fetchShifts]);
+
+  // Load all properties when modal opens
+  React.useEffect(() => {
+    if (!open) return;
+    let mounted = true;
+    (async () => {
+      try {
+        const response = await listProperties(1, "", 1000); // Load all properties
+        if (!mounted) return;
+        const properties = response.items || [];
+        setAllProperties(properties);
+      } catch (err) {
+        console.error("Error loading all properties:", err);
+        setAllProperties([]);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [open]);
 
   // navigation helpers
   function moveBack() {
@@ -246,21 +269,21 @@ export default function GuardShiftsModal({ guardId, guardName, open, onClose }: 
     return firstCol + days.length * dayColMinWidth;
   }, [days.length, dayColMinWidth]);
 
-  // minimal preloadedProperties (CreateShift espera AppProperty[]) — mapeamos propertiesAll
+  // minimal preloadedProperties (CreateShift espera AppProperty[]) — usamos allProperties
   const preloadedPropertiesForCreate = React.useMemo<AppProperty[]>(
     () =>
-      propertiesAll.map((p) => ({
+      allProperties.map((p) => ({
         id: p.id,
-        ownerId: 0,
+        ownerId: p.ownerId,
         name: p.name ?? `#${p.id}`,
         alias: p.alias,
         address: p.address ?? "",
-        description: null,
-        contractStartDate: null,
-        createdAt: null,
-        updatedAt: null,
+        description: p.description ?? null,
+        contractStartDate: p.contractStartDate ?? null,
+        createdAt: p.createdAt ?? null,
+        updatedAt: p.updatedAt ?? null,
       } as unknown as AppProperty)),
-    [propertiesAll]
+    [allProperties]
   );
 
   // minimal preloadedGuard array (CreateShift espera Guard[])

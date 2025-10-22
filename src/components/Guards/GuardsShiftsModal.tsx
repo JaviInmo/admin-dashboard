@@ -709,10 +709,33 @@ export default function GuardsShiftsModal({
                     ))}
                   </div>
                 ) : filteredShifts.length === 0 ? (
-                  <div className="rounded border border-dashed border-muted/50 p-4 text-sm text-muted-foreground text-center">
-                    {selectedDate
-                      ? `No hay turnos para ${selectedDate.toLocaleDateString()}`
-                      : "No hay turnos para este guardia"}
+                  // Mostrar 5 filas vacías cuando no hay turnos
+                  <div className="space-y-3">
+                    {Array.from({ length: 5 }, (_, i) => (
+                      <div
+                        key={`empty-${i}`}
+                        className="flex items-center justify-between gap-4 rounded-md border border-dashed border-muted/30 p-3 shadow-sm bg-muted/10"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="mt-1 text-muted-foreground">
+                            <CalendarIcon className="h-5 w-5 opacity-50" />
+                          </div>
+                          <div>
+                            <div className="text-sm text-muted-foreground italic">
+                              Sin turno asignado
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              -
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 opacity-50">
+                          <div className="h-8 w-8 rounded-full bg-muted/20" />
+                          <div className="h-8 w-8 rounded-full bg-muted/20" />
+                          <div className="h-8 w-8 rounded-full bg-muted/20" />
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 ) : (
                   filteredShifts.map((s) => {

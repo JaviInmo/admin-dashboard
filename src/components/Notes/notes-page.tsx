@@ -45,7 +45,7 @@ export default function NotesPage() {
 
   const [page, setPage] = React.useState<number>(1);
   const [search, setSearch] = React.useState<string>("");
-  const [sortField, setSortField] = React.useState<keyof Note>("name");
+  const [sortField, setSortField] = React.useState<keyof Note | string>("name");
   const [sortOrder, setSortOrder] = React.useState<SortOrder>("asc");
 
   // Mantener totalPages estable durante loading
@@ -115,7 +115,7 @@ export default function NotesPage() {
     }
   }, [page, totalPages, isFetching]);
 
-  const toggleSort = (field: keyof Note) => {
+  const toggleSort = (field: keyof Note | string) => {
     if (sortField === field) {
       setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
     } else {

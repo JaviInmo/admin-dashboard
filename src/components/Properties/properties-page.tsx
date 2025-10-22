@@ -129,7 +129,7 @@ export default function PropertiesPage() {
     }
   }, [page, totalPages, isFetching]);
 
-  const toggleSort = (field: keyof AppProperty | "ownerName") => {
+  const toggleSort = (field: keyof AppProperty | string) => {
     if (sortField === field) {
       setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
     } else {

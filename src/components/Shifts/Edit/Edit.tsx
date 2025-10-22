@@ -10,7 +10,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { getShift, updateShift, deleteShift } from "@/lib/services/shifts";
+import { getShift, updateShift } from "@/lib/services/shifts";
+import DeleteShift from "@/components/Shifts/Delete/Delete";
 // import { listShiftsByGuard } from "@/lib/services/shifts"; // COMENTADO - para solapamientos
 import { listGuards, getGuard } from "@/lib/services/guard";
 import { getProperty } from "@/lib/services/properties";
@@ -71,6 +72,7 @@ export default function EditShift({
   // Estado del shift a editar
   const [shift, setShift] = React.useState<Shift | null>(initialShift ?? null);
   const [loadingShift, setLoadingShift] = React.useState(false);
+  const [openDeleteModal, setOpenDeleteModal] = React.useState(false);
 
   const guardPlaceholder =
     (TEXT as any)?.shifts?.create?.searchGuardPlaceholder ??
@@ -609,7 +611,13 @@ export default function EditShift({
 
     // If service has defined times, use them to populate shift times
     if (startTime && endTime) {
-      const targetDate = new Date(); // Sin selectedDate en edit
+      // Usar la fecha del turno actual si existe, sino usar hoy
+      let targetDate = new Date();
+      const existingDateStr = shift?.plannedStartTime || shift?.startTime;
+      if (existingDateStr) {
+        const existingDate = new Date(existingDateStr);
+        targetDate = new Date(existingDate.getFullYear(), existingDate.getMonth(), existingDate.getDate());
+      }
       
       // Parse service times (assuming HH:MM:SS format)
       const parseTime = (timeStr: string) => {
@@ -661,7 +669,7 @@ export default function EditShift({
       };
       setSelectedProperty(serviceProperty);
     }
-  }, [selectedService, open]);
+  }, [selectedService, open, shift?.plannedStartTime, shift?.startTime]);
 
   // Función para determinar si el turno ya pasó o está activo
   const isShiftPastOrActive = React.useMemo(() => {
@@ -884,6 +892,7 @@ export default function EditShift({
   const inputClass = "w-full rounded border px-3 py-1.5 text-sm";
 
   return (
+    <>
     <Dialog
       open={open}
       onOpenChange={(v) => {
@@ -1273,18 +1282,7 @@ export default function EditShift({
               {onDeleted && shift && (
                 <Button
                   variant="destructive"
-                  onClick={async () => {
-                    if (confirm("¿Estás seguro de que quieres eliminar este turno?")) {
-                      try {
-                        await deleteShift(shift.id);
-                        toast.success("Turno eliminado");
-                        onDeleted(shift.id);
-                        onClose();
-                      } catch (err) {
-                        toast.error("Error al eliminar el turno");
-                      }
-                    }
-                  }}
+                  onClick={() => setOpenDeleteModal(true)}
                   type="button"
                   size="sm"
                 >
@@ -1306,5 +1304,22 @@ export default function EditShift({
         </div>
       </DialogContent>
     </Dialog>
+
+    {/* Modal de confirmación de eliminación */}
+    {shift && openDeleteModal && (
+      <DeleteShift
+        open={openDeleteModal}
+        onClose={() => setOpenDeleteModal(false)}
+        shiftId={shift.id}
+        onDeleted={(id) => {
+          setOpenDeleteModal(false);
+          if (onDeleted) {
+            onDeleted(id);
+          }
+          onClose();
+        }}
+      />
+    )}
+    </>
   );
 }

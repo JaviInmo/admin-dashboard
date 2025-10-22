@@ -49,8 +49,8 @@ export interface NotesTableProps {
   onPageSizeChange?: (size: number) => void;
   onSearch?: (term: string) => void;
 
-  toggleSort: (key: keyof Note) => void;
-  sortField: keyof Note;
+  toggleSort: (field: keyof Note | string) => void;
+  sortField: keyof Note | string;
   sortOrder: SortOrder;
 
   isPageLoading?: boolean;

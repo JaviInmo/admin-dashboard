@@ -17,7 +17,7 @@ import { useVisitedPagesCache } from "@/hooks/use-visited-pages-cache";
 /**
  * Mapear campos frontend -> campos que acepta el API (DRF).
  */
-function mapGuardSortField(field: keyof Guard): string {
+function mapGuardSortField(field: keyof Guard | string): string {
   switch (field) {
     case "firstName":
       return "user__first_name";
@@ -52,7 +52,7 @@ export default function GuardsPage() {
 
   const [page, setPage] = React.useState<number>(1);
   const [search, setSearch] = React.useState<string>("");
-  const [sortField, setSortField] = React.useState<keyof Guard>("firstName");
+  const [sortField, setSortField] = React.useState<keyof Guard | string>("firstName");
   const [sortOrder, setSortOrder] = React.useState<SortOrder>("asc");
   const [stableTotalPages, setStableTotalPages] = React.useState<number>(1);
 
@@ -150,7 +150,7 @@ export default function GuardsPage() {
     }
   }, [page, totalPages, isFetching]);
 
-  const toggleSort = (field: keyof Guard) => {
+  const toggleSort = (field: keyof Guard | string) => {
     if (sortField === field) {
       setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
     } else {

@@ -75,7 +75,7 @@ export default function ClientsPage() {
 
   const [page, setPage] = React.useState<number>(1);
   const [search, setSearch] = React.useState<string>("");
-  const [sortField, setSortField] = React.useState<keyof Client>("firstName");
+  const [sortField, setSortField] = React.useState<keyof Client | string>("firstName");
   const [sortOrder, setSortOrder] = React.useState<SortOrder>("asc");
 
   const [stableTotalPages, setStableTotalPages] = React.useState<number>(1);
@@ -165,7 +165,7 @@ export default function ClientsPage() {
   );
 
   // toggleSort: igual que GuardsPage, y resetea page a 1
-  const toggleSort = (field: keyof Client) => {
+  const toggleSort = (field: keyof Client | string) => {
     if (sortField === field) {
       setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
     } else {

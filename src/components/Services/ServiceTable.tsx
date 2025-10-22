@@ -38,7 +38,7 @@ export interface ServicesTableProps {
 
   sortField?: keyof Service;
   sortOrder?: SortOrder;
-  toggleSort?: (key: keyof Service) => void;
+  toggleSort?: (field: keyof Service | string) => void;
 
   createInitialGuardId?: number | null;
   createInitialGuardLabel?: string | null;

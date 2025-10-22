@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect, type CSSProperties } from "react";
 import { logout as authLogout } from "@/lib/services/auth";
-import { getUser } from "@/lib/auth-storage";
+import { getUser, getAccessToken } from "@/lib/auth-storage";
 import { getGeneralSettings } from "@/lib/services/common";
 import {
   Dialog,
@@ -85,6 +85,14 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
   useEffect(() => {
     const fetchAppName = async () => {
       try {
+        // Only fetch if user is authenticated
+        const token = getAccessToken();
+        if (!token) {
+          console.log('⏳ Skipping general settings fetch - no auth token');
+          return;
+        }
+
+        console.log('🔄 Fetching app name from API...');
         const settings = await getGeneralSettings();
         if (settings.app_name) {
           setAppName(settings.app_name);

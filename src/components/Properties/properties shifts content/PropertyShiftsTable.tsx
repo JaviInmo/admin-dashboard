@@ -198,14 +198,20 @@ export default function PropertyShiftsTable({
             >
               <div>
                 {guardsFiltered.length === 0 ? (
-                  <div
-                    className="p-4 text-sm text-muted-foreground"
-                    style={{ height: rowHeight }}
-                  >
-                    {TEXT?.shifts?.noShiftsInRange ?? "No shifts/guards in the selected range."}
-                  </div>
+                  // Mostrar 5 filas vacías cuando no hay guardias
+                  Array.from({ length: 5 }, (_, i) => (
+                    <div
+                      key={`empty-guard-${i}`}
+                      className="border-b px-2 py-2 flex items-center justify-center"
+                      style={{ height: rowHeight }}
+                    >
+                      <div className="text-sm text-muted-foreground italic">
+                        Sin guardia asignado
+                      </div>
+                    </div>
+                  ))
                 ) : (
-                  <div>
+                  <>
                     {guardsFiltered.map((g) => (
                       <div
                         key={g.id}
@@ -238,15 +244,19 @@ export default function PropertyShiftsTable({
                         </div>
                       </div>
                     ))}
-                    {/* Espacio vacío para mantener altura fija del modal */}
-                    {(() => {
-                      const totalRowsHeight = guardsFiltered.length * rowHeight;
-                      const remainingHeight = Math.max(0, (bodyMaxHeight as number) - totalRowsHeight);
-                      return remainingHeight > 0 ? (
-                        <div style={{ height: remainingHeight }} />
-                      ) : null;
-                    })()}
-                  </div>
+                    {/* Agregar filas vacías si hay menos de 5 guardias */}
+                    {guardsFiltered.length < 5 && Array.from({ length: 5 - guardsFiltered.length }, (_, i) => (
+                      <div
+                        key={`empty-guard-${guardsFiltered.length + i}`}
+                        className="border-b px-2 py-2 flex items-center justify-center"
+                        style={{ height: rowHeight }}
+                      >
+                        <div className="text-sm text-muted-foreground italic">
+                          Sin guardia asignado
+                        </div>
+                      </div>
+                    ))}
+                  </>
                 )}
               </div>
             </div>
@@ -261,9 +271,40 @@ export default function PropertyShiftsTable({
               >
                 <div style={{ minWidth: rightMinWidth }}>
                   {guardsFiltered.length === 0 ? (
-                    <div className="p-4 text-sm text-muted-foreground"></div>
+                    // Mostrar 5 filas vacías cuando no hay guardias
+                    Array.from({ length: 5 }, (_, rowIndex) => (
+                      <div
+                        key={`empty-row-${rowIndex}`}
+                        className="flex border-b hover:bg-muted/5"
+                        style={{ height: rowHeight }}
+                      >
+                        {days.map((d) => {
+                          const key = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+                          const coverageInfo = getDayCoverageInfoCallback(d);
+                          const shouldHighlight = coverageInfo.shouldHighlight;
+                          return (
+                            <div
+                              key={key}
+                              className={`border-l px-2 py-2 text-center text-xs text-muted-foreground flex-1 ${
+                                shouldHighlight ? 'bg-yellow-50 dark:bg-yellow-900/20' : ''
+                              }`}
+                              style={{
+                                minWidth: dayColMinWidth,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}
+                              onMouseEnter={() => onDayHover?.(d)}
+                              onMouseLeave={() => onDayHover?.(null)}
+                            >
+                              -
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))
                   ) : (
-                    <div>
+                    <>
                       {guardsFiltered.map((g) => (
                         <div
                           key={g.id}
@@ -356,15 +397,39 @@ export default function PropertyShiftsTable({
                           })}
                         </div>
                       ))}
-                      {/* Espacio vacío para mantener altura fija del modal */}
-                      {(() => {
-                        const totalRowsHeight = guardsFiltered.length * rowHeight;
-                        const remainingHeight = Math.max(0, (bodyMaxHeight as number) - totalRowsHeight);
-                        return remainingHeight > 0 ? (
-                          <div style={{ height: remainingHeight }} />
-                        ) : null;
-                      })()}
-                    </div>
+                      {/* Agregar filas vacías si hay menos de 5 guardias */}
+                      {guardsFiltered.length < 5 && Array.from({ length: 5 - guardsFiltered.length }, (_, rowIndex) => (
+                        <div
+                          key={`empty-row-${guardsFiltered.length + rowIndex}`}
+                          className="flex border-b hover:bg-muted/5"
+                          style={{ height: rowHeight }}
+                        >
+                          {days.map((d) => {
+                            const key = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+                            const coverageInfo = getDayCoverageInfoCallback(d);
+                            const shouldHighlight = coverageInfo.shouldHighlight;
+                            return (
+                              <div
+                                key={key}
+                                className={`border-l px-2 py-2 text-center text-xs text-muted-foreground flex-1 ${
+                                  shouldHighlight ? 'bg-yellow-50 dark:bg-yellow-900/20' : ''
+                                }`}
+                                style={{
+                                  minWidth: dayColMinWidth,
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                }}
+                                onMouseEnter={() => onDayHover?.(d)}
+                                onMouseLeave={() => onDayHover?.(null)}
+                              >
+                                -
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ))}
+                    </>
                   )}
                 </div>
               </div>

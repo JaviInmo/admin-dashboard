@@ -22,7 +22,7 @@ interface PropertyServicesModalProps {
   onUpdated?: () => void;
 }
 
-function mapServiceSortField(field: keyof Service): string {
+function mapServiceSortField(field: keyof Service | string): string {
   switch (field) {
     case "name":
       return "name";
@@ -102,10 +102,11 @@ export default function PropertyServicesModal({ propertyId, propertyName, open, 
 
   const totalPages = (!isFetching && data?.count !== undefined) ? computedTotalPages : stableTotalPages;
 
-  const toggleSort = React.useCallback((f: keyof Service) => {
-    if (sortField === f) setSortOrder((p) => (p === "asc" ? "desc" : "asc"));
+  const toggleSort = React.useCallback((f: keyof Service | string) => {
+    const field = f as keyof Service;
+    if (sortField === field) setSortOrder((p) => (p === "asc" ? "desc" : "asc"));
     else {
-      setSortField(f);
+      setSortField(field);
       setSortOrder("asc");
     }
     setPage(1);

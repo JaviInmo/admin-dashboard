@@ -52,9 +52,9 @@ export interface GuardsTableProps {
 
   isPageLoading?: boolean;
 
-  sortField: keyof Guard;
+  sortField: keyof Guard | string;
   sortOrder: SortOrder;
-  toggleSort: (key: keyof Guard) => void;
+  toggleSort: (field: keyof Guard | string) => void;
 
   // Nueva prop para abrir automáticamente el modal de shifts
   initialShiftGuard?: Guard | null;

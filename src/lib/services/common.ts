@@ -9,6 +9,5 @@ export type GeneralSettings = {
 
 export async function getGeneralSettings(): Promise<GeneralSettings> {
   const res = await api.get(endpoints.common.generalSettings)
-  // Expecting { app_name: string, app_description: string }
   return (res.data ?? {}) as GeneralSettings
 }

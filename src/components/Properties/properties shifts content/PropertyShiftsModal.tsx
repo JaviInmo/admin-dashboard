@@ -100,6 +100,7 @@ export default function PropertyShiftsModal({ propertyId, propertyName, property
     d.setHours(0, 0, 0, 0);
     return d;
   });
+  const [deleteShiftId, setDeleteShiftId] = React.useState<number | null>(null);
 
   // Encontrar el servicio seleccionado
   const selectedService = React.useMemo(() => {
@@ -336,7 +337,10 @@ export default function PropertyShiftsModal({ propertyId, propertyName, property
   }
   function handleDeleteDone(_: number) {
     void _; // mark as used
-    setOpenDelete(false); setActionShift(null); fetchShifts();
+    setOpenDelete(false);
+    setDeleteShiftId(null);
+    setActionShift(null);
+    fetchShifts();
   }
 
   // table layout config
@@ -453,7 +457,7 @@ export default function PropertyShiftsModal({ propertyId, propertyName, property
 
           <DialogFooter>
             <div className="flex justify-between items-center w-full">
-              <div className="text-sm text-muted-foreground pt-3">
+              <div className="text-sm text-muted-foreground pt-3 min-h-[4.5rem] flex flex-col justify-start">
                 {hoveredDay && getFooterCoverageGaps ? (
                   getFooterCoverageGaps.length > 0 ? (
                     <div>
@@ -503,7 +507,13 @@ export default function PropertyShiftsModal({ propertyId, propertyName, property
         open={!!actionShift && !openEdit && !openDelete}
         onClose={() => setActionShift(null)}
         onEdit={() => setOpenEdit(true)}
-        onDelete={() => setOpenDelete(true)}
+        onDelete={() => {
+          if (actionShift) {
+            setDeleteShiftId(actionShift.id);
+            setOpenDelete(true);
+            setActionShift(null); // Cerrar el dialog de acciones
+          }
+        }}
         TEXT={TEXT}
       />
 
@@ -518,11 +528,14 @@ export default function PropertyShiftsModal({ propertyId, propertyName, property
         />
       )}
 
-      {actionShift && (
+      {openDelete && deleteShiftId && (
         <DeleteShift
           open={openDelete}
-          onClose={() => setOpenDelete(false)}
-          shiftId={actionShift.id}
+          onClose={() => {
+            setOpenDelete(false);
+            setDeleteShiftId(null);
+          }}
+          shiftId={deleteShiftId}
           onDeleted={(id) => handleDeleteDone(id)}
         />
       )}
