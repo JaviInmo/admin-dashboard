@@ -192,11 +192,11 @@ function CalendarDayButton({
   const hasShifts = Boolean(modifiers.hasShifts)
 
   // Colores y clases personalizadas para Slate claro cuando está seleccionado
-  const singleSelectedClasses = "bg-slate-100 text-slate-900"
-  const rangeStartClasses = "bg-slate-200 text-slate-900 rounded-l-md"
-  const rangeMiddleClasses = "bg-slate-100/80 text-slate-900"
-  const rangeEndClasses = "bg-slate-200 text-slate-900 rounded-r-md"
-  const hasShiftsClasses = "bg-sky-100 text-sky-800"
+  const singleSelectedClasses = "bg-primary/10 text-primary hover:bg-primary/20"
+  const rangeStartClasses = "bg-primary/15 text-primary rounded-l-md hover:bg-primary/25"
+  const rangeMiddleClasses = "bg-primary/8 text-primary hover:bg-primary/15"
+  const rangeEndClasses = "bg-primary/15 text-primary rounded-r-md hover:bg-primary/25"
+  const hasShiftsClasses = "bg-sky-100 text-sky-800 hover:bg-sky-200"
 
   // Cambiamos la variante del Button cuando está seleccionado para que no
   // se sobreescriban estilos (si tu Button soporta 'default' / 'ghost' / etc.)

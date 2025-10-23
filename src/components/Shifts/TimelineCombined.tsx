@@ -11,7 +11,11 @@ import GuardsShiftsModal from "@/components/Guards/asdGuardsShiftsModalImproved"
 import type { Shift } from "@/components/Shifts/types";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { CoverageBar } from "./CoverageBar";
-import PropertyShiftsModalImproved from "@/components/Properties/PropertyShiftsModalImproved";
+import { GuardTimelineInfo } from "./GuardTimelineInfo";
+import { PropertyTimelineInfo } from "./PropertyTimelineInfo";
+import { PropertyServiceSelector } from "./PropertyServiceSelector";
+import { PropertyCoverageBar } from "./PropertyCoverageBar";
+import PropertyShiftsModal from "@/components/Properties/properties shifts content/PropertyShiftsModal";
 import TimelineDetails from "@/components/Shifts/TimelineDetails";
 import {
   DropdownMenu,
@@ -26,11 +30,13 @@ import { Input } from "@/components/ui/input";
 function startOfDay(d: Date) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
 function endOfDay(d: Date) { return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999); }
 function addDays(d: Date, n: number) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
-function startOfWeek(d: Date) { const r = startOfDay(d); const day = r.getDay(); const diff = day; r.setDate(r.getDate() - diff); return r; }
+function startOfWeek(d: Date) { const r = startOfDay(d); const day = r.getDay(); const diff = day === 0 ? 6 : day - 1; r.setDate(r.getDate() - diff); return r; }
 function startOfMonth(d: Date) { return new Date(d.getFullYear(), d.getMonth(), 1); }
 function endOfMonth(d: Date) { return new Date(d.getFullYear(), d.getMonth() + 1, 1); }
 
 export default function TimelineCombined() {
+  console.log('🚀 TIMELINECOMBINED SE ESTÁ RENDERIZANDO');
+  
   const { rangeType, anchorDate, status, view, setView, selectedPropertyIds, selectedGuardIds } = useShiftsFilters();
   const queryClient = useQueryClient();
   const [modalProperty, setModalProperty] = useState<{ id: number; name?: string; selectedDate?: Date } | null>(null);
@@ -39,6 +45,7 @@ export default function TimelineCombined() {
   const [selectedColumn, setSelectedColumn] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [gapMode, setGapMode] = useState<"none" | "days" | "properties" | "all">("none");
+  const [selectedServicesByProperty, setSelectedServicesByProperty] = useState<Record<number, number | "all">>({}); // propertyId -> serviceId or "all"
 
   const { data: propsData } = useQuery({
     queryKey: ["properties", 1, 500],
@@ -49,10 +56,17 @@ export default function TimelineCombined() {
 
   const { data: shiftsData } = useQuery({
     queryKey: ["shifts", "all", 1, 500],
-    queryFn: async () => (await listShifts(1, undefined, 500)).items ?? [],
+    queryFn: async () => {
+      const result = await listShifts(1, undefined, 500);
+      console.log('✅ SHIFTS CARGADOS:', result.items?.length || 0);
+      console.log('✅ SHIFTS DATA:', result.items);
+      return result.items ?? [];
+    },
     staleTime: 15_000,
   });
   const allShifts: Shift[] = shiftsData ?? [];
+  
+  console.log('🎯 allShifts EN RENDER:', allShifts.length);
 
   const { data: guardsData } = useQuery({
     queryKey: ["guards", 1, 500],
@@ -93,16 +107,27 @@ export default function TimelineCombined() {
 
   const filtered = useMemo(() => {
     const stSet = status; // Set
-    return allShifts.filter((s) => {
-      if (!s.startTime || !s.endTime) return false;
+    const result = allShifts.filter((s) => {
+      // Usar plannedStartTime/plannedEndTime si startTime/endTime son null
+      const effectiveStartTime = s.startTime || s.plannedStartTime;
+      const effectiveEndTime = s.endTime || s.plannedEndTime;
+      
+      if (!effectiveStartTime || !effectiveEndTime) return false;
       if (stSet.size && s.status && !stSet.has(s.status as any)) return false;
-      const st = new Date(s.startTime).getTime();
-      const et = new Date(s.endTime).getTime();
+      
+      const st = new Date(effectiveStartTime).getTime();
+      const et = new Date(effectiveEndTime).getTime();
+      
       if (!(et > from.getTime() && st < to.getTime())) return false;
       if (selectedPropertyIds.length && (!s.property || !selectedPropertyIds.includes(Number(s.property)))) return false;
       if (selectedGuardIds.length && (!s.guard || !selectedGuardIds.includes(Number(s.guard)))) return false;
       return true;
     });
+    console.log('🔍 TimelineCombined - allShifts total:', allShifts.length);
+    console.log('🔍 TimelineCombined - filtered shifts:', result.length);
+    console.log('🔍 TimelineCombined - fecha rango:', { from, to });
+    console.log('🔍 TimelineCombined - filtered data:', result);
+    return result;
   }, [allShifts, status, from, to, selectedPropertyIds, selectedGuardIds]);
 
   const byProperty: Record<number, Shift[]> = useMemo(() => {
@@ -112,6 +137,8 @@ export default function TimelineCombined() {
       if (!map[pid]) map[pid] = [];
       map[pid].push(s);
     }
+    console.log('🔍 TimelineCombined - byProperty map:', map);
+    console.log('🔍 TimelineCombined - propiedades con turnos:', Object.keys(map));
     return map;
   }, [filtered]);
 
@@ -257,26 +284,6 @@ export default function TimelineCombined() {
     };
   };
 
-  // Función para calcular estadísticas de una propiedad en el rango filtrado
-  const getPropertyStats = (propertyId: number) => {
-    const propertyShifts = filtered.filter(s => s.property === propertyId);
-    const totalShifts = propertyShifts.length;
-    
-    // Calcular horas totales
-    const totalHours = propertyShifts.reduce((sum, shift) => {
-      if (!shift.startTime || !shift.endTime) return sum;
-      const start = new Date(shift.startTime);
-      const end = new Date(shift.endTime);
-      const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
-      return sum + hours;
-    }, 0);
-
-    return {
-      shifts: totalShifts,
-      hours: Math.round(totalHours * 10) / 10 // Redondear a 1 decimal
-    };
-  };
-
   // Funciones para manejar hover y selección de columnas
   const handleColumnHover = (colIndex: number | null) => {
     if (rangeType === "week" || rangeType === "month") {
@@ -409,7 +416,7 @@ export default function TimelineCombined() {
           </div>
         </CardHeader>
         <CardContent className="flex-1 min-h-0" style={{padding: 0, margin: 0, marginTop: '-2px'}}>
-          <div className="h-full overflow-y-auto" style={{margin: 0, padding: 0, paddingTop: 0}}>
+          <div className="h-full overflow-y-auto max-h-[600px]" style={{margin: 0, padding: 0, paddingTop: 0}}>
             <table className="w-full table-fixed text-sm" style={{margin: 0, padding: 0, marginTop: 0}}>
               <thead className="sticky top-0 bg-background z-10 border-b shadow-sm" style={{margin: 0, padding: 0}}>
                 <tr className="bg-muted/50" style={{margin: 0, padding: 0}}>
@@ -424,8 +431,8 @@ export default function TimelineCombined() {
                       onClick={() => handleColumnClick(idx)}
                     >
                       {rangeType === "month"
-                        ? d.toLocaleDateString(undefined, { day: "numeric" })
-                        : d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}
+                        ? d.toLocaleDateString('en-US', { day: "numeric" })
+                        : d.toLocaleDateString('en-US', { weekday: "short", month: "numeric", day: "numeric" }).replace(/(\w+), (\d+)\/(\d+)/, '$1, $2/$3')}
                     </th>
                   ))}
                 </tr>
@@ -434,11 +441,54 @@ export default function TimelineCombined() {
                 {view === "property" && (
                   <>
                     {propertyRows.map((p) => {
-                      const stats = getPropertyStats(p.id);
+                      // Filtrar turnos por servicio seleccionado PRIMERO
+                      const selectedService = selectedServicesByProperty[p.id];
+                      const filteredPropertyShifts = selectedService && selectedService !== "all"
+                        ? (byProperty[p.id] ?? []).filter(s => s.service === selectedService)
+                        : (byProperty[p.id] ?? []);
+                      
+                      // Calcular stats con turnos filtrados
+                      const stats = {
+                        shifts: filteredPropertyShifts.length,
+                        hours: Math.round(filteredPropertyShifts.reduce((sum, shift) => {
+                          const effectiveStartTime = shift.startTime || shift.plannedStartTime;
+                          const effectiveEndTime = shift.endTime || shift.plannedEndTime;
+                          if (!effectiveStartTime || !effectiveEndTime) return sum;
+                          const start = new Date(effectiveStartTime);
+                          const end = new Date(effectiveEndTime);
+                          const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+                          return sum + hours;
+                        }, 0) * 10) / 10
+                      };
+                      
                       const propertyHasGaps = (gapMode === "properties" || gapMode === "all") && detectedGaps.has(p.id) && detectedGaps.get(p.id)!.size > 0;
+                      
+                      // Calcular altura necesaria para esta fila específica usando turnos filtrados
+                      let maxGuardsInRow = 0;
+                      displayDays.forEach((d) => {
+                        const dayShifts = filteredPropertyShifts.filter(s => {
+                          const effectiveStartTime = s.startTime || s.plannedStartTime;
+                          const effectiveEndTime = s.endTime || s.plannedEndTime;
+                          if (!effectiveStartTime || !effectiveEndTime) return false;
+                          
+                          const shiftStart = new Date(effectiveStartTime);
+                          const shiftEnd = new Date(effectiveEndTime);
+                          const dayStart = startOfDay(d);
+                          const dayEnd = endOfDay(d);
+                          return shiftStart < dayEnd && shiftEnd > dayStart;
+                        });
+                        
+                        const uniqueGuards = new Set(dayShifts.map(s => s.guard)).size;
+                        if (uniqueGuards > maxGuardsInRow) {
+                          maxGuardsInRow = uniqueGuards;
+                        }
+                      });
+                      
+                      const rowHeight = Math.max(60, 60 + (maxGuardsInRow * 20));
+                      
                       return (
                         <tr key={p.id} className={`align-top ${propertyHasGaps ? 'bg-yellow-50' : ''}`}>
-                          <td className="px-2 py-1 w-28 md:w-32 align-top">
+                          <td className="px-2 py-1 w-28 md:w-32" style={{ height: `${rowHeight}px`, verticalAlign: 'top' }}>
                             <button className="text-left hover:underline truncate w-full block cursor-pointer" onClick={() => setModalProperty({ id: p.id, name: p.name, selectedDate: undefined })}>
                               <div className="font-medium truncate">{p.alias || "\u00A0"}</div>
                               <div className="text-xs text-muted-foreground truncate">{p.name || `Prop ${p.id}`}</div>
@@ -446,30 +496,45 @@ export default function TimelineCombined() {
                                 {stats.shifts} turnos • {stats.hours}h
                               </div>
                             </button>
+                            <PropertyServiceSelector
+                              propertyId={p.id}
+                              selectedServiceId={selectedServicesByProperty[p.id]}
+                              onServiceChange={(serviceId) => {
+                                setSelectedServicesByProperty(prev => ({
+                                  ...prev,
+                                  [p.id]: serviceId
+                                }));
+                              }}
+                            />
                           </td>
                           {displayDays.map((d, idx) => (
                             <td 
                               key={idx} 
-                              className={`px-1 py-1 align-middle transition-colors ${getColumnClasses(idx, d)}`}
+                              className={`px-1 py-1 transition-colors ${getColumnClasses(idx, d)}`}
+                              style={{ height: `${rowHeight}px`, verticalAlign: 'top' }}
                               onMouseEnter={() => handleColumnHover(idx)}
                               onMouseLeave={() => handleColumnHover(null)}
                               onClick={() => handleColumnClick(idx)}
                             >
                               <div 
-                                className={`${rangeType === "month" ? "scale-[0.8] origin-left" : ""} cursor-pointer`}
+                                className={`${rangeType === "month" ? "scale-[0.8] origin-left" : ""} cursor-pointer h-full flex flex-col justify-start`}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setModalProperty({ id: p.id, name: p.name, selectedDate: d });
                                 }}
                               >
-                                <CoverageBar 
+                                <PropertyCoverageBar
                                   day={d} 
-                                  shifts={byProperty[p.id] ?? []} 
-                                  colorBy="guard"
-                                  guards={guards}
-                                  properties={properties}
-                                  hasGap={(gapMode === "properties" || gapMode === "all") && detectedGaps.has(p.id) && detectedGaps.get(p.id)!.has(d.toISOString().split('T')[0])}
+                                  shifts={filteredPropertyShifts}
+                                  propertyId={p.id}
+                                  selectedServiceId={selectedServicesByProperty[p.id]}
                                   showStats={true}
+                                />
+                                <GuardTimelineInfo 
+                                  day={d}
+                                  shifts={filteredPropertyShifts}
+                                  guards={guards}
+                                  compact={rangeType === "month"}
                                 />
                               </div>
                             </td>
@@ -488,9 +553,33 @@ export default function TimelineCombined() {
                   <>
                     {guardRows.map((g) => {
                       const stats = getGuardStats(g.id);
+                      
+                      // Calcular altura necesaria para esta fila específica
+                      let maxPropertiesInRow = 0;
+                      displayDays.forEach((d) => {
+                        const dayShifts = (byGuard[g.id] ?? []).filter(s => {
+                          const effectiveStartTime = s.startTime || s.plannedStartTime;
+                          const effectiveEndTime = s.endTime || s.plannedEndTime;
+                          if (!effectiveStartTime || !effectiveEndTime) return false;
+                          
+                          const shiftStart = new Date(effectiveStartTime);
+                          const shiftEnd = new Date(effectiveEndTime);
+                          const dayStart = startOfDay(d);
+                          const dayEnd = endOfDay(d);
+                          return shiftStart < dayEnd && shiftEnd > dayStart;
+                        });
+                        
+                        const uniqueProperties = new Set(dayShifts.map(s => s.property)).size;
+                        if (uniqueProperties > maxPropertiesInRow) {
+                          maxPropertiesInRow = uniqueProperties;
+                        }
+                      });
+                      
+                      const rowHeight = Math.max(60, 60 + (maxPropertiesInRow * 20));
+                      
                       return (
                         <tr key={g.id} className="align-top">
-                          <td className="px-2 py-1 w-28 md:w-32 align-top">
+                          <td className="px-2 py-1 w-28 md:w-32" style={{ height: `${rowHeight}px`, verticalAlign: 'top' }}>
                             <button className="text-left hover:underline truncate w-full block cursor-pointer" onClick={() => setModalGuard({ id: g.id, name: `${g.firstName} ${g.lastName}`, selectedDate: undefined })}>
                               <div className="font-medium truncate">{g.firstName} {g.lastName}</div>
                               <div className="text-xs text-muted-foreground">
@@ -501,13 +590,14 @@ export default function TimelineCombined() {
                           {displayDays.map((d, idx) => (
                             <td 
                               key={idx} 
-                              className={`px-1 py-1 align-middle transition-colors ${getColumnClasses(idx, d)}`}
+                              className={`px-1 py-1 transition-colors ${getColumnClasses(idx, d)}`}
+                              style={{ height: `${rowHeight}px`, verticalAlign: 'top' }}
                               onMouseEnter={() => handleColumnHover(idx)}
                               onMouseLeave={() => handleColumnHover(null)}
                               onClick={() => handleColumnClick(idx)}
                             >
                               <div 
-                                className={`${rangeType === "month" ? "scale-[0.8] origin-left" : ""} cursor-pointer`}
+                                className={`${rangeType === "month" ? "scale-[0.8] origin-left" : ""} cursor-pointer h-full flex flex-col justify-start`}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setModalGuard({ id: g.id, name: `${g.firstName} ${g.lastName}`, selectedDate: d });
@@ -515,18 +605,15 @@ export default function TimelineCombined() {
                               >
                                 <CoverageBar 
                                   day={d} 
-                                  shifts={byGuard[g.id] ?? []} 
-                                  colorBy="property"
-                                  guards={guards}
-                                  properties={properties}
-                                  hasGap={(gapMode === "days" || gapMode === "all") && (() => {
-                                    const dayKey = d.toISOString().split('T')[0];
-                                    for (const [, gapDays] of detectedGaps) {
-                                      if (gapDays.has(dayKey)) return true;
-                                    }
-                                    return false;
-                                  })()}
+                                  shifts={byGuard[g.id] ?? []}
                                   showStats={true}
+                                  service={null}
+                                />
+                                <PropertyTimelineInfo 
+                                  day={d}
+                                  shifts={byGuard[g.id] ?? []}
+                                  properties={properties}
+                                  compact={rangeType === "month"}
                                 />
                               </div>
                             </td>
@@ -557,7 +644,7 @@ export default function TimelineCombined() {
       />
 
       {modalProperty && (
-        <PropertyShiftsModalImproved
+        <PropertyShiftsModal
           propertyId={modalProperty.id}
           propertyName={modalProperty.name}
           open={true}

@@ -88,11 +88,16 @@ export function useShiftsDerived(
 
   const days = React.useMemo(() => {
     if (viewMode === "week") {
+      // Find the Monday of the week containing startDate
+      const d = new Date(startDate);
+      const dayOfWeek = d.getDay(); // 0=Sunday, 1=Monday, ..., 6=Saturday
+      const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // If Sunday, subtract 6 to get Monday
+      d.setDate(d.getDate() - daysToSubtract);
+      d.setHours(0, 0, 0, 0);
       return Array.from({ length: 7 }).map((_, i) => {
-        const d = new Date(startDate);
-        d.setDate(startDate.getDate() + i);
-        d.setHours(0, 0, 0, 0);
-        return d;
+        const day = new Date(d);
+        day.setDate(d.getDate() + i);
+        return day;
       });
     }
     if (viewMode === "month") {

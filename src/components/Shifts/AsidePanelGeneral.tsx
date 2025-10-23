@@ -11,7 +11,7 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { startOfWeek, endOfWeek, eachDayOfInterval } from "date-fns";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 
 
 export default function AsidePanelGeneral() {
@@ -26,8 +26,8 @@ export default function AsidePanelGeneral() {
 
   // Funciones para el comportamiento del calendario según el rango
   const getWeekDays = (date: Date) => {
-    const start = startOfWeek(date, { weekStartsOn: 0 }); // Domingo como inicio
-    const end = endOfWeek(date, { weekStartsOn: 0 });
+    const start = startOfWeek(date, { weekStartsOn: 1 }); // Lunes como inicio
+    const end = endOfWeek(date, { weekStartsOn: 1 });
     return eachDayOfInterval({ start, end });
   };
 
@@ -72,6 +72,31 @@ export default function AsidePanelGeneral() {
     else { setRangeType("month"); setAnchorDate(new Date()); }
   };
 
+  // Funciones de navegación según el rango seleccionado
+  const moveBack = () => {
+    const newDate = new Date(anchorDate);
+    if (rangeType === "day") {
+      newDate.setDate(newDate.getDate() - 1);
+    } else if (rangeType === "week") {
+      newDate.setDate(newDate.getDate() - 7);
+    } else if (rangeType === "month") {
+      newDate.setMonth(newDate.getMonth() - 1);
+    }
+    setAnchorDate(newDate);
+  };
+
+  const moveNext = () => {
+    const newDate = new Date(anchorDate);
+    if (rangeType === "day") {
+      newDate.setDate(newDate.getDate() + 1);
+    } else if (rangeType === "week") {
+      newDate.setDate(newDate.getDate() + 7);
+    } else if (rangeType === "month") {
+      newDate.setMonth(newDate.getMonth() + 1);
+    }
+    setAnchorDate(newDate);
+  };
+
   return (
     <aside className="w-full space-y-4">
       {/* Intermedia: Calendario (izquierda) sin contenedor + Timeline (derecha) */}
@@ -89,30 +114,52 @@ export default function AsidePanelGeneral() {
             modifiersClassNames={{
               weekSelected: "bg-primary/20 hover:bg-primary/30",
             }}
-            weekStartsOn={0}
+            weekStartsOn={1}
             className="rounded-md border w-full"
           />
           
           {/* Sección inferior del calendario */}
           <div className="space-y-2">
-            {/* Dropdown de rango */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="w-full justify-center">
-                  {rangeType === "day" ? "Día" : 
-                   rangeType === "week" ? "Semana" : 
-                   rangeType === "month" ? "Mes" : 
-                   "Personalizado"}
-                  <ChevronDown className="h-4 w-4 ml-2" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]">
-                <DropdownMenuItem onSelect={() => setRangeType("day")}>Día</DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setRangeType("week")}>Semana</DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setRangeType("month")}>Mes</DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setRangeType("custom")}>Personalizado</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {/* Dropdown de rango con botones de navegación */}
+            <div className="flex items-center gap-1">
+              <Button 
+                variant="outline" 
+                size="icon" 
+                className="h-9 w-9 flex-shrink-0"
+                onClick={moveBack}
+                title="Anterior"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="flex-1 justify-center">
+                    {rangeType === "day" ? "Día" : 
+                     rangeType === "week" ? "Semana" : 
+                     rangeType === "month" ? "Mes" : 
+                     "Personalizado"}
+                    <ChevronDown className="h-4 w-4 ml-2" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]">
+                  <DropdownMenuItem onSelect={() => setRangeType("day")}>Día</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setRangeType("week")}>Semana</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setRangeType("month")}>Mes</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setRangeType("custom")}>Personalizado</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              
+              <Button 
+                variant="outline" 
+                size="icon" 
+                className="h-9 w-9 flex-shrink-0"
+                onClick={moveNext}
+                title="Siguiente"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
             
             {/* Botones de navegación rápida */}
             <div className="flex gap-1">

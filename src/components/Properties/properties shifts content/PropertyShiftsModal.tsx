@@ -30,6 +30,7 @@ type Props = {
   propertyAlias?: string;
   open: boolean;
   onClose: () => void;
+  initialSelectedDate?: Date;
 };
 
 /**
@@ -78,7 +79,7 @@ type SimpleGuard = {
   email?: string;
 };
 
-export default function PropertyShiftsModal({ propertyId, propertyName, propertyAlias, open, onClose }: Props) {
+export default function PropertyShiftsModal({ propertyId, propertyName, propertyAlias, open, onClose, initialSelectedDate }: Props) {
   // Tipamos TEXT con el fragmento reducido para evitar 'any'
   const { TEXT } = useI18n() as { TEXT?: UiTextFragment };
 
@@ -86,6 +87,11 @@ export default function PropertyShiftsModal({ propertyId, propertyName, property
   const { shifts, loading, error, fetchShifts } = useShifts(propertyId);
 
   const [startDate, setStartDate] = React.useState<Date>(() => {
+    if (initialSelectedDate) {
+      const d = new Date(initialSelectedDate);
+      d.setHours(0, 0, 0, 0);
+      return d;
+    }
     const d = new Date();
     d.setHours(0, 0, 0, 0);
     return d;
@@ -175,6 +181,20 @@ export default function PropertyShiftsModal({ propertyId, propertyName, property
     monthStart.setHours(0, 0, 0, 0);
     setSelectedMonth(monthStart);
   }, [startDate]);
+
+  // useEffect para actualizar startDate cuando cambia initialSelectedDate
+  React.useEffect(() => {
+    if (initialSelectedDate) {
+      const d = new Date(initialSelectedDate);
+      d.setHours(0, 0, 0, 0);
+      setStartDate(d);
+    } else {
+      // Si no hay initialSelectedDate, usar hoy
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      setStartDate(d);
+    }
+  }, [initialSelectedDate]);
 
   React.useEffect(() => {
     if (actionShift && !openEdit && !openDelete) {
